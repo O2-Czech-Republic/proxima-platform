@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.transaction.manager;
 import static org.junit.Assert.*;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -28,6 +29,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.config.ConfigUtils;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
@@ -35,22 +37,35 @@ import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.util.TransformationRunner;
+import java.net.URI;
 import java.util.Collections;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 /** Test suite for {@link TransactionLogObserver}. */
 public class TransactionLogObserverTest {
 
+  private final Set<String> transactionFamilies =
+      Sets.newHashSet(
+          "all-transaction-commit-log-request",
+          "all-transaction-commit-log-response",
+          "all-transaction-commit-log-state");
+
   private final Config conf =
-      ConfigFactory.defaultApplication()
-          .withFallback(ConfigFactory.load("test-transactions.conf"))
-          .resolve();
+      ConfigUtils.withStorageReplacement(
+          ConfigFactory.defaultApplication()
+              .withFallback(ConfigFactory.load("test-transactions.conf"))
+              .resolve(),
+          transactionFamilies::contains,
+          name -> URI.create("kafka-test://broker/topic_" + name));
   private final Repository repo = Repository.ofTest(conf);
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
@@ -73,6 +88,11 @@ public class TransactionLogObserverTest {
     now = System.currentTimeMillis();
     observer = factory.create(direct);
     observer.run(getClass().getSimpleName());
+  }
+
+  @Before
+  public void setUp() {
+    TransformationRunner.runTransformations(repo, direct);
   }
 
   @After
@@ -102,7 +122,7 @@ public class TransactionLogObserverTest {
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
     Pair<String, Response> response = responseQueue.take();
-    assertEquals("open", response.getFirst());
+    assertTrue(response.getFirst().startsWith("open."));
     assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
   }
 
@@ -145,7 +165,7 @@ public class TransactionLogObserverTest {
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
     Pair<String, Response> response = responseQueue.take();
-    assertEquals("open", response.getFirst());
+    assertTrue(response.getFirst().startsWith("open."));
     assertEquals(Response.Flags.DUPLICATE, response.getSecond().getFlags());
     assertEquals(firstResponse.getSecond().getSeqId(), response.getSecond().getSeqId());
   }
@@ -168,14 +188,18 @@ public class TransactionLogObserverTest {
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
     Pair<String, Response> response = responseQueue.take();
-    assertEquals("update", response.getFirst());
+    assertTrue(response.getFirst().startsWith("update."));
     assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
     assertFalse(response.getSecond().hasStamp());
-    State currentState = direct.getServerTransactionManager().getCurrentState(transactionId);
-    assertNotNull(currentState);
-    assertEquals(2, currentState.getInputAttributes().size());
-    assertEquals("user", Iterables.get(currentState.getInputAttributes(), 0).getKey());
-    assertEquals("user2", Iterables.get(currentState.getInputAttributes(), 1).getKey());
+    do {
+      State currentState = direct.getServerTransactionManager().getCurrentState(transactionId);
+      assertNotNull(currentState);
+      if (currentState.getInputAttributes().size() == 2) {
+        assertEquals("user", Iterables.get(currentState.getInputAttributes(), 0).getKey());
+        assertEquals("user2", Iterables.get(currentState.getInputAttributes(), 1).getKey());
+        break;
+      }
+    } while (true);
   }
 
   @Test(timeout = 10000)
@@ -196,7 +220,7 @@ public class TransactionLogObserverTest {
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
     Pair<String, Response> response = responseQueue.take();
-    assertEquals("update", response.getFirst());
+    assertTrue(response.getFirst().startsWith("update."));
     assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
     clientManager.rollback(transactionId);
     response = responseQueue.take();
@@ -209,52 +233,55 @@ public class TransactionLogObserverTest {
     now = System.currentTimeMillis();
     AtomicLong stamp = new AtomicLong(now);
     createObserver(new WithTransactionTimeout(100, 50, stamp));
-    TransactionResourceManager manager = (TransactionResourceManager) observer.getRawManager();
-    manager.houseKeeping();
-    String transactionId = "t1";
-    BlockingQueue<Pair<String, Response>> queue = new ArrayBlockingQueue<>(10);
-    manager.begin(
-        transactionId,
-        (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
-        KeyAttributes.ofWildcardQueryElements(
-            this.user, "user", userGateways, Collections.emptyList()));
-    Pair<String, Response> response = queue.take();
-    assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
-    assertTrue("Expected empty queue, got " + queue, queue.isEmpty());
-    StreamElement wildcardUpsert =
-        userGateways.upsert(response.getSecond().getSeqId(), "user", "1", now, new byte[] {});
-    manager.commit(
-        transactionId, Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)));
-    assertEquals(Response.Flags.COMMITTED, queue.take().getSecond().getFlags());
-    assertTrue(queue.isEmpty());
+    ServerTransactionManager serverManager = observer.getRawManager();
+    try (ClientTransactionManager clientManager =
+        new TransactionResourceManager(direct, Collections.emptyMap())) {
+      serverManager.houseKeeping();
+      String transactionId = "t1";
+      BlockingQueue<Pair<String, Response>> queue = new ArrayBlockingQueue<>(10);
+      clientManager.begin(
+          transactionId,
+          (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
+          KeyAttributes.ofWildcardQueryElements(
+              this.user, "user", userGateways, Collections.emptyList()));
+      Pair<String, Response> response = queue.take();
+      assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
+      assertTrue("Expected empty queue, got " + queue, queue.isEmpty());
+      StreamElement wildcardUpsert =
+          userGateways.upsert(response.getSecond().getSeqId(), "user", "1", now, new byte[] {});
+      clientManager.commit(
+          transactionId, Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)));
+      assertEquals(Response.Flags.COMMITTED, queue.take().getSecond().getFlags());
+      assertTrue(queue.isEmpty());
 
-    // wait till housekeeping time expires
-    stamp.addAndGet(200L);
+      // wait till housekeeping time expires
+      stamp.addAndGet(200L);
 
-    transactionId = "t2";
-    manager.begin(
-        transactionId,
-        (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
-        KeyAttributes.ofWildcardQueryElements(
-            user, "user", userGateways, Collections.singletonList(wildcardUpsert)));
-    assertEquals(Response.Flags.OPEN, queue.take().getSecond().getFlags());
-    assertTrue(queue.isEmpty());
-    wildcardUpsert = userGateways.upsert(1001L, "user", "1", now, new byte[] {});
-    manager.commit(
-        transactionId, Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)));
-    assertEquals(Response.Flags.COMMITTED, queue.take().getSecond().getFlags());
-    assertTrue(queue.isEmpty());
+      transactionId = "t2";
+      clientManager.begin(
+          transactionId,
+          (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
+          KeyAttributes.ofWildcardQueryElements(
+              user, "user", userGateways, Collections.singletonList(wildcardUpsert)));
+      assertEquals(Response.Flags.OPEN, queue.take().getSecond().getFlags());
+      assertTrue(queue.isEmpty());
+      wildcardUpsert = userGateways.upsert(1001L, "user", "1", now, new byte[] {});
+      clientManager.commit(
+          transactionId, Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)));
+      assertEquals(Response.Flags.COMMITTED, queue.take().getSecond().getFlags());
+      assertTrue(queue.isEmpty());
 
-    TimeUnit.MILLISECONDS.sleep(150);
+      TimeUnit.MILLISECONDS.sleep(150);
 
-    transactionId = "t3";
-    manager.begin(
-        transactionId,
-        (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
-        KeyAttributes.ofWildcardQueryElements(
-            this.user, "user", userGateways, Collections.emptyList()));
-    assertEquals(Response.Flags.ABORTED, queue.take().getSecond().getFlags());
-    assertTrue(queue.isEmpty());
+      transactionId = "t3";
+      clientManager.begin(
+          transactionId,
+          (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
+          KeyAttributes.ofWildcardQueryElements(
+              this.user, "user", userGateways, Collections.emptyList()));
+      assertEquals(Response.Flags.ABORTED, queue.take().getSecond().getFlags());
+      assertTrue(queue.isEmpty());
+    }
   }
 
   @Test(timeout = 10000)
@@ -269,15 +296,14 @@ public class TransactionLogObserverTest {
           ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      responseQueue.take();
+      takeResponseFor(responseQueue, "open.1");
       observer.getRawManager().close();
       createObserver();
       clientManager.commit(
           transactionId,
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals("commit", response.getFirst());
+      Pair<String, Response> response = takeResponseFor(responseQueue, "commit");
       assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
     }
   }
@@ -295,27 +321,34 @@ public class TransactionLogObserverTest {
           ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      responseQueue.take();
+      Pair<String, Response> t1openResponse = takeResponseFor(responseQueue, "open.1");
       clientManager.begin(
           t2,
           ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      responseQueue.take();
+      Pair<String, Response> t2openResponse = takeResponseFor(responseQueue, "open.1");
+      assertTrue(t2openResponse.getSecond().getSeqId() > t1openResponse.getSecond().getSeqId());
       clientManager.commit(
           t2,
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-      responseQueue.take();
+      Pair<String, Response> t2commitResponse = takeResponseFor(responseQueue, "commit");
+      assertEquals("commit", t2commitResponse.getFirst());
       observer.getRawManager().close();
       createObserver();
       clientManager.commit(
           t1,
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals("commit", response.getFirst());
-      assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+      Pair<String, Response> response = takeResponseFor(responseQueue, "commit");
+      assertTrue(
+          "Expected exactly one committed transaction, got "
+              + t2commitResponse.getSecond()
+              + " and "
+              + response.getSecond(),
+          t2commitResponse.getSecond().getFlags() == Response.Flags.COMMITTED
+              ^ response.getSecond().getFlags() == Response.Flags.COMMITTED);
       tearDown();
     }
   }
@@ -334,7 +367,7 @@ public class TransactionLogObserverTest {
           ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      Pair<String, Response> firstResponse = responseQueue.take();
+      Pair<String, Response> firstResponse = takeResponseFor(responseQueue, "open.1");
       observer.getRawManager().close();
       createObserver();
       clientManager.begin(
@@ -342,15 +375,14 @@ public class TransactionLogObserverTest {
           ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      Pair<String, Response> secondResponse = responseQueue.take();
+      Pair<String, Response> secondResponse = takeResponseFor(responseQueue, "open.2");
       assertEquals(firstResponse.getSecond().getSeqId(), secondResponse.getSecond().getSeqId());
       assertEquals(Response.Flags.DUPLICATE, secondResponse.getSecond().getFlags());
       clientManager.commit(
           transactionId,
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-      Pair<String, Response> commitResponse = responseQueue.take();
-      assertEquals("commit", commitResponse.getFirst());
+      Pair<String, Response> commitResponse = takeResponseFor(responseQueue, "commit");
       assertEquals(Response.Flags.COMMITTED, commitResponse.getSecond().getFlags());
     }
   }
@@ -423,6 +455,18 @@ public class TransactionLogObserverTest {
           super.sleep(timeout);
         }
       };
+    }
+  }
+
+  private Pair<String, Response> takeResponseFor(
+      BlockingQueue<Pair<String, Response>> responseQueue, String responseId)
+      throws InterruptedException {
+
+    for (; ; ) {
+      Pair<String, Response> res = responseQueue.take();
+      if (res.getFirst().equals(responseId)) {
+        return res;
+      }
     }
   }
 

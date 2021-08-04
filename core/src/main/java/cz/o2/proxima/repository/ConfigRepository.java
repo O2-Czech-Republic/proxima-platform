@@ -35,9 +35,9 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
-import cz.o2.proxima.transaction.TransactionCommitTransformation;
 import cz.o2.proxima.transaction.TransactionPartitioner;
 import cz.o2.proxima.transaction.TransactionSerializerSchemeProvider;
+import cz.o2.proxima.transaction.TransactionTransformProvider;
 import cz.o2.proxima.transform.DataOperatorAware;
 import cz.o2.proxima.transform.ElementWiseProxyTransform;
 import cz.o2.proxima.transform.ElementWiseProxyTransform.ProxySetupContext;
@@ -2082,15 +2082,36 @@ public final class ConfigRepository extends Repository {
   private void createTransactionCommitTransformation() {
     EntityDescriptor transaction = getEntity(TRANSACTION_ENTITY);
     String name = "_transaction-commit";
+    TransactionTransformProvider provider = getTransactionTransformProvider();
     TransformationDescriptor descriptor =
         TransformationDescriptor.newBuilder()
-            .setTransformation(new TransactionCommitTransformation())
+            .setTransformation(provider.create())
             .addAttributes(transaction.getAttribute(COMMIT_ATTRIBUTE))
             .setName(name)
             .disableOutputTransactions()
             .build();
     setupTransform(descriptor.getTransformation(), Collections.emptyMap());
     this.transformations.put(name, descriptor);
+  }
+
+  private TransactionTransformProvider getTransactionTransformProvider() {
+    Iterable<TransactionTransformProvider> providers =
+        ServiceLoader.load(TransactionTransformProvider.class);
+    Iterable<TransactionTransformProvider> nonTests =
+        Iterables.filter(providers, tp -> !tp.isTest());
+    if (!Iterables.isEmpty(nonTests)) {
+      Preconditions.checkArgument(
+          Iterables.size(nonTests) == 1,
+          "Received zero or multiple providers of transaction transform %s. "
+              + "Please use only exactly one dependency having this provider.",
+          nonTests);
+      return Iterables.getOnlyElement(nonTests);
+    }
+    Preconditions.checkArgument(
+        !Iterables.isEmpty(providers),
+        "Received no %s, you are probably missing some dependency (e.g. proxima-direct-core).",
+        TransactionTransformProvider.class.getName());
+    return Iterables.get(providers, 0);
   }
 
   private void setupTransform(Transformation transformation, Map<String, Object> cfg) {

@@ -35,7 +35,9 @@ import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
+import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.util.TransformationRunner;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -72,30 +74,34 @@ public class TransactionalCachedViewTest {
                 Request request = maybeRequest.get();
                 switch (request.getFlags()) {
                   case OPEN:
-                    server.writeResponse(
+                    server.writeResponseAndUpdateState(
                         ingest.getKey(),
+                        State.empty(),
                         "open",
                         Response.forRequest(request)
                             .open(seqId.getAndIncrement(), System.currentTimeMillis()),
                         context::commit);
                     break;
                   case COMMIT:
-                    server.writeResponse(
+                    server.writeResponseAndUpdateState(
                         ingest.getKey(),
+                        State.empty(),
                         "commit",
                         Response.forRequest(request).committed(),
                         context::commit);
                     break;
                   case UPDATE:
-                    server.writeResponse(
+                    server.writeResponseAndUpdateState(
                         ingest.getKey(),
+                        State.empty(),
                         "update",
                         Response.forRequest(request).updated(),
                         context::commit);
                     break;
                   case ROLLBACK:
-                    server.writeResponse(
+                    server.writeResponseAndUpdateState(
                         ingest.getKey(),
+                        State.empty(),
                         "rollback",
                         Response.forRequest(request).aborted(),
                         context::commit);
@@ -107,6 +113,8 @@ public class TransactionalCachedViewTest {
             return true;
           }
         });
+
+    TransformationRunner.runTransformations(repo, direct);
   }
 
   @After

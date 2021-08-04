@@ -185,22 +185,19 @@ public class TransactionLogObserver implements CommitLogObserver {
       }
 
       @Override
-      public synchronized void setCurrentState(
-          String transactionId, @Nullable State state, CommitCallback callback) {
-
-        delegate.setCurrentState(transactionId, state, callback);
-      }
-
-      @Override
       public synchronized void ensureTransactionOpen(String transactionId, State state) {
         delegate.ensureTransactionOpen(transactionId, state);
       }
 
       @Override
-      public synchronized void writeResponse(
-          String transactionId, String responseId, Response response, CommitCallback callback) {
+      public synchronized void writeResponseAndUpdateState(
+          String transactionId,
+          State state,
+          String responseId,
+          Response response,
+          CommitCallback callback) {
 
-        delegate.writeResponse(transactionId, responseId, response, callback);
+        delegate.writeResponseAndUpdateState(transactionId, state, responseId, response, callback);
       }
 
       @Override
@@ -365,29 +362,27 @@ public class TransactionLogObserver implements CommitLogObserver {
     if (newState != null) {
       // we have successfully computed new state, produce response
       Response response = getResponseForNewState(request, currentState, newState);
-      CommitCallback commitCallback = CommitCallback.afterNumCommits(2, context::commit);
-      manager.setCurrentState(transactionId, newState, commitCallback);
-      manager.writeResponse(transactionId, requestId, response, commitCallback);
+      manager.ensureTransactionOpen(transactionId, newState);
+      manager.writeResponseAndUpdateState(
+          transactionId, newState, requestId, response, context::commit);
+    } else if (request.getFlags() == Request.Flags.OPEN
+        && (currentState.getFlags() == State.Flags.OPEN
+            || currentState.getFlags() == State.Flags.COMMITTED)) {
+      manager.writeResponseAndUpdateState(
+          transactionId,
+          currentState,
+          requestId,
+          Response.forRequest(request).duplicate(currentState.getSequentialId()),
+          context::commit);
     } else {
-      // we cannot transition from current state
-      if (request.getFlags() == Request.Flags.OPEN
-          && (currentState.getFlags() == State.Flags.OPEN
-              || currentState.getFlags() == State.Flags.COMMITTED)) {
-        manager.writeResponse(
-            transactionId,
-            requestId,
-            Response.forRequest(request).duplicate(currentState.getSequentialId()),
-            context::commit);
-      } else {
-        log.warn(
-            "Unexpected {} request for transaction {} seqId {} when the state is {}",
-            request.getFlags(),
-            transactionId,
-            currentState.getSequentialId(),
-            currentState.getFlags());
-        manager.writeResponse(
-            transactionId, requestId, Response.forRequest(request).aborted(), context::commit);
-      }
+      log.warn(
+          "Unexpected {} request for transaction {} seqId {} when the state is {}. "
+              + "Refusing to respond, because the correct response is unknown.",
+          request.getFlags(),
+          transactionId,
+          currentState.getSequentialId(),
+          currentState.getFlags());
+      context.confirm();
     }
   }
 
@@ -582,6 +577,7 @@ public class TransactionLogObserver implements CommitLogObserver {
     if (newUpdate.getAttributeDescriptor().equals(manager.getStateDesc())) {
       if (!newUpdate.isDelete()) {
         State state = Optionals.get(manager.getStateDesc().valueOf(newUpdate));
+        log.debug("New state update for transaction {}: {}", newUpdate.getKey(), state);
         sequenceId.accumulateAndGet(state.getSequentialId() + 1, Math::max);
         manager.ensureTransactionOpen(newUpdate.getKey(), state);
         if (state.getFlags() == State.Flags.COMMITTED) {

@@ -32,6 +32,7 @@ message ProtoStreamElement {
   string attribute = 3;
   bytes value = 4;
   bool delete = 5;
+  uint64 stamp = 6;
 }
 
 enum Flags {
@@ -66,8 +67,14 @@ message ProtoState {
   repeated KeyAttribute committedAttributes = 5;
 }
 
+message TransactionUpdate {
+  string targetFamily = 1;
+  ProtoStreamElement element = 2;
+}
+
 message ProtoCommit {
   uint64 seqId = 1;
   fixed64 stamp = 2;
   repeated ProtoStreamElement updates = 3;
+  repeated TransactionUpdate transactionUpdates = 4;
 }

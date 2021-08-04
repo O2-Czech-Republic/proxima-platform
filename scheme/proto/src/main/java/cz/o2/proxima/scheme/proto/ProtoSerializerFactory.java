@@ -43,6 +43,7 @@ import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoStreamElement;
 import cz.o2.proxima.scheme.proto.utils.ProtoUtils;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Commit;
+import cz.o2.proxima.transaction.Commit.TransactionUpdate;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
@@ -57,6 +58,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -260,6 +262,19 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     }
 
     private static Commit commitFromProto(Repository repository, ProtoCommit protoCommit) {
+      if (protoCommit.getUpdatesCount() == 0) {
+        return Commit.of(
+            protoCommit
+                .getTransactionUpdatesList()
+                .stream()
+                .map(
+                    u ->
+                        new TransactionUpdate(
+                            u.getTargetFamily(),
+                            asStreamElement(
+                                repository, -1, u.getElement().getStamp(), u.getElement())))
+                .collect(Collectors.toList()));
+      }
       return Commit.of(
           protoCommit.getSeqId() == 0 ? 1 : protoCommit.getSeqId(),
           protoCommit.getStamp(),
@@ -274,6 +289,21 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     }
 
     private static ProtoCommit commitToProto(Repository repository, Commit commit) {
+      if (commit.getUpdates().isEmpty()) {
+        return ProtoCommit.newBuilder()
+            .addAllTransactionUpdates(
+                commit
+                    .getTransactionUpdates()
+                    .stream()
+                    .map(
+                        u ->
+                            Transactions.TransactionUpdate.newBuilder()
+                                .setTargetFamily(u.getTargetFamily())
+                                .setElement(asProtoStreamElement(u.getUpdate(), true))
+                                .build())
+                    .collect(Collectors.toList()))
+            .build();
+      }
       return ProtoCommit.newBuilder()
           .setSeqId(commit.getSeqId())
           .setStamp(commit.getStamp())
@@ -287,12 +317,17 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     }
 
     private static ProtoStreamElement asProtoStreamElement(StreamElement in) {
+      return asProtoStreamElement(in, false);
+    }
+
+    private static ProtoStreamElement asProtoStreamElement(StreamElement in, boolean includeStamp) {
       if (in.isDelete()) {
         return ProtoStreamElement.newBuilder()
             .setEntity(in.getEntityDescriptor().getName())
             .setAttribute(in.getAttribute())
             .setKey(in.getKey())
             .setDelete(in.isDelete())
+            .setStamp(includeStamp ? in.getStamp() : 0)
             .build();
       }
       return ProtoStreamElement.newBuilder()
@@ -300,6 +335,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           .setAttribute(in.getAttribute())
           .setKey(in.getKey())
           .setValue(ByteString.copyFrom(in.getValue()))
+          .setStamp(includeStamp ? in.getStamp() : 0)
           .build();
     }
 
@@ -309,13 +345,32 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       EntityDescriptor entity = repo.getEntity(elem.getEntity());
       AttributeDescriptor<?> attrDesc = entity.getAttribute(elem.getAttribute());
       if (elem.getDelete()) {
+        if (sequenceId > 0) {
+          return StreamElement.delete(
+              entity, attrDesc, sequenceId, elem.getKey(), elem.getAttribute(), stamp);
+        }
         return StreamElement.delete(
-            entity, attrDesc, sequenceId, elem.getKey(), elem.getAttribute(), stamp);
+            entity,
+            attrDesc,
+            UUID.randomUUID().toString(),
+            elem.getKey(),
+            elem.getAttribute(),
+            stamp);
+      }
+      if (sequenceId > 0) {
+        return StreamElement.upsert(
+            entity,
+            attrDesc,
+            sequenceId,
+            elem.getKey(),
+            elem.getAttribute(),
+            stamp,
+            elem.getValue().toByteArray());
       }
       return StreamElement.upsert(
           entity,
           attrDesc,
-          sequenceId,
+          UUID.randomUUID().toString(),
           elem.getKey(),
           elem.getAttribute(),
           stamp,

@@ -91,7 +91,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   public class Transaction implements AutoCloseable {
 
     @Getter private final String transactionId;
-    private final BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(100);
+    private final BlockingQueue<Pair<String, Response>> responseQueue =
+        new ArrayBlockingQueue<>(100);
     private boolean isGlobalTransaction;
     private State.Flags state;
     private long sequenceId = -1L;
@@ -187,6 +188,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private Response takeResponse() {
       return Optional.ofNullable(
               ExceptionUtils.uncheckedFactory(() -> responseQueue.poll(5, TimeUnit.SECONDS)))
+          .map(Pair::getSecond)
           .orElse(Response.empty());
     }
 
@@ -229,7 +231,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
 
     private void enqueueResponse(String responseId, Response response) {
-      ExceptionUtils.unchecked(() -> responseQueue.put(response));
+      ExceptionUtils.unchecked(() -> responseQueue.put(Pair.of(responseId, response)));
     }
 
     private StreamElement injectSequenceIdAndStamp(StreamElement in) {

@@ -18,6 +18,7 @@ package cz.o2.proxima.transaction;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
+import lombok.Value;
 
 /**
  * A commit request sent in case there are multiple output attributes written in a transaction. When
@@ -33,6 +35,15 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 public class Commit implements Serializable {
+
+  /** An update to transactional attribute of a transaction. */
+  @Value
+  public static class TransactionUpdate implements Serializable {
+    /** Name of target attribute family. */
+    String targetFamily;
+    /** The update itself. */
+    StreamElement update;
+  }
 
   /**
    * Create new {@link Commit} message to be appended to {@code _transcation.commit}
@@ -50,6 +61,18 @@ public class Commit implements Serializable {
     return new Commit(seqId, stamp, updates);
   }
 
+  /**
+   * Create new {@link Commit} message to be appended to {@code _transcation.commit}
+   *
+   * @param transactionUpdates Updates to transactional attributes.
+   */
+  public static Commit of(Collection<TransactionUpdate> transactionUpdates) {
+    Preconditions.checkArgument(
+        transactionUpdates.stream().noneMatch(u -> u.getUpdate().isDelete()),
+        "Deletes on transactional attributes not supported.");
+    return new Commit(transactionUpdates);
+  }
+
   /** Transaction's sequenceId. */
   @Getter private final long seqId;
 
@@ -59,6 +82,9 @@ public class Commit implements Serializable {
   /** List of {@link cz.o2.proxima.storage.StreamElement StreamElements} to be replicated. */
   @Getter private final List<StreamElement> updates;
 
+  /** List of possible state updates and/or responses to return to client. */
+  @Getter private final List<TransactionUpdate> transactionUpdates;
+
   public Commit() {
     this(-1L, Long.MIN_VALUE, Collections.emptyList());
   }
@@ -67,6 +93,14 @@ public class Commit implements Serializable {
     this.seqId = seqId;
     this.stamp = stamp;
     this.updates = fixSeqIdAndStamp(seqId, stamp, updates);
+    this.transactionUpdates = Collections.emptyList();
+  }
+
+  private Commit(Collection<TransactionUpdate> transactionUpdates) {
+    this.seqId = -1;
+    this.stamp = Long.MIN_VALUE;
+    this.updates = Collections.emptyList();
+    this.transactionUpdates = new ArrayList<>(transactionUpdates);
   }
 
   private static List<StreamElement> fixSeqIdAndStamp(

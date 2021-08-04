@@ -16,6 +16,7 @@
 package cz.o2.proxima.scheme;
 
 import com.google.auto.service.AutoService;
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.Request;
@@ -119,6 +120,7 @@ public class JavaSerializer implements ValueSerializerFactory {
 
     @Override
     public byte[] serialize(T value) {
+      Preconditions.checkArgument(value != null);
       try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
           final ObjectOutputStream oos = new ObjectOutputStream(baos)) {
 

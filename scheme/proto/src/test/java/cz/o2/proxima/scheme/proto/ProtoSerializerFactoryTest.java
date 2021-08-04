@@ -34,6 +34,7 @@ import cz.o2.proxima.scheme.proto.ProtoSerializerFactory.TransactionProtoSeriali
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Commit;
+import cz.o2.proxima.transaction.Commit.TransactionUpdate;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
@@ -49,6 +50,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -191,6 +193,19 @@ public class ProtoSerializerFactoryTest {
     KeyAttribute missingGet = KeyAttributes.ofMissingAttribute(transaction, "t", request, "1");
     long now = System.currentTimeMillis();
 
+    List<TransactionUpdate> transactionUpdates =
+        Collections.singletonList(
+            new TransactionUpdate(
+                "stateFamily",
+                StreamElement.upsert(
+                    transaction,
+                    state,
+                    UUID.randomUUID().toString(),
+                    "t",
+                    state.getName(),
+                    System.currentTimeMillis(),
+                    new byte[] {})));
+
     Request someRequest = newRequest(keyAttribute, Request.Flags.OPEN);
     List<Pair<Object, AttributeDescriptor<?>>> toVerify =
         Arrays.asList(
@@ -229,7 +244,8 @@ public class ProtoSerializerFactoryTest {
             Pair.of(
                 State.open(1L, now, Collections.emptyList())
                     .committed(Sets.newHashSet(keyAttributeDelete)),
-                state));
+                state),
+            Pair.of(Commit.of(transactionUpdates), commit));
 
     toVerify.forEach(
         p -> {
@@ -241,10 +257,40 @@ public class ProtoSerializerFactoryTest {
           if (p.getFirst() instanceof Response) {
             compareResponses(
                 (Response) p.getFirst(), (Response) Optionals.get(serializer.deserialize(bytes)));
+          } else if (p.getFirst() instanceof Commit) {
+            compareCommit(
+                (Commit) p.getFirst(), (Commit) Optionals.get(serializer.deserialize(bytes)));
           } else {
             assertEquals(p.getFirst(), Optionals.get(serializer.deserialize(bytes)));
           }
         });
+  }
+
+  private void compareCommit(Commit first, Commit other) {
+    if (first.getTransactionUpdates().isEmpty()) {
+      assertEquals(first, other);
+    } else {
+      assertEquals(first.getStamp(), other.getStamp());
+      assertEquals(first.getUpdates(), other.getUpdates());
+      assertEquals(first.getSeqId(), other.getSeqId());
+      assertEquals(first.getTransactionUpdates().size(), other.getTransactionUpdates().size());
+      for (int i = 0; i < first.getTransactionUpdates().size(); i++) {
+        TransactionUpdate firstUpdate = first.getTransactionUpdates().get(i);
+        TransactionUpdate otherUpdate = other.getTransactionUpdates().get(i);
+        assertEquals(firstUpdate.getTargetFamily(), otherUpdate.getTargetFamily());
+        assertEquals(firstUpdate.getUpdate().getKey(), otherUpdate.getUpdate().getKey());
+        assertEquals(
+            firstUpdate.getUpdate().getEntityDescriptor(),
+            otherUpdate.getUpdate().getEntityDescriptor());
+        assertEquals(
+            firstUpdate.getUpdate().getAttributeDescriptor(),
+            otherUpdate.getUpdate().getAttributeDescriptor());
+        assertEquals(
+            firstUpdate.getUpdate().getAttribute(), otherUpdate.getUpdate().getAttribute());
+        assertEquals(firstUpdate.getUpdate().getStamp(), otherUpdate.getUpdate().getStamp());
+        assertArrayEquals(firstUpdate.getUpdate().getValue(), otherUpdate.getUpdate().getValue());
+      }
+    }
   }
 
   private void compareResponses(Response first, Response other) {

@@ -24,7 +24,6 @@ import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
-import javax.annotation.Nullable;
 
 public interface ServerTransactionManager extends AutoCloseable, TransactionManager {
 
@@ -73,16 +72,6 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
   State getCurrentState(String transactionId);
 
   /**
-   * Write new {@link State} for the transaction.
-   *
-   * @param transactionId ID of the transaction
-   * @param state the new state, when {@code null} the state is erased and the transaction is
-   *     cleared
-   * @param callback callback for committing the write
-   */
-  void setCurrentState(String transactionId, @Nullable State state, CommitCallback callback);
-
-  /**
    * Ensure that the given transaction ID is initialized.
    *
    * @param transactionId ID of the transaction
@@ -91,15 +80,20 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
   void ensureTransactionOpen(String transactionId, State state);
 
   /**
-   * Write response for a request to the caller.
+   * Atomically write response and update state of a transaction
    *
    * @param transactionId ID of transaction
+   * @param state the state to update the transaction to
    * @param responseId ID of response
    * @param response the response
    * @param callback callback for commit after write
    */
-  void writeResponse(
-      String transactionId, String responseId, Response response, CommitCallback callback);
+  void writeResponseAndUpdateState(
+      String transactionId,
+      State state,
+      String responseId,
+      Response response,
+      CommitCallback callback);
 
   @Override
   void close();

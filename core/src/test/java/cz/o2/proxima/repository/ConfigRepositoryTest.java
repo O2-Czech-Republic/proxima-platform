@@ -31,7 +31,6 @@ import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Request;
-import cz.o2.proxima.transaction.TransactionCommitTransformation;
 import cz.o2.proxima.transaction.TransactionPartitioner;
 import cz.o2.proxima.transform.ElementWiseProxyTransform.ProxySetupContext;
 import cz.o2.proxima.transform.ElementWiseTransformation;
@@ -629,7 +628,7 @@ public class ConfigRepositoryTest {
     TransformationDescriptor desc = repo.getTransformations().get("_transaction-commit");
     assertNotNull(desc);
     assertEquals("_transaction-commit", desc.getName());
-    assertEquals(TransactionCommitTransformation.class, desc.getTransformation().getClass());
+    assertNotNull(desc.getTransformation());
     assertEquals(OutputTransactionMode.DISABLED, desc.getOutputTransactionMode());
 
     Map<String, AttributeFamilyDescriptor> nameToFamily =

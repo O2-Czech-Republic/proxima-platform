@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.storage;
 
+import com.google.auto.service.AutoService;
 import com.typesafe.config.Config;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.DataAccessor;
@@ -40,6 +41,7 @@ import org.apache.beam.sdk.values.PCollection;
  * Storage with URI scheme {@code test-stream://}. This storage is backed by {@link TestStream} and
  * enables fine tuning with regard to watermark and other stream aspects.
  */
+@AutoService(DataAccessorFactory.class)
 public class TestStreamStorage implements DataAccessorFactory {
 
   private static final Map<Repository, StreamProviders> storages = new ConcurrentHashMap<>();

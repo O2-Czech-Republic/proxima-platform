@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 /** A {@link ValueSerializer} for Strings. */
+@AutoService(ValueSerializerFactory.class)
 public class StringUtf8Serializer implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

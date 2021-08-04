@@ -153,6 +153,11 @@
     </dependency>
 
     <dependency>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>${apache.beam.groupId.raw}</groupId>
       <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
       <version>${apache.beam.version.raw}</version>

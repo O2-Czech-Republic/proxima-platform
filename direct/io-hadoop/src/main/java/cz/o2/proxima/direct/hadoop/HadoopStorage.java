@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
+import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -28,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 /** Writer to HDFS. */
 @Slf4j
 @EqualsAndHashCode
+@AutoService(DataAccessorFactory.class)
 public class HadoopStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

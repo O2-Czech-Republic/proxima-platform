@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import com.google.api.client.util.Lists;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -73,6 +74,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
     void apply(PipelineOptions opts);
   }
 
+  @AutoService(StreamProvider.class)
   public static class Default extends BeamStreamProvider {
 
     @VisibleForTesting

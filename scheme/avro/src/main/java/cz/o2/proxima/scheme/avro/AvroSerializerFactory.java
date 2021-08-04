@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme.avro;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
@@ -32,6 +33,7 @@ import org.apache.avro.specific.SpecificRecord;
 
 /** Avro serializer factory for manipulate with SpecificRecords */
 @Slf4j
+@AutoService(ValueSerializerFactory.class)
 public class AvroSerializerFactory implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

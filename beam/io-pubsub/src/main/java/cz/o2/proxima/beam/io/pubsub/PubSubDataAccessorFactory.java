@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.io.pubsub;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.DataAccessorFactory;
@@ -22,6 +23,7 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
 
 /** {@link DataAccessorFactory} for PubSub URLs. */
+@AutoService(DataAccessorFactory.class)
 public class PubSubDataAccessorFactory implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

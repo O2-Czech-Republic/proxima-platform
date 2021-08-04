@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.bigtable;
 
+import com.google.auto.service.AutoService;
 import com.google.cloud.bigtable.hbase1_x.BigtableConnection;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
@@ -43,6 +44,7 @@ import org.apache.hadoop.hbase.client.Connection;
  * The <pre>v=2</pre> serialization format is required to support transactions on top of BigTable,
  * because the metadata preserves sequentialId (stored in {@link cz.o2.proxima.storage.StreamElement#getSequentialId()}).
  **/
+@AutoService(DataAccessorFactory.class)
 public class BigTableStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

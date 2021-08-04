@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
+import com.google.auto.service.AutoService;
 import com.typesafe.config.Config;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -29,6 +30,7 @@ import lombok.Getter;
 
 /** A {@link DataAccessorFactory} for PubSub. */
 @Stable
+@AutoService(DataAccessorFactory.class)
 public class PubSubStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -24,6 +25,7 @@ import lombok.EqualsAndHashCode;
 
 /** A {@link DataAccessorFactory} for gcloud storage. */
 @EqualsAndHashCode
+@AutoService(DataAccessorFactory.class)
 public class GCloudStorageDescriptor implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

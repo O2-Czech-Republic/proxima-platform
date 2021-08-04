@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme.proto;
 
+import com.google.auto.service.AutoService;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.MessageOrBuilder;
@@ -41,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
  * Fields from json not found in protobuf specification are ignored.
  */
 @Slf4j
+@AutoService(ValueSerializerFactory.class)
 public class JsonProtoSerializerFactory implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

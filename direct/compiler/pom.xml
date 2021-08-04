@@ -116,6 +116,11 @@
     </dependency>
 
     <dependency>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>

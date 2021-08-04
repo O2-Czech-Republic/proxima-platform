@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.Request;
@@ -44,6 +45,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Stable
+@AutoService(ValueSerializerFactory.class)
 public class JavaSerializer implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

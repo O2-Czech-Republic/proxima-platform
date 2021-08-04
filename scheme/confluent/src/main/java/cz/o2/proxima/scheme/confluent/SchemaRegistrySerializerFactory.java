@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme.confluent;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
@@ -25,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericContainer;
 
 @Slf4j
+@AutoService(ValueSerializerFactory.class)
 public class SchemaRegistrySerializerFactory implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

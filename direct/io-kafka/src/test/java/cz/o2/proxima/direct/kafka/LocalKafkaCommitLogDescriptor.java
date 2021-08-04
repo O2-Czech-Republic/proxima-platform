@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.kafka;
 
 import static org.mockito.Mockito.*;
 
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -76,6 +77,7 @@ import org.apache.kafka.common.record.TimestampType;
  * associated with URIs `kafka-test`.
  */
 @Slf4j
+@AutoService(DataAccessorFactory.class)
 public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

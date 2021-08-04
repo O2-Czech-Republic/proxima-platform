@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@AutoService(ValueSerializerFactory.class)
 public class DoubleSerializer implements ValueSerializerFactory {
 
   @Override

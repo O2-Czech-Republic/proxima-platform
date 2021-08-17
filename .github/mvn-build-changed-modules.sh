@@ -16,13 +16,17 @@
 #
 
 
-function get_name {
+function get_property {
   POM=$1
   FILE=/tmp/VERSION.$RANDOM
-  mvn help:evaluate -Dexpression=project.artifactId -q -Doutput=/$FILE -f $POM
-  RET=":$(cat $FILE)"
+  mvn help:evaluate -Dexpression=$2 -q -Doutput=/$FILE -f $POM
+  RET="$(cat $FILE)"
   rm $FILE
   echo $RET
+}
+
+function get_name {
+  echo "$(get_property $1 project.groupId):$(get_property $1 project.artifactId)"
 }
 
 PROJECTS=""

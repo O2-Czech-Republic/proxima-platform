@@ -102,8 +102,7 @@ public class TransactionResourceManager
 
     @Override
     public long getCleanupInterval() {
-      // FIXME: [PROXIMA-215]
-      return transactionTimeoutMs;
+      return cleanupIntervalMs;
     }
 
     @Override
@@ -336,6 +335,9 @@ public class TransactionResourceManager
   @Getter(AccessLevel.PACKAGE)
   private long transactionTimeoutMs;
 
+  @Getter(AccessLevel.PRIVATE)
+  private long cleanupIntervalMs;
+
   @Getter(AccessLevel.PACKAGE)
   private InitialSequenceIdPolicy initialSequenceIdPolicy;
 
@@ -348,6 +350,7 @@ public class TransactionResourceManager
     this.stateDesc = Regular.of(transaction, transaction.getAttribute("state"));
     this.commitDesc = Regular.of(transaction, transaction.getAttribute("commit"));
     this.transactionTimeoutMs = getTransactionTimeout(cfg);
+    this.cleanupIntervalMs = getCleanupInterval(cfg);
     this.initialSequenceIdPolicy = getInitialSequenceIdPolicy(cfg);
 
     log.info(
@@ -363,6 +366,13 @@ public class TransactionResourceManager
 
   private static long getTransactionTimeout(Map<String, Object> cfg) {
     return Optional.ofNullable(cfg.get("timeout"))
+        .map(Object::toString)
+        .map(Long::parseLong)
+        .orElse(3600000L);
+  }
+
+  private static long getCleanupInterval(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("cleanup-interval"))
         .map(Object::toString)
         .map(Long::parseLong)
         .orElse(3600000L);
@@ -392,9 +402,8 @@ public class TransactionResourceManager
 
   @Override
   public void houseKeeping() {
-    // FIXME: [PROXIMA-215]
     long now = System.currentTimeMillis();
-    long releaseTime = now - transactionTimeoutMs;
+    long releaseTime = now - cleanupIntervalMs;
     openTransactionMap
         .entrySet()
         .stream()
@@ -461,7 +470,7 @@ public class TransactionResourceManager
               CachedView view = stateViews.get(stateFamily);
               if (view == null) {
                 view = Optionals.get(stateFamily.getCachedView());
-                Duration ttl = Duration.ofMillis(transactionTimeoutMs);
+                Duration ttl = Duration.ofMillis(cleanupIntervalMs);
                 stateViews.put(stateFamily, view);
                 view.assign(view.getPartitions(), updateConsumer, ttl);
               }

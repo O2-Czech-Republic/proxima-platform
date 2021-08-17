@@ -255,11 +255,10 @@ public class TransactionLogObserver implements CommitLogObserver {
             () -> {
               while (!Thread.currentThread().isInterrupted()) {
                 try {
-                  // FIXME: [PROXIMA-215]
                   manager.houseKeeping();
                   long now = currentTimeMillis();
-                  long cleanupTimeout = manager.getCfg().getCleanupInterval();
-                  long cleanup = now - cleanupTimeout;
+                  long cleanupInterval = manager.getCfg().getCleanupInterval();
+                  long cleanup = now - cleanupInterval;
                   int cleaned;
                   try (Locker l = Locker.of(lock.writeLock())) {
                     List<Map.Entry<KeyWithAttribute, SeqIdWithTombstone>> toCleanUp =
@@ -286,8 +285,8 @@ public class TransactionLogObserver implements CommitLogObserver {
                   }
                   long duration = currentTimeMillis() - now;
                   log.info("Finished housekeeping in {} ms, removed {} records", duration, cleaned);
-                  if (duration < cleanupTimeout) {
-                    sleep(cleanupTimeout - duration);
+                  if (duration < cleanupInterval) {
+                    sleep(cleanupInterval - duration);
                   }
                 } catch (InterruptedException ex) {
                   Thread.currentThread().interrupt();

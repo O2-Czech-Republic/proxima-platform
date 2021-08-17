@@ -142,6 +142,7 @@ public class LocalCachedPartitionedView implements CachedView {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
+            log.debug("Prefetched element {} with ttlMs {}", ingest, ttlMs);
             final long prefetched = prefetchedCount.incrementAndGet();
             if (ttl == null || getCurrentTimeMillis() - ingest.getStamp() < ttlMs) {
               if (prefetched % 10000 == 0) {

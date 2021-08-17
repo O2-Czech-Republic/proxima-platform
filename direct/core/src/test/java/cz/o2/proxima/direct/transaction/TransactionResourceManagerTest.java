@@ -37,6 +37,7 @@ import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.util.TransformationRunner;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -45,6 +46,8 @@ import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 /** Test transactions are working according to the specification. */
@@ -60,8 +63,16 @@ public class TransactionResourceManagerTest {
   private final EntityDescriptor transaction = repo.getEntity("_transaction");
   private final Wildcard<Request> requestDesc =
       Wildcard.of(transaction, transaction.getAttribute("request.*"));
-  private final Wildcard<Response> response =
-      Wildcard.of(transaction, transaction.getAttribute("response.*"));
+
+  @Before
+  public void setUp() {
+    TransformationRunner.runTransformations(repo, direct);
+  }
+
+  @After
+  public void tearDown() {
+    direct.close();
+  }
 
   @Test(expected = IllegalArgumentException.class)
   public void testDirectWriterFetchFails() {
@@ -84,17 +95,13 @@ public class TransactionResourceManagerTest {
               String requestId = requestDesc.extractSuffix(ingest.getAttribute());
               Request request = Optionals.get(requestDesc.valueOf(ingest));
               assertEquals(1, request.getInputAttributes().size());
-              CountDownLatch latch = new CountDownLatch(1);
               long stamp = System.currentTimeMillis();
-              manager.setCurrentState(
+              manager.writeResponseAndUpdateState(
                   key,
                   State.open(1L, stamp, new HashSet<>(request.getInputAttributes())),
-                  (succ, exc) -> {
-                    latch.countDown();
-                  });
-              ExceptionUtils.ignoringInterrupted(latch::await);
-              manager.writeResponse(
-                  key, requestId, Response.forRequest(request).open(1L, stamp), context::commit);
+                  requestId,
+                  Response.forRequest(request).open(1L, stamp),
+                  context::commit);
             } else {
               context.confirm();
             }
@@ -133,28 +140,26 @@ public class TransactionResourceManagerTest {
               Request request = Optionals.get(requestDesc.valueOf(ingest));
               CountDownLatch latch = new CountDownLatch(1);
               CommitCallback commit =
-                  CommitCallback.afterNumCommits(
-                      2,
-                      (succ, exc) -> {
-                        latch.countDown();
-                        context.commit(succ, exc);
-                      });
+                  (succ, exc) -> {
+                    latch.countDown();
+                    context.commit(succ, exc);
+                  };
               long stamp = System.currentTimeMillis();
               if (request.getFlags() == Request.Flags.COMMIT) {
-                manager.setCurrentState(
+                manager.writeResponseAndUpdateState(
                     key,
                     State.open(1L, stamp, Collections.emptyList())
                         .committed(new HashSet<>(request.getOutputAttributes())),
+                    requestId,
+                    Response.forRequest(request).committed(),
                     commit);
-                manager.writeResponse(
-                    key, requestId, Response.forRequest(request).committed(), commit);
               } else {
-                manager.setCurrentState(
+                manager.writeResponseAndUpdateState(
                     key,
                     State.open(1L, stamp, new HashSet<>(request.getInputAttributes())),
+                    requestId,
+                    Response.forRequest(request).open(1L, stamp),
                     commit);
-                manager.writeResponse(
-                    key, requestId, Response.forRequest(request).open(1L, stamp), commit);
               }
               ExceptionUtils.ignoringInterrupted(latch::await);
             } else {
@@ -181,7 +186,7 @@ public class TransactionResourceManagerTest {
     }
   }
 
-  @Test
+  @Test(timeout = 10000)
   public void testTransactionRequestRollback() throws InterruptedException {
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
@@ -198,24 +203,21 @@ public class TransactionResourceManagerTest {
               Request request = Optionals.get(requestDesc.valueOf(ingest));
               CountDownLatch latch = new CountDownLatch(1);
               CommitCallback commit =
-                  CommitCallback.afterNumCommits(
-                      2,
-                      (succ, exc) -> {
-                        latch.countDown();
-                        context.commit(succ, exc);
-                      });
+                  (succ, exc) -> {
+                    latch.countDown();
+                    context.commit(succ, exc);
+                  };
               long stamp = System.currentTimeMillis();
               if (request.getFlags() == Request.Flags.ROLLBACK) {
-                manager.setCurrentState(key, null, commit);
-                manager.writeResponse(
-                    key, requestId, Response.forRequest(request).aborted(), commit);
+                manager.writeResponseAndUpdateState(
+                    key, State.empty(), requestId, Response.forRequest(request).aborted(), commit);
               } else if (request.getFlags() == Request.Flags.OPEN) {
-                manager.setCurrentState(
+                manager.writeResponseAndUpdateState(
                     key,
                     State.open(1L, stamp, new HashSet<>(request.getInputAttributes())),
+                    requestId,
+                    Response.forRequest(request).open(1L, stamp),
                     commit);
-                manager.writeResponse(
-                    key, requestId, Response.forRequest(request).open(1L, stamp), commit);
               }
               ExceptionUtils.ignoringInterrupted(latch::await);
             } else {
@@ -242,7 +244,7 @@ public class TransactionResourceManagerTest {
     }
   }
 
-  @Test
+  @Test(timeout = 10000)
   public void testTransactionRequestUpdate() throws InterruptedException {
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
@@ -259,28 +261,26 @@ public class TransactionResourceManagerTest {
               Request request = Optionals.get(requestDesc.valueOf(ingest));
               CountDownLatch latch = new CountDownLatch(1);
               CommitCallback commit =
-                  CommitCallback.afterNumCommits(
-                      2,
-                      (succ, exc) -> {
-                        latch.countDown();
-                        context.commit(succ, exc);
-                      });
+                  (succ, exc) -> {
+                    latch.countDown();
+                    context.commit(succ, exc);
+                  };
               long stamp = System.currentTimeMillis();
               if (request.getFlags() == Request.Flags.UPDATE) {
-                manager.setCurrentState(
+                manager.writeResponseAndUpdateState(
                     key,
                     State.open(1L, stamp, Collections.emptyList())
                         .update(new HashSet<>(request.getInputAttributes())),
+                    requestId,
+                    Response.forRequest(request).updated(),
                     commit);
-                manager.writeResponse(
-                    key, requestId, Response.forRequest(request).updated(), commit);
               } else {
-                manager.setCurrentState(
+                manager.writeResponseAndUpdateState(
                     key,
                     State.open(1L, stamp, new HashSet<>(request.getInputAttributes())),
+                    requestId,
+                    Response.forRequest(request).open(1L, stamp),
                     commit);
-                manager.writeResponse(
-                    key, requestId, Response.forRequest(request).open(1L, stamp), commit);
               }
               ExceptionUtils.ignoringInterrupted(latch::await);
             } else {
@@ -302,14 +302,14 @@ public class TransactionResourceManagerTest {
               KeyAttributes.ofAttributeDescriptor(gateway, "gw2", status, 1L)));
 
       Pair<String, Response> response = receivedResponses.take();
-      assertEquals("update", response.getFirst());
+      assertTrue(response.getFirst().startsWith("update."));
       assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
       State currentState = manager.getCurrentState(transactionId);
       assertEquals("gw2", Iterables.getOnlyElement(currentState.getInputAttributes()).getKey());
     }
   }
 
-  @Test
+  @Test(timeout = 10000)
   public void testCreateCachedTransactionWhenMissing() {
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "g", status, 1L);
     long stamp = System.currentTimeMillis();
@@ -361,8 +361,8 @@ public class TransactionResourceManagerTest {
           Optionals.get(direct.getFamilyByName("all-transaction-commit-log-request").getWriter()),
           transaction.getRequestWriter().getSecond());
       assertEquals(
-          Optionals.get(direct.getFamilyByName("all-transaction-commit-log-response").getWriter()),
-          transaction.getResponseWriter());
+          Optionals.get(direct.getFamilyByName("transactions-commit").getWriter()),
+          transaction.getCommitWriter());
       assertEquals(
           direct.getFamilyByName("all-transaction-commit-log-state").getCachedView().get(),
           transaction.getStateView());

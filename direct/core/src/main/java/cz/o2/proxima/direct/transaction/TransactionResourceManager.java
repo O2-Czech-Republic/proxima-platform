@@ -115,8 +115,7 @@ public class TransactionResourceManager
   private class CachedWriters implements AutoCloseable {
 
     private final DirectAttributeFamilyDescriptor family;
-    @Nullable OnlineAttributeWriter requestWriter;
-    @Nullable OnlineAttributeWriter responseWriter;
+    @Nullable OnlineAttributeWriter writer;
     @Nullable CachedView stateView;
 
     CachedWriters(DirectAttributeFamilyDescriptor family) {
@@ -125,23 +124,15 @@ public class TransactionResourceManager
 
     @Override
     public void close() {
-      Optional.ofNullable(requestWriter).ifPresent(OnlineAttributeWriter::close);
-      Optional.ofNullable(responseWriter).ifPresent(OnlineAttributeWriter::close);
+      Optional.ofNullable(writer).ifPresent(OnlineAttributeWriter::close);
       Optional.ofNullable(stateView).ifPresent(CachedView::close);
     }
 
-    public OnlineAttributeWriter getOrCreateRequestWriter() {
-      if (requestWriter == null) {
-        requestWriter = Optionals.get(family.getWriter()).online();
+    public OnlineAttributeWriter getOrCreateWriter() {
+      if (writer == null) {
+        writer = Optionals.get(family.getWriter()).online();
       }
-      return requestWriter;
-    }
-
-    public OnlineAttributeWriter getOrCreateResponseWriter() {
-      if (responseWriter == null) {
-        responseWriter = Optionals.get(family.getWriter()).online();
-      }
-      return responseWriter;
+      return writer;
     }
 
     public CachedView getOrCreateStateView() {
@@ -167,7 +158,9 @@ public class TransactionResourceManager
     final @Nullable BiConsumer<String, Response> responseConsumer;
     @Nullable OnlineAttributeWriter requestWriter;
     @Nullable OnlineAttributeWriter responseWriter;
+    @Nullable OnlineAttributeWriter commitWriter;
     @Nullable CachedView stateView;
+    int requestId = 1;
 
     CachedTransaction(
         String transactionId,
@@ -189,7 +182,9 @@ public class TransactionResourceManager
       Preconditions.checkState(responseConsumer != null);
       addTransactionResponseConsumer(
           transactionId, attributeToFamily.get(responseDesc), responseConsumer);
-      sendRequest(Request.builder().flags(Flags.OPEN).inputAttributes(inputAttrs).build(), "open");
+      sendRequest(
+          Request.builder().flags(Flags.OPEN).inputAttributes(inputAttrs).build(),
+          "open." + (requestId++));
     }
 
     public void commit(List<KeyAttribute> outputAttributes) {
@@ -204,7 +199,7 @@ public class TransactionResourceManager
       log.debug("Updating transaction {} with addedAttributes {}", transactionId, addedAttributes);
       sendRequest(
           Request.builder().flags(Request.Flags.UPDATE).inputAttributes(addedAttributes).build(),
-          "update");
+          "update." + (requestId++));
     }
 
     public void rollback() {
@@ -246,14 +241,14 @@ public class TransactionResourceManager
 
     @Override
     public void close() {
-      requestWriter = responseWriter = null;
+      requestWriter = responseWriter = commitWriter = null;
       stateView = null;
     }
 
     Pair<List<Integer>, OnlineAttributeWriter> getRequestWriter() {
       if (requestWriter == null) {
         DirectAttributeFamilyDescriptor family = attributeToFamily.get(requestDesc);
-        requestWriter = getCachedAccessors(family).getOrCreateRequestWriter();
+        requestWriter = getCachedAccessors(family).getOrCreateWriter();
       }
       DirectAttributeFamilyDescriptor responseFamile = attributeToFamily.get(responseDesc);
       return Pair.of(
@@ -264,9 +259,25 @@ public class TransactionResourceManager
     OnlineAttributeWriter getResponseWriter() {
       if (responseWriter == null) {
         DirectAttributeFamilyDescriptor family = attributeToFamily.get(responseDesc);
-        responseWriter = getCachedAccessors(family).getOrCreateResponseWriter();
+        responseWriter = getCachedAccessors(family).getOrCreateWriter();
       }
       return responseWriter;
+    }
+
+    public DirectAttributeFamilyDescriptor getResponseFamily() {
+      return Objects.requireNonNull(attributeToFamily.get(responseDesc));
+    }
+
+    public DirectAttributeFamilyDescriptor getStateFamily() {
+      return Objects.requireNonNull(attributeToFamily.get(stateDesc));
+    }
+
+    public OnlineAttributeWriter getCommitWriter() {
+      if (commitWriter == null) {
+        DirectAttributeFamilyDescriptor family = attributeToFamily.get(getCommitDesc());
+        commitWriter = getCachedAccessors(family).getOrCreateWriter();
+      }
+      return commitWriter;
     }
 
     CachedView getStateView() {
@@ -438,11 +449,13 @@ public class TransactionResourceManager
             p -> {
               DirectAttributeFamilyDescriptor requestFamily = p.getFirst();
               DirectAttributeFamilyDescriptor stateFamily = p.getSecond();
+              String consumerName = name + "-" + requestFamily.getDesc().getName();
               log.info(
-                  "Starting to observe family {} with URI {} and associated state family {}",
+                  "Starting to observe family {} with URI {} and associated state family {} as {}",
                   requestFamily,
                   requestFamily.getDesc().getStorageUri(),
-                  stateFamily);
+                  stateFamily,
+                  consumerName);
               CommitLogReader reader = Optionals.get(requestFamily.getCommitLogReader());
 
               CachedView view = stateViews.get(stateFamily);
@@ -457,7 +470,7 @@ public class TransactionResourceManager
               serverObservedFamilies.put(
                   requestFamily,
                   reader.observe(
-                      name + "-" + requestFamily.getDesc().getName(),
+                      consumerName,
                       repartitionHookForBeingActive(
                           stateFamily, reader.getPartitions().size(), effectiveObserver)));
             });
@@ -707,20 +720,6 @@ public class TransactionResourceManager
   }
 
   @Override
-  public void setCurrentState(
-      String transactionId, @Nullable State state, CommitCallback callback) {
-
-    CachedTransaction cachedTransaction = getOrCreateCachedTransaction(transactionId, state);
-    final StreamElement update;
-    if (state != null) {
-      update = stateDesc.upsert(transactionId, System.currentTimeMillis(), state);
-    } else {
-      update = stateDesc.delete(transactionId, System.currentTimeMillis());
-    }
-    cachedTransaction.getStateView().write(update, callback);
-  }
-
-  @Override
   public void ensureTransactionOpen(String transactionId, State state) {
     getOrCreateCachedTransaction(transactionId, state);
   }
@@ -746,16 +745,35 @@ public class TransactionResourceManager
   }
 
   @Override
-  public void writeResponse(
-      String transactionId, String responseId, Response response, CommitCallback callback) {
+  public void writeResponseAndUpdateState(
+      String transactionId,
+      State updateState,
+      String responseId,
+      Response response,
+      CommitCallback callback) {
 
     CachedTransaction cachedTransaction = openTransactionMap.get(transactionId);
     if (cachedTransaction != null) {
-      final OnlineAttributeWriter writer = cachedTransaction.getResponseWriter();
+      DirectAttributeFamilyDescriptor responseFamily = cachedTransaction.getResponseFamily();
+      DirectAttributeFamilyDescriptor stateFamily = cachedTransaction.getStateFamily();
+      final OnlineAttributeWriter writer = cachedTransaction.getCommitWriter();
+      final CachedView stateView = cachedTransaction.getStateView();
+      long now = System.currentTimeMillis();
+      StreamElement stateUpsert = getStateDesc().upsert(transactionId, now, updateState);
+      Commit commit =
+          Commit.of(
+              Arrays.asList(
+                  new Commit.TransactionUpdate(stateFamily.getDesc().getName(), stateUpsert),
+                  new Commit.TransactionUpdate(
+                      responseFamily.getDesc().getName(),
+                      getResponseDesc().upsert(transactionId, responseId, now, response))));
+      synchronized (stateView) {
+        ensureTransactionOpen(transactionId, updateState);
+        stateView.cache(stateUpsert);
+      }
       synchronized (writer) {
         writer.write(
-            responseDesc.upsert(transactionId, responseId, System.currentTimeMillis(), response),
-            callback);
+            getCommitDesc().upsert(transactionId, System.currentTimeMillis(), commit), callback);
       }
     } else {
       log.warn(
@@ -808,9 +826,18 @@ public class TransactionResourceManager
         attributes,
         mode);
 
-    return candidates
-        .stream()
-        .flatMap(f -> f.getAttributes().stream().map(a -> Pair.of(a, f)))
-        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+    Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> res =
+        candidates
+            .stream()
+            .flatMap(f -> f.getAttributes().stream().map(a -> Pair.of(a, f)))
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+
+    direct
+        .getRepository()
+        .getAllFamilies(true)
+        .filter(af -> af.getAttributes().contains(commitDesc))
+        .forEach(af -> res.put(commitDesc, direct.getFamilyByName(af.getName())));
+
+    return res;
   }
 }

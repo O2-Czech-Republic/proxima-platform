@@ -30,6 +30,7 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.storage.InMemStorage;
+import cz.o2.proxima.direct.transform.TransformationObserver;
 import cz.o2.proxima.functional.UnaryPredicate;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -270,7 +271,8 @@ public class ReplicationControllerTest {
 
   @Test
   public void testTransformationObserverRetryable() {
-    TransformationObserver observer = new TransformationObserver(direct, null, null, true, null);
+    TransformationObserver observer =
+        new TransformationObserver.NonContextual(direct, null, null, true, null);
     assertTrue(observer.onError(new IllegalArgumentException()));
   }
 

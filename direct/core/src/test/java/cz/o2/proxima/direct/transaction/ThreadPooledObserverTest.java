@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.transaction;
+package cz.o2.proxima.direct.transaction;
 
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.transaction.ThreadPooledObserver;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;

@@ -228,13 +228,15 @@ public class TransactionIT {
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X
     // if value is not present in attribute X, it is read from attribute Y, and written to X
 
-    int numWrites = 200;
-    int numThreads = 10;
+    // this test causes a lot of contention, so the throughput is limited
+    int numWrites = 100;
+    int numThreads = 2;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
     AtomicReference<Throwable> err = new AtomicReference<>();
     int numWritesPerThread = numWrites / numThreads;
+    assertEquals(numWritesPerThread * numThreads, numWrites);
     String attrA = device.toAttributePrefix() + "A";
     String attrB = device.toAttributePrefix() + "B";
     String key = "key";
@@ -270,13 +272,14 @@ public class TransactionIT {
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X
     // if value is not present in attribute X, it is read from attribute Y, and written to X
 
-    int numWrites = 100;
-    int numThreads = 10;
+    int numWrites = 50;
+    int numThreads = 2;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
     AtomicReference<Throwable> err = new AtomicReference<>();
     int numWritesPerThread = numWrites / numThreads;
+    assertEquals(numWritesPerThread * numThreads, numWrites);
     String attrA = device.toAttributePrefix() + "A";
     String attrB = device.toAttributePrefix() + "B";
     String key = "key";

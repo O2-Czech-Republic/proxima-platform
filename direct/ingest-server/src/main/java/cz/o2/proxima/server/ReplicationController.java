@@ -27,6 +27,8 @@ import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.transform.DirectElementWiseTransform;
+import cz.o2.proxima.direct.transform.TransformationObserver;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -364,8 +366,12 @@ public class ReplicationController {
                     new IllegalArgumentException(
                         "Cannot obtain attribute family for " + transform.getAttributes()));
 
-    final ElementWiseTransformation transformation =
-        transform.getTransformation().asElementWiseTransform();
+    runTransform(name, transform, family);
+  }
+
+  private void runTransform(
+      String name, TransformationDescriptor transform, DirectAttributeFamilyDescriptor family) {
+
     final StorageFilter filter = transform.getFilter();
     final String consumer = transform.getConsumerNameFactory().apply();
 
@@ -377,12 +383,78 @@ public class ReplicationController {
                     new IllegalStateException(
                         "Unable to get reader for family " + family.getDesc().getName() + "."));
 
-    startTransformationObserver(consumer, reader, transform, filter, name);
+    final TransformationObserver observer;
+    if (transform.getTransformation().isContextual()) {
+      DirectElementWiseTransform transformation =
+          transform.getTransformation().as(DirectElementWiseTransform.class);
+      observer =
+          contextualObserver(
+              dataOperator,
+              name,
+              transformation,
+              transform.getOutputTransactionMode() == OutputTransactionMode.ENABLED,
+              filter);
+    } else {
+      ElementWiseTransformation transformation =
+          transform.getTransformation().asElementWiseTransform();
+      observer =
+          nonContextualObserver(
+              dataOperator,
+              name,
+              transformation,
+              transform.getOutputTransactionMode() == OutputTransactionMode.ENABLED,
+              filter);
+    }
+    startTransformationObserverUsing(consumer, reader, observer);
     log.info(
         "Started transformer {} reading from {} using {}",
         consumer,
         reader.getUri(),
-        transformation.getClass());
+        transform.getTransformation().getClass());
+  }
+
+  private TransformationObserver nonContextualObserver(
+      DirectDataOperator dataOperator,
+      String name,
+      ElementWiseTransformation transformation,
+      boolean supportTransactions,
+      StorageFilter filter) {
+
+    return new TransformationObserver.NonContextual(
+        dataOperator, name, transformation, supportTransactions, filter) {
+
+      @Override
+      protected void reportConsumerWatermark(String name, long watermark, long elementStamp) {
+        Metrics.reportConsumerWatermark(name, watermark, elementStamp);
+      }
+
+      @Override
+      protected void die(String msg) {
+        Utils.die(msg);
+      }
+    };
+  }
+
+  private TransformationObserver contextualObserver(
+      DirectDataOperator dataOperator,
+      String name,
+      DirectElementWiseTransform transformation,
+      boolean supportTransactions,
+      StorageFilter filter) {
+
+    return new TransformationObserver.Contextual(
+        dataOperator, name, transformation, supportTransactions, filter) {
+
+      @Override
+      protected void reportConsumerWatermark(String name, long watermark, long elementStamp) {
+        Metrics.reportConsumerWatermark(name, watermark, elementStamp);
+      }
+
+      @Override
+      protected void die(String msg) {
+        Utils.die(msg);
+      }
+    };
   }
 
   private Stream<DirectAttributeFamilyDescriptor> getAttributeDescriptorStreamFor(
@@ -404,22 +476,9 @@ public class ReplicationController {
         .filter(af -> af.getDesc().getAccess().canReadCommitLog());
   }
 
-  private void startTransformationObserver(
-      String consumerName,
-      CommitLogReader reader,
-      TransformationDescriptor transform,
-      StorageFilter filter,
-      String name) {
+  private void startTransformationObserverUsing(
+      String consumerName, CommitLogReader reader, TransformationObserver observer) {
 
-    ElementWiseTransformation transformation =
-        transform.getTransformation().asElementWiseTransform();
-    TransformationObserver observer =
-        new TransformationObserver(
-            dataOperator,
-            name,
-            transformation,
-            transform.getOutputTransactionMode() == OutputTransactionMode.ENABLED,
-            filter);
     reader.observe(
         consumerName,
         CommitLogObservers.withNumRetriedExceptions(

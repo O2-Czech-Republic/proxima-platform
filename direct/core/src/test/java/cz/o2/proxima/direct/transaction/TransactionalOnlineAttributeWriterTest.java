@@ -19,8 +19,6 @@ import static cz.o2.proxima.direct.transaction.TransactionResourceManagerTest.ru
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
@@ -79,16 +77,14 @@ public class TransactionalOnlineAttributeWriterTest {
             String responseId = manager.getRequestDesc().extractSuffix(ingest.getAttribute());
             Request request = Optionals.get(manager.getRequestDesc().valueOf(ingest));
             Response response = Optional.ofNullable(toReturn.poll()).orElse(Response.empty());
-            CommitCallback toCommit = context::commit;
+            State state = manager.getCurrentState(transactionId);
             if (response.getFlags() == Response.Flags.OPEN) {
-              toCommit = CommitCallback.afterNumCommits(2, context::commit);
-              manager.setCurrentState(
-                  transactionId,
+              state =
                   State.open(
-                      response.getSeqId(), response.getStamp(), request.getInputAttributes()),
-                  toCommit);
+                      response.getSeqId(), response.getStamp(), request.getInputAttributes());
             }
-            manager.writeResponse(transactionId, responseId, response, toCommit);
+            manager.writeResponseAndUpdateState(
+                transactionId, state, responseId, response, context::commit);
           } else {
             context.confirm();
           }
@@ -179,70 +175,63 @@ public class TransactionalOnlineAttributeWriterTest {
   public void testTransactionCreateUpdateCommitMultipleOutputs()
       throws InterruptedException, TransactionRejectedException {
 
-    try (ObserveHandle handle =
-        TransformationRunner.runTransformation(
-            direct,
-            "_transaction-commit",
-            repo.getTransformations().get("_transaction-commit"),
-            ign -> {})) {
-      CachedView view = Optionals.get(direct.getCachedView(status));
-      view.assign(view.getPartitions());
-      OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
-      assertTrue(writer.isTransactional());
-      long stamp = 123456789000L;
-      // we successfully open and commit the transaction
-      toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
-      toReturn.add(Response.forRequest(anyRequest()).updated());
-      toReturn.add(Response.forRequest(anyRequest()).committed());
-      KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
-      try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
-        t.update(Collections.singletonList(ka));
-        t.update(Collections.singletonList(ka));
-        t.commitWrite(
-            Arrays.asList(
-                StreamElement.upsert(
-                    gateway,
-                    status,
-                    UUID.randomUUID().toString(),
-                    "key",
-                    status.getName(),
-                    System.currentTimeMillis(),
-                    new byte[] {1, 2, 3}),
-                StreamElement.upsert(
-                    gateway,
-                    status,
-                    UUID.randomUUID().toString(),
-                    "key2",
-                    status.getName(),
-                    System.currentTimeMillis() + 1,
-                    new byte[] {1, 2, 3})),
-            (succ, exc) -> {
-              assertTrue(succ);
-              assertNull(exc);
-            });
-      }
-      while (!view.get("key", status).isPresent()) {
-        // need to wait for the transformation
-        TimeUnit.MILLISECONDS.sleep(100);
-      }
-      Optional<KeyValue<byte[]>> res = view.get("key", status);
-      assertTrue(res.isPresent());
-      assertEquals("key", res.get().getKey());
-      assertTrue(res.get().hasSequentialId());
-      assertEquals(1L, res.get().getSequentialId());
-      assertEquals(stamp, res.get().getStamp());
-
-      while (!view.get("key2", status).isPresent()) {
-        // need to wait for the transformation
-        TimeUnit.MILLISECONDS.sleep(100);
-      }
-      res = view.get("key2", status);
-      assertTrue(res.isPresent());
-      assertEquals("key2", res.get().getKey());
-      assertTrue(res.get().hasSequentialId());
-      assertEquals(1L, res.get().getSequentialId());
-      assertEquals(stamp, res.get().getStamp());
+    CachedView view = Optionals.get(direct.getCachedView(status));
+    view.assign(view.getPartitions());
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
+    assertTrue(writer.isTransactional());
+    long stamp = 123456789000L;
+    // we successfully open and commit the transaction
+    toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
+    toReturn.add(Response.forRequest(anyRequest()).updated());
+    toReturn.add(Response.forRequest(anyRequest()).committed());
+    KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
+    try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
+      t.update(Collections.singletonList(ka));
+      t.update(Collections.singletonList(ka));
+      t.commitWrite(
+          Arrays.asList(
+              StreamElement.upsert(
+                  gateway,
+                  status,
+                  UUID.randomUUID().toString(),
+                  "key",
+                  status.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, 3}),
+              StreamElement.upsert(
+                  gateway,
+                  status,
+                  UUID.randomUUID().toString(),
+                  "key2",
+                  status.getName(),
+                  System.currentTimeMillis() + 1,
+                  new byte[] {1, 2, 3})),
+          (succ, exc) -> {
+            assertTrue(succ);
+            assertNull(exc);
+          });
     }
+    while (!view.get("key", status).isPresent()) {
+      // need to wait for the transformation
+      TimeUnit.MILLISECONDS.sleep(100);
+    }
+    Optional<KeyValue<byte[]>> res = view.get("key", status);
+    assertTrue(res.isPresent());
+    assertEquals("key", res.get().getKey());
+    assertTrue(res.get().hasSequentialId());
+    assertEquals(1L, res.get().getSequentialId());
+    assertEquals(stamp, res.get().getStamp());
+
+    while (!view.get("key2", status).isPresent()) {
+      // need to wait for the transformation
+      TimeUnit.MILLISECONDS.sleep(100);
+    }
+    res = view.get("key2", status);
+    assertTrue(res.isPresent());
+    assertEquals("key2", res.get().getKey());
+    assertTrue(res.get().hasSequentialId());
+    assertEquals(1L, res.get().getSequentialId());
+    assertEquals(stamp, res.get().getStamp());
   }
 
   @Test(timeout = 10_000, expected = TransactionRejectedException.class)

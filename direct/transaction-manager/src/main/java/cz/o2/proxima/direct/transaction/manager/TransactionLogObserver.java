@@ -109,6 +109,7 @@ public class TransactionLogObserver implements CommitLogObserver {
 
     public static SeqIdWithTombstone create(
         TransactionLogObserver observer, long committedSeqId, boolean delete) {
+
       return new SeqIdWithTombstone(committedSeqId, delete, observer.currentTimeMillis());
     }
 
@@ -445,6 +446,11 @@ public class TransactionLogObserver implements CommitLogObserver {
           return transitionToAborted(transactionId, currentState);
         }
         break;
+      case ABORTED:
+        if (request.getFlags() == Request.Flags.ROLLBACK) {
+          return currentState;
+        }
+        break;
     }
     return null;
   }
@@ -548,17 +554,23 @@ public class TransactionLogObserver implements CommitLogObserver {
           .filter(ka -> !ka.isWildcardQuery())
           .noneMatch(
               ka -> {
+                if (!ka.isDelete()
+                    && ka.getSequenceId() < Long.MAX_VALUE
+                    && ka.getSequenceId() >= transactionSeqId) {
+                  // disallow any (well-defined) sequenceId with higher value that current
+                  // transaction
+                  return true;
+                }
                 SortedSet<SeqIdWithTombstone> lastUpdated =
                     lastUpdateSeqId.get(KeyWithAttribute.of(ka));
                 if (lastUpdated == null || lastUpdated.isEmpty()) {
                   return false;
                 }
                 long lastUpdatedSeqId = lastUpdated.last().getSeqId();
-                return lastUpdatedSeqId > transactionSeqId
+                return lastUpdatedSeqId >= transactionSeqId
                     || (lastUpdatedSeqId > ka.getSequenceId()
                         // we can accept somewhat stale data if the state is equal => both agree
-                        // that
-                        // the field was deleted
+                        // that the field was deleted
                         && (!lastUpdated.last().isTombstone() || !ka.isDelete()));
               });
     }

@@ -424,6 +424,26 @@ public class TransactionLogObserverTest {
     assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
   }
 
+  @Test(timeout = 10000)
+  public void testCreateTransactionRollbackRollback() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    responseQueue.take();
+    clientManager.rollback(transactionId);
+    Pair<String, Response> rollbackResponse1 = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, rollbackResponse1.getSecond().getFlags());
+    clientManager.rollback(transactionId);
+    Pair<String, Response> rollbackResponse2 = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, rollbackResponse2.getSecond().getFlags());
+  }
+
   static class WithTransactionTimeout implements TransactionLogObserverFactory {
 
     private final long timeout;

@@ -151,16 +151,12 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
   private Optional<BoundStatement> elementDelete(StreamElement ingest) {
     PreparedStatement prepared = getPreparedStatement(current, ingest);
-    if (ingest.isDeleteWildcard()) {
-      return Optional.of(prepared.bind(ingest.getStamp() * 1000L, ingest.getKey()));
-    } else {
-      if (ingest.getAttributeDescriptor().isWildcard()) {
-        String attr = ingest.getAttribute();
-        Object colVal = toColVal(attr);
-        return Optional.of(prepared.bind(ingest.getStamp() * 1000L, colVal, ingest.getKey()));
-      }
-      return Optional.of(prepared.bind(ingest.getStamp() * 1000L, ingest.getKey()));
+    if (!ingest.isDeleteWildcard() && ingest.getAttributeDescriptor().isWildcard()) {
+      String attr = ingest.getAttribute();
+      Object colVal = toColVal(attr);
+      return Optional.of(prepared.bind(ingest.getStamp() * 1000L, colVal, ingest.getKey()));
     }
+    return Optional.of(prepared.bind(ingest.getStamp() * 1000L, ingest.getKey()));
   }
 
   @Override
@@ -304,8 +300,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   @Override
   public <T> KvIterable<T> getListAllStatement(
       String key, Offsets.Raw offset, int limit, Session session) {
-
     throw new UnsupportedOperationException(
-        "Unsupported. " + "See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
+        "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
   }
 }

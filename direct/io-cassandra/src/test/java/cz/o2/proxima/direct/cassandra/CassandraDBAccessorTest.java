@@ -234,6 +234,7 @@ public class CassandraDBAccessorTest {
 
   final Repository repo =
       ConfigRepository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
+  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   AttributeDescriptorBase<byte[]> attr;
   AttributeDescriptorBase<byte[]> attrWildcard;
   EntityDescriptor entity;
@@ -327,7 +328,7 @@ public class CassandraDBAccessorTest {
 
   /** Test get of attribute. */
   @Test
-  public void testGetSuccess() {
+  public void testGetSuccess() throws IOException {
     entity = EntityDescriptor.newBuilder().setName("dummy").build();
 
     byte[] payload = new byte[] {1, 2};
@@ -341,15 +342,16 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class));
-    RandomAccessReader db = accessor.newRandomReader();
+    try (RandomAccessReader db = accessor.newRandomReader()) {
 
-    accessor.setRes(res);
+      accessor.setRes(res);
 
-    Optional<KeyValue<byte[]>> value = db.get("key", attr);
-    assertTrue(value.isPresent());
-    assertEquals("dummy", value.get().getAttribute());
-    assertEquals("key", value.get().getKey());
-    assertArrayEquals(payload, (byte[]) value.get().getValue());
+      Optional<KeyValue<byte[]>> value = db.get("key", attr);
+      assertTrue(value.isPresent());
+      assertEquals("dummy", value.get().getAttribute());
+      assertEquals("key", value.get().getKey());
+      assertArrayEquals(payload, (byte[]) value.get().getValue());
+    }
   }
 
   /** Test failed get does throw exceptions. */
@@ -534,7 +536,7 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
-    CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
+    CassandraLogReader reader = accessor.newBatchReader(direct.getContext());
 
     int numElements = 100;
     ResultSet result = mockResultSet(numElements);
@@ -542,34 +544,36 @@ public class CassandraDBAccessorTest {
 
     AtomicInteger numConsumed = new AtomicInteger();
     CountDownLatch latch = new CountDownLatch(1);
-    reader.observe(
-        reader.getPartitions(),
-        Collections.singletonList(attr),
-        new BatchLogObserver() {
-          @Override
-          public boolean onNext(StreamElement element) {
-            numConsumed.incrementAndGet();
-            return true;
-          }
+    try (ObserveHandle handle =
+        reader.observe(
+            reader.getPartitions(),
+            Collections.singletonList(attr),
+            new BatchLogObserver() {
+              @Override
+              public boolean onNext(StreamElement element) {
+                numConsumed.incrementAndGet();
+                return true;
+              }
 
-          @Override
-          public boolean onError(Throwable error) {
-            while (latch.getCount() > 0) {
-              latch.countDown();
-            }
-            throw new RuntimeException(error);
-          }
+              @Override
+              public boolean onError(Throwable error) {
+                while (latch.getCount() > 0) {
+                  latch.countDown();
+                }
+                throw new RuntimeException(error);
+              }
 
-          @Override
-          public void onCompleted() {
-            latch.countDown();
-          }
-        });
+              @Override
+              public void onCompleted() {
+                latch.countDown();
+              }
+            })) {
 
-    latch.await();
-    assertEquals(numElements, numConsumed.get());
-    List<Statement> executed = accessor.getExecuted();
-    assertEquals(2, executed.size());
+      latch.await();
+      assertEquals(numElements, numConsumed.get());
+      List<Statement> executed = accessor.getExecuted();
+      assertEquals(2, executed.size());
+    }
   }
 
   @Test(timeout = 10000)
@@ -578,7 +582,7 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
-    CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
+    CassandraLogReader reader = accessor.newBatchReader(direct.getContext());
 
     int numElements = 100;
     ResultSet result = mockResultSet(numElements);
@@ -617,7 +621,7 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
-    CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
+    CassandraLogReader reader = accessor.newBatchReader(direct.getContext());
 
     int numElements = 2;
     ResultSet result = mockResultSet(numElements);
@@ -673,10 +677,13 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
-    CassandraRandomReader reader = accessor.newRandomReader();
-    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
-    RandomAccessReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(reader.getUri(), ((CassandraRandomReader) factory.apply(repo)).getUri());
+    final CassandraRandomReader originalReader = accessor.newRandomReader();
+    byte[] bytes = TestUtils.serializeObject(originalReader.asFactory());
+    final RandomAccessReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    final CassandraRandomReader deserializedReader = (CassandraRandomReader) factory.apply(repo);
+    assertEquals(originalReader.getUri(), deserializedReader.getUri());
+    // Make sure we've deserialized everything we need for executing query.
+    assertFalse(deserializedReader.get("key", "attr", attr).isPresent());
   }
 
   @Test
@@ -684,10 +691,11 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
-    CassandraWriter writer = accessor.newWriter();
-    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
-    AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(writer.getUri(), ((CassandraWriter) factory.apply(repo)).getUri());
+    try (CassandraWriter writer = accessor.newWriter()) {
+      byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+      AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
+      assertEquals(writer.getUri(), ((CassandraWriter) factory.apply(repo)).getUri());
+    }
   }
 
   @Test

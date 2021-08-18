@@ -22,18 +22,25 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.util.Classpath;
+import java.io.ObjectStreamException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -41,10 +48,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * {@code AttributeWriter} for Apache Cassandra. This class is completely synchronized for now, need
- * to do performance measurements to do better
- */
+/** {@code AttributeWriter} for Apache Cassandra. */
 @Slf4j
 public class CassandraDBAccessor extends AbstractStorage implements DataAccessor {
 
@@ -54,15 +58,20 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   static final String CQL_STRING_CONVERTER = "converter";
   static final String CQL_PARALLEL_SCANS = "scanParallelism";
 
-  @Getter(AccessLevel.PACKAGE)
-  private final CqlFactory cqlFactory;
-
   /** Converter between string and native cassandra type used for wildcard types. */
   @Getter(AccessLevel.PACKAGE)
   private final StringConverter<Object> converter;
+
   /** Parallel scans. */
   @Getter(AccessLevel.PACKAGE)
   private final int batchParallelism;
+
+  private final String cqlFactoryName;
+
+  private transient ThreadLocal<CqlFactory> cqlFactory;
+
+  private transient volatile boolean sessionInitialized = false;
+
   /** Our cassandra cluster. */
   @Nullable private transient Cluster cluster;
   /** Session we are connected to. */
@@ -74,7 +83,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     super(entityDesc, uri);
 
     Object factoryName = cfg.get(CQL_FACTORY_CFG);
-    String cqlFactoryName =
+    this.cqlFactoryName =
         factoryName == null ? DefaultCqlFactory.class.getName() : factoryName.toString();
 
     Object tmp = cfg.get(CQL_PARALLEL_SCANS);
@@ -99,18 +108,29 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
       }
     }
     this.converter = (StringConverter) c;
-    try {
-      cqlFactory = Classpath.findClass(cqlFactoryName, CqlFactory.class).newInstance();
-      cqlFactory.setup(entityDesc, uri, converter);
-    } catch (InstantiationException | IllegalAccessException ex) {
-      throw new IllegalArgumentException("Cannot instantiate class " + cqlFactoryName, ex);
-    }
+    initializeCqlFactory();
+  }
+
+  private void initializeCqlFactory() {
+    this.cqlFactory =
+        ThreadLocal.withInitial(
+            () -> {
+              try {
+                final CqlFactory cqlFactory =
+                    Classpath.findClass(cqlFactoryName, CqlFactory.class).newInstance();
+                cqlFactory.setup(getEntityDescriptor(), getUri(), converter);
+                return cqlFactory;
+              } catch (InstantiationException | IllegalAccessException ex) {
+                throw new IllegalArgumentException(
+                    "Cannot instantiate class " + cqlFactoryName, ex);
+              }
+            });
   }
 
   ResultSet execute(Statement statement) {
     if (log.isDebugEnabled()) {
       if (statement instanceof BoundStatement) {
-        BoundStatement s = (BoundStatement) statement;
+        final BoundStatement s = (BoundStatement) statement;
         log.debug("Executing BoundStatement {}", s.preparedStatement().getQueryString());
       } else {
         log.debug(
@@ -120,7 +140,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
             statement.getOutgoingPayload());
       }
     }
-    return session.execute(statement);
+    return ensureSession().execute(statement);
   }
 
   @VisibleForTesting
@@ -130,7 +150,6 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
       throw new IllegalArgumentException("Invalid authority in " + uri);
     }
     return Cluster.builder()
-        // .withCodecRegistry(CodecRegistry.DEFAULT_INSTANCE.register(TypeCodec.))
         .addContactPointsWithPorts(
             Arrays.stream(authority.split(","))
                 .map(
@@ -146,30 +165,41 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
         .build();
   }
 
-  synchronized Session ensureSession() {
-    if (session == null || session.isClosed()) {
-      if (cluster == null || cluster.isClosed()) {
-        if (cluster != null) {
-          cluster.close();
+  Session ensureSession() {
+    if (!sessionInitialized || Objects.requireNonNull(session).isClosed()) {
+      synchronized (this) {
+        if (!sessionInitialized || Objects.requireNonNull(session).isClosed()) {
+          sessionInitialized = true;
+          if (cluster != null) {
+            cluster.close();
+          }
+          cluster = getCluster(getUri());
+          if (session != null) {
+            session.close();
+          }
+          session = Objects.requireNonNull(cluster).connect();
+          return session;
         }
-        cluster = getCluster(getUri());
       }
-      if (session != null) {
-        session.close();
-      }
-      session = cluster.connect();
     }
     return session;
   }
 
-  synchronized void close() {
-    if (session != null) {
-      session.close();
-      session = null;
-    }
-    if (cluster != null) {
-      cluster.close();
-      cluster = null;
+  void close() {
+    if (sessionInitialized) {
+      synchronized (this) {
+        if (sessionInitialized) {
+          sessionInitialized = false;
+          if (session != null) {
+            session.close();
+            session = null;
+          }
+          if (cluster != null) {
+            cluster.close();
+            cluster = null;
+          }
+        }
+      }
     }
   }
 
@@ -190,16 +220,52 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   @VisibleForTesting
   CassandraRandomReader newRandomReader() {
-    return new CassandraRandomReader(this);
+    return new CassandraRandomReader(this) {
+
+      @Override
+      public void close() {
+        super.close();
+        cqlFactory.remove();
+      }
+    };
   }
 
   @VisibleForTesting
   CassandraLogReader newBatchReader(Context context) {
-    return new CassandraLogReader(this, context::getExecutorService);
+    return new CassandraLogReader(this, context::getExecutorService) {
+
+      @Override
+      public ObserveHandle observe(
+          List<Partition> partitions,
+          List<AttributeDescriptor<?>> attributes,
+          BatchLogObserver observer) {
+        final ObserveHandle handle = super.observe(partitions, attributes, observer);
+        return () -> {
+          handle.close();
+          cqlFactory.remove();
+        };
+      }
+    };
   }
 
   @VisibleForTesting
   CassandraWriter newWriter() {
-    return new CassandraWriter(this);
+    return new CassandraWriter(this) {
+
+      @Override
+      public void close() {
+        super.close();
+        cqlFactory.remove();
+      }
+    };
+  }
+
+  CqlFactory getCqlFactory() {
+    return cqlFactory.get();
+  }
+
+  Object readResolve() throws ObjectStreamException {
+    initializeCqlFactory();
+    return this;
   }
 }

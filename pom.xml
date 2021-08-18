@@ -364,6 +364,7 @@
         <module>flink</module>
         <module>core</module>
         <module>direct</module>
+        <module>example</module>
         <module>io</module>
         <module>maven</module>
         <module>scheme</module>

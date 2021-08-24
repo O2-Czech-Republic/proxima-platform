@@ -250,7 +250,7 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-direct-io-hadoop</artifactId>
-      <version>${project.version}</version>
+      <version>${proxima.main.project.version}</version>
     </dependency>
 
     <dependency>

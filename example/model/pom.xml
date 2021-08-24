@@ -119,7 +119,7 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-direct-io-hdfs</artifactId>
-      <version>${project.version}</version>
+      <version>${proxima.main.project.version}</version>
     </dependency>
 
     <dependency>

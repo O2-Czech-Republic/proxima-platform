@@ -47,11 +47,16 @@ if git log HEAD~1..HEAD | grep rebuild 1> /dev/null 2> /dev/null; then
   exit 0;
 fi
 
+ALLOWED_PROJECTS=$(mvn -Dexec.executable='echo' -Dexec.args='${project.groupId}:${project.artifactId}' exec:exec -q)
+
 for pom in $(git log --name-only origin/master..HEAD | sed "s/src\/.\+/pom.xml/" | grep pom.xml | sort | uniq); do
-  if [[ ! -z $PROJECTS ]]; then
-    PROJECTS=",${PROJECTS}"
+  NAME=$(get_name $pom)
+  if [[ $ALLOWED_PROJECTS =~ .*$NAME.* ]]; then
+    if [[ ! -z $PROJECTS ]]; then
+      PROJECTS=",${PROJECTS}"
+    fi
+    PROJECTS=$(get_name $pom)${PROJECTS}
   fi
-  PROJECTS=$(get_name $pom)${PROJECTS}
 done
 
 if [[ $SONAR == 1 ]]; then

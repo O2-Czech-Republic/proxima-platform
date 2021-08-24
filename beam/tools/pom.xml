@@ -32,7 +32,7 @@
   <name>${project.groupId}:${project.artifactId}</name>
 
   <properties>
-    <spark.version>2.4.5</spark.version>
+    <spark.version>3.1.2</spark.version>
     <shadePattern>cz.o2.proxima.beam.tools.shaded</shadePattern>
   </properties>
 
@@ -310,7 +310,7 @@
 
     <dependency>
       <groupId>${apache.beam.groupId}</groupId>
-      <artifactId>beam-runners-spark</artifactId>
+      <artifactId>beam-runners-spark-3</artifactId>
     </dependency>
 
     <dependency>

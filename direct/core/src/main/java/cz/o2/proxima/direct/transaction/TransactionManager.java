@@ -27,6 +27,11 @@ import cz.o2.proxima.transaction.State;
 @Internal
 public interface TransactionManager {
 
+  interface TransactionConfig {
+    /** Get cleanup interval in milliseconds. */
+    long getCleanupInterval();
+  }
+
   EntityDescriptor getTransaction();
 
   Wildcard<Request> getRequestDesc();
@@ -36,4 +41,6 @@ public interface TransactionManager {
   Regular<State> getStateDesc();
 
   Regular<Commit> getCommitDesc();
+
+  TransactionConfig getCfg();
 }

@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.server;
+package cz.o2.proxima.server.transaction;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 
 import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.transaction.ServerTransactionManager;
 import cz.o2.proxima.direct.transaction.manager.TransactionLogObserver;
 import cz.o2.proxima.proto.service.Rpc.BeginTransactionRequest;
 import cz.o2.proxima.proto.service.Rpc.BeginTransactionResponse;
@@ -37,7 +37,9 @@ import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.server.transaction.TransactionContext;
+import cz.o2.proxima.server.IngestService;
+import cz.o2.proxima.server.RetrieveService;
+import cz.o2.proxima.server.transaction.TransactionContext.Transaction;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.ExceptionUtils;
@@ -51,6 +53,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
@@ -97,6 +100,7 @@ public class TransactionsTest {
     scheduler.shutdown();
     observer.onCancelled();
     transformationHandle.close();
+    transactionContext.close();
   }
 
   @Test(timeout = 10000)
@@ -212,8 +216,9 @@ public class TransactionsTest {
     assertEquals(1, responses.size());
     String transactionId = responses.get(0).getTransactionId();
     transactionContext.close();
-    while (direct.getServerTransactionManager().getCurrentState(transactionId).getFlags()
-        != State.Flags.ABORTED) {
+    ServerTransactionManager manager = observer.getRawManager();
+    while (manager.getCurrentState(transactionId).getFlags() != State.Flags.UNKNOWN
+        && manager.getCurrentState(transactionId).getFlags() != State.Flags.ABORTED) {
       if (ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(100))) {
         break;
       }
@@ -240,6 +245,22 @@ public class TransactionsTest {
     assertEquals(412, status.getStatus(0).getStatus());
     TransactionCommitResponse commitResponse = commit(transactionId);
     assertEquals(TransactionCommitResponse.Status.FAILED, commitResponse.getStatus());
+  }
+
+  @Test
+  public void testTransactionRollbackOnCleanup() {
+    AtomicLong clock = new AtomicLong(System.currentTimeMillis());
+    try (TransactionContext context = new TransactionContext(direct, clock::get)) {
+      context.run();
+      Transaction transaction = context.create();
+      context.clearAnyStaleTransactions();
+      assertEquals(
+          transaction.getTransactionId(),
+          context.get(transaction.getTransactionId()).getTransactionId());
+      clock.addAndGet(86400000L);
+      context.clearAnyStaleTransactions();
+      assertNull(context.getTransactionMap().get(transaction.getTransactionId()));
+    }
   }
 
   private TransactionCommitResponse commit(String transactionId) {

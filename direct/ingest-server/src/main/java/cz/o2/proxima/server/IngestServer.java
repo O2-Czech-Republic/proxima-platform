@@ -23,9 +23,9 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.ConfigConstants;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.server.transaction.TransactionContext;
@@ -37,6 +37,7 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCall.Listener;
 import io.grpc.ServerCallHandler;
 import java.io.File;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
@@ -44,6 +45,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.jodah.failsafe.RetryPolicy;
@@ -77,7 +79,7 @@ public class IngestServer {
   @Getter final DirectDataOperator direct;
   @Getter final Config cfg;
   @Getter final boolean ignoreErrors;
-  @Getter final TransactionContext transactionContext;
+  @Getter @Nullable final TransactionContext transactionContext;
 
   @Getter
   RetryPolicy retryPolicy =
@@ -102,7 +104,10 @@ public class IngestServer {
     }
     this.ignoreErrors =
         cfg.hasPath(Constants.CFG_IGNORE_ERRORS) && cfg.getBoolean(Constants.CFG_IGNORE_ERRORS);
-    this.transactionContext = new TransactionContext(direct);
+    this.transactionContext =
+        direct.getRepository().findEntity(ConfigConstants.TRANSACTION_ENTITY).isPresent()
+            ? new TransactionContext(direct)
+            : null;
     executor = createExecutor(cfg);
   }
 
@@ -112,20 +117,9 @@ public class IngestServer {
       String uuid,
       Consumer<Rpc.Status> responseConsumer) {
 
-    return ingestRequest(direct, ingest, uuid, true, responseConsumer);
-  }
-
-  static boolean ingestRequest(
-      DirectDataOperator direct,
-      StreamElement ingest,
-      String uuid,
-      boolean supportTransactions,
-      Consumer<Rpc.Status> responseConsumer) {
-
     AttributeDescriptor<?> attributeDesc = ingest.getAttributeDescriptor();
 
-    OnlineAttributeWriter writer =
-        getWriterForAttributeInTransform(direct, supportTransactions, attributeDesc);
+    OnlineAttributeWriter writer = getWriterForAttributeInTransform(direct, attributeDesc);
 
     if (writer == null) {
       log.warn("Missing writer for request {}", ingest);
@@ -161,17 +155,10 @@ public class IngestServer {
   }
 
   private static OnlineAttributeWriter getWriterForAttributeInTransform(
-      DirectDataOperator direct,
-      boolean supportTransactions,
-      AttributeDescriptor<?> attributeDesc) {
+      DirectDataOperator direct, AttributeDescriptor<?> attributeDesc) {
 
     return direct
         .getWriter(attributeDesc)
-        .map(
-            w ->
-                supportTransactions || !w.isTransactional()
-                    ? w
-                    : ((TransactionalOnlineAttributeWriter) w).getDelegate())
         .orElseThrow(
             () ->
                 new IllegalStateException(
@@ -218,13 +205,15 @@ public class IngestServer {
 
     try {
       server.start();
+      Optional.ofNullable(transactionContext).ifPresent(TransactionContext::run);
       log.info("Successfully started server 0.0.0.0:{}", server.getPort());
       Metrics.LIVENESS.increment(1.0);
       server.awaitTermination();
-      transactionContext.close();
       log.info("Server shutdown.");
     } catch (Exception ex) {
-      Utils.die("Failed to start the server", ex);
+      log.error("Failed to start the server", ex);
+    } finally {
+      Optional.ofNullable(transactionContext).ifPresent(TransactionContext::close);
     }
     Metrics.LIVENESS.reset();
   }

@@ -53,7 +53,7 @@ public class IngestServiceTest {
   CountDownLatch latch;
 
   @Before
-  public void setup() throws InterruptedException {
+  public void setup() {
     server =
         new IngestServer(
             ConfigFactory.load("test-ingest-server.conf")

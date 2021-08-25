@@ -602,7 +602,7 @@ public class TransactionResourceManager
     } catch (UnknownHostException e) {
       log.warn("Error getting name of localhost, using {} instead.", localhost, e);
     }
-    return "transactionResponseObserver-"
+    return "transaction-response-observer-"
         + k.getDesc().getName()
         + (localhost.hashCode() & Integer.MAX_VALUE);
   }

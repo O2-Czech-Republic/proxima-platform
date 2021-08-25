@@ -156,7 +156,6 @@ public class TransactionResourceManager
         new HashMap<>();
     final @Nullable BiConsumer<String, Response> responseConsumer;
     @Nullable OnlineAttributeWriter requestWriter;
-    @Nullable OnlineAttributeWriter responseWriter;
     @Nullable OnlineAttributeWriter commitWriter;
     @Nullable CachedView stateView;
     int requestId = 1;
@@ -240,7 +239,7 @@ public class TransactionResourceManager
 
     @Override
     public void close() {
-      requestWriter = responseWriter = commitWriter = null;
+      requestWriter = commitWriter = null;
       stateView = null;
     }
 
@@ -249,18 +248,10 @@ public class TransactionResourceManager
         DirectAttributeFamilyDescriptor family = attributeToFamily.get(requestDesc);
         requestWriter = getCachedAccessors(family).getOrCreateWriter();
       }
-      DirectAttributeFamilyDescriptor responseFamile = attributeToFamily.get(responseDesc);
+      DirectAttributeFamilyDescriptor responseFamily = attributeToFamily.get(responseDesc);
       return Pair.of(
-          Objects.requireNonNull(clientObservedFamilies.get(responseFamile).getPartitions()),
+          Objects.requireNonNull(clientObservedFamilies.get(responseFamily).getPartitions()),
           requestWriter);
-    }
-
-    OnlineAttributeWriter getResponseWriter() {
-      if (responseWriter == null) {
-        DirectAttributeFamilyDescriptor family = attributeToFamily.get(responseDesc);
-        responseWriter = getCachedAccessors(family).getOrCreateWriter();
-      }
-      return responseWriter;
     }
 
     public DirectAttributeFamilyDescriptor getResponseFamily() {
@@ -611,7 +602,7 @@ public class TransactionResourceManager
     } catch (UnknownHostException e) {
       log.warn("Error getting name of localhost, using {} instead.", localhost, e);
     }
-    return "transactionResponseObserver-"
+    return "transaction-response-observer-"
         + k.getDesc().getName()
         + (localhost.hashCode() & Integer.MAX_VALUE);
   }
@@ -625,8 +616,9 @@ public class TransactionResourceManager
         log.debug("Received transaction event {}", ingest);
         if (ingest.getAttributeDescriptor().equals(responseDesc)) {
           String transactionId = ingest.getKey();
-          BiConsumer<String, Response> consumer = transactionResponseConsumers.get(transactionId);
           Optional<Response> response = responseDesc.valueOf(ingest);
+          @Nullable
+          BiConsumer<String, Response> consumer = transactionResponseConsumers.get(transactionId);
           if (consumer != null) {
             if (response.isPresent()) {
               String suffix = responseDesc.extractSuffix(ingest.getAttribute());

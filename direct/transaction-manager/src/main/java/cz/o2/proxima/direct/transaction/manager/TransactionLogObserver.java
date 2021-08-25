@@ -631,7 +631,7 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   @VisibleForTesting
-  ServerTransactionManager getRawManager() {
+  public ServerTransactionManager getRawManager() {
     return unsynchronizedManager;
   }
 }

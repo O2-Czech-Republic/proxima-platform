@@ -44,10 +44,8 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
     }
   }
 
-  interface ServerTransactionConfig {
-    /** Get cleanup interval in milliseconds. */
-    long getCleanupInterval();
-    /** Get initiial sequential ID policy. */
+  interface ServerTransactionConfig extends TransactionConfig {
+    /** Get initial sequential ID policy. */
     InitialSequenceIdPolicy getInitialSeqIdPolicy();
   }
 
@@ -105,5 +103,6 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
   void houseKeeping();
 
   /** Retrieve a configuration read from the {@link Repository}. */
+  @Override
   ServerTransactionConfig getCfg();
 }

@@ -92,6 +92,7 @@
         <module>io-kafka</module>
         <module>io-pubsub</module>
         <module>io-s3</module>
+        <module>io-serialization</module>
         <module>rpc</module>
         <module>transaction-manager</module>
       </modules>
@@ -118,6 +119,7 @@
         <module>io-kafka</module>
         <module>io-pubsub</module>
         <module>io-s3</module>
+        <module>io-serialization</module>
         <module>rpc</module>
         <module>transaction-manager</module>
       </modules>

@@ -18,14 +18,14 @@ package cz.o2.proxima.direct.bulk;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
-import com.google.protobuf.util.JsonFormat.Parser;
-import com.google.protobuf.util.JsonFormat.Printer;
-import cz.o2.proxima.gcloud.storage.proto.Serialization.JsonElement;
-import cz.o2.proxima.gcloud.storage.proto.Serialization.JsonElement.Builder;
+import cz.o2.proxima.direct.serialization.com.google.protobuf.util.JsonFormat.Parser;
+import cz.o2.proxima.direct.serialization.com.google.protobuf.util.JsonFormat.Printer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.proto.Serialization.JsonElement;
+import cz.o2.proxima.storage.proto.Serialization.JsonElement.Builder;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -48,8 +48,10 @@ public class JsonFormat implements FileFormat {
 
   private static final long serialVersionUID = 1L;
 
-  private static final Parser parser = com.google.protobuf.util.JsonFormat.parser();
-  private static final Printer printer = com.google.protobuf.util.JsonFormat.printer();
+  private static final Parser parser =
+      cz.o2.proxima.direct.serialization.com.google.protobuf.util.JsonFormat.parser();
+  private static final Printer printer =
+      cz.o2.proxima.direct.serialization.com.google.protobuf.util.JsonFormat.printer();
 
   private static class JsonReader extends AbstractIterator<StreamElement> implements Reader {
 

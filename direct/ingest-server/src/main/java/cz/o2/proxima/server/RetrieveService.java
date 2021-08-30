@@ -33,7 +33,6 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.server.transaction.TransactionContext;
-import cz.o2.proxima.server.transaction.TransactionContext.Transaction;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import io.grpc.stub.StreamObserver;
@@ -79,9 +78,9 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       Rpc.BeginTransactionRequest request,
       StreamObserver<Rpc.BeginTransactionResponse> responseObserver) {
 
-    Transaction t = transactionContext.create();
+    String transactionId = transactionContext.create();
     responseObserver.onNext(
-        Rpc.BeginTransactionResponse.newBuilder().setTransactionId(t.getTransactionId()).build());
+        Rpc.BeginTransactionResponse.newBuilder().setTransactionId(transactionId).build());
     responseObserver.onCompleted();
   }
 

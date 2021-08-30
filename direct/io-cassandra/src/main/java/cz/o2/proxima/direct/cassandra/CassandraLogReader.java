@@ -31,7 +31,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 
 /** A {@link BatchLogReader} implementation for cassandra. */
 class CassandraLogReader implements BatchLogReader {
@@ -118,7 +117,6 @@ class CassandraLogReader implements BatchLogReader {
     Session session = accessor.ensureSession();
     result =
         accessor.execute(accessor.getCqlFactory().scanPartition(attributes, partition, session));
-    AtomicLong position = new AtomicLong();
     for (Row row : result) {
       if (terminationContext.isCancelled()) {
         return false;
@@ -136,21 +134,18 @@ class CassandraLogReader implements BatchLogReader {
         ByteBuffer bytes = row.getBytes(field++);
         if (bytes != null) {
           byte[] array = bytes.slice().array();
-          if (!observer.onNext(
-              StreamElement.upsert(
-                  accessor.getEntityDescriptor(),
-                  attribute,
-                  "cql-"
-                      + accessor.getEntityDescriptor().getName()
-                      + "-part"
-                      + partition.getId()
-                      + position.incrementAndGet(),
-                  key,
-                  attributeName,
-                  System.currentTimeMillis(),
-                  array),
-              BatchLogObservers.defaultContext(partition))) {
-
+          StreamElement element =
+              accessor
+                  .getCqlFactory()
+                  .toKeyValue(
+                      accessor.getEntityDescriptor(),
+                      attribute,
+                      key,
+                      attributeName,
+                      System.currentTimeMillis(),
+                      Offsets.empty(),
+                      array);
+          if (!observer.onNext(element, BatchLogObservers.defaultContext(partition))) {
             return false;
           }
         }

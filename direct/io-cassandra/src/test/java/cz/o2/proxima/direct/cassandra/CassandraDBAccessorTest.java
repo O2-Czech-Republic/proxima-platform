@@ -107,16 +107,11 @@ public class CassandraDBAccessorTest {
     }
   }
 
-  static final class TestCqlFactory implements CqlFactory {
+  static final class TestCqlFactory extends DefaultCqlFactory {
 
     @Override
     public Optional<BoundStatement> getWriteStatement(StreamElement ingest, Session session) {
       return Optional.of(mockWriteStatement());
-    }
-
-    @Override
-    public void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter) {
-      // nop
     }
 
     @Override
@@ -190,18 +185,13 @@ public class CassandraDBAccessorTest {
     }
   }
 
-  static final class ThrowingTestCqlFactory implements CqlFactory {
+  static final class ThrowingTestCqlFactory extends DefaultCqlFactory {
 
     private static final long serialVersionUID = 1L;
 
     @Override
     public Optional<BoundStatement> getWriteStatement(StreamElement ingest, Session session) {
       throw new RuntimeException("Fail");
-    }
-
-    @Override
-    public void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter) {
-      // nop
     }
 
     @Override
@@ -288,7 +278,9 @@ public class CassandraDBAccessorTest {
 
     CassandraDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class));
     CassandraWriter writer = accessor.newWriter();
 
     AtomicBoolean success = new AtomicBoolean(false);
@@ -304,7 +296,9 @@ public class CassandraDBAccessorTest {
   public void testWriteFailed() {
     CassandraDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(ThrowingTestCqlFactory.class));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(ThrowingTestCqlFactory.class));
     CassandraWriter writer = accessor.newWriter();
 
     AtomicBoolean success = new AtomicBoolean(true);
@@ -322,7 +316,9 @@ public class CassandraDBAccessorTest {
 
     CassandraDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class));
     CassandraWriter writer = accessor.newWriter();
 
     AtomicBoolean success = new AtomicBoolean(false);
@@ -337,7 +333,9 @@ public class CassandraDBAccessorTest {
   public void testDeleteFailed() {
     CassandraDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(ThrowingTestCqlFactory.class));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(ThrowingTestCqlFactory.class));
     CassandraWriter writer = accessor.newWriter();
 
     AtomicBoolean success = new AtomicBoolean(true);
@@ -362,7 +360,9 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class));
     try (RandomAccessReader db = accessor.newRandomReader()) {
 
       accessor.setRes(res);
@@ -390,7 +390,9 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(ThrowingTestCqlFactory.class));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(ThrowingTestCqlFactory.class));
     CassandraRandomReader db = accessor.newRandomReader();
 
     accessor.setRes(res);
@@ -414,7 +416,9 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class));
     CassandraRandomReader db = accessor.newRandomReader();
 
     accessor.setRes(res);
@@ -450,7 +454,7 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity,
-            URI.create("cassandra://localhost/"),
+            URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(TestCqlFactory.class, DateToLongConverter.class));
     CassandraRandomReader db = accessor.newRandomReader();
 
@@ -486,7 +490,9 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(ThrowingTestCqlFactory.class));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(ThrowingTestCqlFactory.class));
     CassandraRandomReader db = accessor.newRandomReader();
 
     accessor.setRes(res);
@@ -503,7 +509,9 @@ public class CassandraDBAccessorTest {
 
     CassandraDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 13));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class, 13));
     CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
 
     List<Partition> partitions = reader.getPartitions();
@@ -532,7 +540,9 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class, 2));
     CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
 
     List<Partition> partitions = reader.getPartitions();
@@ -556,7 +566,9 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class, 2));
     CassandraLogReader reader = accessor.newBatchReader(direct.getContext());
 
     int numElements = 100;
@@ -602,7 +614,9 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class, 2));
     CassandraLogReader reader = accessor.newBatchReader(direct.getContext());
 
     int numElements = 100;
@@ -641,7 +655,9 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class, 2));
     CassandraLogReader reader = accessor.newBatchReader(direct.getContext());
 
     int numElements = 2;
@@ -717,7 +733,9 @@ public class CassandraDBAccessorTest {
   public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class, 2));
     final CassandraRandomReader originalReader = accessor.newRandomReader();
     byte[] bytes = TestUtils.serializeObject(originalReader.asFactory());
     final RandomAccessReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
@@ -731,7 +749,9 @@ public class CassandraDBAccessorTest {
   public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class, 2));
     try (CassandraWriter writer = accessor.newWriter()) {
       byte[] bytes = TestUtils.serializeObject(writer.asFactory());
       AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
@@ -746,7 +766,9 @@ public class CassandraDBAccessorTest {
   public void testBatchReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
     TestDBAccessor accessor =
         new TestDBAccessor(
-            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class, 2));
     CassandraLogReader reader =
         accessor.newBatchReader(repo.getOrCreateOperator(DirectDataOperator.class).getContext());
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());

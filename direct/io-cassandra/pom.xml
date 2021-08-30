@@ -120,6 +120,12 @@
     </dependency>
 
     <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-serialization</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>com.datastax.cassandra</groupId>
       <artifactId>cassandra-driver-core</artifactId>
       <version>3.8.0</version>

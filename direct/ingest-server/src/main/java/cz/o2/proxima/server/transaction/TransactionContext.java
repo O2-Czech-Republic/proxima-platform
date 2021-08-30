@@ -112,12 +112,12 @@ public class TransactionContext implements AutoCloseable {
         .forEach(Transaction::close);
   }
 
-  public Transaction create() {
+  public String create() {
     Preconditions.checkArgument(globalWriter != null, "No transactions are allowed in the model!");
 
     Transaction res = wrap(globalWriter.begin());
     openTransactions.put(res.getTransactionId(), res);
-    return res;
+    return res.getTransactionId();
   }
 
   public Transaction get(String transactionId) {

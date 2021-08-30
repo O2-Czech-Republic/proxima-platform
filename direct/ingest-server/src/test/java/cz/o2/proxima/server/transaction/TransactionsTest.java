@@ -39,7 +39,6 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.IngestService;
 import cz.o2.proxima.server.RetrieveService;
-import cz.o2.proxima.server.transaction.TransactionContext.Transaction;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.ExceptionUtils;
@@ -252,14 +251,12 @@ public class TransactionsTest {
     AtomicLong clock = new AtomicLong(System.currentTimeMillis());
     try (TransactionContext context = new TransactionContext(direct, clock::get)) {
       context.run();
-      Transaction transaction = context.create();
+      String transactionId = context.create();
       context.clearAnyStaleTransactions();
-      assertEquals(
-          transaction.getTransactionId(),
-          context.get(transaction.getTransactionId()).getTransactionId());
+      assertEquals(transactionId, context.get(transactionId).getTransactionId());
       clock.addAndGet(86400000L);
       context.clearAnyStaleTransactions();
-      assertNull(context.getTransactionMap().get(transaction.getTransactionId()));
+      assertNull(context.getTransactionMap().get(transactionId));
     }
   }
 

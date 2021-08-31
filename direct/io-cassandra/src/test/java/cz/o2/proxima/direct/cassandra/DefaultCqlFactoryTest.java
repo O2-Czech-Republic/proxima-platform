@@ -25,6 +25,8 @@ import static org.mockito.Mockito.when;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.SimpleStatement;
+import com.datastax.driver.core.Statement;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -37,6 +39,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.junit.Before;
@@ -369,5 +372,28 @@ public class DefaultCqlFactoryTest {
     assertEquals(
         "SELECT stamp, my_col FROM my_table WHERE hgw=? AND stamp>? LIMIT ?",
         preparedStatement.get(0));
+  }
+
+  @Test
+  public void testScanPartition() {
+    Statement statement =
+        factory.scanPartition(
+            Collections.singletonList(attr),
+            new CassandraPartition(0, Long.MIN_VALUE, Long.MAX_VALUE, 0, 100, false),
+            null);
+    assertEquals(statement.getClass(), SimpleStatement.class);
+    assertEquals(
+        "SELECT hgw, my_attribute FROM my_table WHERE token(hgw) >= 0 AND token(hgw) < 100",
+        statement.toString());
+
+    statement =
+        factory.scanPartition(
+            Collections.singletonList(attrWildcard),
+            new CassandraPartition(0, Long.MIN_VALUE, Long.MAX_VALUE, 0, 100, true),
+            null);
+    assertEquals(statement.getClass(), SimpleStatement.class);
+    assertEquals(
+        "SELECT hgw, device, my_col FROM my_table WHERE token(hgw) >= 0 AND token(hgw) <= 100",
+        statement.toString());
   }
 }

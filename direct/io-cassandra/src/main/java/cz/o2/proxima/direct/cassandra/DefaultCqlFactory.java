@@ -273,11 +273,11 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
     String comma = "";
     for (AttributeDescriptor<?> a : attributes) {
       columns.append(comma);
-      columns.append(toColName(a));
+      columns.append(toUnderScore(toColName(a)));
       comma = ", ";
       if (a.isWildcard()) {
         columns.append(comma);
-        columns.append(toPayloadCol(a));
+        columns.append(toUnderScore(toPayloadCol(a)));
       }
       comma = ", ";
     }
@@ -285,7 +285,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
         String.format(
             "SELECT %s, %s FROM %s WHERE token(%s) >= %d AND token(%s) %s %d",
             primaryField,
-            columns.toString(),
+            columns,
             getTableName(),
             primaryField,
             partition.getTokenStart(),

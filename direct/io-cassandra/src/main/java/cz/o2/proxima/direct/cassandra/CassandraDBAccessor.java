@@ -213,6 +213,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   @VisibleForTesting
   Cluster createCluster(String authority) {
+    log.info("Creating cluster for authority {} in accessor {}", authority, this);
     return Cluster.builder()
         .addContactPointsWithPorts(
             Arrays.stream(authority.split(","))

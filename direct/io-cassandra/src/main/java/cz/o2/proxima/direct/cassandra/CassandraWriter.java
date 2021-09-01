@@ -55,8 +55,6 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
       statusCallback.commit(true, null);
     } catch (Exception ex) {
       log.error("Failed to ingest record {} into cassandra", data, ex);
-      // reset the session and cluster connection
-      accessor.close();
       statusCallback.commit(false, ex);
     }
   }
@@ -65,5 +63,10 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
   public OnlineAttributeWriter.Factory<?> asFactory() {
     final CassandraDBAccessor accessor = this.accessor;
     return repo -> new CassandraWriter(accessor);
+  }
+
+  @Override
+  public void close() {
+    accessor.decrementClusterReference();
   }
 }

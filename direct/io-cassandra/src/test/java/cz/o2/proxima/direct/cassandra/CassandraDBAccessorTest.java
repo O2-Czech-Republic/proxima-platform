@@ -45,6 +45,7 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -84,7 +85,7 @@ public class CassandraDBAccessorTest {
     }
 
     @Override
-    Cluster getCluster(URI uri) {
+    Cluster createCluster(String authority) {
       Cluster ret = mock(Cluster.class);
       when(ret.connect()).thenReturn(mock(Session.class));
       return ret;
@@ -350,7 +351,7 @@ public class CassandraDBAccessorTest {
       assertTrue(value.isPresent());
       assertEquals("dummy", value.get().getAttribute());
       assertEquals("key", value.get().getKey());
-      assertArrayEquals(payload, (byte[]) value.get().getValue());
+      assertArrayEquals(payload, value.get().getValue());
     }
   }
 
@@ -406,7 +407,7 @@ public class CassandraDBAccessorTest {
           count.incrementAndGet();
           assertEquals("device.1", data.getAttribute());
           assertEquals("key", data.getKey());
-          assertArrayEquals(payload, (byte[]) data.getValue());
+          assertArrayEquals(payload, data.getValue());
         });
 
     assertEquals(1, count.get());
@@ -443,7 +444,7 @@ public class CassandraDBAccessorTest {
           count.incrementAndGet();
           assertEquals("device.1234567890000", data.getAttribute());
           assertEquals("key", data.getKey());
-          assertArrayEquals(payload, (byte[]) data.getValue());
+          assertArrayEquals(payload, data.getValue());
         });
 
     assertEquals(1, count.get());
@@ -656,6 +657,13 @@ public class CassandraDBAccessorTest {
               }
             }));
     latch.await();
+  }
+
+  @Test
+  public void testAuthorityParsing() {
+    InetSocketAddress address = CassandraDBAccessor.getAddress("localhost:1234");
+    assertEquals("localhost", address.getHostName());
+    assertEquals(1234, address.getPort());
   }
 
   private ResultSet mockResultSet(int numElements) {

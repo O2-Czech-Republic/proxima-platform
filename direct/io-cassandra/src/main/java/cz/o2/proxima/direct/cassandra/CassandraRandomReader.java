@@ -178,7 +178,7 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
 
   @Override
   public void close() {
-    accessor.close();
+    accessor.decrementClusterReference();
   }
 
   @Override

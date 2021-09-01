@@ -91,6 +91,7 @@ class CassandraLogReader implements BatchLogReader {
         () -> {
           terminationContext.setRunningThread();
           try {
+            accessor.incrementClusterReference();
             for (Partition p : partitions) {
               if (!processSinglePartition(
                   (CassandraPartition) p, attributes, terminationContext, observer)) {
@@ -101,6 +102,8 @@ class CassandraLogReader implements BatchLogReader {
           } catch (Throwable err) {
             terminationContext.handleErrorCaught(
                 err, () -> observeInternal(partitions, attributes, observer, terminationContext));
+          } finally {
+            accessor.decrementClusterReference();
           }
         });
   }

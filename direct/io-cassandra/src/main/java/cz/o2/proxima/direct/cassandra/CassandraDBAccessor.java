@@ -182,8 +182,9 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
       AtomicInteger references = CLUSTER_REFERENCES.get(cluster);
       if (references != null && references.decrementAndGet() == 0) {
         synchronized (CLUSTER_MAP) {
-          CLUSTER_SESSIONS.remove(cluster).close();
-          CLUSTER_MAP.remove(getUri().getAuthority()).close();
+          Optional.ofNullable(CLUSTER_SESSIONS.remove(cluster)).ifPresent(Session::close);
+          Optional.ofNullable(CLUSTER_MAP.remove(getUri().getAuthority()))
+              .ifPresent(Cluster::close);
           CLUSTER_REFERENCES.remove(cluster);
           cluster = null;
         }
@@ -286,6 +287,13 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
         cqlFactory.remove();
       }
     };
+  }
+
+  @VisibleForTesting
+  static void clear() {
+    CLUSTER_REFERENCES.clear();
+    CLUSTER_MAP.clear();
+    CLUSTER_SESSIONS.clear();
   }
 
   CqlFactory getCqlFactory() {

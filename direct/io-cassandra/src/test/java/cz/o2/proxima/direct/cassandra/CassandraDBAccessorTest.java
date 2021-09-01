@@ -18,8 +18,7 @@ package cz.o2.proxima.direct.cassandra;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Cluster;
@@ -63,6 +62,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.Setter;
+import org.junit.After;
 import org.junit.Test;
 
 /** Test suite for {@link CassandraDBAccessor}. */
@@ -87,7 +87,22 @@ public class CassandraDBAccessorTest {
     @Override
     Cluster createCluster(String authority) {
       Cluster ret = mock(Cluster.class);
-      when(ret.connect()).thenReturn(mock(Session.class));
+      AtomicBoolean closed = new AtomicBoolean(false);
+      when(ret.connect())
+          .thenAnswer(
+              ign -> {
+                Session session = mock(Session.class);
+                when(session.isClosed()).thenAnswer(invocationOnMock -> closed.get());
+                doAnswer(
+                        invocationOnMock -> {
+                          closed.set(true);
+                          return null;
+                        })
+                    .when(session)
+                    .close();
+                closed.set(false);
+                return session;
+              });
       return ret;
     }
   }
@@ -259,6 +274,11 @@ public class CassandraDBAccessorTest {
             .addAttribute(attr)
             .addAttribute(attrWildcard)
             .build();
+  }
+
+  @After
+  public void tearDown() {
+    CassandraDBAccessor.clear();
   }
 
   /** Test successful write. */
@@ -664,6 +684,19 @@ public class CassandraDBAccessorTest {
     InetSocketAddress address = CassandraDBAccessor.getAddress("localhost:1234");
     assertEquals("localhost", address.getHostName());
     assertEquals(1234, address.getPort());
+    assertThrows(IllegalArgumentException.class, () -> CassandraDBAccessor.getAddress("localhost"));
+  }
+
+  @Test
+  public void testEnsureSessionAfterDisconnect() {
+    CassandraDBAccessor accessor =
+        new TestDBAccessor(
+            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class));
+    Session session = accessor.ensureSession();
+    assertNotNull(session);
+    assertSame(session, accessor.ensureSession());
+    session.close();
+    assertNotSame(session, accessor.ensureSession());
   }
 
   private ResultSet mockResultSet(int numElements) {
@@ -703,6 +736,9 @@ public class CassandraDBAccessorTest {
       byte[] bytes = TestUtils.serializeObject(writer.asFactory());
       AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
       assertEquals(writer.getUri(), ((CassandraWriter) factory.apply(repo)).getUri());
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
     }
   }
 

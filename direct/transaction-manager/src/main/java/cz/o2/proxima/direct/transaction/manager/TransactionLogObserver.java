@@ -20,6 +20,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Sets;
 import com.google.common.collect.SortedSetMultimap;
+import com.google.common.collect.Streams;
 import cz.o2.proxima.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
@@ -52,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -107,10 +109,9 @@ public class TransactionLogObserver implements CommitLogObserver {
   @Value
   private static class SeqIdWithTombstone implements Comparable<SeqIdWithTombstone> {
 
-    public static SeqIdWithTombstone create(
-        TransactionLogObserver observer, long committedSeqId, boolean delete) {
+    public static SeqIdWithTombstone create(long committedSeqId, long commitStamp, boolean delete) {
 
-      return new SeqIdWithTombstone(committedSeqId, delete, observer.currentTimeMillis());
+      return new SeqIdWithTombstone(committedSeqId, delete, commitStamp);
     }
 
     /** sequential ID of the update */
@@ -467,7 +468,11 @@ public class TransactionLogObserver implements CommitLogObserver {
 
   private State transitionToCommitted(String transactionId, State currentState, Request request) {
     synchronized (commitLock) {
-      if (!verifyNotInConflict(currentState.getSequentialId(), currentState.getInputAttributes())) {
+      if (!verifyNotInConflict(
+          currentState.getSequentialId(),
+          currentState.getStamp(),
+          concatInputsAndOutputs(
+              currentState.getInputAttributes(), request.getOutputAttributes()))) {
         log.info("Transaction {} seqId {} aborted", transactionId, currentState.getSequentialId());
         return currentState.aborted();
       }
@@ -478,11 +483,23 @@ public class TransactionLogObserver implements CommitLogObserver {
     }
   }
 
+  private Iterable<KeyAttribute> concatInputsAndOutputs(
+      Collection<KeyAttribute> inputAttributes, Collection<KeyAttribute> outputAttributes) {
+
+    return Streams.concat(inputAttributes.stream(), outputAttributes.stream())
+        .collect(
+            Collectors.toMap(
+                KeyWithAttribute::of,
+                Function.identity(),
+                (a, b) -> a.getSequenceId() < b.getSequenceId() ? a : b))
+        .values();
+  }
+
   private State transitionToOpen(String transactionId, Request request) {
     long seqId = sequenceId.getAndIncrement();
-    State proposedState =
-        State.open(seqId, currentTimeMillis(), new HashSet<>(request.getInputAttributes()));
-    if (verifyNotInConflict(seqId, request.getInputAttributes())) {
+    long now = currentTimeMillis();
+    State proposedState = State.open(seqId, now, new HashSet<>(request.getInputAttributes()));
+    if (verifyNotInConflict(seqId, now, request.getInputAttributes())) {
       log.info("Transaction {} seqId {} is now {}", transactionId, seqId, proposedState.getFlags());
       return proposedState;
     }
@@ -491,13 +508,12 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private boolean verifyNotInConflict(
-      long transactionSeqId, Collection<KeyAttribute> inputAttributes) {
+      long transactionSeqId, long commitStamp, Iterable<KeyAttribute> attributes) {
 
     final List<Pair<KeyWithAttribute, Boolean>> affectedWildcards;
     try (Locker lock = Locker.of(this.lock.readLock())) {
       affectedWildcards =
-          inputAttributes
-              .stream()
+          Streams.stream(attributes)
               .filter(KeyAttribute::isWildcardQuery)
               .map(KeyWithAttribute::of)
               .map(updatesToWildcard::get)
@@ -524,8 +540,7 @@ public class TransactionLogObserver implements CommitLogObserver {
 
     if (!requiredInputs.isEmpty()) {
       Set<KeyWithAttribute> presentInputs =
-          inputAttributes
-              .stream()
+          Streams.stream(attributes)
               .filter(ka -> !ka.isWildcardQuery())
               .filter(ka -> ka.getAttributeDescriptor().isWildcard())
               .map(KeyWithAttribute::of)
@@ -538,8 +553,7 @@ public class TransactionLogObserver implements CommitLogObserver {
 
     if (!bannedInputs.isEmpty()) {
       boolean anyBannedPresent =
-          inputAttributes
-              .stream()
+          Streams.stream(attributes)
               .filter(ka -> !ka.isWildcardQuery())
               .map(KeyWithAttribute::of)
               .anyMatch(bannedInputs::contains);
@@ -549,14 +563,13 @@ public class TransactionLogObserver implements CommitLogObserver {
     }
 
     try (Locker lock = Locker.of(this.lock.readLock())) {
-      return inputAttributes
-          .stream()
+      return Streams.stream(attributes)
           .filter(ka -> !ka.isWildcardQuery())
           .noneMatch(
               ka -> {
                 if (!ka.isDelete()
                     && ka.getSequenceId() < Long.MAX_VALUE
-                    && ka.getSequenceId() >= transactionSeqId) {
+                    && ka.getSequenceId() > transactionSeqId) {
                   // disallow any (well-defined) sequenceId with higher value that current
                   // transaction
                   return true;
@@ -567,7 +580,9 @@ public class TransactionLogObserver implements CommitLogObserver {
                   return false;
                 }
                 long lastUpdatedSeqId = lastUpdated.last().getSeqId();
-                return lastUpdatedSeqId >= transactionSeqId
+                long lastUpdatedStamp = lastUpdated.last().getTimestamp();
+                return lastUpdatedSeqId > transactionSeqId
+                    || lastUpdatedStamp == commitStamp
                     || (lastUpdatedSeqId > ka.getSequenceId()
                         // we can accept somewhat stale data if the state is equal => both agree
                         // that the field was deleted
@@ -602,6 +617,7 @@ public class TransactionLogObserver implements CommitLogObserver {
 
   private void transactionPostCommit(State state) {
     long committedSeqId = state.getSequentialId();
+    long committedStamp = state.getStamp();
     log.debug(
         "Storing committed outputs {} of transaction seqId {}",
         state.getCommittedAttributes(),
@@ -614,7 +630,7 @@ public class TransactionLogObserver implements CommitLogObserver {
               ka -> {
                 KeyWithAttribute kwa = KeyWithAttribute.of(ka);
                 SeqIdWithTombstone seqIdWithTombstone =
-                    SeqIdWithTombstone.create(this, committedSeqId, ka.isDelete());
+                    SeqIdWithTombstone.create(committedSeqId, committedStamp, ka.isDelete());
                 lastUpdateSeqId.put(kwa, seqIdWithTombstone);
                 if (ka.getAttributeDescriptor().isWildcard()) {
                   Map<KeyWithAttribute, SeqIdWithTombstone> updated =

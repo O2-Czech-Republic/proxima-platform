@@ -31,6 +31,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.config.ConfigUtils;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
@@ -40,6 +41,7 @@ import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.util.TransformationRunner;
 import java.net.URI;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -148,6 +150,111 @@ public class TransactionLogObserverTest {
   }
 
   @Test(timeout = 10000)
+  public void testCreateTransactionCommitWithConflictInInputs() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String t1 = UUID.randomUUID().toString();
+    String t2 = UUID.randomUUID().toString();
+    List<KeyAttribute> inputs =
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 1L, "1"));
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        t1, ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))), inputs);
+    responseQueue.take();
+    clientManager.commit(
+        t1,
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 2L, "1")));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+    clientManager.begin(
+        t2, ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))), inputs);
+    response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+  }
+
+  @Test(timeout = 10000)
+  public void testCreateTransactionCommitWithConflictInOutputs() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String t1 = UUID.randomUUID().toString();
+    String t2 = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        t1,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "u1", userGateways, 1L, "1")));
+    Pair<String, Response> t1OpenResponse = responseQueue.take();
+    List<KeyAttribute> t1Outputs =
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(
+                user, "user", userGateways, t1OpenResponse.getSecond().getSeqId(), "1"));
+    clientManager.begin(
+        t2,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        // not conflicting with the previous one
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "u2", userGateways, 1L, "1")));
+    Pair<String, Response> t2OpenResponse = responseQueue.take();
+    List<KeyAttribute> t2Outputs =
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(
+                user, "user", userGateways, t2OpenResponse.getSecond().getSeqId(), "1"));
+    clientManager.commit(t2, t2Outputs);
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals("commit", response.getFirst());
+    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+    clientManager.commit(t1, t1Outputs);
+    response = responseQueue.take();
+    assertEquals("commit", response.getFirst());
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+  }
+
+  @Test(timeout = 10000)
+  public void testCreateTransactionCommitWithSameTimestampInOutputs() throws InterruptedException {
+    long stamp = System.currentTimeMillis();
+    WithFixedTime factory = new WithFixedTime(stamp);
+    createObserver(factory);
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String t1 = UUID.randomUUID().toString();
+    String t2 = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        t1,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "u1", userGateways, 1L, "1")));
+    Pair<String, Response> t1OpenResponse = responseQueue.take();
+    assertEquals(stamp, t1OpenResponse.getSecond().getStamp());
+    List<KeyAttribute> t1Outputs =
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(
+                user, "user", userGateways, t1OpenResponse.getSecond().getSeqId(), "1"));
+    clientManager.begin(
+        t2,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        // not conflicting with the previous one
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "u2", userGateways, 1L, "1")));
+    Pair<String, Response> t2OpenResponse = responseQueue.take();
+    assertEquals(stamp, t2OpenResponse.getSecond().getStamp());
+    List<KeyAttribute> t2Outputs =
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(
+                user, "user", userGateways, t2OpenResponse.getSecond().getSeqId(), "1"));
+    clientManager.commit(t1, t1Outputs);
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals("commit", response.getFirst());
+    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+    clientManager.commit(t2, t2Outputs);
+    response = responseQueue.take();
+    assertEquals("commit", response.getFirst());
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+  }
+
+  @Test(timeout = 10000)
   public void testCreateTransactionDuplicate() throws InterruptedException {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
@@ -232,7 +339,7 @@ public class TransactionLogObserverTest {
   public void testHousekeepingOfWildcardAttributes() throws InterruptedException {
     now = System.currentTimeMillis();
     AtomicLong stamp = new AtomicLong(now);
-    createObserver(new WithTransactionTimeout(100, 50, stamp));
+    createObserver(new WithTransactionTimeout(100, stamp));
     ServerTransactionManager serverManager = observer.getRawManager();
     try (ClientTransactionManager clientManager =
         new TransactionResourceManager(direct, Collections.emptyMap())) {
@@ -263,9 +370,11 @@ public class TransactionLogObserverTest {
           (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
           KeyAttributes.ofWildcardQueryElements(
               user, "user", userGateways, Collections.singletonList(wildcardUpsert)));
-      assertEquals(Response.Flags.OPEN, queue.take().getSecond().getFlags());
+      response = queue.take();
+      assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
       assertTrue(queue.isEmpty());
-      wildcardUpsert = userGateways.upsert(1001L, "user", "1", now, new byte[] {});
+      wildcardUpsert =
+          userGateways.upsert(response.getSecond().getSeqId(), "user", "1", now, new byte[] {});
       clientManager.commit(
           transactionId, Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)));
       assertEquals(Response.Flags.COMMITTED, queue.take().getSecond().getFlags());
@@ -449,7 +558,7 @@ public class TransactionLogObserverTest {
     private final long timeout;
     private final AtomicLong stamp;
 
-    WithTransactionTimeout(long timeout, long sleepMs, AtomicLong stamp) {
+    WithTransactionTimeout(long timeout, AtomicLong stamp) {
       this.timeout = timeout;
       this.stamp = stamp;
     }
@@ -497,6 +606,24 @@ public class TransactionLogObserverTest {
         @Override
         void exit(int status) {
           throw new RuntimeException("System.exit(" + status + ")");
+        }
+      };
+    }
+  }
+
+  static class WithFixedTime implements TransactionLogObserverFactory {
+    final long time;
+
+    WithFixedTime(long stamp) {
+      this.time = stamp;
+    }
+
+    @Override
+    public TransactionLogObserver create(DirectDataOperator direct) {
+      return new TransactionLogObserver(direct) {
+        @Override
+        long currentTimeMillis() {
+          return time;
         }
       };
     }

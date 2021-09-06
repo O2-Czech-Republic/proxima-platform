@@ -29,6 +29,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+      with:
+        fetch-depth: 0
     - name: Cache maven repository
       uses: actions/cache@v2
       with:

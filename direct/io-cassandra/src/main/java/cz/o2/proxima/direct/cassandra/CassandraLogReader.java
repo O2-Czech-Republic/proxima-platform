@@ -130,7 +130,7 @@ class CassandraLogReader implements BatchLogReader {
         if (attribute.isWildcard()) {
           // FIXME: this is wrong
           // need mapping between attribute and accessor
-          String suffix = accessor.getConverter().asString(row.getObject(field++));
+          String suffix = accessor.asString(row.getObject(field++));
           attributeName = attribute.toAttributePrefix() + suffix;
         }
         ByteBuffer bytes = row.getBytes(field++);

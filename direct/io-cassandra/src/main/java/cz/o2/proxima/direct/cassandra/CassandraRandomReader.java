@@ -118,14 +118,14 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
               .getListStatement(key, wildcard, (Offsets.Raw) offset, limit, session);
 
       ResultSet result = accessor.execute(statement);
-      // the row has to have format (attribute, value)
+      // the row has to have the format (attribute, value)
       for (Row row : result) {
         Object attribute = row.getObject(0);
         ByteBuffer val = row.getBytes(1);
         if (val != null) {
           byte[] rowValue = val.array();
           // by convention
-          String name = wildcard.toAttributePrefix() + accessor.getConverter().asString(attribute);
+          String name = wildcard.toAttributePrefix() + accessor.asString(attribute);
 
           Optional<T> parsed = wildcard.getValueSerializer().deserialize(rowValue);
 

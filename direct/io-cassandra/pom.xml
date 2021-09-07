@@ -57,10 +57,13 @@
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:proxima-core</exclude>
               <exclude>cz.o2.proxima:proxima-direct-core</exclude>
-              <exclude>io.netty:*</exclude>
             </excludes>
           </artifactSet>
           <relocations>
+            <relocation>
+              <pattern>io.netty.</pattern>
+              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
+            </relocation>
             <relocation>
               <pattern>io.dropwizard.</pattern>
               <shadedPattern>${shadePattern}.io.dropwizard.</shadedPattern>

@@ -168,7 +168,6 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
     responseObserver.onNext(response);
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public void get(Rpc.GetRequest request, StreamObserver<Rpc.GetResponse> responseObserver) {
 

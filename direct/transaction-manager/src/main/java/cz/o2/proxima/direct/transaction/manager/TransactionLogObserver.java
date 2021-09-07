@@ -54,7 +54,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -510,9 +509,9 @@ public class TransactionLogObserver implements CommitLogObserver {
   private boolean verifyNotInConflict(
       long transactionSeqId, long commitStamp, Iterable<KeyAttribute> attributes) {
 
-    final List<Pair<KeyWithAttribute, Boolean>> affectedWildcards;
+    final Set<KeyWithAttribute> requiredWildcards;
     try (Locker lock = Locker.of(this.lock.readLock())) {
-      affectedWildcards =
+      requiredWildcards =
           Streams.stream(attributes)
               .filter(KeyAttribute::isWildcardQuery)
               .map(KeyWithAttribute::of)
@@ -520,44 +519,20 @@ public class TransactionLogObserver implements CommitLogObserver {
               .filter(Objects::nonNull)
               .map(Map::entrySet)
               .flatMap(Collection::stream)
-              .map(e -> Pair.of(e.getKey(), lastIsNotTombstone(lastUpdateSeqId.get(e.getKey()))))
-              .collect(Collectors.toList());
+              .filter(e -> lastIsNotTombstone(lastUpdateSeqId.get(e.getKey())))
+              .map(Map.Entry::getKey)
+              .collect(Collectors.toSet());
     }
 
-    Set<KeyWithAttribute> requiredInputs =
-        affectedWildcards
-            .stream()
-            .filter(Pair::getSecond)
-            .map(Pair::getFirst)
-            .collect(Collectors.toSet());
-
-    Set<KeyWithAttribute> bannedInputs =
-        affectedWildcards
-            .stream()
-            .filter(((Predicate<? super Pair<KeyWithAttribute, Boolean>>) Pair::getSecond).negate())
-            .map(Pair::getFirst)
-            .collect(Collectors.toSet());
-
-    if (!requiredInputs.isEmpty()) {
+    if (!requiredWildcards.isEmpty()) {
       Set<KeyWithAttribute> presentInputs =
           Streams.stream(attributes)
               .filter(ka -> !ka.isWildcardQuery())
               .filter(ka -> ka.getAttributeDescriptor().isWildcard())
               .map(KeyWithAttribute::of)
               .collect(Collectors.toSet());
-      if (!Sets.difference(requiredInputs, presentInputs).isEmpty()) {
+      if (!Sets.difference(requiredWildcards, presentInputs).isEmpty()) {
         // not all required inputs present
-        return false;
-      }
-    }
-
-    if (!bannedInputs.isEmpty()) {
-      boolean anyBannedPresent =
-          Streams.stream(attributes)
-              .filter(ka -> !ka.isWildcardQuery())
-              .map(KeyWithAttribute::of)
-              .anyMatch(bannedInputs::contains);
-      if (anyBannedPresent) {
         return false;
       }
     }
@@ -570,7 +545,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                 if (!ka.isDelete()
                     && ka.getSequenceId() < Long.MAX_VALUE
                     && ka.getSequenceId() > transactionSeqId) {
-                  // disallow any (well-defined) sequenceId with higher value that current
+                  // disallow any (well-defined) sequenceId with higher value than current
                   // transaction
                   return true;
                 }
@@ -615,7 +590,8 @@ public class TransactionLogObserver implements CommitLogObserver {
     }
   }
 
-  private void transactionPostCommit(State state) {
+  @VisibleForTesting
+  void transactionPostCommit(State state) {
     long committedSeqId = state.getSequentialId();
     long committedStamp = state.getStamp();
     log.debug(
@@ -636,7 +612,12 @@ public class TransactionLogObserver implements CommitLogObserver {
                   Map<KeyWithAttribute, SeqIdWithTombstone> updated =
                       updatesToWildcard.computeIfAbsent(
                           KeyWithAttribute.ofWildcard(ka), k -> new HashMap<>());
-                  updated.put(kwa, seqIdWithTombstone);
+                  updated.compute(
+                      kwa,
+                      (k, current) ->
+                          current == null || current.getSeqId() < seqIdWithTombstone.getSeqId()
+                              ? seqIdWithTombstone
+                              : current);
                 }
               });
     }

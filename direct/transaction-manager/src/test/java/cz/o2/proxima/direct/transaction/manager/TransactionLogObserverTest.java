@@ -536,21 +536,51 @@ public class TransactionLogObserverTest {
   @Test(timeout = 10000)
   public void testCreateTransactionRollbackRollback() throws InterruptedException {
     createObserver();
-    ClientTransactionManager clientManager = direct.getClientTransactionManager();
-    String transactionId = UUID.randomUUID().toString();
+    try (ClientTransactionManager clientManager = direct.getClientTransactionManager()) {
+      String transactionId = UUID.randomUUID().toString();
+      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+      clientManager.begin(
+          transactionId,
+          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+          Collections.singletonList(
+              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+      responseQueue.take();
+      clientManager.rollback(transactionId);
+      Pair<String, Response> rollbackResponse1 = responseQueue.take();
+      assertEquals(Response.Flags.ABORTED, rollbackResponse1.getSecond().getFlags());
+      clientManager.rollback(transactionId);
+      Pair<String, Response> rollbackResponse2 = responseQueue.take();
+      assertEquals(Response.Flags.ABORTED, rollbackResponse2.getSecond().getFlags());
+    }
+  }
+
+  @Test(timeout = 10000)
+  public void testPostCommitOutOfOrder() throws InterruptedException {
+    createObserver();
+    State committed =
+        State.open(2001L, now, Collections.emptyList())
+            .committed(
+                Collections.singletonList(
+                    KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2001L, "1")));
+    observer.transactionPostCommit(committed);
+    State committed2 =
+        State.open(1001L, now - 1, Collections.emptyList())
+            .committed(
+                Collections.singletonList(
+                    KeyAttributes.ofStreamElement(
+                        userGateways.delete(1001L, "user", "1", now - 1))));
+    observer.transactionPostCommit(committed2);
     BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-    responseQueue.take();
-    clientManager.rollback(transactionId);
-    Pair<String, Response> rollbackResponse1 = responseQueue.take();
-    assertEquals(Response.Flags.ABORTED, rollbackResponse1.getSecond().getFlags());
-    clientManager.rollback(transactionId);
-    Pair<String, Response> rollbackResponse2 = responseQueue.take();
-    assertEquals(Response.Flags.ABORTED, rollbackResponse2.getSecond().getFlags());
+    try (ClientTransactionManager clientManager = direct.getClientTransactionManager()) {
+      String t = "t";
+      clientManager.begin(
+          t,
+          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+          KeyAttributes.ofWildcardQueryElements(
+              user, "user", userGateways, Collections.emptyList()));
+      Pair<String, Response> response = responseQueue.take();
+      assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    }
   }
 
   static class WithTransactionTimeout implements TransactionLogObserverFactory {

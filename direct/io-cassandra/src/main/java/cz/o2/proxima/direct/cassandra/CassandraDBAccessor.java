@@ -21,6 +21,7 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -38,10 +39,14 @@ import java.io.ObjectStreamException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
@@ -53,6 +58,11 @@ import lombok.extern.slf4j.Slf4j;
 public class CassandraDBAccessor extends AbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
+
+  private static final Map<String, Cluster> CLUSTER_MAP =
+      Collections.synchronizedMap(new HashMap<>());
+  private static final Map<Cluster, AtomicInteger> CLUSTER_REFERENCES = new ConcurrentHashMap<>();
+  private static final Map<Cluster, Session> CLUSTER_SESSIONS = new ConcurrentHashMap<>();
 
   static final String CQL_FACTORY_CFG = "cqlFactory";
   static final String CQL_STRING_CONVERTER = "converter";
@@ -69,8 +79,6 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   private final String cqlFactoryName;
 
   private transient ThreadLocal<CqlFactory> cqlFactory;
-
-  private transient volatile boolean sessionInitialized = false;
 
   /** Our cassandra cluster. */
   @Nullable private transient Cluster cluster;
@@ -143,64 +151,83 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     return ensureSession().execute(statement);
   }
 
-  @VisibleForTesting
-  Cluster getCluster(URI uri) {
-    String authority = uri.getAuthority();
-    if (Strings.isNullOrEmpty(authority)) {
-      throw new IllegalArgumentException("Invalid authority in " + uri);
+  private Cluster getCluster(URI uri) {
+    Preconditions.checkArgument(
+        !Strings.isNullOrEmpty(uri.getAuthority()), "Invalid authority in %s", uri);
+    return getCluster(uri.getAuthority());
+  }
+
+  private Cluster getCluster(String authority) {
+    if (this.cluster != null) {
+      return this.cluster;
     }
+    synchronized (CLUSTER_MAP) {
+      Cluster cluster = CLUSTER_MAP.get(authority);
+      if (cluster == null) {
+        cluster = createCluster(authority);
+        CLUSTER_MAP.put(authority, cluster);
+        this.cluster = cluster;
+      }
+      return Objects.requireNonNull(cluster);
+    }
+  }
+
+  void incrementClusterReference() {
+    Cluster cluster = getCluster(getUri());
+    CLUSTER_REFERENCES.computeIfAbsent(cluster, tmp -> new AtomicInteger(0)).incrementAndGet();
+  }
+
+  void decrementClusterReference() {
+    if (cluster != null) {
+      AtomicInteger references = CLUSTER_REFERENCES.get(cluster);
+      if (references != null && references.decrementAndGet() == 0) {
+        synchronized (CLUSTER_MAP) {
+          Optional.ofNullable(CLUSTER_SESSIONS.remove(cluster)).ifPresent(Session::close);
+          Optional.ofNullable(CLUSTER_MAP.remove(getUri().getAuthority()))
+              .ifPresent(Cluster::close);
+          CLUSTER_REFERENCES.remove(cluster);
+          cluster = null;
+        }
+      }
+    }
+  }
+
+  @VisibleForTesting
+  Cluster createCluster(String authority) {
     return Cluster.builder()
         .addContactPointsWithPorts(
             Arrays.stream(authority.split(","))
-                .map(
-                    p -> {
-                      String[] parts = p.split(":", 2);
-                      if (parts.length != 2) {
-                        throw new IllegalArgumentException("Invalid hostport " + p);
-                      }
-                      return InetSocketAddress.createUnresolved(
-                          parts[0], Integer.parseInt(parts[1]));
-                    })
+                .map(CassandraDBAccessor::getAddress)
                 .collect(Collectors.toList()))
         .build();
   }
 
-  Session ensureSession() {
-    if (!sessionInitialized || Objects.requireNonNull(session).isClosed()) {
-      synchronized (this) {
-        if (!sessionInitialized || Objects.requireNonNull(session).isClosed()) {
-          sessionInitialized = true;
-          if (cluster != null) {
-            cluster.close();
-          }
-          cluster = getCluster(getUri());
-          if (session != null) {
-            session.close();
-          }
-          session = Objects.requireNonNull(cluster).connect();
-          return session;
-        }
-      }
+  @VisibleForTesting
+  static InetSocketAddress getAddress(String p) {
+    String[] parts = p.split(":", 2);
+    if (parts.length != 2) {
+      throw new IllegalArgumentException("Invalid hostport " + p);
     }
-    return session;
+    return InetSocketAddress.createUnresolved(parts[0], Integer.parseInt(parts[1]));
   }
 
-  void close() {
-    if (sessionInitialized) {
+  Session ensureSession() {
+    if (cluster == null) {
+      cluster = getCluster(getUri());
+    }
+    Preconditions.checkState(cluster != null);
+    session = CLUSTER_SESSIONS.computeIfAbsent(cluster, Cluster::connect);
+    if (session.isClosed()) {
       synchronized (this) {
-        if (sessionInitialized) {
-          sessionInitialized = false;
-          if (session != null) {
-            session.close();
-            session = null;
-          }
-          if (cluster != null) {
-            cluster.close();
-            cluster = null;
-          }
+        session = CLUSTER_SESSIONS.get(cluster);
+        if (session.isClosed()) {
+          session = cluster.connect();
+          CLUSTER_SESSIONS.put(cluster, session);
         }
       }
     }
+    Preconditions.checkState(!session.isClosed());
+    return session;
   }
 
   @Override
@@ -220,18 +247,19 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   @VisibleForTesting
   CassandraRandomReader newRandomReader() {
+    incrementClusterReference();
     return new CassandraRandomReader(this) {
-
       @Override
       public void close() {
-        super.close();
         cqlFactory.remove();
+        decrementClusterReference();
       }
     };
   }
 
   @VisibleForTesting
   CassandraLogReader newBatchReader(Context context) {
+    incrementClusterReference();
     return new CassandraLogReader(this, context::getExecutorService) {
 
       @Override
@@ -250,6 +278,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   @VisibleForTesting
   CassandraWriter newWriter() {
+    incrementClusterReference();
     return new CassandraWriter(this) {
 
       @Override
@@ -258,6 +287,13 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
         cqlFactory.remove();
       }
     };
+  }
+
+  @VisibleForTesting
+  static void clear() {
+    CLUSTER_REFERENCES.clear();
+    CLUSTER_MAP.clear();
+    CLUSTER_SESSIONS.clear();
   }
 
   CqlFactory getCqlFactory() {

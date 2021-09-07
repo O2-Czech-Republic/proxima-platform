@@ -57,6 +57,8 @@ import groovy.lang.Closure;
 import groovy.lang.Tuple;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.FromString;
+
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
@@ -1280,6 +1282,11 @@ class BeamStream<T> implements Stream<T> {
     @RequiresStableInput
     public void process(@Element T elem) {
       super.process(elem);
+    }
+
+    @Teardown
+    public void tearDown() {
+      super.tearDown();
     }
   }
 

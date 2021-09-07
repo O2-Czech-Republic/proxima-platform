@@ -1281,6 +1281,12 @@ class BeamStream<T> implements Stream<T> {
     public void process(@Element T elem) {
       super.process(elem);
     }
+
+    @Teardown
+    @Override
+    public void tearDown() {
+      super.tearDown();
+    }
   }
 
   private static class ExtractWindow<T> extends DoFn<T, Pair<BoundedWindow, T>> {

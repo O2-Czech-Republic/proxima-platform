@@ -118,7 +118,7 @@
           </transformers>
           <relocations>
             <relocation>
-              <pattern>^com.google.common.</pattern>
+              <pattern>com.google.common.</pattern>
               <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>

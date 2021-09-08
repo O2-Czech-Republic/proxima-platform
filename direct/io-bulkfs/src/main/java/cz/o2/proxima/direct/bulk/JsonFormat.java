@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.bulk;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
-import cz.o2.proxima.direct.serialization.com.google.protobuf.util.JsonFormat.Parser;
-import cz.o2.proxima.direct.serialization.com.google.protobuf.util.JsonFormat.Printer;
+import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.util.JsonFormat.Parser;
+import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.util.JsonFormat.Printer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
@@ -49,9 +49,9 @@ public class JsonFormat implements FileFormat {
   private static final long serialVersionUID = 1L;
 
   private static final Parser parser =
-      cz.o2.proxima.direct.serialization.com.google.protobuf.util.JsonFormat.parser();
+      cz.o2.proxima.io.serialization.shaded.com.google.protobuf.util.JsonFormat.parser();
   private static final Printer printer =
-      cz.o2.proxima.direct.serialization.com.google.protobuf.util.JsonFormat.printer();
+      cz.o2.proxima.io.serialization.shaded.com.google.protobuf.util.JsonFormat.printer();
 
   private static class JsonReader extends AbstractIterator<StreamElement> implements Reader {
 

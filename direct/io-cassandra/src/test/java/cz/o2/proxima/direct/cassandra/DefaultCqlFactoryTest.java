@@ -30,7 +30,7 @@ import com.datastax.driver.core.Statement;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
-import cz.o2.proxima.direct.serialization.com.google.protobuf.ByteString;
+import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.ConfigRepository;

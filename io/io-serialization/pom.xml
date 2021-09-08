@@ -22,17 +22,17 @@
 
   <parent>
     <groupId>cz.o2.proxima</groupId>
-    <artifactId>proxima-direct</artifactId>
+    <artifactId>proxima-io</artifactId>
     <version>0.7-SNAPSHOT</version>
   </parent>
 
-  <artifactId>proxima-direct-io-serialization</artifactId>
+  <artifactId>proxima-io-serialization</artifactId>
   <packaging>jar</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
 
   <properties>
-    <shadePattern>cz.o2.proxima.direct.serialization</shadePattern>
+    <shadePattern>cz.o2.proxima.io.serialization.shaded</shadePattern>
   </properties>
 
   <build>

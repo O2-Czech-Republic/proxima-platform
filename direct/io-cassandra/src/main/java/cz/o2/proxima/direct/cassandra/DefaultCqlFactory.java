@@ -24,7 +24,7 @@ import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
-import cz.o2.proxima.direct.serialization.com.google.protobuf.ByteString;
+import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;

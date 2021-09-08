@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
@@ -69,8 +70,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   static final String CQL_PARALLEL_SCANS = "scanParallelism";
 
   /** Converter between string and native cassandra type used for wildcard types. */
-  @Getter(AccessLevel.PACKAGE)
-  private final StringConverter<Object> converter;
+  private final StringConverter<?> converter;
 
   /** Parallel scans. */
   @Getter(AccessLevel.PACKAGE)
@@ -84,30 +84,42 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   @Nullable private transient Cluster cluster;
   /** Session we are connected to. */
   @Nullable private transient Session session;
+  /** Quorum for both reads and writes. */
+  private ConsistencyLevel consistencyLevel;
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   public CassandraDBAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     super(entityDesc, uri);
 
-    Object factoryName = cfg.get(CQL_FACTORY_CFG);
-    this.cqlFactoryName =
-        factoryName == null ? DefaultCqlFactory.class.getName() : factoryName.toString();
+    this.cqlFactoryName = getCqlFactoryName(cfg);
+    this.batchParallelism = getBatchParallelism(cfg);
+    this.converter = getStringConverter(cfg);
+    this.consistencyLevel = getConsistencyLevel(cfg);
+    initializeCqlFactory();
+  }
 
-    Object tmp = cfg.get(CQL_PARALLEL_SCANS);
+  private String getCqlFactoryName(Map<String, Object> cfg) {
+    Object tmp = cfg.get(CQL_FACTORY_CFG);
+    return tmp == null ? DefaultCqlFactory.class.getName() : tmp.toString();
+  }
+
+  private int getBatchParallelism(Map<String, Object> cfg) {
+    final Object tmp = cfg.get(CQL_PARALLEL_SCANS);
+    final int ret;
     if (tmp != null) {
-      batchParallelism = Integer.parseInt(tmp.toString());
+      ret = Integer.parseInt(tmp.toString());
     } else {
-      batchParallelism = Runtime.getRuntime().availableProcessors();
+      ret = Math.max(2, Runtime.getRuntime().availableProcessors());
     }
+    Preconditions.checkArgument(ret >= 2, "Batch parallelism must be at least 2, got %s", ret);
+    return ret;
+  }
 
-    if (batchParallelism < 2) {
-      throw new IllegalArgumentException(
-          "Batch parallelism must be at least 2, got " + batchParallelism);
-    }
-
+  private StringConverter<?> getStringConverter(Map<String, Object> cfg) {
+    Object tmp;
     tmp = cfg.get(CQL_STRING_CONVERTER);
-    StringConverter<String> c = StringConverter.getDefault();
+    StringConverter<?> c = StringConverter.getDefault();
     if (tmp != null) {
       try {
         c = Classpath.newInstance(tmp.toString(), StringConverter.class);
@@ -115,8 +127,14 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
         log.warn("Failed to instantiate type converter {}", tmp, ex);
       }
     }
-    this.converter = (StringConverter) c;
-    initializeCqlFactory();
+    return c;
+  }
+
+  private ConsistencyLevel getConsistencyLevel(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("consistency-level"))
+        .map(Object::toString)
+        .map(ConsistencyLevel::valueOf)
+        .orElse(ConsistencyLevel.QUORUM);
   }
 
   private void initializeCqlFactory() {
@@ -136,6 +154,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   }
 
   ResultSet execute(Statement statement) {
+    statement.setConsistencyLevel(consistencyLevel);
     if (log.isDebugEnabled()) {
       if (statement instanceof BoundStatement) {
         final BoundStatement s = (BoundStatement) statement;
@@ -294,6 +313,11 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     CLUSTER_REFERENCES.clear();
     CLUSTER_MAP.clear();
     CLUSTER_SESSIONS.clear();
+  }
+
+  @SuppressWarnings("unchecked")
+  String asString(Object value) {
+    return ((StringConverter<Object>) converter).asString(value);
   }
 
   CqlFactory getCqlFactory() {

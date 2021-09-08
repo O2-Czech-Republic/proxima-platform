@@ -71,6 +71,10 @@
               <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>io.grpc.netty.shaded.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.netty.shaded.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>io.grpc.</pattern>
               <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
             </relocation>

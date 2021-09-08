@@ -111,7 +111,6 @@
             <includes>
               <include>${project.groupId}:${{project.artifactId}</include>
               <include>io.grpc:*</include>
-              <include>io.netty:*</include>
             </includes>
           </artifactSet>
           <transformers>
@@ -119,16 +118,16 @@
           </transformers>
           <relocations>
             <relocation>
-              <pattern>com.google.common.</pattern>
+              <pattern>^com.google.common.</pattern>
               <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.netty.shaded.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.netty.shaded.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>io.grpc.</pattern>
               <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>io.netty.</pattern>
-              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -236,7 +235,7 @@
 
     <dependency>
       <groupId>io.grpc</groupId>
-      <artifactId>grpc-netty</artifactId>
+      <artifactId>grpc-netty-shaded</artifactId>
     </dependency>
 
     <dependency>

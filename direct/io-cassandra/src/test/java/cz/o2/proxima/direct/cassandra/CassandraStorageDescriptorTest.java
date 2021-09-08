@@ -31,7 +31,7 @@ public class CassandraStorageDescriptorTest {
 
   @Test
   public void testAccept() {
-    assertEquals(Accept.ACCEPT, factory.accepts(URI.create("cassandra:///")));
+    assertEquals(Accept.ACCEPT, factory.accepts(URI.create("cassandra://host:9042/")));
     assertEquals(Accept.REJECT, factory.accepts(URI.create("hbase:///")));
   }
 

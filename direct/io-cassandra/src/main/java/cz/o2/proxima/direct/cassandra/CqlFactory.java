@@ -19,6 +19,7 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
@@ -127,4 +128,14 @@ public interface CqlFactory extends Serializable {
    */
   Statement scanPartition(
       List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session);
+
+  /** Convert the byte[] stored in the database into {@link KeyValue}. */
+  <T> KeyValue<T> toKeyValue(
+      EntityDescriptor entityDescriptor,
+      AttributeDescriptor<T> attributeDescriptor,
+      String key,
+      String attribute,
+      long stamp,
+      RandomOffset offset,
+      byte[] serializedValue);
 }

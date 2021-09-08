@@ -20,8 +20,18 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
+import com.google.common.base.Preconditions;
+import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.randomaccess.RandomOffset;
+import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.proto.Serialization;
+import cz.o2.proxima.storage.proto.Serialization.Cell;
+import cz.o2.proxima.util.ExceptionUtils;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +56,86 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DefaultCqlFactory extends CacheableCqlFactory {
 
+  @Internal
+  interface Serializer extends Serializable {
+    byte[] asCellBytes(StreamElement element);
+
+    <T> KeyValue<T> fromCellBytes(
+        EntityDescriptor entityDescriptor,
+        AttributeDescriptor<T> attributeDescriptor,
+        String key,
+        String attribute,
+        long stamp,
+        RandomOffset offset,
+        byte[] serializedValue);
+  }
+
+  private static class RawValueSerializer implements Serializer {
+
+    @Override
+    public byte[] asCellBytes(StreamElement element) {
+      return element.getValue();
+    }
+
+    @Override
+    public <T> KeyValue<T> fromCellBytes(
+        EntityDescriptor entityDescriptor,
+        AttributeDescriptor<T> attributeDescriptor,
+        String key,
+        String attribute,
+        long stamp,
+        RandomOffset offset,
+        byte[] serializedValue) {
+
+      return KeyValue.of(
+          entityDescriptor, attributeDescriptor, key, attribute, offset, serializedValue, stamp);
+    }
+  }
+
+  private static class V2Serializer implements Serializer {
+
+    @Override
+    public byte[] asCellBytes(StreamElement element) {
+      return Serialization.Cell.newBuilder()
+          .setValue(ByteString.copyFrom(element.getValue()))
+          .setSeqId(element.hasSequentialId() ? element.getSequentialId() : 0)
+          .build()
+          .toByteArray();
+    }
+
+    @Override
+    public <T> KeyValue<T> fromCellBytes(
+        EntityDescriptor entityDescriptor,
+        AttributeDescriptor<T> attributeDescriptor,
+        String key,
+        String attribute,
+        long stamp,
+        RandomOffset offset,
+        byte[] serializedValue) {
+
+      Cell cell = ExceptionUtils.uncheckedFactory(() -> Cell.parseFrom(serializedValue));
+      if (cell.getSeqId() > 0) {
+        return KeyValue.of(
+            entityDescriptor,
+            attributeDescriptor,
+            cell.getSeqId(),
+            key,
+            attribute,
+            offset,
+            cell.getValue().toByteArray(),
+            stamp);
+      }
+      return KeyValue.of(
+          entityDescriptor,
+          attributeDescriptor,
+          key,
+          attribute,
+          offset,
+          cell.getValue().toByteArray(),
+          stamp);
+    }
+  }
+
   /** The name of the field used as primary key or first part of composite primary key. */
   String primaryField;
 
@@ -61,6 +151,9 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
    */
   StringConverter<?> converter = StringConverter.getDefault();
 
+  /** Serializer of {@link StreamElement} to cell and back. */
+  private Serializer serializer = new RawValueSerializer();
+
   /** {@code true} if the secondary key sorting reversed (DESC). */
   boolean reversed = false;
 
@@ -74,12 +167,20 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
               + "field that is being used as primary key (or first part "
               + "of a composite key).");
     }
-    String tmp = query.get("reversed");
-    if (tmp != null) {
-      reversed = Boolean.valueOf(tmp);
-    }
+    reversed =
+        Optional.ofNullable(query.get("reversed"))
+            .map(Object::toString)
+            .map(Boolean::valueOf)
+            .orElse(false);
     secondaryField = query.get("secondary");
     this.converter = converter;
+    String serializerVersion =
+        Optional.ofNullable(query.get("serializer")).map(Object::toString).orElse("v1");
+    Preconditions.checkArgument(
+        serializerVersion.equals("v1") || serializerVersion.equals("v2"),
+        "Unknown serializer %s, supported only v1 or v2",
+        serializerVersion);
+    this.serializer = serializerVersion.equals("v2") ? new V2Serializer() : this.serializer;
   }
 
   @Override
@@ -136,7 +237,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
             prepared.bind(
                 ingest.getKey(),
                 colVal,
-                ByteBuffer.wrap(ingest.getValue()),
+                ByteBuffer.wrap(serializeValue(ingest)),
                 ingest.getStamp() * 1000L);
         return Optional.of(bind);
       }
@@ -145,7 +246,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
     BoundStatement bind =
         prepared.bind(
-            ingest.getKey(), ByteBuffer.wrap(ingest.getValue()), ingest.getStamp() * 1000L);
+            ingest.getKey(), ByteBuffer.wrap(serializeValue(ingest)), ingest.getStamp() * 1000L);
     return Optional.of(bind);
   }
 
@@ -230,6 +331,10 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
         dataCol, toPayloadCol(attr), getTableName(), primaryField, dataCol, reversed ? "<" : ">");
   }
 
+  private byte[] serializeValue(StreamElement ingest) {
+    return serializer.asCellBytes(ingest);
+  }
+
   private String toColName(AttributeDescriptor<?> desc) {
     if (secondaryField == null) {
       return desc.toAttributePrefix(false);
@@ -295,6 +400,20 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
     log.info("Scanning partition with query {}", query);
     return new SimpleStatement(query);
+  }
+
+  @Override
+  public <T> KeyValue<T> toKeyValue(
+      EntityDescriptor entityDescriptor,
+      AttributeDescriptor<T> attributeDescriptor,
+      String key,
+      String attribute,
+      long stamp,
+      RandomOffset offset,
+      byte[] serializedValue) {
+
+    return serializer.fromCellBytes(
+        entityDescriptor, attributeDescriptor, key, attribute, stamp, offset, serializedValue);
   }
 
   @Override

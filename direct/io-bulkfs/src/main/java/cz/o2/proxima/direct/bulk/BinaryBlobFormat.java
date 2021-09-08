@@ -17,15 +17,15 @@ package cz.o2.proxima.direct.bulk;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Parser;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.gcloud.storage.proto.Serialization;
+import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
+import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.Parser;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.proto.Serialization;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

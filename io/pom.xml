@@ -39,6 +39,7 @@
 
   <modules>
     <module>io-pubsub</module>
+    <module>io-serialization</module>
   </modules>
 
 </project>

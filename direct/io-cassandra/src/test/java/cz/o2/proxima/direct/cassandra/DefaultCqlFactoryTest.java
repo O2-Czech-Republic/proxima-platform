@@ -29,14 +29,16 @@ import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.proto.Serialization.Cell;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,18 +61,18 @@ public class DefaultCqlFactoryTest {
   CqlFactory factory;
   List<String> preparedStatement;
 
-  public DefaultCqlFactoryTest() throws URISyntaxException {
+  public DefaultCqlFactoryTest() {
     this.attr =
         AttributeDescriptor.newBuilder(repo)
             .setEntity("dummy")
             .setName("myAttribute")
-            .setSchemeUri(new URI("bytes:///"))
+            .setSchemeUri(URI.create("bytes:///"))
             .build();
     this.attrWildcard =
         AttributeDescriptor.newBuilder(repo)
             .setEntity("dummy")
             .setName("device.*")
-            .setSchemeUri(new URI("bytes:///"))
+            .setSchemeUri(URI.create("bytes:///"))
             .build();
     this.entity =
         EntityDescriptor.newBuilder()
@@ -81,7 +83,7 @@ public class DefaultCqlFactoryTest {
   }
 
   @Before
-  public void setup() throws URISyntaxException {
+  public void setup() {
     preparedStatement = new ArrayList<>();
     factory =
         new DefaultCqlFactory() {
@@ -107,13 +109,13 @@ public class DefaultCqlFactoryTest {
           }
 
           @Override
-          protected String createListStatement(AttributeDescriptor desc) {
+          protected String createListStatement(AttributeDescriptor<?> desc) {
             preparedStatement.add(super.createListStatement(desc));
             return preparedStatement.get(preparedStatement.size() - 1);
           }
 
           @Override
-          protected String createGetStatement(String attribute, AttributeDescriptor desc) {
+          protected String createGetStatement(String attribute, AttributeDescriptor<?> desc) {
             preparedStatement.add(super.createGetStatement(attribute, desc));
             return preparedStatement.get(preparedStatement.size() - 1);
           }
@@ -132,25 +134,28 @@ public class DefaultCqlFactoryTest {
         };
     factory.setup(
         entity,
-        new URI("cassandra://wherever/my_table?data=my_col&primary=hgw"),
+        URI.create("cassandra://wherever/my_table?data=my_col&primary=hgw"),
         StringConverter.getDefault());
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testSetupWithNoQuery() throws URISyntaxException {
-    factory.setup(entity, new URI("cassandra://wherever/my_table"), StringConverter.getDefault());
+  public void testSetupWithNoQuery() {
+    factory.setup(
+        entity, URI.create("cassandra://wherever/my_table"), StringConverter.getDefault());
   }
 
   @Test
-  public void testSetupWithJustPrimary() throws URISyntaxException {
+  public void testSetupWithJustPrimary() {
     factory.setup(
-        entity, new URI("cassandra://wherever/my_table?primary=hgw"), StringConverter.getDefault());
+        entity,
+        URI.create("cassandra://wherever/my_table?primary=hgw"),
+        StringConverter.getDefault());
     assertNotNull(factory);
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testSetupWithNoPath() throws URISyntaxException {
-    factory.setup(entity, new URI("cassandra://wherever/"), StringConverter.getDefault());
+  public void testSetupWithNoPath() {
+    factory.setup(entity, URI.create("cassandra://wherever/"), StringConverter.getDefault());
   }
 
   @Test
@@ -164,7 +169,8 @@ public class DefaultCqlFactoryTest {
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
-    assertNotNull("Bound statement cannot be null", boundStatement);
+    assertTrue(boundStatement.isPresent());
+    assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
         "INSERT INTO my_table (hgw, my_attribute) VALUES (?, ?) USING TIMESTAMP ?",
@@ -172,11 +178,11 @@ public class DefaultCqlFactoryTest {
   }
 
   @Test
-  public void testIngestWithTtl() throws URISyntaxException {
+  public void testIngestWithTtl() {
     long now = System.currentTimeMillis();
     factory.setup(
         entity,
-        new URI("cassandra://wherever/my_table?data=my_col&primary=hgw&ttl=86400"),
+        URI.create("cassandra://wherever/my_table?data=my_col&primary=hgw&ttl=86400"),
         StringConverter.getDefault());
     StreamElement ingest =
         StreamElement.upsert(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
@@ -187,7 +193,8 @@ public class DefaultCqlFactoryTest {
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
-    assertNotNull("Bound statement cannot be null", boundStatement);
+    assertTrue(boundStatement.isPresent());
+    assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
         "INSERT INTO my_table (hgw, my_attribute) VALUES (?, ?) USING TIMESTAMP ?"
@@ -210,7 +217,8 @@ public class DefaultCqlFactoryTest {
         .bind(
             eq("key"), eq("1"),
             eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
-    assertNotNull("Bound statement cannot be null", boundStatement);
+    assertTrue(boundStatement.isPresent());
+    assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
         "INSERT INTO my_table (hgw, device, my_col) VALUES (?, ?, ?) USING TIMESTAMP ?",
@@ -227,7 +235,8 @@ public class DefaultCqlFactoryTest {
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement).bind(eq(now * 1000L), eq("key"));
-    assertNotNull("Bound statement cannot be null", boundStatement);
+    assertTrue(boundStatement.isPresent());
+    assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
         "DELETE my_attribute FROM my_table USING TIMESTAMP ? WHERE hgw=?",
@@ -244,7 +253,8 @@ public class DefaultCqlFactoryTest {
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement).bind(eq(now * 1000L), eq("1"), eq("key"));
-    assertNotNull("Bound statement cannot be null", boundStatement);
+    assertTrue(boundStatement.isPresent());
+    assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
         "DELETE my_col FROM my_table USING TIMESTAMP ? WHERE device=? AND hgw=?",
@@ -261,7 +271,7 @@ public class DefaultCqlFactoryTest {
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement).bind(eq(now * 1000L), eq("key"));
-    assertNotNull("Bound statement cannot be null", boundStatement);
+    assertTrue(boundStatement.isPresent());
     assertEquals(1, preparedStatement.size());
     assertEquals("DELETE FROM my_table USING TIMESTAMP ? WHERE hgw=?", preparedStatement.get(0));
   }
@@ -355,10 +365,10 @@ public class DefaultCqlFactoryTest {
   }
 
   @Test
-  public void testListWildcardWithExplicitSecondaryField() throws URISyntaxException {
+  public void testListWildcardWithExplicitSecondaryField() {
     factory.setup(
         entity,
-        new URI("cassandra://wherever/my_table?data=my_col" + "&primary=hgw&secondary=stamp"),
+        URI.create("cassandra://wherever/my_table?data=my_col" + "&primary=hgw&secondary=stamp"),
         StringConverter.getDefault());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", "", Integer.MAX_VALUE)).thenReturn(bound);
@@ -395,5 +405,91 @@ public class DefaultCqlFactoryTest {
     assertEquals(
         "SELECT hgw, device, my_col FROM my_table WHERE token(hgw) >= 0 AND token(hgw) <= 100",
         statement.toString());
+  }
+
+  @Test
+  public void testV2SerializerIngest() {
+    factory.setup(
+        entity,
+        URI.create("cassandra://whatever/my_table?primary=hgw&serializer=v2"),
+        StringConverter.getDefault());
+
+    long now = System.currentTimeMillis();
+    StreamElement ingest =
+        StreamElement.upsert(entity, attr, 1001L, "key", "myAttribute", now, "value".getBytes());
+    BoundStatement bound = mock(BoundStatement.class);
+    when(statement.bind(eq("key"), any(), eq(now * 1000L)))
+        .thenAnswer(
+            invocationOnMock -> {
+              ByteBuffer bytes = invocationOnMock.getArgument(1);
+              Cell cell = Cell.parseFrom(ByteString.copyFrom(bytes));
+              assertEquals("value", cell.getValue().toStringUtf8());
+              assertEquals(1001L, cell.getSeqId());
+              KeyValue<?> received =
+                  factory.toKeyValue(
+                      entity,
+                      attrWildcard,
+                      "key",
+                      "device.1",
+                      now,
+                      Offsets.empty(),
+                      bytes.slice().array());
+              assertEquals(ingest.getKey(), received.getKey());
+              assertEquals(ingest.getSequentialId(), received.getSequentialId());
+              return bound;
+            });
+    when(session.prepare((String) any())).thenReturn(statement);
+
+    Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
+    assertTrue(boundStatement.isPresent());
+    assertSame(bound, boundStatement.get());
+    assertEquals(1, preparedStatement.size());
+    assertEquals(
+        "INSERT INTO my_table (hgw, my_attribute) VALUES (?, ?) USING TIMESTAMP ?",
+        preparedStatement.get(0));
+  }
+
+  @Test
+  public void testV2SerializerIngestWildcard() {
+
+    factory.setup(
+        entity,
+        URI.create("cassandra://whatever/my_table?primary=hgw&data=my_col&serializer=v2"),
+        StringConverter.getDefault());
+
+    long now = System.currentTimeMillis();
+    StreamElement ingest =
+        StreamElement.upsert(
+            entity, attrWildcard, 1001L, "key", "device.1", now, "value".getBytes());
+    BoundStatement bound = mock(BoundStatement.class);
+    when(statement.bind(eq("key"), eq("1"), any(), eq(now * 1000L)))
+        .thenAnswer(
+            invocationOnMock -> {
+              ByteBuffer bytes = invocationOnMock.getArgument(2);
+              Cell cell = Cell.parseFrom(ByteString.copyFrom(bytes));
+              assertEquals(1001L, cell.getSeqId());
+              assertEquals("value", cell.getValue().toStringUtf8());
+              KeyValue<?> received =
+                  factory.toKeyValue(
+                      entity,
+                      attrWildcard,
+                      "key",
+                      "device.1",
+                      now,
+                      Offsets.empty(),
+                      bytes.slice().array());
+              assertEquals(ingest.getKey(), received.getKey());
+              assertEquals(ingest.getSequentialId(), received.getSequentialId());
+              return bound;
+            });
+    when(session.prepare((String) any())).thenReturn(statement);
+
+    Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
+    assertTrue(boundStatement.isPresent());
+    assertSame(boundStatement.get(), bound);
+    assertEquals(1, preparedStatement.size());
+    assertEquals(
+        "INSERT INTO my_table (hgw, device, my_col) VALUES (?, ?, ?) USING TIMESTAMP ?",
+        preparedStatement.get(0));
   }
 }

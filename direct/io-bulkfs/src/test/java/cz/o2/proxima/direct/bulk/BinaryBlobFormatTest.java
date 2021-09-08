@@ -19,8 +19,8 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Lists;
-import cz.o2.proxima.gcloud.storage.proto.Serialization.Header;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.proto.Serialization.Header;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;

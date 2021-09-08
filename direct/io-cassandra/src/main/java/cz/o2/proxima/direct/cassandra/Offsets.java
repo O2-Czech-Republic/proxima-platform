@@ -20,6 +20,8 @@ import cz.o2.proxima.direct.randomaccess.RandomOffset;
 /** Offset based on {@code token} function. */
 public class Offsets {
 
+  private static RandomOffset EMPTY = new RandomOffset() {};
+
   /** Offset represented by a token (hash) of the key. */
   public static class Token implements RandomOffset {
 
@@ -50,6 +52,10 @@ public class Offsets {
     public String getRaw() {
       return str;
     }
+  }
+
+  public static RandomOffset empty() {
+    return EMPTY;
   }
 
   private Offsets() {

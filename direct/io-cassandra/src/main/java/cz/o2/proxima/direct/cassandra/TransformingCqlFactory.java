@@ -19,8 +19,11 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
+import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
@@ -169,6 +172,20 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
       List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session) {
 
     throw new UnsupportedOperationException("Not supported.");
+  }
+
+  @Override
+  public <V> KeyValue<V> toKeyValue(
+      EntityDescriptor entityDescriptor,
+      AttributeDescriptor<V> attributeDescriptor,
+      String key,
+      String attribute,
+      long stamp,
+      RandomOffset offset,
+      byte[] serializedValue) {
+
+    return KeyValue.of(
+        entityDescriptor, attributeDescriptor, key, attribute, offset, serializedValue, stamp);
   }
 
   @Override

@@ -281,14 +281,15 @@ public class CassandraDBAccessorTest {
             entity,
             URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(TestCqlFactory.class));
-    CassandraWriter writer = accessor.newWriter();
-
-    AtomicBoolean success = new AtomicBoolean(false);
-    writer.write(
-        StreamElement.upsert(
-            entity, attr, "", "key", attr.getName(), System.currentTimeMillis(), new byte[0]),
-        (status, exc) -> success.set(status));
-    assertTrue(success.get());
+    try (CassandraWriter writer = accessor.newWriter()) {
+      AtomicBoolean success = new AtomicBoolean(false);
+      writer.write(
+          StreamElement.upsert(
+              entity, attr, "", "key", attr.getName(), System.currentTimeMillis(), new byte[0]),
+          (status, exc) -> success.set(status));
+      assertTrue(success.get());
+    }
+    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test failed write. */
@@ -299,14 +300,14 @@ public class CassandraDBAccessorTest {
             entity,
             URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(ThrowingTestCqlFactory.class));
-    CassandraWriter writer = accessor.newWriter();
-
-    AtomicBoolean success = new AtomicBoolean(true);
-    writer.write(
-        StreamElement.upsert(
-            entity, attr, "", "key", attr.getName(), System.currentTimeMillis(), new byte[0]),
-        (status, exc) -> success.set(status));
-    assertFalse(success.get());
+    try (CassandraWriter writer = accessor.newWriter()) {
+      AtomicBoolean success = new AtomicBoolean(true);
+      writer.write(
+          StreamElement.upsert(
+              entity, attr, "", "key", attr.getName(), System.currentTimeMillis(), new byte[0]),
+          (status, exc) -> success.set(status));
+      assertFalse(success.get());
+    }
   }
 
   /** Test successful delete. */
@@ -319,13 +320,14 @@ public class CassandraDBAccessorTest {
             entity,
             URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(TestCqlFactory.class));
-    CassandraWriter writer = accessor.newWriter();
-
-    AtomicBoolean success = new AtomicBoolean(false);
-    writer.write(
-        StreamElement.delete(entity, attr, "", "key", attr.getName(), System.currentTimeMillis()),
-        (status, exc) -> success.set(status));
-    assertTrue(success.get());
+    try (CassandraWriter writer = accessor.newWriter()) {
+      AtomicBoolean success = new AtomicBoolean(false);
+      writer.write(
+          StreamElement.delete(entity, attr, "", "key", attr.getName(), System.currentTimeMillis()),
+          (status, exc) -> success.set(status));
+      assertTrue(success.get());
+    }
+    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test failed delete. */
@@ -336,13 +338,14 @@ public class CassandraDBAccessorTest {
             entity,
             URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(ThrowingTestCqlFactory.class));
-    CassandraWriter writer = accessor.newWriter();
-
-    AtomicBoolean success = new AtomicBoolean(true);
-    writer.write(
-        StreamElement.delete(entity, attr, "", "key", attr.getName(), System.currentTimeMillis()),
-        (status, exc) -> success.set(status));
-    assertFalse(success.get());
+    try (CassandraWriter writer = accessor.newWriter()) {
+      AtomicBoolean success = new AtomicBoolean(true);
+      writer.write(
+          StreamElement.delete(entity, attr, "", "key", attr.getName(), System.currentTimeMillis()),
+          (status, exc) -> success.set(status));
+      assertFalse(success.get());
+    }
+    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test get of attribute. */
@@ -364,7 +367,6 @@ public class CassandraDBAccessorTest {
             URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(TestCqlFactory.class));
     try (RandomAccessReader db = accessor.newRandomReader()) {
-
       accessor.setRes(res);
 
       Optional<KeyValue<byte[]>> value = db.get("key", attr);
@@ -373,10 +375,11 @@ public class CassandraDBAccessorTest {
       assertEquals("key", value.get().getKey());
       assertArrayEquals(payload, value.get().getValue());
     }
+    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test failed get does throw exceptions. */
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testGetFailed() {
     entity = EntityDescriptor.newBuilder().setName("dummy").build();
 
@@ -393,11 +396,11 @@ public class CassandraDBAccessorTest {
             entity,
             URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(ThrowingTestCqlFactory.class));
-    CassandraRandomReader db = accessor.newRandomReader();
-
-    accessor.setRes(res);
-
-    db.get("key", attr);
+    try (CassandraRandomReader db = accessor.newRandomReader()) {
+      accessor.setRes(res);
+      assertThrows(RuntimeException.class, () -> db.get("key", attr));
+    }
+    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test list with success. */
@@ -419,22 +422,23 @@ public class CassandraDBAccessorTest {
             entity,
             URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(TestCqlFactory.class));
-    CassandraRandomReader db = accessor.newRandomReader();
+    try (CassandraRandomReader reader = accessor.newRandomReader()) {
+      accessor.setRes(res);
+      AtomicInteger count = new AtomicInteger();
 
-    accessor.setRes(res);
-    AtomicInteger count = new AtomicInteger();
+      reader.scanWildcard(
+          "key",
+          attrWildcard,
+          data -> {
+            count.incrementAndGet();
+            assertEquals("device.1", data.getAttribute());
+            assertEquals("key", data.getKey());
+            assertArrayEquals(payload, data.getValue());
+          });
 
-    db.scanWildcard(
-        "key",
-        attrWildcard,
-        data -> {
-          count.incrementAndGet();
-          assertEquals("device.1", data.getAttribute());
-          assertEquals("key", data.getKey());
-          assertArrayEquals(payload, data.getValue());
-        });
-
-    assertEquals(1, count.get());
+      assertEquals(1, count.get());
+    }
+    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test list with success. */
@@ -563,7 +567,6 @@ public class CassandraDBAccessorTest {
 
   @Test(timeout = 10000)
   public void testBatchReader() throws InterruptedException {
-
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity,
@@ -607,6 +610,9 @@ public class CassandraDBAccessorTest {
       List<Statement> executed = accessor.getExecuted();
       assertEquals(2, executed.size());
     }
+    assertTrue(
+        "Expected empty CLUSTER_MAP, got " + CassandraDBAccessor.getCLUSTER_MAP(),
+        CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   @Test(timeout = 10000)
@@ -756,9 +762,6 @@ public class CassandraDBAccessorTest {
       byte[] bytes = TestUtils.serializeObject(writer.asFactory());
       AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
       assertEquals(writer.getUri(), ((CassandraWriter) factory.apply(repo)).getUri());
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
     }
   }
 

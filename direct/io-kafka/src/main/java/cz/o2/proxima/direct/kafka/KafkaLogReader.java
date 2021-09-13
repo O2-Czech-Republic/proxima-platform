@@ -456,7 +456,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               logConsumerWatermark(name, offsets, watermarkEstimator, poll.count());
               poll =
                   seekToNewOffsetsIfNeeded(seekOffsets, consumer, watermarkEstimator, kafka, poll);
-
               long bytesPolled = 0L;
               // increase all partition's empty poll counter by 1
               emptyPollCount.replaceAll((k, v) -> v + 1);
@@ -491,7 +490,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               increaseWatermarkOnEmptyPolls(emptyPollCount, topicPartitionToId, watermarkEstimator);
               flushCommits(kafka, consumer);
               rethrowErrorIfPresent(name, error);
-              terminateIfConsumed(stopAtCurrent, kafka, endOffsets, completed);
+              terminateIfConsumed(stopAtCurrent, kafka, endOffsets, emptyPollCount, completed);
               throughputLimiter.sleepToLimitThroughput(bytesPolled, pollTimeMs);
               long startTime = System.currentTimeMillis();
               poll = kafka.poll(pollDuration);
@@ -599,13 +598,22 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       boolean stopAtCurrent,
       KafkaConsumer<?, ?> consumer,
       Map<TopicPartition, Long> endOffsets,
+      Map<TopicPartition, Integer> emptyPollCount,
       AtomicBoolean completed) {
 
-    if (stopAtCurrent && endOffsets.isEmpty()) {
-      log.info(
-          "Assignment {} reached end of current data. Terminating consumption.",
-          consumer.assignment());
-      completed.set(true);
+    if (stopAtCurrent) {
+      if (emptyPollCount.values().stream().allMatch(v -> v >= emptyPollCount.size())) {
+        // we need to re-fetch the end offsets, because the topic might have been truncated
+        // by log-roll
+        endOffsets.clear();
+        endOffsets.putAll(findNonEmptyEndOffsets(consumer));
+      }
+      if (endOffsets.isEmpty()) {
+        log.info(
+            "Assignment {} reached end of current data. Terminating consumption.",
+            consumer.assignment());
+        completed.set(true);
+      }
     }
   }
 
@@ -674,9 +682,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     };
   }
 
-  private Map<TopicPartition, Long> findNonEmptyEndOffsets(
-      final KafkaConsumer<Object, Object> kafka) {
-
+  private Map<TopicPartition, Long> findNonEmptyEndOffsets(final KafkaConsumer<?, ?> kafka) {
     Set<TopicPartition> assignment = kafka.assignment();
     Map<TopicPartition, Long> beginning = kafka.beginningOffsets(assignment);
     return kafka

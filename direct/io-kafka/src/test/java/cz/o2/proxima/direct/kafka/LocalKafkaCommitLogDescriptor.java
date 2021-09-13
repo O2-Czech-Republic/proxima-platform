@@ -171,7 +171,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     private void configure(URI uri, Map<String, Object> cfg) {
       numPartitions =
           Optional.ofNullable(cfg.get(CFG_NUM_PARTITIONS))
-              .filter(o -> o != null)
               .map(o -> Integer.valueOf(o.toString()))
               .orElse(numPartitions);
 
@@ -279,7 +278,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
               invocation -> {
                 polled.set(true);
                 Duration sleep = (Duration) invocation.getArguments()[0];
-                return pollConsumer(group, sleep.toMillis(), consumerId, serializer, listener);
+                return pollConsumer(
+                    group, Math.min(200, sleep.toMillis()), consumerId, serializer, listener);
               })
           .when(mock)
           .poll(any());
@@ -756,7 +756,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
   }
 
-  private final String id = UUID.randomUUID().toString();
+  final String id = UUID.randomUUID().toString();
   private final Function<Accessor, Accessor> accessorModifier;
 
   public LocalKafkaCommitLogDescriptor() {

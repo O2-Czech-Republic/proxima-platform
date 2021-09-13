@@ -17,6 +17,8 @@ package cz.o2.proxima.direct.kafka;
 
 import static cz.o2.proxima.util.TestUtils.createTestFamily;
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterators;
@@ -61,6 +63,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -80,12 +83,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -2811,6 +2816,81 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     props = new Properties();
     KafkaConsumerFactory.updateAutoOffsetReset(Position.CURRENT, props, true);
     assertEquals("none", props.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+  }
+
+  @Test(timeout = 10000)
+  public void testBatchObserveWithLogRoll() throws InterruptedException {
+    String topic = Utils.topic(storageUri);
+    Map<TopicPartition, Long> endOffsets =
+        IntStream.range(0, 3)
+            .mapToObj(i -> new TopicPartition(topic, i))
+            .collect(Collectors.toMap(Function.identity(), e -> 2L));
+    Map<TopicPartition, Long> beginningOffsets =
+        IntStream.range(0, 3)
+            .mapToObj(i -> new TopicPartition(topic, i))
+            .collect(Collectors.toMap(Function.identity(), e -> 0L));
+    final LocalKafkaCommitLogDescriptor descriptor =
+        new LocalKafkaCommitLogDescriptor() {
+          @Override
+          public Accessor createAccessor(
+              DirectDataOperator direct, AttributeFamilyDescriptor family) {
+            AtomicInteger invokedCount = new AtomicInteger();
+            return new Accessor(family.getEntity(), family.getStorageUri(), family.getCfg(), id) {
+              @Override
+              <K, V> KafkaConsumer<K, V> mockKafkaConsumer(
+                  String name,
+                  ConsumerGroup group,
+                  ElementSerializer<K, V> serializer,
+                  @Nullable Collection<Partition> assignedPartitions,
+                  @Nullable ConsumerRebalanceListener listener) {
+
+                KafkaConsumer<K, V> mock =
+                    super.mockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
+                doAnswer(
+                        invocationOnMock -> {
+                          if (invokedCount.incrementAndGet() > 2) {
+                            return endOffsets;
+                          }
+                          return beginningOffsets;
+                        })
+                    .when(mock)
+                    .beginningOffsets(any());
+
+                doAnswer(invocationOnMock -> endOffsets).when(mock).endOffsets(any());
+                return mock;
+              }
+            };
+          }
+        };
+    final Accessor accessor =
+        descriptor.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
+    final CountDownLatch latch = new CountDownLatch(1);
+
+    final CommitLogObserver observer =
+        new CommitLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            context.confirm();
+            return false;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+        };
+
+    try (final ObserveHandle handle =
+        reader.observeBulk("dummy", Position.OLDEST, true, observer)) {
+      latch.await();
+    }
   }
 
   private long testSequentialConsumption(long maxBytesPerSec) throws InterruptedException {

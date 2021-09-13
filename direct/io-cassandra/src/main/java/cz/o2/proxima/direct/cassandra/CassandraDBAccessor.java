@@ -60,8 +60,11 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   private static final long serialVersionUID = 1L;
 
+  @VisibleForTesting
+  @Getter(AccessLevel.PACKAGE)
   private static final Map<String, Cluster> CLUSTER_MAP =
       Collections.synchronizedMap(new HashMap<>());
+
   private static final Map<Cluster, AtomicInteger> CLUSTER_REFERENCES = new ConcurrentHashMap<>();
   private static final Map<Cluster, Session> CLUSTER_SESSIONS = new ConcurrentHashMap<>();
 
@@ -81,11 +84,9 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   private transient ThreadLocal<CqlFactory> cqlFactory;
 
   /** Our cassandra cluster. */
-  @Nullable private transient Cluster cluster;
-  /** Session we are connected to. */
-  @Nullable private transient Session session;
+  @Nullable private transient volatile Cluster cluster;
   /** Quorum for both reads and writes. */
-  private ConsistencyLevel consistencyLevel;
+  private final ConsistencyLevel consistencyLevel;
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   public CassandraDBAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
@@ -192,8 +193,9 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   }
 
   void incrementClusterReference() {
-    Cluster cluster = getCluster(getUri());
-    CLUSTER_REFERENCES.computeIfAbsent(cluster, tmp -> new AtomicInteger(0)).incrementAndGet();
+    CLUSTER_REFERENCES
+        .computeIfAbsent(getCluster(getUri()), tmp -> new AtomicInteger(0))
+        .incrementAndGet();
   }
 
   void decrementClusterReference() {
@@ -232,11 +234,10 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   }
 
   Session ensureSession() {
-    if (cluster == null) {
-      cluster = getCluster(getUri());
-    }
+    cluster = getCluster(getUri());
     Preconditions.checkState(cluster != null);
-    session = CLUSTER_SESSIONS.computeIfAbsent(cluster, Cluster::connect);
+    /** Session we are connected to. */
+    Session session = CLUSTER_SESSIONS.computeIfAbsent(cluster, Cluster::connect);
     if (session.isClosed()) {
       synchronized (this) {
         session = CLUSTER_SESSIONS.get(cluster);
@@ -271,15 +272,14 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     return new CassandraRandomReader(this) {
       @Override
       public void close() {
+        super.close();
         cqlFactory.remove();
-        decrementClusterReference();
       }
     };
   }
 
   @VisibleForTesting
   CassandraLogReader newBatchReader(Context context) {
-    incrementClusterReference();
     return new CassandraLogReader(this, context::getExecutorService) {
 
       @Override

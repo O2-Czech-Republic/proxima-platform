@@ -97,12 +97,12 @@ class CassandraLogReader implements BatchLogReader {
                 break;
               }
             }
+            accessor.decrementClusterReference();
             terminationContext.finished();
           } catch (Throwable err) {
+            accessor.decrementClusterReference();
             terminationContext.handleErrorCaught(
                 err, () -> observeInternal(partitions, attributes, observer, terminationContext));
-          } finally {
-            accessor.decrementClusterReference();
           }
         });
   }

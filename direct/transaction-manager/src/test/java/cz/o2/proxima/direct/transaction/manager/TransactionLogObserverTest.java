@@ -583,6 +583,56 @@ public class TransactionLogObserverTest {
     }
   }
 
+  @Test(timeout = 10000)
+  public void testTwoOpenedCommitWildcard() throws InterruptedException {
+    createObserver();
+    try (ClientTransactionManager clientManager = direct.getClientTransactionManager()) {
+      String t1 = UUID.randomUUID().toString();
+      String t2 = UUID.randomUUID().toString();
+      List<KeyAttribute> inputs =
+          KeyAttributes.ofWildcardQueryElements(
+              user,
+              "user",
+              userGateways,
+              Collections.singletonList(
+                  userGateways.upsert(100L, "user", "1", now, new byte[] {})));
+
+      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+      clientManager.begin(
+          t1,
+          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+          inputs);
+      Pair<String, Response> t1OpenResponse = responseQueue.take();
+      clientManager.begin(
+          t2,
+          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+          inputs);
+      Pair<String, Response> t2OpenResponse = responseQueue.take();
+
+      assertEquals(Response.Flags.OPEN, t1OpenResponse.getSecond().getFlags());
+      assertEquals(Response.Flags.OPEN, t2OpenResponse.getSecond().getFlags());
+
+      List<KeyAttribute> t1Outputs =
+          Collections.singletonList(
+              KeyAttributes.ofAttributeDescriptor(
+                  user, "user", userGateways, t1OpenResponse.getSecond().getSeqId(), "1"));
+
+      List<KeyAttribute> t2Outputs =
+          Collections.singletonList(
+              KeyAttributes.ofAttributeDescriptor(
+                  user, "user", userGateways, t2OpenResponse.getSecond().getSeqId(), "1"));
+
+      clientManager.commit(t1, t1Outputs);
+      Pair<String, Response> response = responseQueue.take();
+      assertEquals("commit", response.getFirst());
+      assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+      clientManager.commit(t2, t2Outputs);
+      response = responseQueue.take();
+      assertEquals("commit", response.getFirst());
+      assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    }
+  }
+
   static class WithTransactionTimeout implements TransactionLogObserverFactory {
 
     private final long timeout;

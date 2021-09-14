@@ -21,7 +21,6 @@ import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Sets;
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.Streams;
-import cz.o2.proxima.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -57,7 +56,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -67,8 +65,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Internal
-@ThreadSafe
-@DeclaredThreadSafe
+// @ThreadSafe
+// @DeclaredThreadSafe
 public class TransactionLogObserver implements CommitLogObserver {
 
   @Value

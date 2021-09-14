@@ -83,6 +83,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   private static final long serialVersionUID = 1L;
 
   public static final String CFG_NUM_PARTITIONS = "local-kafka-num-partitions";
+  public static final String CFG_RETENTION = "retention-elements";
 
   // we need this to be able to survive serialization
   private static final Map<String, Map<URI, Accessor>> ACCESSORS = new ConcurrentHashMap<>();
@@ -128,6 +129,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
     String descriptorId;
     int numPartitions = 1;
+    long perPartitionRetention = -1L;
 
     // list of consumers by name with assigned partitions
     transient Map<String, ConsumerGroup> consumerGroups;
@@ -186,6 +188,11 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
               .orElse(serializerClass);
 
       serializerClass = cls;
+
+      perPartitionRetention =
+          Optional.ofNullable(cfg.get(CFG_RETENTION))
+              .map(o -> Long.valueOf(o.toString()))
+              .orElse(perPartitionRetention);
 
       log.info("Created accessor with URI {} and {} partitions", uri, numPartitions);
     }
@@ -559,10 +566,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           elem.headers());
     }
 
-    public boolean allConsumed() {
-      return allConsumed(written.stream().map(List::size).collect(Collectors.toList()));
-    }
-
     public boolean allConsumed(List<Integer> untilOffsets) {
       return consumerGroups
           .keySet()
@@ -619,6 +622,10 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       this.written.clear();
       this.consumerGroups.clear();
       this.committedOffsets.clear();
+    }
+
+    public int getPerPartitionElementsRetention() {
+      return 0;
     }
   }
 
@@ -728,8 +735,9 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       int partitionId = accessor.getPartitioner().getPartitionId(data);
       int partition = (partitionId & Integer.MAX_VALUE) % numPartitions;
       Accessor local = (LocalKafkaCommitLogDescriptor.Accessor) accessor;
-      local.written.get(partition).add(data);
-      long offset = local.written.get(partition).size() - 1;
+      List<StreamElement> partitionData = local.written.get(partition);
+      partitionData.add(data);
+      long offset = partitionData.size() - 1;
       log.debug(
           "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, "
               + "partition {} at offset {}",
@@ -739,6 +747,16 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           partition,
           offset);
 
+      if (getAccessor().getPerPartitionElementsRetention() > 0
+          && partitionData.size() > getAccessor().getPerPartitionElementsRetention()) {
+        synchronized (partitionData) {
+          List<StreamElement> slice =
+              partitionData.subList(
+                  partitionData.size() - getAccessor().getPerPartitionElementsRetention(),
+                  getAccessor().getPerPartitionElementsRetention());
+          local.written.set(partition, slice);
+        }
+      }
       callback.commit(true, null);
     }
 

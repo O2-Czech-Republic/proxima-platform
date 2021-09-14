@@ -31,6 +31,43 @@
 
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <profiles>
+    <profile>
+      <id>largeTests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <version>${maven.surefire.version}</version>
+            <configuration>
+              <forkCount>${surefire.forkCount}</forkCount>
+              <reuseForks>false</reuseForks>
+              <threadCount>1</threadCount>
+              <parallel>methods</parallel>
+              <perCoreThreadCount>false</perCoreThreadCount>
+              <useSystemClassLoader>true</useSystemClassLoader>
+              <useManifestOnlyJar>false</useManifestOnlyJar>
+              <argLine>@{argLine} -Xmx10g -Xms5g -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true ${surefire.cmdArgs}</argLine>
+              <includes>
+                <include>**/*Test.java</include>
+                <include>**/*IT.java</include>
+                <include>**/*IT_Large.java</include>
+              </includes>
+            </configuration>
+            <dependencies>
+              <dependency>
+                <groupId>org.junit.vintage</groupId>
+                <artifactId>junit-vintage-engine</artifactId>
+                <version>5.7.0</version>
+              </dependency>
+            </dependencies>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
   <build>
     <plugins>
       <plugin>

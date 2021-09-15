@@ -49,7 +49,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +58,41 @@ import lombok.extern.slf4j.Slf4j;
 public class CassandraDBAccessor extends AbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
+
+  class ClusterHolder implements AutoCloseable {
+
+    @Getter(AccessLevel.PACKAGE)
+    private Cluster cluster;
+
+    private ClusterHolder(Cluster cluster) {
+      this.cluster = cluster;
+      incrementClusterReference();
+    }
+
+    @Override
+    public void close() {
+      if (cluster != null) {
+        decrementClusterReference();
+        cluster = null;
+      }
+    }
+
+    private void incrementClusterReference() {
+      CLUSTER_REFERENCES.computeIfAbsent(cluster, tmp -> new AtomicInteger(0)).incrementAndGet();
+    }
+
+    private void decrementClusterReference() {
+      AtomicInteger references = CLUSTER_REFERENCES.get(cluster);
+      if (references != null && references.decrementAndGet() == 0) {
+        synchronized (CLUSTER_MAP) {
+          Optional.ofNullable(CLUSTER_SESSIONS.remove(cluster)).ifPresent(Session::close);
+          Optional.ofNullable(CLUSTER_MAP.remove(getUri().getAuthority()))
+              .ifPresent(Cluster::close);
+          CLUSTER_REFERENCES.remove(cluster);
+        }
+      }
+    }
+  }
 
   @VisibleForTesting
   @Getter(AccessLevel.PACKAGE)
@@ -83,8 +117,6 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   private transient ThreadLocal<CqlFactory> cqlFactory;
 
-  /** Our cassandra cluster. */
-  @Nullable private transient volatile Cluster cluster;
   /** Quorum for both reads and writes. */
   private final ConsistencyLevel consistencyLevel;
 
@@ -171,6 +203,10 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     return ensureSession().execute(statement);
   }
 
+  ClusterHolder acquireCluster() {
+    return new ClusterHolder(getCluster(getUri()));
+  }
+
   private Cluster getCluster(URI uri) {
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(uri.getAuthority()), "Invalid authority in %s", uri);
@@ -178,38 +214,13 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   }
 
   private Cluster getCluster(String authority) {
-    if (this.cluster != null) {
-      return this.cluster;
-    }
     synchronized (CLUSTER_MAP) {
       Cluster cluster = CLUSTER_MAP.get(authority);
       if (cluster == null) {
         cluster = createCluster(authority);
         CLUSTER_MAP.put(authority, cluster);
-        this.cluster = cluster;
       }
       return Objects.requireNonNull(cluster);
-    }
-  }
-
-  void incrementClusterReference() {
-    CLUSTER_REFERENCES
-        .computeIfAbsent(getCluster(getUri()), tmp -> new AtomicInteger(0))
-        .incrementAndGet();
-  }
-
-  void decrementClusterReference() {
-    if (cluster != null) {
-      AtomicInteger references = CLUSTER_REFERENCES.get(cluster);
-      if (references != null && references.decrementAndGet() == 0) {
-        synchronized (CLUSTER_MAP) {
-          Optional.ofNullable(CLUSTER_SESSIONS.remove(cluster)).ifPresent(Session::close);
-          Optional.ofNullable(CLUSTER_MAP.remove(getUri().getAuthority()))
-              .ifPresent(Cluster::close);
-          CLUSTER_REFERENCES.remove(cluster);
-          cluster = null;
-        }
-      }
     }
   }
 
@@ -234,7 +245,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   }
 
   Session ensureSession() {
-    cluster = getCluster(getUri());
+    Cluster cluster = getCluster(getUri());
     Preconditions.checkState(cluster != null);
     /** Session we are connected to. */
     Session session = CLUSTER_SESSIONS.computeIfAbsent(cluster, Cluster::connect);
@@ -268,7 +279,6 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   @VisibleForTesting
   CassandraRandomReader newRandomReader() {
-    incrementClusterReference();
     return new CassandraRandomReader(this) {
       @Override
       public void close() {
@@ -298,7 +308,6 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   @VisibleForTesting
   CassandraWriter newWriter() {
-    incrementClusterReference();
     return new CassandraWriter(this) {
 
       @Override

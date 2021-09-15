@@ -20,6 +20,7 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Token;
+import cz.o2.proxima.direct.cassandra.CassandraDBAccessor.ClusterHolder;
 import cz.o2.proxima.direct.cassandra.CqlFactory.KvIterable;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
@@ -38,10 +39,12 @@ import lombok.extern.slf4j.Slf4j;
 class CassandraRandomReader extends AbstractStorage implements RandomAccessReader {
 
   private final CassandraDBAccessor accessor;
+  private final ClusterHolder clusterHolder;
 
   CassandraRandomReader(CassandraDBAccessor accessor) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
+    this.clusterHolder = accessor.acquireCluster();
   }
 
   @Override
@@ -183,7 +186,7 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
 
   @Override
   public void close() {
-    accessor.decrementClusterReference();
+    clusterHolder.close();
   }
 
   @Override

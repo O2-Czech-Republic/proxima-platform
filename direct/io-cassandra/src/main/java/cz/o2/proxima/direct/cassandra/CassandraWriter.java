@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Session;
+import cz.o2.proxima.direct.cassandra.CassandraDBAccessor.ClusterHolder;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -29,10 +30,12 @@ import lombok.extern.slf4j.Slf4j;
 class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAttributeWriter {
 
   private final CassandraDBAccessor accessor;
+  private final ClusterHolder clusterHolder;
 
   CassandraWriter(CassandraDBAccessor accessor) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
+    this.clusterHolder = accessor.acquireCluster();
   }
 
   @Override
@@ -67,6 +70,6 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
 
   @Override
   public void close() {
-    accessor.decrementClusterReference();
+    clusterHolder.close();
   }
 }

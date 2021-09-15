@@ -2759,28 +2759,30 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     Arrays.stream(updates).forEach(update -> writer.write(update, (succ, exc) -> {}));
 
-    final ObserveHandle handle =
+    CommitLogObserver observer =
+        new CommitLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            context.confirm();
+            latch.countDown();
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            fail("This should not be called");
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        };
+
+    ObserveHandle handle =
         reader.observeBulkOffsets(
-            reader.fetchOffsets(Position.OLDEST, reader.getPartitions()).values(),
-            new CommitLogObserver() {
-
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                context.confirm();
-                latch.countDown();
-                return true;
-              }
-
-              @Override
-              public void onCompleted() {
-                fail("This should not be called");
-              }
-
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-            });
+            reader.fetchOffsets(Position.OLDEST, reader.getPartitions()).values(), observer);
 
     latch.await();
     assertEquals(
@@ -2889,6 +2891,84 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     try (final ObserveHandle handle =
         reader.observeBulk("dummy", Position.OLDEST, true, observer)) {
+      latch.await();
+    }
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveOffsetsWithLogRoll() throws InterruptedException {
+    String topic = Utils.topic(storageUri);
+    Map<TopicPartition, Long> endOffsets =
+        IntStream.range(0, 3)
+            .mapToObj(i -> new TopicPartition(topic, i))
+            .collect(Collectors.toMap(Function.identity(), e -> 2L));
+    Map<TopicPartition, Long> beginningOffsets =
+        IntStream.range(0, 3)
+            .mapToObj(i -> new TopicPartition(topic, i))
+            .collect(Collectors.toMap(Function.identity(), e -> 0L));
+    final LocalKafkaCommitLogDescriptor descriptor =
+        new LocalKafkaCommitLogDescriptor() {
+          @Override
+          public Accessor createAccessor(
+              DirectDataOperator direct, AttributeFamilyDescriptor family) {
+            AtomicInteger invokedCount = new AtomicInteger();
+            return new Accessor(family.getEntity(), family.getStorageUri(), family.getCfg(), id) {
+              @Override
+              <K, V> KafkaConsumer<K, V> mockKafkaConsumer(
+                  String name,
+                  ConsumerGroup group,
+                  ElementSerializer<K, V> serializer,
+                  @Nullable Collection<Partition> assignedPartitions,
+                  @Nullable ConsumerRebalanceListener listener) {
+
+                KafkaConsumer<K, V> mock =
+                    super.mockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
+                doAnswer(
+                        invocationOnMock -> {
+                          if (invokedCount.incrementAndGet() > 2) {
+                            return endOffsets;
+                          }
+                          return beginningOffsets;
+                        })
+                    .when(mock)
+                    .beginningOffsets(any());
+
+                doAnswer(invocationOnMock -> endOffsets).when(mock).endOffsets(any());
+                return mock;
+              }
+            };
+          }
+        };
+    final Accessor accessor =
+        descriptor.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
+    final CountDownLatch latch = new CountDownLatch(1);
+
+    final CommitLogObserver observer =
+        new CommitLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            context.confirm();
+            return false;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+        };
+
+    try (final ObserveHandle handle =
+        reader.observeBulkOffsets(
+            reader.fetchOffsets(Position.OLDEST, reader.getPartitions()).values(),
+            true,
+            observer)) {
       latch.await();
     }
   }

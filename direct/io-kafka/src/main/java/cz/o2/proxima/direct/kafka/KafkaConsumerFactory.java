@@ -22,6 +22,7 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -64,6 +65,14 @@ public class KafkaConsumerFactory<K, V> {
     this.valueSerde = valueSerde;
   }
 
+  /**
+   * Create named consumer consuming from given position.
+   *
+   * @param name name of the consumer
+   * @param position where to start the consumption
+   * @param listener {@link ConsumerRebalanceListener} for assignment changes
+   * @return named {@link KafkaConsumer}
+   */
   public KafkaConsumer<K, V> create(
       String name, Position position, @Nullable ConsumerRebalanceListener listener) {
 
@@ -79,7 +88,7 @@ public class KafkaConsumerFactory<K, V> {
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueSerde.deserializer().getClass());
     KafkaConsumer<K, V> ret = new KafkaConsumer<>(cloned);
     if (topic == null) {
-      Pattern pattern = Pattern.compile(topicPattern);
+      Pattern pattern = Pattern.compile(Objects.requireNonNull(topicPattern));
       if (listener == null) {
         ret.subscribe(pattern);
       } else {
@@ -105,6 +114,13 @@ public class KafkaConsumerFactory<K, V> {
     return create(name, Position.NEWEST, null);
   }
 
+  /**
+   * Create unnamed consumer consuming given partitions.
+   *
+   * @param position whete to start the consumption
+   * @param partitions partitions to consume
+   * @return unnamed {@link KafkaConsumer} for given partitions
+   */
   public KafkaConsumer<K, V> create(Position position, Collection<Partition> partitions) {
     log.debug("Creating unnamed consumer for partitions {}", partitions);
     Properties cloned = clone(this.props);

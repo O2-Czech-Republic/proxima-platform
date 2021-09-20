@@ -585,5 +585,8 @@ public class TransactionIT {
     public LimitedParallelismTransactionLogObserver(DirectDataOperator direct) {
       super(direct);
     }
+
+    @Override
+    protected void assertSingleton() {}
   }
 }

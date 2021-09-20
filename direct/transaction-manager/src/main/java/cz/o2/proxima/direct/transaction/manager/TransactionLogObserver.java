@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.transaction.manager;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Sets;
@@ -143,6 +144,8 @@ public class TransactionLogObserver implements CommitLogObserver {
     }
   }
 
+  private static TransactionLogObserver INSTANCE = null;
+
   private final DirectDataOperator direct;
   private final ServerTransactionManager unsynchronizedManager;
   private final ServerTransactionManager manager;
@@ -163,7 +166,16 @@ public class TransactionLogObserver implements CommitLogObserver {
     this.unsynchronizedManager = getServerTransactionManager(direct);
     this.manager = synchronizedManager(unsynchronizedManager);
     sequenceId.set(unsynchronizedManager.getCfg().getInitialSeqIdPolicy().apply());
+    assertSingleton();
     startHouseKeeping();
+  }
+
+  @VisibleForTesting
+  protected void assertSingleton() {
+    synchronized (TransactionLogObserver.class) {
+      Preconditions.checkState(INSTANCE == null);
+      INSTANCE = this;
+    }
   }
 
   private ServerTransactionManager synchronizedManager(ServerTransactionManager delegate) {

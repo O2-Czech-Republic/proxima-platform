@@ -86,7 +86,11 @@ public class TransactionsTest {
             "_transaction-commit",
             repo.getTransformations().get("_transaction-commit"),
             ign -> {});
-    observer = new TransactionLogObserver(direct);
+    observer =
+        new TransactionLogObserver(direct) {
+          @Override
+          protected void assertSingleton() {}
+        };
     observer.run("testObserver");
     scheduler = new ScheduledThreadPoolExecutor(1);
     transactionContext = new TransactionContext(direct);

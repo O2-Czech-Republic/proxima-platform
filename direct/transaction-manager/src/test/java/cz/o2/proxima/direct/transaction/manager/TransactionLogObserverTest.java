@@ -83,7 +83,12 @@ public class TransactionLogObserverTest {
   private TransactionLogObserver observer;
 
   public void createObserver() {
-    createObserver(new TransactionLogObserverFactory.Default());
+    createObserver(
+        direct ->
+            new TransactionLogObserver(direct) {
+              @Override
+              protected void assertSingleton() {}
+            });
   }
 
   private void createObserver(TransactionLogObserverFactory factory) {
@@ -687,6 +692,9 @@ public class TransactionLogObserverTest {
         void exit(int status) {
           throw new RuntimeException("System.exit(" + status + ")");
         }
+
+        @Override
+        protected void assertSingleton() {}
       };
     }
   }
@@ -705,6 +713,9 @@ public class TransactionLogObserverTest {
         long currentTimeMillis() {
           return time;
         }
+
+        @Override
+        protected void assertSingleton() {}
       };
     }
   }

@@ -29,7 +29,7 @@ import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.ConfigConstants;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.storage.commitlog.Partitioner;
@@ -55,7 +55,7 @@ import org.apache.kafka.common.config.TopicConfig;
 
 /** Kafka writer and commit log using {@code KafkaProducer}. */
 @Slf4j
-public class KafkaAccessor extends AbstractStorage implements DataAccessor {
+public class KafkaAccessor extends SerializableAbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
 

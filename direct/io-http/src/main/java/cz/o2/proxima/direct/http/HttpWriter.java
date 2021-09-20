@@ -39,7 +39,6 @@ public class HttpWriter extends AbstractStorage implements OnlineAttributeWriter
   @Getter private final Map<String, Object> cfg;
 
   public HttpWriter(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
     super(entityDesc, uri);
     try {
       this.connFactory = getConnFactory(cfg);
@@ -51,7 +50,6 @@ public class HttpWriter extends AbstractStorage implements OnlineAttributeWriter
 
   @Override
   public void write(StreamElement data, CommitCallback statusCallback) {
-
     HttpURLConnection conn = null;
     try {
       conn = connFactory.openConnection(getUri(), data);

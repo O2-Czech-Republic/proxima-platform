@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.direct.http;
 
+import static org.junit.Assert.assertEquals;
+
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -45,7 +47,9 @@ public class SerializableTest implements Serializable {
   @Test
   public void testHttpWriter() throws Exception {
     HttpWriter writer = new HttpWriter(entity, new URI("http://test/"), Collections.emptyMap());
-    TestUtils.assertSerializable(writer);
+    HttpWriter.Factory<?> deserialized =
+        TestUtils.deserializeObject(TestUtils.serializeObject(writer.asFactory()));
+    assertEquals(writer, deserialized.apply(repo));
   }
 
   @Test
@@ -60,6 +64,8 @@ public class SerializableTest implements Serializable {
                 put("attributes", Lists.newArrayList("*"));
               }
             });
-    TestUtils.assertSerializable(reader);
+    WebsocketReader.Factory<?> deserialized =
+        TestUtils.deserializeObject(TestUtils.serializeObject(reader.asFactory()));
+    assertEquals(reader, deserialized.apply(repo));
   }
 }

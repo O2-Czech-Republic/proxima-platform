@@ -33,7 +33,7 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.util.Classpath;
 import java.io.ObjectStreamException;
@@ -56,7 +56,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** {@code AttributeWriter} for Apache Cassandra. */
 @Slf4j
-public class CassandraDBAccessor extends AbstractStorage implements DataAccessor {
+public class CassandraDBAccessor extends SerializableAbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
 

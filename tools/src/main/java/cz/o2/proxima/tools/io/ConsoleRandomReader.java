@@ -15,53 +15,32 @@
  */
 package cz.o2.proxima.tools.io;
 
-import com.google.common.io.Closeables;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** A random access reader for console. */
-public class ConsoleRandomReader implements Closeable {
+public class ConsoleRandomReader {
 
+  final DirectDataOperator direct;
   final EntityDescriptor entityDesc;
-  final Map<AttributeDescriptor, RandomAccessReader> attrToReader;
   final Map<String, RandomOffset> listEntityOffsets;
 
-  public ConsoleRandomReader(EntityDescriptor desc, Repository repo, DirectDataOperator direct) {
-
+  public ConsoleRandomReader(EntityDescriptor desc, DirectDataOperator direct) {
+    this.direct = direct;
     this.entityDesc = desc;
-    this.attrToReader = new HashMap<>();
     this.listEntityOffsets = new HashMap<>();
-
-    desc.getAllAttributes()
-        .forEach(
-            f -> {
-              Optional<AttributeFamilyDescriptor> randomFamily;
-              randomFamily =
-                  repo.getFamiliesForAttribute(f)
-                      .stream()
-                      .filter(af -> af.getAccess().canRandomRead())
-                      .findAny();
-              if (randomFamily.isPresent()) {
-                attrToReader.put(
-                    f, direct.resolveRequired(randomFamily.get()).getRandomAccessReader().get());
-              }
-            });
   }
 
   @SuppressWarnings("unchecked")
@@ -72,19 +51,17 @@ public class ConsoleRandomReader implements Closeable {
             .findAttribute(attribute)
             .orElseThrow(() -> new IllegalArgumentException("Unknown attribute " + attribute));
 
-    RandomAccessReader reader = attrToReader.get(desc);
+    RandomAccessReader reader = Optionals.get(direct.getRandomAccess(desc));
     if (reader == null) {
       throw new IllegalArgumentException("Attribute " + attribute + " has no random access reader");
     }
     return (KeyValue<T>) reader.get(key, attribute, desc).orElse(null);
   }
 
-  @SuppressWarnings("unchecked")
   public List<KeyValue> list(String key, String prefix) {
     return list(key, prefix, null);
   }
 
-  @SuppressWarnings("unchecked")
   public List<KeyValue> list(String key, String prefix, @Nullable String offset) {
 
     List<KeyValue> ret = new ArrayList<>();
@@ -99,16 +76,19 @@ public class ConsoleRandomReader implements Closeable {
     return ret;
   }
 
-  @SuppressWarnings("unchecked")
   public void list(
-      String key, String prefix, @Nullable String offset, int limit, Consumer<KeyValue> consumer) {
+      String key,
+      String prefix,
+      @Nullable String offset,
+      int limit,
+      Consumer<KeyValue<?>> consumer) {
 
-    AttributeDescriptor desc =
+    AttributeDescriptor<?> desc =
         entityDesc
             .findAttribute(prefix + ".*")
             .orElseThrow(() -> new IllegalArgumentException("Unknown attribute " + prefix + ".*"));
 
-    RandomAccessReader reader = attrToReader.get(desc);
+    RandomAccessReader reader = Optionals.get(direct.getRandomAccess(desc));
     if (reader == null) {
       throw new IllegalArgumentException("Attribute " + prefix + " has no random access reader");
     }
@@ -118,14 +98,7 @@ public class ConsoleRandomReader implements Closeable {
   }
 
   public void listKeys(Consumer<Pair<RandomOffset, String>> consumer) {
-    RandomAccessReader reader =
-        attrToReader
-            .values()
-            .stream()
-            .findAny()
-            .orElseThrow(
-                () -> new IllegalStateException("Have no random readers for entity " + entityDesc));
-
+    RandomAccessReader reader = getRandomAccessForListKeys(entityDesc);
     reader.listEntities(
         p -> {
           RandomOffset off = p.getFirst();
@@ -135,13 +108,7 @@ public class ConsoleRandomReader implements Closeable {
   }
 
   public List<Pair<RandomOffset, String>> listKeys(String start, int limit) {
-    RandomAccessReader reader =
-        attrToReader
-            .values()
-            .stream()
-            .findAny()
-            .orElseThrow(
-                () -> new IllegalStateException("Have no random readers for entity " + entityDesc));
+    RandomAccessReader reader = getRandomAccessForListKeys(entityDesc);
     List<Pair<RandomOffset, String>> ret = new ArrayList<>();
     reader.listEntities(
         listEntityOffsets.get(start),
@@ -153,18 +120,16 @@ public class ConsoleRandomReader implements Closeable {
     return ret;
   }
 
-  @Override
-  public void close() {
-    attrToReader
-        .values()
-        .forEach(
-            r -> {
-              try {
-                Closeables.close(r, false);
-              } catch (IOException ex) {
-                throw new RuntimeException(ex);
-              }
-            });
-    attrToReader.clear();
+  private RandomAccessReader getRandomAccessForListKeys(EntityDescriptor entityDesc) {
+    return entityDesc
+        .getAllAttributes(true)
+        .stream()
+        .flatMap(a -> direct.getFamiliesForAttribute(a).stream())
+        .filter(af -> af.getDesc().getAccess().isListPrimaryKey())
+        .flatMap(af -> af.getAttributes().stream())
+        .findAny()
+        .flatMap(direct::getRandomAccess)
+        .orElseThrow(
+            () -> new IllegalArgumentException("Missing list-keys family for " + entityDesc));
   }
 }

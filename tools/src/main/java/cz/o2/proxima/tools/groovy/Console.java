@@ -223,14 +223,12 @@ public class Console implements AutoCloseable {
     return ConfigFactory.load().resolve();
   }
 
-  @SuppressWarnings("unchecked")
   public <T> Stream<StreamElement> getStream(
       AttributeDescriptor<T> attrDesc, Position position, boolean stopAtCurrent) {
 
     return getStream(attrDesc, position, stopAtCurrent, false);
   }
 
-  @SuppressWarnings("unchecked")
   public <T> Stream<StreamElement> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
@@ -241,7 +239,6 @@ public class Console implements AutoCloseable {
         position, stopAtCurrent, eventTime, this::unboundedStreamInterrupt, attrDesc);
   }
 
-  @SuppressWarnings("unchecked")
   public Stream<StreamElement> getUnionStream(
       Position position,
       boolean eventTime,
@@ -266,7 +263,6 @@ public class Console implements AutoCloseable {
     return getBatchSnapshot(attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
   }
 
-  @SuppressWarnings("unchecked")
   public WindowedStream<StreamElement> getBatchSnapshot(
       AttributeDescriptor<?> attrDesc, long fromStamp, long toStamp) {
 
@@ -274,7 +270,6 @@ public class Console implements AutoCloseable {
         fromStamp, toStamp, this::unboundedStreamInterrupt, attrDesc);
   }
 
-  @SuppressWarnings("unchecked")
   public WindowedStream<StreamElement> getBatchUpdates(
       long startStamp, long endStamp, AttributeDescriptorProvider<?>... attrs) {
 
@@ -293,7 +288,7 @@ public class Console implements AutoCloseable {
         direct != null,
         "Can create random access reader with direct operator only. Add runtime dependency.");
     EntityDescriptor entityDesc = findEntityDescriptor(entity);
-    ConsoleRandomReader reader = new ConsoleRandomReader(entityDesc, repo, direct);
+    ConsoleRandomReader reader = new ConsoleRandomReader(entityDesc, direct);
     readers.add(reader);
     return reader;
   }
@@ -303,10 +298,10 @@ public class Console implements AutoCloseable {
       AttributeDescriptor<?> attrDesc,
       String key,
       String attribute,
-      String textFormat)
+      Object value)
       throws InterruptedException {
 
-    put(entityDesc, attrDesc, key, attribute, System.currentTimeMillis(), textFormat);
+    put(entityDesc, attrDesc, key, attribute, System.currentTimeMillis(), value);
   }
 
   public void put(
@@ -315,7 +310,7 @@ public class Console implements AutoCloseable {
       String key,
       String attribute,
       long stamp,
-      String textFormat)
+      Object value)
       throws InterruptedException {
 
     Preconditions.checkState(
@@ -324,7 +319,7 @@ public class Console implements AutoCloseable {
     @SuppressWarnings("unchecked")
     ValueSerializer<Object> valueSerializer =
         (ValueSerializer<Object>) attrDesc.getValueSerializer();
-    byte[] payload = valueSerializer.serialize(valueSerializer.fromJsonValue(textFormat));
+    byte[] payload = valueSerializer.serialize(valueSerializer.fromJsonValue(value.toString()));
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attrDesc));
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> exc = new AtomicReference<>();
@@ -398,7 +393,7 @@ public class Console implements AutoCloseable {
   public Rpc.ListResponse rpcList(
       EntityDescriptor entity,
       String key,
-      AttributeDescriptor wildcard,
+      AttributeDescriptor<?> wildcard,
       String offset,
       int limit,
       String host,
@@ -435,11 +430,12 @@ public class Console implements AutoCloseable {
 
   @Override
   public void close() {
-    readers.forEach(ConsoleRandomReader::close);
     if (streamProvider != null) {
       streamProvider.close();
     }
+    readers.clear();
     executor.shutdownNow();
+    Optional.ofNullable(direct).ifPresent(DirectDataOperator::close);
   }
 
   private boolean unboundedStreamInterrupt() {

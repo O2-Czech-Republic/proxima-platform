@@ -382,8 +382,8 @@ public class TransactionResourceManagerTest {
 
   @Test
   public void testSynchronizationTesting() {
-    assertTrue(TransactionResourceManager.needsSynchronization((ingest, context) -> false));
-    assertFalse(TransactionResourceManager.needsSynchronization(new ThreadSafeCommitLogObserver()));
+    assertTrue(TransactionResourceManager.isNotThreadSafe((ingest, context) -> false));
+    assertFalse(TransactionResourceManager.isNotThreadSafe(new ThreadSafeCommitLogObserver()));
     assertFalse(
         TransactionResourceManager.getDeclaredParallelism((ingest, context) -> false).isPresent());
     assertEquals(

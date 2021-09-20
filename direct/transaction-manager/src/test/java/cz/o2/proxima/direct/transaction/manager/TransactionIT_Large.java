@@ -70,7 +70,7 @@ import org.junit.Test;
 
 /** A complete integration test for transaction processing. */
 @Slf4j
-public class TransactionIT {
+public class TransactionIT_Large {
 
   private final Random random = new Random();
   private final Config config = ConfigFactory.load("transactions-it.conf").resolve();
@@ -110,14 +110,14 @@ public class TransactionIT {
     direct.close();
   }
 
-  @Test(timeout = 100_000)
+  @Test
   public void testAtomicAmountTransfer() throws InterruptedException {
     // we begin with all amounts equal to zero
     // we randomly reshuffle random amounts between users and then we verify, that the sum is zero
 
-    int numThreads = 20;
-    int numSwaps = 500;
-    int numUsers = 20;
+    int numThreads = 50;
+    int numSwaps = 10000;
+    int numUsers = 100;
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
     AtomicReference<Throwable> err = new AtomicReference<>();
@@ -145,14 +145,14 @@ public class TransactionIT {
     verifyZeroSum(numUsers);
   }
 
-  @Test(timeout = 100_000)
+  @Test
   public void testWildcardAttributeListAtomic() throws InterruptedException {
     // in each transaction, we add a new device into device.* and write sum of all current
     // devices into numDevices. After the test, the numDevice must match the total number of writes
 
-    int numWrites = 1000;
-    int numThreads = 10;
-    int numUsers = 20;
+    int numWrites = 50000;
+    int numThreads = 50;
+    int numUsers = 100;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
@@ -182,15 +182,15 @@ public class TransactionIT {
     verifyNumDevicesMatch(numWrites, numUsers);
   }
 
-  @Test(timeout = 100_000)
+  @Test
   public void testWildcardAttributeListWithDeleteAtomic() throws InterruptedException {
     // in each transaction, we remove random device and add two new into device.* and write sum of
     // all current devices into numDevices. After the test, the numDevice must match the total
     // number of writes
 
-    int numWrites = 500;
-    int numThreads = 10;
-    int numUsers = 100;
+    int numWrites = 15000;
+    int numThreads = 50;
+    int numUsers = 50;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
@@ -222,15 +222,15 @@ public class TransactionIT {
     verifyNumDevicesMatch(numWrites, numUsers, true);
   }
 
-  @Test(timeout = 100_000)
+  @Test
   public void testDeletedAttributeGet() throws InterruptedException {
     // check atomic swap of data between two attributes
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X
     // if value is not present in attribute X, it is read from attribute Y, and written to X
 
     // this test causes a lot of contention, so the throughput is limited
-    int numWrites = 100;
-    int numThreads = 2;
+    int numWrites = 5000;
+    int numThreads = 50;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
@@ -266,14 +266,14 @@ public class TransactionIT {
     verifyNumInAttributeIs(key, numWrites + 1, attrA);
   }
 
-  @Test(timeout = 100_000)
+  @Test
   public void testDeletedAttributeGetWithFailedWrite() throws InterruptedException {
     // check atomic swap of data between two attributes
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X
     // if value is not present in attribute X, it is read from attribute Y, and written to X
 
-    int numWrites = 50;
-    int numThreads = 2;
+    int numWrites = 5000;
+    int numThreads = 50;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
@@ -585,8 +585,5 @@ public class TransactionIT {
     public LimitedParallelismTransactionLogObserver(DirectDataOperator direct) {
       super(direct);
     }
-
-    @Override
-    protected void assertSingleton() {}
   }
 }

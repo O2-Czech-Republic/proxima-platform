@@ -23,6 +23,7 @@ import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.batch.TerminationContext;
+import cz.o2.proxima.direct.cassandra.CassandraDBAccessor.ClusterHolder;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -90,17 +91,14 @@ class CassandraLogReader implements BatchLogReader {
         () -> {
           terminationContext.setRunningThread();
           try {
-            accessor.incrementClusterReference();
             for (Partition p : partitions) {
               if (!processSinglePartition(
                   (CassandraPartition) p, attributes, terminationContext, observer)) {
                 break;
               }
             }
-            accessor.decrementClusterReference();
             terminationContext.finished();
           } catch (Throwable err) {
-            accessor.decrementClusterReference();
             terminationContext.handleErrorCaught(
                 err, () -> observeInternal(partitions, attributes, observer, terminationContext));
           }
@@ -114,39 +112,41 @@ class CassandraLogReader implements BatchLogReader {
       BatchLogObserver observer) {
 
     ResultSet result;
-    Session session = accessor.ensureSession();
-    result =
-        accessor.execute(accessor.getCqlFactory().scanPartition(attributes, partition, session));
-    for (Row row : result) {
-      if (terminationContext.isCancelled()) {
-        return false;
-      }
-      String key = row.getString(0);
-      int field = 1;
-      for (AttributeDescriptor<?> attribute : attributes) {
-        String attributeName = attribute.getName();
-        if (attribute.isWildcard()) {
-          // FIXME: this is wrong
-          // need mapping between attribute and accessor
-          String suffix = accessor.asString(row.getObject(field++));
-          attributeName = attribute.toAttributePrefix() + suffix;
+    try (ClusterHolder holder = accessor.acquireCluster()) {
+      Session session = accessor.ensureSession();
+      result =
+          accessor.execute(accessor.getCqlFactory().scanPartition(attributes, partition, session));
+      for (Row row : result) {
+        if (terminationContext.isCancelled()) {
+          return false;
         }
-        ByteBuffer bytes = row.getBytes(field++);
-        if (bytes != null) {
-          byte[] array = bytes.slice().array();
-          StreamElement element =
-              accessor
-                  .getCqlFactory()
-                  .toKeyValue(
-                      accessor.getEntityDescriptor(),
-                      attribute,
-                      key,
-                      attributeName,
-                      System.currentTimeMillis(),
-                      Offsets.empty(),
-                      array);
-          if (!observer.onNext(element, BatchLogObservers.defaultContext(partition))) {
-            return false;
+        String key = row.getString(0);
+        int field = 1;
+        for (AttributeDescriptor<?> attribute : attributes) {
+          String attributeName = attribute.getName();
+          if (attribute.isWildcard()) {
+            // FIXME: this is wrong
+            // need mapping between attribute and accessor
+            String suffix = accessor.asString(row.getObject(field++));
+            attributeName = attribute.toAttributePrefix() + suffix;
+          }
+          ByteBuffer bytes = row.getBytes(field++);
+          if (bytes != null) {
+            byte[] array = bytes.slice().array();
+            StreamElement element =
+                accessor
+                    .getCqlFactory()
+                    .toKeyValue(
+                        accessor.getEntityDescriptor(),
+                        attribute,
+                        key,
+                        attributeName,
+                        System.currentTimeMillis(),
+                        Offsets.empty(),
+                        array);
+            if (!observer.onNext(element, BatchLogObservers.defaultContext(partition))) {
+              return false;
+            }
           }
         }
       }

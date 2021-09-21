@@ -23,7 +23,7 @@ import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,7 +33,8 @@ import java.util.UUID;
 
 /** A {@link DataAccessor} for blob storages. */
 @Internal
-public abstract class BlobStorageAccessor extends AbstractStorage implements DataAccessor {
+public abstract class BlobStorageAccessor extends SerializableAbstractStorage
+    implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
 

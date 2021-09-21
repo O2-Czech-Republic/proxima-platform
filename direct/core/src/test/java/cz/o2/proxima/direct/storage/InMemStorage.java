@@ -54,6 +54,7 @@ import cz.o2.proxima.direct.time.MinimalPartitionWatermarkEstimator;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.ConfigConstants;
@@ -293,7 +294,8 @@ public class InMemStorage implements DataAccessorFactory {
       final URI uri = getUri();
       final int numPartitions = this.numPartitions;
       final Partitioner partitioner = this.partitioner;
-      return repo -> new Writer(entity, uri, numPartitions, partitioner);
+      final InMemStorage storage = InMemStorage.this;
+      return repo -> storage.new Writer(entity, uri, numPartitions, partitioner);
     }
 
     @Override
@@ -799,8 +801,10 @@ public class InMemStorage implements DataAccessorFactory {
           this.executorFactory;
       final Partitioner partitioner = this.partitioner;
       final int numPartitions = this.numPartitions;
+      final InMemStorage storage = InMemStorage.this;
       return repo ->
-          new InMemCommitLogReader(entity, uri, executorFactory, partitioner, numPartitions);
+          storage
+          .new InMemCommitLogReader(entity, uri, executorFactory, partitioner, numPartitions);
     }
   }
 
@@ -994,7 +998,8 @@ public class InMemStorage implements DataAccessorFactory {
       final URI uri = getUri();
       final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory =
           this.executorFactory;
-      return repo -> new Reader(entity, uri, executorFactory);
+      final InMemStorage storage = InMemStorage.this;
+      return repo -> storage.new Reader(entity, uri, executorFactory);
     }
 
     @Override

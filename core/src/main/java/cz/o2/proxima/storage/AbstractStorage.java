@@ -17,28 +17,53 @@ package cz.o2.proxima.storage;
 
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.EntityDescriptor;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.URI;
 import lombok.Getter;
 
 /** A class that is super type of all data accessors. */
 @Internal
-public class AbstractStorage implements Serializable {
+public class AbstractStorage {
 
-  private static final long serialVersionUID = 1L;
+  /** An {@link AbstractStorage} that is legitimately {@link Serializable}. */
+  public static class SerializableAbstractStorage extends AbstractStorage implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    public SerializableAbstractStorage() {
+      // for Serializable
+    }
+
+    protected SerializableAbstractStorage(EntityDescriptor entityDesc, URI uri) {
+      super(entityDesc, uri);
+    }
+
+    private void writeObject(ObjectOutputStream oos) throws IOException {
+      oos.writeObject(entityDescriptor);
+      oos.writeObject(uri);
+    }
+
+    private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+      this.entityDescriptor = (EntityDescriptor) ois.readObject();
+      this.uri = (URI) ois.readObject();
+    }
+  }
 
   /** The entity this writer is created for. */
-  @Getter private final EntityDescriptor entityDescriptor;
+  @Getter EntityDescriptor entityDescriptor;
 
-  private final URI uri;
+  @Getter URI uri;
+
+  public AbstractStorage() {
+    // for Serializable
+  }
 
   protected AbstractStorage(EntityDescriptor entityDesc, URI uri) {
     this.entityDescriptor = entityDesc;
     this.uri = uri;
-  }
-
-  public URI getUri() {
-    return uri;
   }
 
   @Override

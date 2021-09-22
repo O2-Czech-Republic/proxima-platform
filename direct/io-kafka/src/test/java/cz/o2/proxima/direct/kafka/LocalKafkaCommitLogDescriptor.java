@@ -591,8 +591,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     @Override
-    LocalKafkaWriter newWriter() {
-      return new LocalKafkaWriter(this, numPartitions, descriptorId);
+    LocalKafkaWriter<?, ?> newWriter() {
+      return new LocalKafkaWriter<>(this, numPartitions, descriptorId);
     }
 
     @Override
@@ -715,9 +715,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
   }
 
-  public static class LocalKafkaWriter extends KafkaWriter {
-
-    private static final long serialVersionUID = 1L;
+  public static class LocalKafkaWriter<K, V> extends KafkaWriter<K, V> {
 
     private final int numPartitions;
     private final String descriptorId;
@@ -770,7 +768,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       final LocalKafkaCommitLogDescriptor.Accessor accessor = getAccessor();
       final int numPartitions = this.numPartitions;
       final String descriptorId = this.descriptorId;
-      return repo -> new LocalKafkaWriter(accessor, numPartitions, descriptorId);
+      return repo -> new LocalKafkaWriter<>(accessor, numPartitions, descriptorId);
     }
   }
 

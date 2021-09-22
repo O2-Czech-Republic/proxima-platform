@@ -530,6 +530,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 throw new RuntimeException(ex);
               }
             }
+          } finally {
+            readyLatch.countDown();
           }
         });
     readyLatch.await();

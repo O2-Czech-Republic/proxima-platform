@@ -19,6 +19,7 @@ import static cz.o2.proxima.util.TestUtils.createTestFamily;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterators;
@@ -410,7 +411,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   @SuppressWarnings("unchecked")
-  public void testTwoIdependentConsumers() throws InterruptedException {
+  public void testTwoIndependentConsumers() throws InterruptedException {
     final Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(1)));
     final LocalKafkaWriter writer = accessor.newWriter();
@@ -2971,6 +2972,52 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             observer)) {
       latch.await();
     }
+  }
+
+  @Test(timeout = 10000)
+  public void testFailedPollDoesNotDeadlock() throws InterruptedException {
+    final LocalKafkaCommitLogDescriptor descriptor =
+        new LocalKafkaCommitLogDescriptor() {
+          @Override
+          public Accessor createAccessor(
+              DirectDataOperator direct, AttributeFamilyDescriptor family) {
+            AtomicInteger invokedCount = new AtomicInteger();
+            return new Accessor(family.getEntity(), family.getStorageUri(), family.getCfg(), id) {
+              @Override
+              <K, V> KafkaConsumer<K, V> mockKafkaConsumer(
+                  String name,
+                  ConsumerGroup group,
+                  ElementSerializer<K, V> serializer,
+                  @Nullable Collection<Partition> assignedPartitions,
+                  @Nullable ConsumerRebalanceListener listener) {
+
+                KafkaConsumer<K, V> mock =
+                    super.mockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
+                doThrow(new RuntimeException("Failed poll")).when(mock).poll(any());
+                return mock;
+              }
+            };
+          }
+        };
+    Accessor accessor =
+        descriptor.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(1)));
+    LocalKafkaLogReader reader = accessor.newReader(direct.getContext());
+    ObserveHandle handle =
+        reader.observe(
+            "dummy",
+            new CommitLogObserver() {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                return false;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                return false;
+              }
+            });
+    handle.waitUntilReady();
+    handle.close();
   }
 
   private long testSequentialConsumption(long maxBytesPerSec) throws InterruptedException {

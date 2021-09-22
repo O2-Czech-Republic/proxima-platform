@@ -35,7 +35,7 @@ import org.junit.Test;
 
 public class ThreadPooledObserverTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  private final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final Wildcard<byte[]> device = Wildcard.of(gateway, gateway.getAttribute("device.*"));
 

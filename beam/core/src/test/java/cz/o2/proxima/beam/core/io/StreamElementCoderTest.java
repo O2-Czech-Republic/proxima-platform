@@ -37,7 +37,7 @@ import org.junit.Test;
 /** Test suite for {@link StreamElementCoder}. */
 public class StreamElementCoderTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  private final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
   private final Coder<StreamElement> coder = StreamElementCoder.of(repo);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<Object> armed = gateway.getAttribute("armed");

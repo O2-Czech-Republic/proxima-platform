@@ -77,7 +77,7 @@ import org.junit.Test;
 /** Test suite for {@link InMemStorage}. */
 public class InMemStorageTest implements Serializable {
 
-  final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+  final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final EntityDescriptor entity = repo.getEntity("dummy");
   final AttributeDescriptor<?> data = entity.getAttribute("data");

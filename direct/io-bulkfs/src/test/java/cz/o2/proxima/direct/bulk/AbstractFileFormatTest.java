@@ -50,7 +50,7 @@ import org.junit.rules.TemporaryFolder;
 public abstract class AbstractFileFormatTest {
 
   @Rule public final TemporaryFolder folder = new TemporaryFolder();
-  protected final Repository repo = Repository.of(ConfigFactory.empty().resolve());
+  protected final Repository repo = Repository.ofTest(ConfigFactory.empty().resolve());
   protected final AttributeDescriptor<?> attribute;
   protected final AttributeDescriptor<?> wildcard;
   protected final EntityDescriptor entity;

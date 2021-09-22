@@ -29,7 +29,8 @@ import org.mockito.Mockito;
 /** Test suite for {@link PubSubStorage}. */
 public class PubSubStorageTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load("test-pubsub.conf").resolve());
+  private final Repository repo =
+      Repository.ofTest(ConfigFactory.load("test-pubsub.conf").resolve());
   private final PubSubStorage storage = new PubSubStorage();
 
   @Test

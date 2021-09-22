@@ -53,7 +53,7 @@ import org.junit.Test;
 /** Test suite for {@link BlobLogReader}. */
 public class BlobLogReaderTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  private final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
   private final EntityDescriptor gateway =
       repo.findEntity("gateway")
           .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));

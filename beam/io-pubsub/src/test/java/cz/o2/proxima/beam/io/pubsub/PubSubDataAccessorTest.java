@@ -39,7 +39,7 @@ import org.junit.Test;
 /** Test suite for {@link PubSubDataAccessor}. */
 public class PubSubDataAccessorTest {
 
-  final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
   final EntityDescriptor gateway =
       repo.findEntity("gateway")
           .orElseThrow(() -> new IllegalArgumentException("Missing entity gateway"));

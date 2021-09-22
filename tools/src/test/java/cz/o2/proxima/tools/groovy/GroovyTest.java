@@ -29,7 +29,7 @@ import org.junit.Before;
 public class GroovyTest {
 
   final Config cfg = ConfigFactory.load("test-reference.conf").resolve();
-  final Repository repo = Repository.of(cfg);
+  final Repository repo = Repository.ofTest(cfg);
   Configuration conf;
   ToolsClassLoader loader;
   Console console;

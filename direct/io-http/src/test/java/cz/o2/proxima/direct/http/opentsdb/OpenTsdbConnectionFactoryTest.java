@@ -36,11 +36,11 @@ import org.junit.Test;
 /** Test suite for {@link OpenTsdbConnectionFactory}. */
 public class OpenTsdbConnectionFactoryTest {
 
-  final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
   final EntityDescriptor gateway =
       repo.findEntity("gateway")
           .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-  final AttributeDescriptor metric =
+  final AttributeDescriptor<Object> metric =
       gateway
           .findAttribute("metric")
           .orElseThrow(() -> new IllegalStateException("Missing attribute metric"));
@@ -68,7 +68,6 @@ public class OpenTsdbConnectionFactoryTest {
     newConnections = 0;
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testOpenConnection() throws IOException, URISyntaxException {
     factory.openConnection(
@@ -89,7 +88,6 @@ public class OpenTsdbConnectionFactoryTest {
     assertEquals(1, newConnections);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testOpenConnection2() throws IOException, URISyntaxException {
     factory.openConnection(
@@ -126,7 +124,6 @@ public class OpenTsdbConnectionFactoryTest {
     assertEquals(2, newConnections);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testOpenConnectionDifferentBases() throws IOException, URISyntaxException {
     factory.openConnection(

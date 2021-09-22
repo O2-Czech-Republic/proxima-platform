@@ -24,7 +24,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(JUnitParamsRunner.class)
 public class EntityDescriptorBuilderTest {
-  final Repository repository = Repository.of(ConfigFactory.defaultApplication().resolve());
+  final Repository repository = Repository.ofTest(ConfigFactory.defaultApplication().resolve());
 
   @Parameters({"attr.*,attr", "attr,attr.*"})
   @Test(expected = IllegalArgumentException.class)

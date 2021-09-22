@@ -32,7 +32,7 @@ import org.junit.Test;
 /** Verify that all accessors are serializable. */
 public class SerializableTest implements Serializable {
 
-  Repository repo = Repository.of(ConfigFactory.load());
+  Repository repo = Repository.ofTest(ConfigFactory.load());
   AttributeDescriptor<byte[]> attr =
       AttributeDescriptor.newBuilder(repo)
           .setName("attr")

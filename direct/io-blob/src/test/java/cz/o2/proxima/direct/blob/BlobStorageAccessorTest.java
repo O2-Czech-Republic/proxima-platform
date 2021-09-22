@@ -32,7 +32,7 @@ import org.junit.Test;
 public class BlobStorageAccessorTest {
 
   private final Repository repo =
-      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+      Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor entity = repo.getEntity("gateway");
 
   @Test

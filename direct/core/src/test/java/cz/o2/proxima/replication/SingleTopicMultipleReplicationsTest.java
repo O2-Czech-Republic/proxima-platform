@@ -51,17 +51,17 @@ public class SingleTopicMultipleReplicationsTest {
 
     @Override
     public String fromProxy(String proxy) {
-      return "_raw." + String.valueOf(Integer.valueOf(proxy.substring(9)) + 1);
+      return "_raw." + (Integer.parseInt(proxy.substring(9)) + 1);
     }
 
     @Override
     public String toProxy(String raw) {
-      return "wildcard." + String.valueOf(Integer.valueOf(raw.substring(5)) - 1);
+      return "wildcard." + (Integer.parseInt(raw.substring(5)) - 1);
     }
   }
 
   final Repository repo =
-      Repository.of(ConfigFactory.parseResources("test-replication-single-topic.conf"));
+      Repository.ofTest(ConfigFactory.parseResources("test-replication-single-topic.conf"));
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final EntityDescriptor entity =
       repo.findEntity("entity")

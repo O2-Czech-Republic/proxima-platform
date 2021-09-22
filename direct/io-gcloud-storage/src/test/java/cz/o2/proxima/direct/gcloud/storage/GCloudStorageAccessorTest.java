@@ -36,7 +36,7 @@ import org.junit.Test;
 public class GCloudStorageAccessorTest {
 
   private final Repository repo =
-      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+      Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor entity = repo.getEntity("gateway");
 

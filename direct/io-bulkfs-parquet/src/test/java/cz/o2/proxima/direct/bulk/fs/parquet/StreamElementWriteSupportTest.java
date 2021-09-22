@@ -49,7 +49,7 @@ import org.junit.Test;
 public class StreamElementWriteSupportTest {
 
   final Repository repository =
-      ConfigRepository.of(ConfigFactory.load("test-reference.conf").resolve());
+      ConfigRepository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   final EntityDescriptor entity = repository.getEntity("dummy");
 
   final MessageType schema = ParquetUtils.createMessageWithFields(Collections.emptyList());

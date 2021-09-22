@@ -28,13 +28,14 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class PubSubUtilsTest {
 
-  private final Repository repository = Repository.of(ConfigFactory.empty());
+  private final Repository repository = Repository.ofTest(ConfigFactory.empty());
   private final AttributeDescriptor<byte[]> attribute =
       AttributeDescriptor.newBuilder(repository)
           .setName("attribute")
@@ -75,7 +76,7 @@ class PubSubUtilsTest {
     assertFalse(element.get().isDeleteWildcard());
     assertEquals(1000L, element.get().getStamp());
     assertNotNull(element.get().getValue());
-    assertEquals("DATA", new String(element.get().getValue()));
+    assertEquals("DATA", new String(Objects.requireNonNull(element.get().getValue())));
   }
 
   @Test

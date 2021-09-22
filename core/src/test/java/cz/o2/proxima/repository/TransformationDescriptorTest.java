@@ -25,7 +25,7 @@ public class TransformationDescriptorTest {
 
   @Test
   public void testDefaultNamingOfTransfomationConsumers() {
-    Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+    Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
     Map<String, TransformationDescriptor> transformations = repo.getTransformations();
     assertFalse(transformations.isEmpty());
     transformations.forEach(

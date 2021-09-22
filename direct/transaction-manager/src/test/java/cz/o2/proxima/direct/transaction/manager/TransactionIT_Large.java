@@ -74,7 +74,7 @@ public class TransactionIT_Large {
 
   private final Random random = new Random();
   private final Config config = ConfigFactory.load("transactions-it.conf").resolve();
-  private final Repository repo = Repository.of(config);
+  private final Repository repo = Repository.ofTest(config);
   private final EntityDescriptor user = repo.getEntity("user");
   private final Regular<Double> amount = Regular.of(user, user.getAttribute("amount"));
   private final Wildcard<Integer> numDevices = Wildcard.of(user, user.getAttribute("numDevices.*"));

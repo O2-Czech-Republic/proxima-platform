@@ -50,7 +50,7 @@ import org.junit.Test;
 /** Test suite for {@link LocalCachedPartitionedView}. */
 public class LocalCachedPartitionedViewTest {
 
-  Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+  Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   EntityDescriptor gateway =
       repo.findEntity("gateway")

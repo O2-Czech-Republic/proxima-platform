@@ -47,7 +47,6 @@ import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -61,9 +60,8 @@ import org.junit.Test;
 /** Test {@link IngestService} and {@link RetrieveService} with regards to transactions. */
 public class TransactionsTest {
 
-  private final Random random = new Random();
   private final Repository repo =
-      Repository.of(ConfigFactory.load("test-transactions.conf").resolve());
+      Repository.ofTest(ConfigFactory.load("test-transactions.conf").resolve());
   private final EntityDescriptor user = repo.getEntity("user");
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final Wildcard<byte[]> userGateways = Wildcard.of(user, user.getAttribute("gateway.*"));

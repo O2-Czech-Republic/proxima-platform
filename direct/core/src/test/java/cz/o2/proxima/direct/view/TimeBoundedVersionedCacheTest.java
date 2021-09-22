@@ -29,7 +29,7 @@ import org.junit.Test;
 /** Test suite for {@link TimeBoundedVersionedCache}. */
 public class TimeBoundedVersionedCacheTest {
 
-  Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
   EntityDescriptor entity =
       repo.findEntity("gateway")
           .orElseThrow(() -> new IllegalArgumentException("Missing entity gateway"));

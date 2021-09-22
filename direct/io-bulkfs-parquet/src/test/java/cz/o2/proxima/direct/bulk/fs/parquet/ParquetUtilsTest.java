@@ -48,7 +48,7 @@ import org.mockito.Mockito;
 @Slf4j
 public class ParquetUtilsTest {
 
-  final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+  final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   final EntityDescriptor gateway = repo.getEntity("gateway");
 
   @Test

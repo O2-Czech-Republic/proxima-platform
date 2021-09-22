@@ -49,7 +49,7 @@ import org.junit.Test;
 public class TestStreamStorageTest {
 
   private final Repository repo =
-      Repository.of(
+      Repository.ofTest(
           TestStreamStorage.replaceStorages(ConfigFactory.load("test-reference.conf").resolve()));
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");

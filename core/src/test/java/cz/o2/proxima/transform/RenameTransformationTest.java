@@ -31,7 +31,7 @@ import org.junit.Test;
 public class RenameTransformationTest {
 
   private final Repository repo =
-      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+      Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<?> status = gateway.getAttribute("status");
   private final AttributeDescriptor<?> device = gateway.getAttribute("device.*");

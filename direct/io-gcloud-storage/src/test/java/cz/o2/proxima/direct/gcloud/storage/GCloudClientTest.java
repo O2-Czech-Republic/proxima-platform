@@ -22,9 +22,6 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageClass;
-import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Map;
@@ -36,9 +33,6 @@ import org.mockito.stubbing.Answer;
 /** Test {@link GCloudClient}. */
 public class GCloudClientTest {
 
-  private final Repository repo =
-      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
-  private final EntityDescriptor entity = repo.getEntity("gateway");
   private final URI uri = URI.create("gs://bucket/path");
 
   @Test

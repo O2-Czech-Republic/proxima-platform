@@ -37,7 +37,6 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.pubsub.PubSubReader.PubSubOffset;
 import cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
@@ -53,6 +52,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -66,20 +66,19 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
 /** Test suite for {@link PubSubReader}. */
 public class PubSubReaderTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load().resolve());
+  private final Repository repo = Repository.ofTest(ConfigFactory.load().resolve());
   private final DirectDataOperator direct =
       repo.getOrCreateOperator(
           DirectDataOperator.class, op -> op.withExecutorFactory(Executors::newCachedThreadPool));
   private final Context context = direct.getContext();
-  private final AttributeDescriptorImpl<?> attr;
-  private final AttributeDescriptorImpl<?> wildcard;
+  private final AttributeDescriptor<?> attr;
+  private final AttributeDescriptor<?> wildcard;
   private final EntityDescriptor entity;
   private final PubSubStorage storage = new PubSubStorage();
   private final PubSubAccessor accessor;
@@ -307,7 +306,7 @@ public class PubSubReaderTest {
             });
     latch.await();
     assertEquals(1, handle.getCommittedOffsets().size());
-    assertTrue(((PubSubOffset) handle.getCommittedOffsets().get(0)).getWatermark() > 0);
+    assertTrue(handle.getCommittedOffsets().get(0).getWatermark() > 0);
   }
 
   @Test
@@ -319,7 +318,7 @@ public class PubSubReaderTest {
           LockSupport.park();
           return null;
         });
-    List<Offset> offsets = Arrays.asList(off);
+    List<Offset> offsets = Collections.singletonList(off);
     CommitLogObserver observer =
         new CommitLogObserver() {
           @Override
@@ -339,16 +338,15 @@ public class PubSubReaderTest {
     try (ObserveHandle handle = reader.observeBulkOffsets(offsets, observer)) {
       handle.waitUntilReady();
       assertEquals(1, handle.getCommittedOffsets().size());
-      assertEquals(now, ((PubSubOffset) handle.getCommittedOffsets().get(0)).getWatermark());
+      assertEquals(now, handle.getCommittedOffsets().get(0).getWatermark());
     }
   }
 
   @Test
   public void testPartitionsSplit() throws InterruptedException {
-    long now = System.currentTimeMillis();
     List<Partition> partitions = reader.getPartitions();
     assertEquals(1, partitions.size());
-    partitions = partitions.get(0).split(3).stream().collect(Collectors.toList());
+    partitions = new ArrayList<>(partitions.get(0).split(3));
     assertEquals(3, partitions.size());
     reader.setSupplier(
         () -> {
@@ -393,7 +391,7 @@ public class PubSubReaderTest {
           }
           return inputs.pop();
         });
-    final AtomicBoolean cancelled = new AtomicBoolean();
+    final AtomicBoolean cancelled = new AtomicBoolean(false);
     final CountDownLatch latch = new CountDownLatch(3);
     CommitLogObserver observer =
         new CommitLogObserver() {
@@ -417,6 +415,7 @@ public class PubSubReaderTest {
         };
     try (final ObserveHandle handle = reader.observe("dummy", observer)) {
       latch.await();
+      assertFalse(cancelled.get());
       assertTrue(reader.acked.isEmpty());
       assertFalse(reader.nacked.isEmpty());
     }

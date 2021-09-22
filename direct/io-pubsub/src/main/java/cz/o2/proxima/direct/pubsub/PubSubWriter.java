@@ -33,7 +33,6 @@ import cz.o2.proxima.io.pubsub.proto.PubSub;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,7 +46,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter implements OnlineAttrib
   private final PubSubAccessor accessor;
   private final Context context;
   private final AtomicInteger inflight = new AtomicInteger();
-  private final Serializable flightLock = new Serializable() {};
+  private final Object flightLock = new Object();
   private volatile boolean closed = false;
   private transient boolean initialized = false;
   private transient Publisher publisher;

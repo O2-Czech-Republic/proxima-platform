@@ -213,7 +213,7 @@
         </repository>
         <repository>
           <id>beam-validation</id>
-          <url>https://repository.apache.org/content/repositories/orgapachebeam-1223/</url>
+          <url>https://repository.apache.org/content/repositories/orgapachebeam-1235/</url>
         </repository>
       </repositories>
       <pluginRepositories>

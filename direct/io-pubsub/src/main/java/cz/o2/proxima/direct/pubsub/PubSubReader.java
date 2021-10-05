@@ -57,6 +57,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -556,7 +557,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
       @Override
       public List<Offset> getCommittedOffsets() {
-        return Arrays.asList(new PubSubOffset(consumerName, committedWatermark.get()));
+        return Collections.singletonList(new PubSubOffset(consumerName, committedWatermark.get()));
       }
 
       @Override
@@ -570,7 +571,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       }
 
       @Override
-      public void waitUntilReady() throws InterruptedException {
+      public void waitUntilReady() {
         subscriber.get().awaitRunning();
       }
     };

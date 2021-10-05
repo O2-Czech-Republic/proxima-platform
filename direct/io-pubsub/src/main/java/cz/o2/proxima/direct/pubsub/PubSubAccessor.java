@@ -53,7 +53,6 @@ class PubSubAccessor extends SerializableAbstractStorage implements DataAccessor
   @Getter private final PubSubWatermarkConfiguration watermarkConfiguration;
 
   PubSubAccessor(PubSubStorage storage, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-
     super(entity, uri);
     this.cfg = cfg;
     project = uri.getAuthority();

@@ -132,11 +132,11 @@ class Environment implements RepositoryProvider {
             def List<KeyValue<${attribute.type}>> list(String key, String start) {
               return ${entity.classname}Descriptor.this.reader.list(key, name, start)
             }
-            def void put(String key, String attribute, String textFormat) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, textFormat)
+            def void put(String key, String attribute, Object value) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, value)
             }
-            def void put(String key, String attribute, long stamp, String textFormat) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, stamp, textFormat)
+            def void put(String key, String attribute, long stamp, Object value) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, stamp, value)
             }
             def void delete(String key, String attribute) {
               console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute)
@@ -154,11 +154,11 @@ class Environment implements RepositoryProvider {
             def KeyValue<${attribute.type}> get(String key) {
               return ${entity.classname}Descriptor.this.reader.get(key, name)
             }
-            def void put(String key, String textFormat) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), textFormat)
+            def void put(String key, Object value) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), value)
             }
-            def void put(String key, long stamp, String textFormat) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp, textFormat)
+            def void put(String key, long stamp, Object value) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp, value)
             }
             def void delete(String key) {
               console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.getName())

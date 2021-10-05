@@ -435,6 +435,8 @@ public class Console implements AutoCloseable {
     }
     readers.clear();
     executor.shutdownNow();
+    input.clear();
+    Preconditions.checkState(input.offer(-1));
     Optional.ofNullable(direct).ifPresent(DirectDataOperator::close);
   }
 

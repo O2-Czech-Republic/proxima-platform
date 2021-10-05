@@ -604,7 +604,7 @@ public class TransactionLogObserver implements CommitLogObserver {
   void transactionPostCommit(State state) {
     long committedSeqId = state.getSequentialId();
     long committedStamp = state.getStamp();
-    log.debug(
+    log.info(
         "Storing committed outputs {} of transaction seqId {}",
         state.getCommittedAttributes(),
         committedSeqId);

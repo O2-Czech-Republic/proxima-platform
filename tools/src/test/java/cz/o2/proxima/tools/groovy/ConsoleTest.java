@@ -57,6 +57,7 @@ public class ConsoleTest {
     assertEquals(1, definedClosures.size());
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
   @Test
   public void testGetAccessors() {
     try (ClassLoaderFence fence = new ClassLoaderFence();
@@ -64,6 +65,13 @@ public class ConsoleTest {
       assertNotNull(console.getRandomAccessReader("gateway"));
       assertNotNull(console.getBatchSnapshot(status));
       assertNotNull(console.getStream(status, Position.OLDEST, false, true));
+      assertNotNull(
+          console.getUnionStream(
+              Position.NEWEST,
+              true,
+              false,
+              () -> (AttributeDescriptor) status,
+              () -> (AttributeDescriptor) status));
     }
   }
 

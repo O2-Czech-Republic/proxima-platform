@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.transaction.manager;
 import static org.junit.Assert.*;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -636,6 +637,21 @@ public class TransactionLogObserverTest {
       assertEquals("commit", response.getFirst());
       assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
     }
+  }
+
+  @Test
+  public void testKeyAttributeConcat() {
+    long now = System.currentTimeMillis();
+    StreamElement first = userGateways.upsert(1000L, "u", "1", now, new byte[] {});
+    StreamElement second = userGateways.upsert(1000L, "u", "2", now, new byte[] {});
+    List<KeyAttribute> inputs =
+        KeyAttributes.ofWildcardQueryElements(
+            user, "u", userGateways, Collections.singletonList(first));
+    List<KeyAttribute> outputs = Collections.singletonList(KeyAttributes.ofStreamElement(second));
+    List<KeyAttribute> result =
+        Lists.newArrayList(TransactionLogObserver.concatInputsAndOutputs(inputs, outputs));
+    assertTrue(result.containsAll(inputs));
+    assertTrue(outputs.stream().noneMatch(result::contains));
   }
 
   static class WithTransactionTimeout implements TransactionLogObserverFactory {

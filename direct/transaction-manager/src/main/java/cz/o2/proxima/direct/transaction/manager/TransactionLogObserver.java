@@ -34,12 +34,14 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
+import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -492,16 +494,40 @@ public class TransactionLogObserver implements CommitLogObserver {
     }
   }
 
-  private Iterable<KeyAttribute> concatInputsAndOutputs(
+  @VisibleForTesting
+  static Iterable<KeyAttribute> concatInputsAndOutputs(
       Collection<KeyAttribute> inputAttributes, Collection<KeyAttribute> outputAttributes) {
 
-    return Streams.concat(inputAttributes.stream(), outputAttributes.stream())
-        .collect(
-            Collectors.toMap(
-                KeyWithAttribute::of,
-                Function.identity(),
-                (a, b) -> a.getSequenceId() < b.getSequenceId() ? a : b))
-        .values();
+    Map<KeyWithAttribute, KeyAttribute> mapOfInputs =
+        inputAttributes
+            .stream()
+            .collect(Collectors.toMap(KeyWithAttribute::of, Function.identity()));
+    outputAttributes.forEach(
+        ka -> {
+          Preconditions.checkArgument(!ka.isWildcardQuery());
+          KeyWithAttribute kwa = KeyWithAttribute.of(ka);
+          if (!ka.getAttributeSuffix().isPresent()) {
+            mapOfInputs.putIfAbsent(kwa, ka);
+          } else {
+            // we can add wildcard output only if the inputs do not contain wildcard query
+            Optional<KeyAttribute> wildcardKa =
+                KeyAttributes.ofWildcardQueryElements(
+                        ka.getEntity(),
+                        ka.getKey(),
+                        ka.getAttributeDescriptor(),
+                        Collections.emptyList())
+                    .stream()
+                    .filter(KeyAttribute::isWildcardQuery)
+                    .findAny();
+            if (wildcardKa.isPresent()) {
+              KeyWithAttribute wildcardKwa = KeyWithAttribute.of(wildcardKa.get());
+              if (!mapOfInputs.containsKey(wildcardKwa)) {
+                mapOfInputs.putIfAbsent(kwa, ka);
+              }
+            }
+          }
+        });
+    return mapOfInputs.values();
   }
 
   private State transitionToOpen(String transactionId, Request request) {

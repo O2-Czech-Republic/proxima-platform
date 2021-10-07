@@ -20,6 +20,5 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 /** Provider of {@link AttributeDescriptor}. */
 @FunctionalInterface
 public interface AttributeDescriptorProvider<T> {
-
   AttributeDescriptor<T> desc();
 }

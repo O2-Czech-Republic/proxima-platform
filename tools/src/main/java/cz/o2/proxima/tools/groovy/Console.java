@@ -245,17 +245,15 @@ public class Console implements AutoCloseable {
       boolean stopAtCurrent,
       AttributeDescriptorProvider<?>... descriptors) {
 
-    List<AttributeDescriptor<?>> attrs =
-        Arrays.stream(descriptors)
-            .map(AttributeDescriptorProvider::desc)
-            .collect(Collectors.toList());
-
     return streamProvider.getStream(
         position,
         stopAtCurrent,
         eventTime,
         this::unboundedStreamInterrupt,
-        attrs.toArray(new AttributeDescriptor[attrs.size()]));
+        Arrays.stream(descriptors)
+            .distinct()
+            .map(AttributeDescriptorProvider::desc)
+            .toArray(AttributeDescriptor[]::new));
   }
 
   public WindowedStream<StreamElement> getBatchSnapshot(AttributeDescriptor<?> attrDesc) {
@@ -433,6 +431,7 @@ public class Console implements AutoCloseable {
     if (streamProvider != null) {
       streamProvider.close();
     }
+    readers.forEach(ConsoleRandomReader::close);
     readers.clear();
     executor.shutdownNow();
     input.clear();

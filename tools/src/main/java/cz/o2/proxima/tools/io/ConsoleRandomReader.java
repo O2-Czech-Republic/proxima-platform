@@ -21,6 +21,7 @@ import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.util.ArrayList;
@@ -31,11 +32,12 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** A random access reader for console. */
-public class ConsoleRandomReader {
+public class ConsoleRandomReader implements AutoCloseable {
 
   final DirectDataOperator direct;
   final EntityDescriptor entityDesc;
   final Map<String, RandomOffset> listEntityOffsets;
+  final Map<AttributeDescriptor<?>, RandomAccessReader> readers = new HashMap<>();
 
   public ConsoleRandomReader(EntityDescriptor desc, DirectDataOperator direct) {
     this.direct = direct;
@@ -51,7 +53,7 @@ public class ConsoleRandomReader {
             .findAttribute(attribute)
             .orElseThrow(() -> new IllegalArgumentException("Unknown attribute " + attribute));
 
-    RandomAccessReader reader = Optionals.get(direct.getRandomAccess(desc));
+    RandomAccessReader reader = readerFor(desc);
     if (reader == null) {
       throw new IllegalArgumentException("Attribute " + attribute + " has no random access reader");
     }
@@ -88,7 +90,7 @@ public class ConsoleRandomReader {
             .findAttribute(prefix + ".*")
             .orElseThrow(() -> new IllegalArgumentException("Unknown attribute " + prefix + ".*"));
 
-    RandomAccessReader reader = Optionals.get(direct.getRandomAccess(desc));
+    RandomAccessReader reader = readerFor(desc);
     if (reader == null) {
       throw new IllegalArgumentException("Attribute " + prefix + " has no random access reader");
     }
@@ -128,8 +130,34 @@ public class ConsoleRandomReader {
         .filter(af -> af.getDesc().getAccess().isListPrimaryKey())
         .flatMap(af -> af.getAttributes().stream())
         .findAny()
-        .flatMap(direct::getRandomAccess)
+        .map(this::readerFor)
         .orElseThrow(
             () -> new IllegalArgumentException("Missing list-keys family for " + entityDesc));
+  }
+
+  @Override
+  public void close() {
+    readers.values().forEach(ExceptionUtils.uncheckedConsumer(RandomAccessReader::close)::accept);
+    readers.clear();
+  }
+
+  private RandomAccessReader readerFor(AttributeDescriptor<?> desc) {
+    RandomAccessReader res = readers.get(desc);
+    if (res != null) {
+      return res;
+    }
+    Pair<List<AttributeDescriptor<?>>, RandomAccessReader> randomAccessForAttributes =
+        direct
+            .getFamiliesForAttribute(desc)
+            .stream()
+            .filter(af -> af.getDesc().getAccess().canRandomRead())
+            .findAny()
+            .map(af -> Pair.of(af.getAttributes(), Optionals.get(af.getRandomAccessReader())))
+            .orElseThrow(
+                () -> new IllegalStateException("Cannot find random-access family for " + desc));
+    randomAccessForAttributes
+        .getFirst()
+        .forEach(attr -> readers.put(attr, randomAccessForAttributes.getSecond()));
+    return readers.get(desc);
   }
 }

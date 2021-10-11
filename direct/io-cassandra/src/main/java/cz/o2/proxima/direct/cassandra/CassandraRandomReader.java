@@ -30,6 +30,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.util.Pair;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -39,12 +40,12 @@ import lombok.extern.slf4j.Slf4j;
 class CassandraRandomReader extends AbstractStorage implements RandomAccessReader {
 
   private final CassandraDBAccessor accessor;
-  private final ClusterHolder clusterHolder;
+  @Nullable private ClusterHolder clusterHolder;
 
   CassandraRandomReader(CassandraDBAccessor accessor) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
-    this.clusterHolder = accessor.acquireCluster();
+    this.clusterHolder = Objects.requireNonNull(accessor.acquireCluster());
   }
 
   @Override
@@ -186,7 +187,8 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
 
   @Override
   public void close() {
-    clusterHolder.close();
+    Optional.ofNullable(clusterHolder).ifPresent(ClusterHolder::close);
+    clusterHolder = null;
   }
 
   @Override

@@ -428,9 +428,8 @@ public class Console implements AutoCloseable {
 
   @Override
   public void close() {
-    if (streamProvider != null) {
-      streamProvider.close();
-    }
+    log.debug("Console shutting down.");
+    Optional.ofNullable(streamProvider).ifPresent(StreamProvider::close);
     readers.forEach(ConsoleRandomReader::close);
     readers.clear();
     executor.shutdownNow();

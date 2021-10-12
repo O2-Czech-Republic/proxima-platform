@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.flink.core;
 
+import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -29,6 +30,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
+@Experimental(value = "API can be changed.")
 @Slf4j
 public class CommitLogSourceFunction<OutputT>
     extends AbstractLogSourceFunction<

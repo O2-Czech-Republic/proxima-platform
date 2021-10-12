@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.flink.core;
 
+import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Optionals;
 import java.io.Serializable;
@@ -24,6 +25,7 @@ import java.io.Serializable;
  *
  * @param <T> Type to extract.
  */
+@Experimental(value = "API can be changed.")
 @FunctionalInterface
 public interface ResultExtractor<T> extends Serializable {
 

@@ -83,12 +83,14 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
 
     private void decrementClusterReference() {
       AtomicInteger references = CLUSTER_REFERENCES.get(cluster);
+      log.debug("Decrementing reference of cluster {}, current count {}", cluster, references);
       if (references != null && references.decrementAndGet() == 0) {
         synchronized (CLUSTER_MAP) {
           Optional.ofNullable(CLUSTER_SESSIONS.remove(cluster)).ifPresent(Session::close);
           Optional.ofNullable(CLUSTER_MAP.remove(getUri().getAuthority()))
               .ifPresent(Cluster::close);
           CLUSTER_REFERENCES.remove(cluster);
+          log.debug("Cluster {} closed", cluster);
         }
       }
     }

@@ -28,10 +28,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /** A random access reader for console. */
+@Slf4j
 public class ConsoleRandomReader implements AutoCloseable {
 
   final DirectDataOperator direct;
@@ -47,16 +51,12 @@ public class ConsoleRandomReader implements AutoCloseable {
 
   @SuppressWarnings("unchecked")
   public <T> KeyValue<T> get(String key, String attribute) {
-
     AttributeDescriptor<Object> desc =
         entityDesc
             .findAttribute(attribute)
             .orElseThrow(() -> new IllegalArgumentException("Unknown attribute " + attribute));
 
     RandomAccessReader reader = readerFor(desc);
-    if (reader == null) {
-      throw new IllegalArgumentException("Attribute " + attribute + " has no random access reader");
-    }
     return (KeyValue<T>) reader.get(key, attribute, desc).orElse(null);
   }
 
@@ -91,9 +91,6 @@ public class ConsoleRandomReader implements AutoCloseable {
             .orElseThrow(() -> new IllegalArgumentException("Unknown attribute " + prefix + ".*"));
 
     RandomAccessReader reader = readerFor(desc);
-    if (reader == null) {
-      throw new IllegalArgumentException("Attribute " + prefix + " has no random access reader");
-    }
     RandomOffset off =
         offset == null ? null : reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, offset);
     reader.scanWildcard(key, desc, off, limit, consumer::accept);
@@ -137,10 +134,12 @@ public class ConsoleRandomReader implements AutoCloseable {
 
   @Override
   public void close() {
+    log.debug("Closing readers {} for entity {}", readers.values(), entityDesc);
     readers.values().forEach(ExceptionUtils.uncheckedConsumer(RandomAccessReader::close)::accept);
     readers.clear();
   }
 
+  @Nonnull
   private RandomAccessReader readerFor(AttributeDescriptor<?> desc) {
     RandomAccessReader res = readers.get(desc);
     if (res != null) {
@@ -158,6 +157,6 @@ public class ConsoleRandomReader implements AutoCloseable {
     randomAccessForAttributes
         .getFirst()
         .forEach(attr -> readers.put(attr, randomAccessForAttributes.getSecond()));
-    return readers.get(desc);
+    return Objects.requireNonNull(readers.get(desc));
   }
 }

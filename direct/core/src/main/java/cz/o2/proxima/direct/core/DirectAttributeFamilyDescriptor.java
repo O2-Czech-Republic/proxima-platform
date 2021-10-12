@@ -23,6 +23,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
@@ -69,6 +70,12 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
     this.randomAccessReaderFactory =
         randomAccessReader.map(RandomAccessReader::asFactory).orElse(null);
     this.cachedViewFactory = cachedView.map(CachedView::asFactory).orElse(null);
+
+    this.writer = writer.orElse(null);
+    this.commitLogReader = commitLogReader.orElse(null);
+    this.batchReader = batchLogReader.orElse(null);
+    this.randomAccessReader = randomAccessReader.orElse(null);
+    this.cachedView = cachedView.orElse(null);
   }
 
   DirectAttributeFamilyDescriptor(
@@ -82,6 +89,18 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
         accessor.getBatchLogReader(context),
         accessor.getRandomAccessReader(context),
         accessor.getCachedView(context));
+
+    closeAll();
+  }
+
+  private void closeAll() {
+    Optional.ofNullable(writer).ifPresent(AttributeWriterBase::close);
+    Optional.ofNullable(randomAccessReader)
+        .ifPresent(ExceptionUtils.uncheckedConsumer(RandomAccessReader::close)::accept);
+    Optional.ofNullable(cachedView).ifPresent(CachedView::close);
+    writer = null;
+    randomAccessReader = null;
+    cachedView = null;
   }
 
   public List<AttributeDescriptor<?>> getAttributes() {

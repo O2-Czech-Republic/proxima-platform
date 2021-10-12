@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.flink.core.batch;
 
+import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
@@ -57,6 +58,7 @@ import java.util.Map;
  * tracker.getCurrentOffsets();
  * </pre>
  */
+@Experimental(value = "API can be changed.")
 public class OffsetTrackingBatchLogReader implements BatchLogReader {
 
   /**

@@ -1,40 +1,109 @@
- - Merge pull request [#505](https://github.com/datadrivencz/proxima-platform/pull/505) from datadrivencz/gson-shading
- - Merge pull request [#504](https://github.com/datadrivencz/proxima-platform/pull/504): [proxima-beam-tools] #204 fix propagation of exception in pipeline
- - Merge pull request [#496](https://github.com/datadrivencz/proxima-platform/pull/496): Introduce partitioned in-mem commit log.
- - Merge pull request [#501](https://github.com/datadrivencz/proxima-platform/pull/501): [io-kafka] Properly distinguish betweeon Exception and Error.
- - Merge pull request [#499](https://github.com/datadrivencz/proxima-platform/pull/499): [proxima-direct-io-kafka] #195 implement topicPattern for kafka URI
- - Merge pull request [#502](https://github.com/datadrivencz/proxima-platform/pull/502) from datadrivencz/bump_beam
- - Merge pull request [#498](https://github.com/datadrivencz/proxima-platform/pull/498) from datadrivencz/cleanup-test-config-files
- - Merge pull request [#497](https://github.com/datadrivencz/proxima-platform/pull/497): [proxima-beam-core] #197 use unnamed consumer in not named explicitly
- - Merge pull request [#495](https://github.com/datadrivencz/proxima-platform/pull/495) from datadrivencz/feature/migrate-io-s3-accessor
- - Merge pull request [#493](https://github.com/datadrivencz/proxima-platform/pull/493) from datadrivencz/feature/entity-attribute-name-validation
- - Merge pull request [#492](https://github.com/datadrivencz/proxima-platform/pull/492): [proxima-hbase-bindings] #193 fix wildcard scan with offset
- - Merge pull request [#488](https://github.com/datadrivencz/proxima-platform/pull/488): Feature #190
- - Merge pull request [#491](https://github.com/datadrivencz/proxima-platform/pull/491): [proxima-tools] fix Closure class collection
- - Merge pull request [#490](https://github.com/datadrivencz/proxima-platform/pull/490): Fix beam-tools for java 15.
- - Merge pull request [#489](https://github.com/datadrivencz/proxima-platform/pull/489) from datadrivencz/feature/propagate-attribute-family-into-accessors
- - Merge pull request [#483](https://github.com/datadrivencz/proxima-platform/pull/483): Feature #184
- - Merge pull request [#487](https://github.com/datadrivencz/proxima-platform/pull/487) from datadrivencz/fix-pom
- - Merge pull request [#485](https://github.com/datadrivencz/proxima-platform/pull/485): [proxima-zookeeper-utils] #188 fix race condition between close and update
- - Merge pull request [#484](https://github.com/datadrivencz/proxima-platform/pull/484): [proxima-maven-compiler] fix bug reported by Sonar
- - Merge pull request [#482](https://github.com/datadrivencz/proxima-platform/pull/482) from datadrivencz/feature/attribute-schema
- - Merge pull request [#481](https://github.com/datadrivencz/proxima-platform/pull/481): [proxima-beam-core] #180 stabilize test
- - Merge pull request [#459](https://github.com/datadrivencz/proxima-platform/pull/459): [proxima-beam-core] #180 CommitLogRead as SDF
- - Merge pull request [#480](https://github.com/datadrivencz/proxima-platform/pull/480): 180 finalize implementation
- - Merge pull request [#479](https://github.com/datadrivencz/proxima-platform/pull/479): [proxima-tools] fix job submission
- - Merge pull request [#380](https://github.com/datadrivencz/proxima-platform/pull/380): [proxima] build with JDK11 on Travis
- - Merge pull request [#478](https://github.com/datadrivencz/proxima-platform/pull/478): [proxima-direct-io-kafka] enlarge timeout for timeouting test
- - Merge pull request [#474](https://github.com/datadrivencz/proxima-platform/pull/474): [proxima-beam-tools] fix early emitting duration extraction
- - Merge pull request [#477](https://github.com/datadrivencz/proxima-platform/pull/477) from datadrivencz/prevent-typos-in-attribute-definition
- - Merge pull request [#475](https://github.com/datadrivencz/proxima-platform/pull/475): [proxima] log on ERROR level on travis
- - Merge pull request [#476](https://github.com/datadrivencz/proxima-platform/pull/476) from datadrivencz/hotfix/185
- - Merge pull request [#473](https://github.com/datadrivencz/proxima-platform/pull/473) from datadrivencz/bugfix/pubsub-io-shading
- - Merge pull request [#472](https://github.com/datadrivencz/proxima-platform/pull/472): Fix beam 2.25.0
- - Merge pull request [#471](https://github.com/datadrivencz/proxima-platform/pull/471) from datadrivencz/bump-deps
- - Merge pull request [#470](https://github.com/datadrivencz/proxima-platform/pull/470): [proxima] Happy new year 2021!
- - Merge pull request [#468](https://github.com/datadrivencz/proxima-platform/pull/468): Modified to enable list of zookeeper hosts.
- - Merge pull request [#466](https://github.com/datadrivencz/proxima-platform/pull/466): [proxima-direct-core] more readable test
- - Merge pull request [#465](https://github.com/datadrivencz/proxima-platform/pull/465): [direct-core] CommitLog reader should not resolve partitions during instantiation
- - Merge pull request [#463](https://github.com/datadrivencz/proxima-platform/pull/463): [io-kafka] Fix max.poll.records warning.
- - Merge pull request [#462](https://github.com/datadrivencz/proxima-platform/pull/462): [io-kafka] Position.OLDEST should use last committed offset when usin…
- - Merge pull request [#456](https://github.com/datadrivencz/proxima-platform/pull/456): [proxima-direct-io-kafka] workaround KAFKA-10384
+ - Merge pull request [#631](https://github.com/datadrivencz/proxima-platform/pull/631) from datadrivencz/bump-beam-2.33
+ - Merge pull request [#630](https://github.com/datadrivencz/proxima-platform/pull/630) from datadrivencz/mark-flink-as-experimental
+ - Merge pull request [#629](https://github.com/datadrivencz/proxima-platform/pull/629): O2-Czech-Republic#252 fix console close
+ - Merge pull request [#628](https://github.com/datadrivencz/proxima-platform/pull/628) from datadrivencz/shade-hadoop-in-parquet-file-format
+ - Merge pull request [#627](https://github.com/datadrivencz/proxima-platform/pull/627): [proxima-tools] ConsoleRandomReader is not closed in DirectDataOperator
+ - Merge pull request [#626](https://github.com/datadrivencz/proxima-platform/pull/626): Fix input output concat
+ - Merge pull request [#625](https://github.com/datadrivencz/proxima-platform/pull/625): [proxima-tools] Environment.put accepts Object as value
+ - Merge pull request [#623](https://github.com/datadrivencz/proxima-platform/pull/623): [proxima-direct-io-pubsub] polishing
+ - Merge pull request [#621](https://github.com/datadrivencz/proxima-platform/pull/621): [proxima-direct-io-pubsub] fix sonar reported bug
+ - Merge pull request [#620](https://github.com/datadrivencz/proxima-platform/pull/620): [proxima-direct-io-kafka] O2-Czech-Republic#251 fix deadlock when first poll throws exception
+ - Merge pull request [#619](https://github.com/datadrivencz/proxima-platform/pull/619) from datadrivencz/use-repository-ofTest-in-tests
+ - Merge pull request [#615](https://github.com/datadrivencz/proxima-platform/pull/615): [proxima-direct-io-cassandra] Simplification
+ - Merge pull request [#616](https://github.com/datadrivencz/proxima-platform/pull/616): [proxima-core] AbstractStorage is not by default Serializable
+ - Merge pull request [#617](https://github.com/datadrivencz/proxima-platform/pull/617): [proxima-tools] close DirectDataOperator with Console
+ - Merge pull request [#618](https://github.com/datadrivencz/proxima-platform/pull/618): Transaction it large
+ - Merge pull request [#614](https://github.com/datadrivencz/proxima-platform/pull/614): [proxima-direct-io-kafka] Add test for observeBulkOffsets with log roll
+ - Merge pull request [#612](https://github.com/datadrivencz/proxima-platform/pull/612): [proxima-direct-io-kafka] O2-Czech-Republic#243 fix stopAtCurrent with frequent log-roll
+ - Merge pull request [#611](https://github.com/datadrivencz/proxima-platform/pull/611): [proxima-direct-io-cassandra] #248 fix closing of Cluster
+ - Merge pull request [#610](https://github.com/datadrivencz/proxima-platform/pull/610): [proxima] fix javadoc publish
+ - Merge pull request [#609](https://github.com/datadrivencz/proxima-platform/pull/609): [proxima-tools] correctly shade io.grpc and netty
+ - Merge pull request [#596](https://github.com/datadrivencz/proxima-platform/pull/596): [proxima-direct-io-cassandra] O2-Czech-Republic#240 add seqId to cassandra
+ - Merge pull request [#608](https://github.com/datadrivencz/proxima-platform/pull/608): [proxima-direct-io-cassandra] bump driver to 3.11.0
+ - Merge pull request [#607](https://github.com/datadrivencz/proxima-platform/pull/607) from datadrivencz/bump-parquet-deps
+ - Merge pull request [#606](https://github.com/datadrivencz/proxima-platform/pull/606): [proxima] polish build
+ - Merge pull request [#600](https://github.com/datadrivencz/proxima-platform/pull/600): O2-Czech-Republic#244 allow specifying consistency level
+ - Merge pull request [#605](https://github.com/datadrivencz/proxima-platform/pull/605) from datadrivencz/bump-flink-version
+ - Merge pull request [#604](https://github.com/datadrivencz/proxima-platform/pull/604): [proxima-beam-tools] O2-Czech-Republic#246 correctly close remote consumer
+ - Merge pull request [#603](https://github.com/datadrivencz/proxima-platform/pull/603): [proxima-transaction-manager] simplify transaction verification logic
+ - Merge pull request [#599](https://github.com/datadrivencz/proxima-platform/pull/599): [proxima-direct-io-cassandra] O2-Czech-Republic#242 add Cluster and Session management per URI authority
+ - Merge pull request [#602](https://github.com/datadrivencz/proxima-platform/pull/602): [proxima-tools] bump groovy to 3.0.9
+ - Merge pull request [#601](https://github.com/datadrivencz/proxima-platform/pull/601): [proxima-transaction-manager] O2-Czech-Republic#245 add output attributes to conflict verification
+ - Merge pull request [#598](https://github.com/datadrivencz/proxima-platform/pull/598): [proxima-direct-io-cassandra] O2-Czech-Republic#241 fix escape of column name in scanPartition
+ - Merge pull request [#597](https://github.com/datadrivencz/proxima-platform/pull/597): [proxima-beam] bump to release 2.32.0
+ - Merge pull request [#595](https://github.com/datadrivencz/proxima-platform/pull/595): [proxima-ingest-server-grpc] fix sonar reported bug
+ - Merge pull request [#594](https://github.com/datadrivencz/proxima-platform/pull/594): [proxima-ingest-server-grpc] #239 correctly cleanup transactions on timeout
+ - Merge pull request [#593](https://github.com/datadrivencz/proxima-platform/pull/593): [proxima] Verify that a sub-project is part of reactor before build
+ - Merge pull request [#591](https://github.com/datadrivencz/proxima-platform/pull/591): [proxima-transaction-manager] debug transaction inconsistencies
+ - Merge pull request [#422](https://github.com/datadrivencz/proxima-platform/pull/422): [direct-io-cassandra] Remove unnecessary random-access reader synchronization
+ - Merge pull request [#590](https://github.com/datadrivencz/proxima-platform/pull/590): [proxima] add example to JDK11 profile
+ - Merge pull request [#589](https://github.com/datadrivencz/proxima-platform/pull/589): [proxima] fix groupId in mvn-build-changed-modules.sh
+ - Merge pull request [#587](https://github.com/datadrivencz/proxima-platform/pull/587): [proxima-direct] O2-Czech-Republic#215 allow specifying explicit cleanup interval
+ - Merge pull request [#585](https://github.com/datadrivencz/proxima-platform/pull/585): O2-Czech-Republic#237 ensure atomic update of state and return response
+ - Merge pull request [#586](https://github.com/datadrivencz/proxima-platform/pull/586): [proxima-direct-io-bigtable] use core version of guava
+ - Merge pull request [#583](https://github.com/datadrivencz/proxima-platform/pull/583): [proxima] O2-Czech-Republic#238 use @AutoService for ServiceLoader
+ - Merge pull request [#562](https://github.com/datadrivencz/proxima-platform/pull/562): Transaction performance and correctness fixes
+ - Merge pull request [#582](https://github.com/datadrivencz/proxima-platform/pull/582): [proxima-direct-io-kafka] Add auto.offset.reset option based on Position when constructing KafkaClient
+ - Merge pull request [#568](https://github.com/datadrivencz/proxima-platform/pull/568): #228 client transaction transformations
+ - Merge pull request [#581](https://github.com/datadrivencz/proxima-platform/pull/581): [proxima-direct-core] Store complete StreamElement in inmem storages
+ - Merge pull request [#580](https://github.com/datadrivencz/proxima-platform/pull/580): [proxima-beam-tools] Fix handling of bind exception in RemoteConsumer
+ - Merge pull request [#575](https://github.com/datadrivencz/proxima-platform/pull/575): [proxima-beam] bump version to 2.31.0
+ - Merge pull request [#572](https://github.com/datadrivencz/proxima-platform/pull/572): [proxima-beam-tools] O2-Czech-Republic#233 fix flakiness of ReduceValueStateByKey
+ - Merge pull request [#574](https://github.com/datadrivencz/proxima-platform/pull/574): Bug O2-Czech-Republic#229
+ - Merge pull request [#579](https://github.com/datadrivencz/proxima-platform/pull/579): [proxima] fix version of sonar plugin
+ - Merge pull request [#578](https://github.com/datadrivencz/proxima-platform/pull/578): [proxima] cache maven repository based on branch
+ - Merge pull request [#577](https://github.com/datadrivencz/proxima-platform/pull/577): [proxima] cache maven reposiory between builds
+ - Merge pull request [#576](https://github.com/datadrivencz/proxima-platform/pull/576): [proxima] complete transition from Travis CI to Github Actions
+ - Merge pull request [#571](https://github.com/datadrivencz/proxima-platform/pull/571): [proxima] test PR building
+ - Merge pull request [#570](https://github.com/datadrivencz/proxima-platform/pull/570): [proxima] add parent module to sonar analysis
+ - Merge pull request [#569](https://github.com/datadrivencz/proxima-platform/pull/569): [proxima] rebuild only changed modules on PRs
+ - Merge pull request [#549](https://github.com/datadrivencz/proxima-platform/pull/549): O2-Czech-Republic#208 ingest server rpc transaction support
+ - Merge pull request [#566](https://github.com/datadrivencz/proxima-platform/pull/566): [proxima] migrate to travis-ci.com
+ - Merge pull request [#564](https://github.com/datadrivencz/proxima-platform/pull/564) from datadrivencz/kafka-poll-limiter
+ - Merge pull request [#561](https://github.com/datadrivencz/proxima-platform/pull/561): [proxima-direct-core] rename LogObservers to CommitLogObservers
+ - Merge pull request [#558](https://github.com/datadrivencz/proxima-platform/pull/558): [proxima-direct-core] O2-Czech-Republic#221 TTL for LocalCachedPartitionedView
+ - Merge pull request [#559](https://github.com/datadrivencz/proxima-platform/pull/559) from datadrivencz/remove-cache-for-proto-scheme-extraction
+ - Merge pull request [#556](https://github.com/datadrivencz/proxima-platform/pull/556): [flink-core] Unify CommitLog and BatchLog source function.
+ - Merge pull request [#548](https://github.com/datadrivencz/proxima-platform/pull/548): [direct-core] CommitLog and BatchLog observer unification.
+ - Merge pull request [#555](https://github.com/datadrivencz/proxima-platform/pull/555): [flink-core] Fixes after deployment of new flink-based sources.
+ - Merge pull request [#553](https://github.com/datadrivencz/proxima-platform/pull/553): O2-Czech-Republic#201 transactional cached view
+ - Merge pull request [#551](https://github.com/datadrivencz/proxima-platform/pull/551): [flink-core] Introduce BatchLogSourceFunction a streaming source wrap…
+ - Merge pull request [#552](https://github.com/datadrivencz/proxima-platform/pull/552) from datadrivencz/parquet_hadoop_fix
+ - Merge pull request [#544](https://github.com/datadrivencz/proxima-platform/pull/544): O2-Czech-Republic#213 eventually consistent transaction multioutputs
+ - Merge pull request [#550](https://github.com/datadrivencz/proxima-platform/pull/550): [direct-core] Introduce offsets on BatchLogReader
+ - Merge pull request [#545](https://github.com/datadrivencz/proxima-platform/pull/545): [direct-core] Fix DirectDataOperator#getBatchLogReader
+ - Merge pull request [#494](https://github.com/datadrivencz/proxima-platform/pull/494): [flink-core] Introduce CommitLogSourceFunction.
+ - Merge pull request [#543](https://github.com/datadrivencz/proxima-platform/pull/543): [proxima-direct-transcation-manager] #214 support explicit ROLLBACK
+ - Merge pull request [#542](https://github.com/datadrivencz/proxima-platform/pull/542): [proxima-direct-core] #200 introduce TransactionalOnlineAttributeWriter
+ - Merge pull request [#530](https://github.com/datadrivencz/proxima-platform/pull/530): Inmem Storage: Observe single partition from multiple partitions.
+ - Merge pull request [#541](https://github.com/datadrivencz/proxima-platform/pull/541) from datadrivencz/feat-212
+ - Merge pull request [#535](https://github.com/datadrivencz/proxima-platform/pull/535): O2-Czech-Republic#199 direct operator transaction manager
+ - Merge pull request [#540](https://github.com/datadrivencz/proxima-platform/pull/540): [proxima-ingest-server] fix logging of failed request in IngestService
+ - Merge pull request [#539](https://github.com/datadrivencz/proxima-platform/pull/539): [proxima-direct-ingest-server] fix typo
+ - Merge pull request [#538](https://github.com/datadrivencz/proxima-platform/pull/538): [proxima-direct-io-hbase-bindings] fix shading of protobuf-java
+ - Merge pull request [#537](https://github.com/datadrivencz/proxima-platform/pull/537) from datadrivencz/bump-lombok
+ - Merge pull request [#536](https://github.com/datadrivencz/proxima-platform/pull/536): O2-Czech-Republic#211 implement HBase storage v2 using sequentialId
+ - Merge pull request [#527](https://github.com/datadrivencz/proxima-platform/pull/527): O2-Czech-Republic#206 sequential ID
+ - Merge pull request [#529](https://github.com/datadrivencz/proxima-platform/pull/529): Add safeguard for non-existent watermark estimator for a given partit…
+ - Merge pull request [#531](https://github.com/datadrivencz/proxima-platform/pull/531): Bump commons-io from 2.6 to 2.7
+ - Merge pull request [#528](https://github.com/datadrivencz/proxima-platform/pull/528): KafkaReader should map partition into "partition sequence id", before…
+ - Merge pull request [#526](https://github.com/datadrivencz/proxima-platform/pull/526): [proxima] bump groovy to 3.0.8
+ - Merge pull request [#525](https://github.com/datadrivencz/proxima-platform/pull/525): [proxima-direct-io-pubsub] fix sonar reported bug
+ - Merge pull request [#524](https://github.com/datadrivencz/proxima-platform/pull/524) from datadrivencz/add-javadocs-links-into-readme
+ - Merge pull request [#523](https://github.com/datadrivencz/proxima-platform/pull/523) from datadrivencz/shade-s3-aws-sdk
+ - Merge pull request [#522](https://github.com/datadrivencz/proxima-platform/pull/522) from datadrivencz/make-parquet-groups-public
+ - Merge pull request [#516](https://github.com/datadrivencz/proxima-platform/pull/516): #202 add proto transaction serializer
+ - Merge pull request [#514](https://github.com/datadrivencz/proxima-platform/pull/514): [proxima-core] #202 first draft of transactional attributes
+ - Merge pull request [#521](https://github.com/datadrivencz/proxima-platform/pull/521): [proxima-direct-bulkfs] fix sonar reported security hotspot
+ - Merge pull request [#519](https://github.com/datadrivencz/proxima-platform/pull/519): [proxima] disable shallow clone on Travis
+ - Merge pull request [#518](https://github.com/datadrivencz/proxima-platform/pull/518) from datadrivencz/blob-to-string
+ - Merge pull request [#517](https://github.com/datadrivencz/proxima-platform/pull/517) from datadrivencz/parquet-with-accessors
+ - Merge pull request [#515](https://github.com/datadrivencz/proxima-platform/pull/515): Refactored attribute value accessors
+ - Merge pull request [#513](https://github.com/datadrivencz/proxima-platform/pull/513) from datadrivencz/schema-simplify
+ - Merge pull request [#512](https://github.com/datadrivencz/proxima-platform/pull/512) from datadrivencz/return-bigtable-to-jdk11-profile
+ - Merge pull request [#510](https://github.com/datadrivencz/proxima-platform/pull/510) from datadrivencz/remove-reprecated-data-accessor-creation
+ - Merge pull request [#508](https://github.com/datadrivencz/proxima-platform/pull/508): [proxima-direct-core] Remove RetryableLogObserver public API
+ - Merge pull request [#511](https://github.com/datadrivencz/proxima-platform/pull/511) from datadrivencz/zookeeper-disable-admin-server
+ - Merge pull request [#509](https://github.com/datadrivencz/proxima-platform/pull/509): [proxima-beam-tools] check Pipeline state after finishing
+ - Merge pull request [#507](https://github.com/datadrivencz/proxima-platform/pull/507): Revert "[proxima-direct-core] fix RetryableLogObserver contract"
+ - Merge pull request [#506](https://github.com/datadrivencz/proxima-platform/pull/506): [proxima-direct-core] fix RetryableLogObserver contract

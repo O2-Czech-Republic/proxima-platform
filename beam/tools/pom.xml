@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-beam</artifactId>
-    <version>0.7-SNAPSHOT</version>
+    <version>0.7.0</version>
   </parent>
 
   <artifactId>proxima-beam-tools</artifactId>
@@ -159,7 +159,7 @@
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
         <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.6.1</version>
+        <version>${maven.protobuf.version}</version>
         <configuration>
           <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>

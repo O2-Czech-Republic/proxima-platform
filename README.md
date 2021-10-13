@@ -197,7 +197,7 @@ First, let's introduce some glossary:
       <plugin>
         <groupId>cz.o2.proxima</groupId>
         <artifactId>compiler-maven-plugin</artifactId>
-        <version>0.6.1</version>
+        <version>0.7.0</version>
         <configuration>
           <outputDir>${project.build.directory}/generated-sources/model</outputDir>
           <javaPackage>cz.o2.proxima.testing.model</javaPackage>
@@ -219,7 +219,7 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-direct-compiler-plugin</artifactId>
-            <version>0.6.1</version>
+            <version>0.7.0</version>
           </dependency>
           <!--
             The following dependencies define additional
@@ -234,12 +234,12 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto</artifactId>
-            <version>0.6.1</version>
+            <version>0.7.0</version>
           </dependency>
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto</artifactId>
-            <version>0.6.1</version>
+            <version>0.7.0</version>
             <classifier>tests</classifier>
           </dependency>
         </dependencies>
@@ -257,9 +257,10 @@ First, let's introduce some glossary:
   ```
 
 ## Platform's _DataOperators_
- The platform offers various modes of access to data. As of version 0.6.x, these types are:
+ The platform offers various modes of access to data. As of version 0.7.x, these types are:
   * direct
   * Apache Beam
+  * Apache Flink (experimental)
 ### Direct access to data
  This operator is used when accessing data from inside single JVM (or potentially multiple JVMs, e.g. coordinated via distributed consumption of commit log). The operator is constructed as follows:
  ```java

@@ -53,7 +53,7 @@ public class ProximaParquetWriter implements Writer {
             // For some reason Writer ignores settings this via withConf()
             .withCompressionCodec(compressionCodecName)
             .withRowGroupSize(
-                config.getLong(
+                config.getInt(
                     ParquetFileFormat.PARQUET_CONFIG_PAGE_SIZE_KEY_NAME,
                     ParquetFileFormat.PARQUET_DEFAULT_PAGE_SIZE))
             .withPageSize(

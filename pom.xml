@@ -109,7 +109,7 @@
     <error-prone.version>2.4.0</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
     <autoservice.version>1.0</autoservice.version>
-    <lombok.version>1.18.20</lombok.version>
+    <lombok.version>1.18.22</lombok.version>
     <spotless.version>2.0.1</spotless.version>
     <!-- apache beam related properties -->
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>

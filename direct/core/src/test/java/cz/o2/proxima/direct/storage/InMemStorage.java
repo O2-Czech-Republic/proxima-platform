@@ -74,6 +74,7 @@ import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
@@ -927,6 +928,9 @@ public class InMemStorage implements DataAccessorFactory {
                         ? getMapKey(key, attr.get().toAttributePrefix())
                         : Optional.empty();
                 if (!wildcard.isPresent() || wildcard.get().getStamp() < e.getValue().getStamp()) {
+                  final Object value =
+                      Optionals.get(
+                          attr.get().getValueSerializer().deserialize(e.getValue().getValue()));
                   if (e.getValue().hasSequentialId()) {
                     consumer.accept(
                         KeyValue.of(
@@ -936,10 +940,7 @@ public class InMemStorage implements DataAccessorFactory {
                             key,
                             attribute,
                             new RawOffset(attribute),
-                            attr.get()
-                                .getValueSerializer()
-                                .deserialize(e.getValue().getValue())
-                                .get(),
+                            value,
                             e.getValue().getValue(),
                             System.currentTimeMillis()));
                   } else {
@@ -950,10 +951,7 @@ public class InMemStorage implements DataAccessorFactory {
                             key,
                             attribute,
                             new RawOffset(attribute),
-                            attr.get()
-                                .getValueSerializer()
-                                .deserialize(e.getValue().getValue())
-                                .get(),
+                            value,
                             e.getValue().getValue()));
                   }
 

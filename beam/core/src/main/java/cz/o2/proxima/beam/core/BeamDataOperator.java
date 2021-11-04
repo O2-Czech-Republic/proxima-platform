@@ -69,8 +69,9 @@ public class BeamDataOperator implements DataOperator {
   // labelling interface
   private interface PCollectionDescriptor {}
 
+  @SuppressWarnings("unused")
   @Value
-  private class StreamDescriptor implements PCollectionDescriptor {
+  private static class StreamDescriptor implements PCollectionDescriptor {
     Pipeline pipeline;
     DataAccessor dataAccessor;
     @Nullable String name;
@@ -85,8 +86,9 @@ public class BeamDataOperator implements DataOperator {
     }
   }
 
+  @SuppressWarnings("unused")
   @Value
-  private class BatchUpdatesDescriptor implements PCollectionDescriptor {
+  private static class BatchUpdatesDescriptor implements PCollectionDescriptor {
     Pipeline pipeline;
     DataAccessor dataAccessor;
     long startStamp;
@@ -100,12 +102,13 @@ public class BeamDataOperator implements DataOperator {
     }
   }
 
+  @SuppressWarnings("unused")
   @Value
-  private final class BatchSnapshotDescriptor implements PCollectionDescriptor {
-    private final Pipeline pipeline;
-    private final DataAccessor dataAccessor;
-    private final long fromStamp;
-    private final long untilStamp;
+  private static class BatchSnapshotDescriptor implements PCollectionDescriptor {
+    Pipeline pipeline;
+    DataAccessor dataAccessor;
+    long fromStamp;
+    long untilStamp;
 
     PCollection<StreamElement> createBatchUpdates(List<AttributeDescriptor<?>> attrList) {
       return dataAccessor.createBatch(pipeline, attrList, fromStamp, untilStamp);
@@ -376,7 +379,6 @@ public class BeamDataOperator implements DataOperator {
     return accessorFor(family);
   }
 
-  @SuppressWarnings("unchecked")
   private Stream<DataAccessor> findSuitableAccessors(
       Predicate<AttributeFamilyDescriptor> predicate,
       String accessorType,
@@ -395,7 +397,6 @@ public class BeamDataOperator implements DataOperator {
         .map(this::accessorFor);
   }
 
-  @SuppressWarnings("unchecked")
   private Stream<Pair<AttributeDescriptor<?>, Optional<AttributeFamilyDescriptor>>>
       findSuitableFamilies(
           Predicate<AttributeFamilyDescriptor> predicate, AttributeDescriptor<?>[] attrs) {

@@ -69,7 +69,6 @@ public class BeamDataOperator implements DataOperator {
   // labelling interface
   private interface PCollectionDescriptor {}
 
-  @SuppressWarnings("unused")
   @Value
   private static class StreamDescriptor implements PCollectionDescriptor {
     Pipeline pipeline;
@@ -86,7 +85,6 @@ public class BeamDataOperator implements DataOperator {
     }
   }
 
-  @SuppressWarnings("unused")
   @Value
   private static class BatchUpdatesDescriptor implements PCollectionDescriptor {
     Pipeline pipeline;
@@ -102,7 +100,6 @@ public class BeamDataOperator implements DataOperator {
     }
   }
 
-  @SuppressWarnings("unused")
   @Value
   private static class BatchSnapshotDescriptor implements PCollectionDescriptor {
     Pipeline pipeline;

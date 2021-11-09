@@ -88,11 +88,11 @@
     <hbase.version>1.6.0</hbase.version>
     <junit.jupiter.version>5.7.2</junit.jupiter.version>
     <kafka.version>2.6.2</kafka.version>
-    <proto.version>3.15.8</proto.version>
-    <protoc.version>3.15.8</protoc.version>
-    <grpc.version>1.37.1</grpc.version>
+    <proto.version>3.17.3</proto.version>
+    <protoc.version>3.17.3</protoc.version>
+    <grpc.version>1.40.1</grpc.version>
     <gmaven.version>1.10.0</gmaven.version>
-    <guava.version>30.1-jre</guava.version>
+    <guava.version>30.1.1-jre</guava.version>
     <commons-io.version>2.7</commons-io.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -113,7 +113,7 @@
     <spotless.version>2.0.1</spotless.version>
     <!-- apache beam related properties -->
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
-    <apache.beam.version>2.33.0</apache.beam.version>
+    <apache.beam.version>2.34.0</apache.beam.version>
     <apache.beam.groupId.raw>org.apache.beam</apache.beam.groupId.raw>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
     <zookeeper.version>3.6.2</zookeeper.version>
@@ -213,7 +213,7 @@
         </repository>
         <repository>
           <id>beam-validation</id>
-          <url>https://repository.apache.org/content/repositories/orgapachebeam-1235/</url>
+          <url>https://repository.apache.org/content/repositories/orgapachebeam-1239/</url>
         </repository>
       </repositories>
       <pluginRepositories>

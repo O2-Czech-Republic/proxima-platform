@@ -475,6 +475,10 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           log.debug(
               "Initializing consumer {} after first time poll with listener {}", name, listener);
           if (!group.rebalanceIfNeeded() && listener != null) {
+            listener.onPartitionsRevoked(
+                IntStream.range(0, group.getNumPartitions())
+                    .mapToObj(i -> new TopicPartition(getTopic(), i))
+                    .collect(Collectors.toList()));
             listener.onPartitionsAssigned(
                 group
                     .getAssignment(consumerId.getId())

@@ -437,12 +437,17 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                     "End offsets of current assignment {}: {}", kafka.assignment(), endOffsets);
               }
 
-              listener.onPartitionsAssigned(kafka.assignment());
             } while (poll.isEmpty()
                 && accessor.isTopicRegex()
                 && kafka.assignment().isEmpty()
                 && !shutdown.get()
                 && !Thread.currentThread().isInterrupted());
+
+            Set<TopicPartition> assignment = kafka.assignment();
+            if (!assignment.isEmpty()) {
+              listener.onPartitionsRevoked(assignment);
+              listener.onPartitionsAssigned(assignment);
+            }
 
             readyLatch.countDown();
 
@@ -852,30 +857,33 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     return new ConsumerRebalanceListener() {
 
+      private final Set<TopicPartition> currentlyAssigned = new HashSet<>();
+
       @Override
       public void onPartitionsRevoked(Collection<TopicPartition> parts) {
-        // nop
+        currentlyAssigned.removeAll(parts);
       }
 
       @Override
       public void onPartitionsAssigned(Collection<TopicPartition> parts) {
-        log.debug("Consumer {} has assigned partitions {}", name, parts);
+        currentlyAssigned.addAll(parts);
+        log.debug("Consumer {} has assigned partitions {}", name, currentlyAssigned);
         emptyPollCount.clear();
         topicPartitionToId.clear();
         AtomicInteger id = new AtomicInteger();
 
-        parts.forEach(
+        currentlyAssigned.forEach(
             p -> {
               topicPartitionToId.put(p, id.getAndIncrement());
               emptyPollCount.put(p, 0);
             });
 
-        if (parts.isEmpty()) {
+        if (currentlyAssigned.isEmpty()) {
           watermarkEstimator.set(createWatermarkEstimatorForEmptyParts());
         } else {
           watermarkEstimator.set(
               new MinimalPartitionWatermarkEstimator(
-                  parts
+                  currentlyAssigned
                       .stream()
                       .collect(
                           toMap(topicPartitionToId::get, item -> createWatermarkEstimator()))));
@@ -887,8 +895,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                     consumer.onAssign(
                         c,
                         name != null
-                            ? getCommittedTopicOffsets(parts, c)
-                            : getCurrentTopicOffsets(parts, c)));
+                            ? getCommittedTopicOffsets(currentlyAssigned, c)
+                            : getCurrentTopicOffsets(currentlyAssigned, c)));
       }
 
       List<TopicOffset> getCurrentTopicOffsets(

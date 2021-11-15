@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.kafka;
 import static cz.o2.proxima.util.TestUtils.createTestFamily;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.*;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterators;
@@ -98,6 +98,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.RebalanceInProgressException;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.junit.Before;
@@ -2981,7 +2982,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           @Override
           public Accessor createAccessor(
               DirectDataOperator direct, AttributeFamilyDescriptor family) {
-            AtomicInteger invokedCount = new AtomicInteger();
             return new Accessor(family.getEntity(), family.getStorageUri(), family.getCfg(), id) {
               @Override
               <K, V> KafkaConsumer<K, V> mockKafkaConsumer(
@@ -3018,6 +3018,110 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             });
     handle.waitUntilReady();
     handle.close();
+  }
+
+  @Test(timeout = 10000)
+  public void testHandleRebalanceInProgressException() throws InterruptedException {
+    final AtomicInteger invokedCount = new AtomicInteger();
+    final int numElements = 2000;
+    final LocalKafkaCommitLogDescriptor descriptor =
+        new LocalKafkaCommitLogDescriptor() {
+          @Override
+          public Accessor createAccessor(
+              DirectDataOperator direct, AttributeFamilyDescriptor family) {
+            return new Accessor(family.getEntity(), family.getStorageUri(), family.getCfg(), id) {
+              @Override
+              <K, V> KafkaConsumer<K, V> mockKafkaConsumer(
+                  String name,
+                  ConsumerGroup group,
+                  ElementSerializer<K, V> serializer,
+                  @Nullable Collection<Partition> assignedPartitions,
+                  @Nullable ConsumerRebalanceListener listener) {
+
+                final Map<TopicPartition, OffsetAndMetadata> committed = new HashMap<>();
+                KafkaConsumer<K, V> mock =
+                    super.mockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
+                doAnswer(
+                        invocationOnMock -> {
+                          if (invokedCount.getAndIncrement() == 1) {
+                            throw new RebalanceInProgressException();
+                          }
+                          Map<TopicPartition, OffsetAndMetadata> toCommit =
+                              invocationOnMock.getArgument(0);
+                          committed.putAll(toCommit);
+                          return null;
+                        })
+                    .when(mock)
+                    .commitSync(anyMap());
+                doAnswer(
+                        invocationOnMock -> {
+                          Set<TopicPartition> parts = invocationOnMock.getArgument(0);
+                          return parts
+                              .stream()
+                              .map(tp -> Pair.of(tp, committed.get(tp)))
+                              .filter(p -> p.getSecond() != null)
+                              .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+                        })
+                    .when(mock)
+                    .committed(anySet());
+                return mock;
+              }
+            };
+          }
+        };
+    Accessor accessor =
+        descriptor.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(1)));
+    LocalKafkaLogReader reader = accessor.newReader(direct.getContext());
+    Map<String, StreamElement> observedAfterRepartition = new HashMap<>();
+    LocalKafkaWriter<?, ?> writer = accessor.newWriter();
+    CountDownLatch latch = new CountDownLatch(1);
+    try (ObserveHandle handle =
+        reader.observe(
+            "dummy",
+            new CommitLogObserver() {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                observedAfterRepartition.put(ingest.getKey(), ingest);
+                context.confirm();
+                if (ingest.getKey().equals("last-key")) {
+                  latch.countDown();
+                  return false;
+                }
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                return false;
+              }
+            })) {
+
+      for (int i = 0; i < numElements; i++) {
+        writer.write(
+            StreamElement.upsert(
+                entity,
+                attr,
+                UUID.randomUUID().toString(),
+                "key" + i,
+                attr.getName(),
+                System.currentTimeMillis(),
+                new byte[] {}),
+            (succ, exc) -> {});
+      }
+      writer.write(
+          StreamElement.upsert(
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "last-key",
+              attr.getName(),
+              System.currentTimeMillis(),
+              new byte[] {}),
+          (succ, exc) -> {});
+      latch.await();
+    }
+    assertEquals(numElements + 1, observedAfterRepartition.size());
+    assertTrue(invokedCount.get() > 1);
   }
 
   private long testSequentialConsumption(long maxBytesPerSec) throws InterruptedException {

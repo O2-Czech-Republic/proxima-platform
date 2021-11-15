@@ -68,6 +68,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.RebalanceInProgressException;
 
 /** A {@link CommitLogReader} implementation for Kafka. */
 @Slf4j
@@ -493,7 +494,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 }
               }
               increaseWatermarkOnEmptyPolls(emptyPollCount, topicPartitionToId, watermarkEstimator);
-              flushCommits(kafka, consumer);
+              if (!flushCommits(kafka, consumer)) {
+                handleRebalanceInOffsetCommit(kafka, listener);
+              }
               rethrowErrorIfPresent(name, error);
               terminateIfConsumed(stopAtCurrent, kafka, endOffsets, emptyPollCount, completed);
               throughputLimiter.sleepToLimitThroughput(bytesPolled, pollTimeMs);
@@ -540,6 +543,15 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           }
         });
     readyLatch.await();
+  }
+
+  private void handleRebalanceInOffsetCommit(
+      KafkaConsumer<Object, Object> kafka, ConsumerRebalanceListener listener) {
+    Set<TopicPartition> assigned = kafka.assignment();
+    listener.onPartitionsRevoked(assigned);
+    listener.onPartitionsAssigned(assigned);
+    Map<TopicPartition, OffsetAndMetadata> committed = kafka.committed(assigned);
+    committed.forEach(kafka::seek);
   }
 
   private ConsumerRecords<Object, Object> seekToNewOffsetsIfNeeded(
@@ -624,13 +636,24 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     }
   }
 
-  private void flushCommits(
+  /**
+   * @return {@code false} if {@link RebalanceInProgressException} was caught and offsets could not
+   *     be committed, {@code true} otherwise.
+   */
+  private boolean flushCommits(
       final KafkaConsumer<Object, Object> kafka, ElementConsumer<?, ?> consumer) {
 
-    Map<TopicPartition, OffsetAndMetadata> commitMapClone;
-    commitMapClone = consumer.prepareOffsetsForCommit();
-    if (!commitMapClone.isEmpty()) {
-      kafka.commitSync(commitMapClone);
+    try {
+      Map<TopicPartition, OffsetAndMetadata> commitMap = consumer.prepareOffsetsForCommit();
+      if (!commitMap.isEmpty()) {
+        kafka.commitSync(commitMap);
+      }
+      return true;
+    } catch (RebalanceInProgressException ex) {
+      log.info(
+          "Caught {}. Resetting the consumer to the last committed position",
+          ex.getClass().getSimpleName());
+      return false;
     }
   }
 

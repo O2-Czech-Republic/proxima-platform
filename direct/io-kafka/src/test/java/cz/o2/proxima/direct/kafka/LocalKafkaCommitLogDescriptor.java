@@ -336,6 +336,17 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
       doAnswer(
               invocation -> {
+                TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
+                OffsetAndMetadata offset = (OffsetAndMetadata) invocation.getArguments()[1];
+                seekConsumerTo(consumerId, tp.partition(), offset.offset());
+                polled.set(true);
+                return null;
+              })
+          .when(mock)
+          .seek(any(), any());
+
+      doAnswer(
+              invocation -> {
                 Map<TopicPartition, OffsetAndMetadata> commitMap;
                 commitMap = (Map<TopicPartition, OffsetAndMetadata>) invocation.getArguments()[0];
                 commitConsumer(name, commitMap);

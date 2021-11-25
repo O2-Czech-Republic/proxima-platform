@@ -101,6 +101,9 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
   /** A name for a header containing sequential ID of {@link StreamElement} (if any). */
   public static final String SEQUENCE_ID_HEADER = "seqId";
 
+  /** A name for a header containing UUID of {@link StreamElement} */
+  public static final String UUID_HEADER = "uuid";
+
   @Getter @Nullable private final String topic;
 
   @Getter @Nullable private final String topicPattern;

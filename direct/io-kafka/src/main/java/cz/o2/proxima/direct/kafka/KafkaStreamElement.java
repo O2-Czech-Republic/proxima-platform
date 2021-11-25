@@ -24,7 +24,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.Collections;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -65,7 +67,13 @@ public class KafkaStreamElement extends StreamElement {
           log.error("Invalid attribute {} in kafka key {}", attribute, key);
         } else {
           @Nullable
-          Header sequenceIdHeader = record.headers().lastHeader(KafkaAccessor.SEQUENCE_ID_HEADER);
+          final Header sequenceIdHeader =
+              record.headers().lastHeader(KafkaAccessor.SEQUENCE_ID_HEADER);
+          final String oldUuid = record.topic() + "#" + record.partition() + "#" + record.offset();
+          final String uuid =
+              Optional.ofNullable(record.headers().lastHeader(KafkaAccessor.UUID_HEADER))
+                  .map(v -> new String(v.value(), StandardCharsets.UTF_8))
+                  .orElse(oldUuid);
           if (sequenceIdHeader != null) {
             try {
               long seqId = asLong(sequenceIdHeader.value());
@@ -86,7 +94,7 @@ public class KafkaStreamElement extends StreamElement {
           return new KafkaStreamElement(
               entityDesc,
               attr.get(),
-              record.topic() + "#" + record.partition() + "#" + record.offset(),
+              uuid,
               entityKey,
               attribute,
               record.timestamp(),
@@ -100,12 +108,13 @@ public class KafkaStreamElement extends StreamElement {
 
     @Override
     public ProducerRecord<String, byte[]> write(String topic, int partition, StreamElement data) {
-      @Nullable Iterable<Header> headers = null;
+      List<Header> headers = new ArrayList<>();
+      headers.add(
+          new RecordHeader(
+              KafkaAccessor.UUID_HEADER, data.getUuid().getBytes(StandardCharsets.UTF_8)));
       if (data.hasSequentialId()) {
-        headers =
-            Collections.singletonList(
-                new RecordHeader(
-                    KafkaAccessor.SEQUENCE_ID_HEADER, asBytes(data.getSequentialId())));
+        headers.add(
+            new RecordHeader(KafkaAccessor.SEQUENCE_ID_HEADER, asBytes(data.getSequentialId())));
       }
       return new ProducerRecord<>(
           topic,

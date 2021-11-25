@@ -123,9 +123,16 @@ public class KafkaLogReaderIT {
     }
 
     @Override
-    public boolean onNext(StreamElement ingest, OnNextContext context) {
-      if (!ingest.getKey().startsWith("poisoned-pill")) {
-        receivedElements.add(ingest);
+    public boolean onNext(StreamElement element, OnNextContext context) {
+      if (!element.getKey().startsWith("poisoned-pill")) {
+        if (!element.hasSequentialId()) {
+          try {
+            UUID uuid = UUID.fromString(element.getUuid());
+          } catch (IllegalArgumentException e) {
+            fail("Received UUID in wrong format. Received value: " + element.getUuid());
+          }
+        }
+        receivedElements.add(element);
       }
       context.confirm();
       watermarks.merge(context.getPartition(), context.getWatermark(), Math::max);

@@ -890,7 +890,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       @Override
       public void onPartitionsAssigned(Collection<TopicPartition> parts) {
         currentlyAssigned.addAll(parts);
-        log.debug("Consumer {} has assigned partitions {}", name, currentlyAssigned);
+        log.info("Consumer {} has assigned partitions {}", name, currentlyAssigned);
         emptyPollCount.clear();
         topicPartitionToId.clear();
         AtomicInteger id = new AtomicInteger();

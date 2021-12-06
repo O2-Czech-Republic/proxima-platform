@@ -87,7 +87,7 @@
     <hadoop.version>2.10.0</hadoop.version>
     <hbase.version>1.6.0</hbase.version>
     <junit.jupiter.version>5.7.2</junit.jupiter.version>
-    <kafka.version>2.6.2</kafka.version>
+    <kafka.version>2.8.1</kafka.version>
     <proto.version>3.17.3</proto.version>
     <protoc.version>3.17.3</protoc.version>
     <grpc.version>1.40.1</grpc.version>

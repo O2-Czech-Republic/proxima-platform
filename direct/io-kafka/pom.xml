@@ -204,7 +204,8 @@
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka-test</artifactId>
       <version>2.7.9</version>
-      <scope>test</scope>
+      <!-- exclude from test-jar -->
+      <scope>provided</scope>
       <exclusions>
         <exclusion>
           <groupId>org.junit.jupiter</groupId>
@@ -218,21 +219,24 @@
       <artifactId>kafka-clients</artifactId>
       <version>${kafka.version}</version>
       <classifier>test</classifier>
-      <scope>test</scope>
+      <!-- exclude from test-jar -->
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-metadata</artifactId>
       <version>${kafka.version}</version>
-      <scope>test</scope>
+      <!-- exclude from test-jar -->
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka_2.13</artifactId>
       <version>${kafka.version}</version>
-      <scope>test</scope>
+      <!-- exclude from test-jar -->
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
@@ -240,14 +244,16 @@
       <artifactId>kafka_2.13</artifactId>
       <version>${kafka.version}</version>
       <classifier>test</classifier>
-      <scope>test</scope>
+      <!-- exclude from test-jar -->
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-streams-test-utils</artifactId>
       <version>${kafka.version}</version>
-      <scope>test</scope>
+      <!-- exclude from test-jar -->
+      <scope>provided</scope>
     </dependency>
 
   </dependencies>

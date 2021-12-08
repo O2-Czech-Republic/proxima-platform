@@ -32,6 +32,7 @@
   <name>${project.groupId}:${project.artifactId}</name>
 
   <properties>
+    <maven.shade.version>3.2.4</maven.shade.version>
     <shadePattern>cz.o2.proxima.kafka.shaded</shadePattern>
   </properties>
 
@@ -72,6 +73,11 @@
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:proxima-core</exclude>
               <exclude>cz.o2.proxima:proxima-direct-core</exclude>
+              <exclude>org.apache.kafka:kafka-metadata</exclude>
+              <exclude>org.apache.kafka:kafka_2.13</exclude>
+              <exclude>org.apache.kafka:kafka-streams</exclude>
+              <exclude>org.apache.kafka:kafka-streams-test-utils</exclude>
+              <exclude>org.springframework.kafka:spring-kafka-test</exclude>
             </excludes>
           </artifactSet>
           <shadeTestJar>true</shadeTestJar>
@@ -204,8 +210,7 @@
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka-test</artifactId>
       <version>2.7.9</version>
-      <!-- exclude from test-jar -->
-      <scope>provided</scope>
+      <scope>test</scope>
       <exclusions>
         <exclusion>
           <groupId>org.junit.jupiter</groupId>
@@ -219,24 +224,21 @@
       <artifactId>kafka-clients</artifactId>
       <version>${kafka.version}</version>
       <classifier>test</classifier>
-      <!-- exclude from test-jar -->
-      <scope>provided</scope>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-metadata</artifactId>
       <version>${kafka.version}</version>
-      <!-- exclude from test-jar -->
-      <scope>provided</scope>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka_2.13</artifactId>
       <version>${kafka.version}</version>
-      <!-- exclude from test-jar -->
-      <scope>provided</scope>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -244,16 +246,21 @@
       <artifactId>kafka_2.13</artifactId>
       <version>${kafka.version}</version>
       <classifier>test</classifier>
-      <!-- exclude from test-jar -->
-      <scope>provided</scope>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.kafka</groupId>
+      <artifactId>kafka-streams</artifactId>
+      <version>${kafka.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-streams-test-utils</artifactId>
       <version>${kafka.version}</version>
-      <!-- exclude from test-jar -->
-      <scope>provided</scope>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>

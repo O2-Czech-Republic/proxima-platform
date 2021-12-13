@@ -17,6 +17,7 @@ package cz.o2.proxima.scheme.proto;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -26,6 +27,7 @@ import cz.o2.proxima.scheme.AttributeValueAccessors.StructureValueAccessor;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import cz.o2.proxima.scheme.proto.test.Scheme.MultiLevelMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.RuleConfig;
+import cz.o2.proxima.scheme.proto.test.Scheme.Status;
 import cz.o2.proxima.scheme.proto.test.Scheme.Users;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage.Directions;
@@ -202,7 +204,7 @@ public class ProtoMessageValueAccessorTest {
         ((List<byte[]>) valueOf.get("repeated_bytes")).toArray());
     value.put("repeated_bytes", "SAME");
     valueOf.put("repeated_bytes", "SAME");
-    assertTrue(value.entrySet().containsAll(valueOf.entrySet()));
+    assertTrue(value.keySet().containsAll(valueOf.keySet()));
   }
 
   @Test
@@ -236,5 +238,56 @@ public class ProtoMessageValueAccessorTest {
     log.debug("Created proto object {}", created);
     assertArrayEquals(
         "second".getBytes(StandardCharsets.UTF_8), created.getPayload().toByteArray());
+  }
+
+  @Test
+  public void testGetDefaultValuesForPrimitiveFields() {
+    final StructureValueAccessor<Status> accessor =
+        new ProtoMessageValueAccessor<>(Status::getDefaultInstance);
+    Status status = Status.newBuilder().build();
+    StructureValue value = accessor.valueOf(status);
+    assertEquals(false, value.get("connected"));
+    assertEquals(0L, (long) value.get("lastContact"));
+
+    Status withDefaults = Status.newBuilder().setConnected(false).setLastContact(0).build();
+    StructureValue withValues = accessor.valueOf(withDefaults);
+    assertEquals(false, withValues.get("connected"));
+    assertEquals(0L, (long) withValues.get("lastContact"));
+  }
+
+  @Test
+  public void testGetDefaultValuesFromStructureField() {
+    final StructureValueAccessor<ValueSchemeMessage> accessor =
+        new ProtoMessageValueAccessor<>(ValueSchemeMessage::getDefaultInstance);
+    StructureValue value = accessor.valueOf(ValueSchemeMessage.newBuilder().build());
+    assertFalse(value.containsKey("inner_message"));
+    assertTrue(value.containsKey("boolean_type"));
+    assertFalse(value.containsKey("inner_message"));
+    assertFalse(value.containsKey("repeated_string"));
+
+    // Assert with added message
+    value =
+        accessor.valueOf(
+            ValueSchemeMessage.newBuilder()
+                .setInnerMessage(InnerMessage.newBuilder().setInnerDoubleType(5))
+                .setIntType(5)
+                .build());
+    assertTrue(value.containsKey("inner_message"));
+    assertEquals(5, (int) value.get("int_type"));
+
+    // Assert with added repeated message
+    value =
+        accessor.valueOf(
+            ValueSchemeMessage.newBuilder()
+                .addAllRepeatedInnerMessage(
+                    Arrays.asList(
+                        InnerMessage.newBuilder().setInnerDoubleType(1).build(),
+                        InnerMessage.newBuilder().setInnerDoubleType(2).build()))
+                .addAllRepeatedString(Arrays.asList("first", "second"))
+                .build());
+    assertTrue(value.containsKey("repeated_inner_message"));
+    assertEquals(2, ((List<?>) value.get("repeated_inner_message")).size());
+    assertTrue(value.containsKey("repeated_string"));
+    assertEquals(2, ((List<?>) value.get("repeated_string")).size());
   }
 }

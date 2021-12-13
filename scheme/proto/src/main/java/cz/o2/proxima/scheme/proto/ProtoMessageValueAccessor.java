@@ -71,25 +71,35 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
 
   @Override
   public StructureValue valueOf(T object) {
+    /*
+     Here we get all fields from descriptor which also returns empty fields (not set), those
+     fields needs to be filtered -> see filter on stream, where we pass all non-message and
+     non-repeated fields, repeated fields just when count > 0 and messages just when was set.
+    */
     return StructureValue.of(
         object
-            .getAllFields()
-            .entrySet()
+            .getDescriptorForType()
+            .getFields()
             .stream()
+            .filter(
+                f ->
+                    (!f.isRepeated()
+                            && (!f.getJavaType().equals(JavaType.MESSAGE) || object.hasField(f)))
+                        || (f.isRepeated() && object.getRepeatedFieldCount(f) > 0))
             .collect(
                 Collectors.toMap(
-                    entry -> entry.getKey().getName(),
-                    entry -> {
-                      final FieldDescriptor field = entry.getKey();
+                    FieldDescriptor::getName,
+                    field -> {
                       @SuppressWarnings("unchecked")
                       final AttributeValueAccessor<Object, Object> accessor =
                           (AttributeValueAccessor<Object, Object>)
                               fieldAccessors.get(field.getName());
+                      final Object value = object.getField(field);
                       if (field.getJavaType().equals(JavaType.MESSAGE) && !field.isRepeated()) {
-                        StructureValue v = (StructureValue) accessor.valueOf(entry.getValue());
+                        StructureValue v = (StructureValue) accessor.valueOf(value);
                         return v.value();
                       }
-                      return accessor.valueOf(entry.getValue());
+                      return accessor.valueOf(value);
                     })));
   }
 

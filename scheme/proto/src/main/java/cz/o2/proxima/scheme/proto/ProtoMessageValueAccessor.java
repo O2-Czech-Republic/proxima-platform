@@ -83,8 +83,8 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
             .stream()
             .filter(
                 f ->
-                    (!f.getJavaType().equals(JavaType.MESSAGE) && !f.isRepeated())
-                        || (!f.isRepeated() && object.hasField(f))
+                    (!f.isRepeated()
+                            && (!f.getJavaType().equals(JavaType.MESSAGE) || object.hasField(f)))
                         || (f.isRepeated() && object.getRepeatedFieldCount(f) > 0))
             .collect(
                 Collectors.toMap(

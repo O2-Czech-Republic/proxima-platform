@@ -18,7 +18,6 @@
 set -e
 
 BIN_DIR=$(dirname $0)
-LOG_CFG=log4j.properties
 JAVAOPTS=""
 SHADED_JAR_NAME="proxima-example-ingest-server.jar"
 
@@ -29,7 +28,7 @@ fi
 if [ -z "${LOG_LEVEL}" ]; then
   LOG_LEVEL="INFO"
 fi
-JAVAOPTS="${JAVAOPTS} -DLOG_LEVEL=${LOG_LEVEL} -Dlog4j.configuration=${LOG_CFG}"
+JAVAOPTS="${JAVAOPTS} -DLOG_LEVEL=${LOG_LEVEL}"
 
 if [ -n "${HEAP_SIZE}" ]; then
   JAVAOPTS="${JAVAOPTS} -Xmx${HEAP_SIZE} -Xms${HEAP_SIZE}"

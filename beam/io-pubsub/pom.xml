@@ -197,8 +197,8 @@
     </dependency>
 
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
     </dependency>
 
     <dependency>
@@ -220,11 +220,6 @@
     <dependency>
       <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-runners-direct-java</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
     </dependency>
 
     <dependency>

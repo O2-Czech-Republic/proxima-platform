@@ -545,7 +545,8 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     ExceptionUtils.ignoringInterrupted(
         () -> {
           if (!connectLatch.await(10, TimeUnit.SECONDS)) {
-            throw new RuntimeException("Timeout while connecting to ZK");
+            throw new RuntimeException(
+                String.format("Timeout while connecting to ZK %s", zkConnectString));
           }
         });
     return zoo;
@@ -554,9 +555,10 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   @VisibleForTesting
   Watcher getWatcher(CountDownLatch connectLatch) {
     return event -> {
-      if (event.getState() == KeeperState.SyncConnected && event.getType() == EventType.None) {
+      if (event.getState() == KeeperState.SyncConnected && connectLatch.getCount() > 0) {
         connectLatch.countDown();
-      } else {
+      }
+      if (event.getType() != EventType.None) {
         watchParentNode(event);
       }
     };

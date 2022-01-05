@@ -121,7 +121,7 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
         final AttributeValueAccessor<Object, Object> fieldAccessor =
             (AttributeValueAccessor<Object, Object>) fieldAccessors.get(fieldName);
         Preconditions.checkNotNull(
-            fieldAccessor, "Unable to get accessor for field {}.", fieldName);
+            fieldAccessor, "Unable to get accessor for field %s.", fieldName);
         final Object value = prepareFieldValue(fieldAccessor, input.get(fieldName));
         if (fieldDescriptor.isRepeated()) {
           final List<Object> listValues = (List<Object>) fieldAccessor.createFrom(value);

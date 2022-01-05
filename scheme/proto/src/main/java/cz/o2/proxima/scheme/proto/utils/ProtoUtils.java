@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -121,18 +122,25 @@ public class ProtoUtils {
         break;
       case MESSAGE:
         final String messageTypeName = proto.getMessageType().toProto().getName();
-        descriptor = (SchemaTypeDescriptor<T>) structCache.get(messageTypeName);
-        if (descriptor == null) {
-          final Set<Descriptor> newSeenMessages = new HashSet<>(seenMessages);
-          newSeenMessages.add(proto.getMessageType());
-          descriptor =
-              (SchemaTypeDescriptor<T>)
-                  convertProtoMessage(
-                      proto.getMessageType(),
-                      structCache,
-                      Collections.unmodifiableSet(newSeenMessages));
-          structCache.put(messageTypeName, descriptor);
-        }
+        descriptor =
+            (SchemaTypeDescriptor<T>)
+                structCache.computeIfAbsent(
+                    messageTypeName,
+                    name -> {
+                      final Set<Descriptor> newSeenMessages = new HashSet<>(seenMessages);
+                      newSeenMessages.add(proto.getMessageType());
+                      @Nullable
+                      final SchemaTypeDescriptor<T> known =
+                          (SchemaTypeDescriptor<T>) mapKnownWrapperTypes(proto);
+                      if (known != null) {
+                        return known;
+                      } else {
+                        return convertProtoMessage(
+                            proto.getMessageType(),
+                            structCache,
+                            Collections.unmodifiableSet(newSeenMessages));
+                      }
+                    });
         break;
       default:
         throw new IllegalStateException(
@@ -143,6 +151,30 @@ public class ProtoUtils {
       return SchemaDescriptors.arrays(descriptor);
     } else {
       return descriptor;
+    }
+  }
+
+  @Nullable
+  private static SchemaTypeDescriptor<?> mapKnownWrapperTypes(FieldDescriptor descriptor) {
+    switch (descriptor.getMessageType().getFullName()) {
+      case "google.protobuf.StringValue":
+        return SchemaDescriptors.strings();
+      case "google.protobuf.BoolValue":
+        return SchemaDescriptors.booleans();
+      case "google.protobuf.Int32Value":
+      case "google.protobuf.UInt32Value":
+        return SchemaDescriptors.integers();
+      case "google.protobuf.Int64Value":
+      case "google.protobuf.UInt64Value":
+        return SchemaDescriptors.longs();
+      case "google.protobuf.DoubleValue":
+        return SchemaDescriptors.doubles();
+      case "google.protobuf.BytesValue":
+        return SchemaDescriptors.bytes();
+      case "google.protobuf.FloatValue":
+        return SchemaDescriptors.floats();
+      default:
+        return null;
     }
   }
 }

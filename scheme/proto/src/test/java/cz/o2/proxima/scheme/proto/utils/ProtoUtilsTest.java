@@ -18,10 +18,12 @@ package cz.o2.proxima.scheme.proto.utils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.google.protobuf.Descriptors.Descriptor;
 import cz.o2.proxima.scheme.AttributeValueType;
 import cz.o2.proxima.scheme.SchemaDescriptors.StructureTypeDescriptor;
 import cz.o2.proxima.scheme.proto.test.Scheme;
 import cz.o2.proxima.scheme.proto.test.Scheme.Device;
+import cz.o2.proxima.scheme.proto.test.Scheme.MessageWithWrappers;
 import cz.o2.proxima.scheme.proto.test.Scheme.RecursiveMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ public class ProtoUtilsTest {
         ProtoUtils.convertProtoToSchema(Device.getDescriptor());
     assertEquals(AttributeValueType.STRUCTURE, schema.getType());
     assertEquals(2, schema.getFields().size());
+    checkIfSchemaContainsAllFields(schema, Device.getDescriptor());
     assertEquals(AttributeValueType.STRING, schema.getField("type").getType());
     assertEquals(AttributeValueType.ARRAY, schema.getField("payload").getType());
     assertEquals(
@@ -47,6 +50,7 @@ public class ProtoUtilsTest {
     StructureTypeDescriptor<ValueSchemeMessage> descriptor =
         ProtoUtils.convertProtoToSchema(ValueSchemeMessage.getDescriptor());
     log.debug("Schema: {}", descriptor);
+    checkIfSchemaContainsAllFields(descriptor, ValueSchemeMessage.getDescriptor());
     assertEquals(AttributeValueType.STRUCTURE, descriptor.getType());
     assertEquals(ValueSchemeMessage.getDescriptor().getName(), descriptor.getName());
     assertTrue(descriptor.hasField("repeated_inner_message"));
@@ -76,5 +80,36 @@ public class ProtoUtilsTest {
     StructureTypeDescriptor<RecursiveMessage> descriptor =
         ProtoUtils.convertProtoToSchema(Scheme.TwoStepRecursiveMessage.getDescriptor());
     log.debug("Schema: {}", descriptor);
+  }
+
+  @Test
+  public void testConvertMessageWithMessageAsScalarConversion() {
+    StructureTypeDescriptor<MessageWithWrappers> schema =
+        ProtoUtils.convertProtoToSchema(MessageWithWrappers.getDescriptor());
+    log.debug("Schema: {}", schema);
+    assertEquals(AttributeValueType.STRUCTURE, schema.getType());
+    checkIfSchemaContainsAllFields(schema, MessageWithWrappers.getDescriptor());
+    assertEquals(AttributeValueType.STRING, schema.getField("string").getType());
+    assertEquals(AttributeValueType.BOOLEAN, schema.getField("bool").getType());
+    assertEquals(AttributeValueType.INT, schema.getField("int32").getType());
+    assertEquals(AttributeValueType.INT, schema.getField("uint32").getType());
+    assertEquals(AttributeValueType.LONG, schema.getField("int64").getType());
+    assertEquals(AttributeValueType.LONG, schema.getField("uint64").getType());
+    assertEquals(AttributeValueType.FLOAT, schema.getField("float").getType());
+    assertEquals(AttributeValueType.ARRAY, schema.getField("bytes").getType());
+    assertEquals(
+        AttributeValueType.BYTE, schema.getField("bytes").asArrayTypeDescriptor().getValueType());
+  }
+
+  private void checkIfSchemaContainsAllFields(
+      StructureTypeDescriptor<?> schema, Descriptor message) {
+    message
+        .getFields()
+        .forEach(
+            fieldDescriptor -> {
+              assertTrue(
+                  "Missing field " + fieldDescriptor.getName() + "in schema.",
+                  schema.hasField(fieldDescriptor.getName()));
+            });
   }
 }

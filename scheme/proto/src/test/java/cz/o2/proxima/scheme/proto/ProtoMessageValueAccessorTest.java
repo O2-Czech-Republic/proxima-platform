@@ -21,10 +21,20 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import com.google.protobuf.BoolValue;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.BytesValue;
+import com.google.protobuf.DoubleValue;
+import com.google.protobuf.FloatValue;
+import com.google.protobuf.Int32Value;
+import com.google.protobuf.Int64Value;
+import com.google.protobuf.StringValue;
+import com.google.protobuf.UInt32Value;
+import com.google.protobuf.UInt64Value;
 import cz.o2.proxima.scheme.AttributeValueAccessors.StructureValue;
 import cz.o2.proxima.scheme.AttributeValueAccessors.StructureValueAccessor;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
+import cz.o2.proxima.scheme.proto.test.Scheme.MessageWithWrappers;
 import cz.o2.proxima.scheme.proto.test.Scheme.MultiLevelMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.RuleConfig;
 import cz.o2.proxima.scheme.proto.test.Scheme.Status;
@@ -289,5 +299,75 @@ public class ProtoMessageValueAccessorTest {
     assertEquals(2, ((List<?>) value.get("repeated_inner_message")).size());
     assertTrue(value.containsKey("repeated_string"));
     assertEquals(2, ((List<?>) value.get("repeated_string")).size());
+  }
+
+  @Test
+  public void testValueOfFromMessageWithWrappers() {
+    final StructureValueAccessor<MessageWithWrappers> accessor =
+        new ProtoMessageValueAccessor<>(MessageWithWrappers::getDefaultInstance);
+    // First assert empty protobuf
+    MessageWithWrappers message = MessageWithWrappers.newBuilder().build();
+    StructureValue value = accessor.valueOf(message);
+    assertTrue(value.isEmpty());
+    assertEquals(message, accessor.createFrom(value));
+    // Now check protobuf with values
+    message =
+        MessageWithWrappers.newBuilder()
+            .setBool(BoolValue.of(true))
+            .setBytes(BytesValue.of(ByteString.copyFromUtf8("bytes")))
+            .setDouble(DoubleValue.of(20))
+            .setFloat(FloatValue.of(23.5F))
+            .setInt32(Int32Value.of(32))
+            .setInt64(Int64Value.of(64L))
+            .setString(StringValue.of("hello world"))
+            .setUint32(UInt32Value.of(332))
+            .setUint64(UInt64Value.of(364L))
+            .build();
+    value = accessor.valueOf(message);
+    assertFalse(value.isEmpty());
+    assertEquals(true, value.get("bool"));
+    assertArrayEquals("bytes".getBytes(StandardCharsets.UTF_8), value.get("bytes"));
+    assertEquals(20, value.get("double"), 0.0001);
+    assertEquals(23.5F, value.get("float"), 0.0001F);
+    assertEquals(32, (int) value.get("int32"));
+    assertEquals(64L, (long) value.get("int64"));
+    assertEquals("hello world", value.get("string"));
+    assertEquals(332, (int) value.get("uint32"));
+    assertEquals(364L, (long) value.get("uint64"));
+
+    MessageWithWrappers created = accessor.createFrom(value);
+    assertEquals(message, created);
+  }
+
+  @Test
+  public void testCreateFromForMessageWithWrappers() {
+    final StructureValueAccessor<MessageWithWrappers> accessor =
+        new ProtoMessageValueAccessor<>(MessageWithWrappers::getDefaultInstance);
+    Map<String, Object> data =
+        new HashMap<String, Object>() {
+          {
+            put("bool", true);
+            put("bytes", "bytes".getBytes(StandardCharsets.UTF_8));
+            put("double", 20);
+            put("float", 23.5F);
+            put("int32", 32);
+            put("int64", 64L);
+            put("string", "hello world");
+            put("uint32", 332);
+            put("uint64", 364L);
+          }
+        };
+    MessageWithWrappers message = accessor.createFrom(StructureValue.of(data));
+    log.debug("Message {}", message);
+    assertTrue(message.getBool().getValue());
+    assertArrayEquals(
+        "bytes".getBytes(StandardCharsets.UTF_8), message.getBytes().getValue().toByteArray());
+    assertEquals(20, message.getDouble().getValue(), 0.00001);
+    assertEquals(23.5F, message.getFloat().getValue(), 0.00001);
+    assertEquals(32, message.getInt32().getValue());
+    assertEquals(64L, message.getInt64().getValue());
+    assertEquals("hello world", message.getString().getValue());
+    assertEquals(332, message.getUint32().getValue());
+    assertEquals(364L, message.getUint64().getValue());
   }
 }

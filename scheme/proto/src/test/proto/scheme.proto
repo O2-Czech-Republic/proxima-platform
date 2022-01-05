@@ -18,6 +18,7 @@ syntax = "proto3";
 option java_package = "cz.o2.proxima.scheme.proto.test";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 import "readme.proto";
 
 message Event {
@@ -104,4 +105,16 @@ message MultiLevelMessage {
   ValueSchemeMessage child = 2;
   WithTimestamps timestamps = 3;
   Properties props = 4;
+}
+
+message MessageWithWrappers {
+  google.protobuf.BoolValue bool = 1;
+  google.protobuf.BytesValue bytes = 2;
+  google.protobuf.DoubleValue double = 3;
+  google.protobuf.FloatValue float = 4;
+  google.protobuf.Int32Value int32 = 5;
+  google.protobuf.Int64Value int64 = 6;
+  google.protobuf.StringValue string = 7;
+  google.protobuf.UInt32Value uint32 = 8;
+  google.protobuf.UInt64Value uint64 = 9;
 }

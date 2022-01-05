@@ -18,6 +18,7 @@ package cz.o2.proxima.scheme.proto;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.BytesValue;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
@@ -33,12 +34,16 @@ import cz.o2.proxima.scheme.AttributeValueAccessors.StructureValueAccessor;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implementation of {@link StructureValueAccessor} for ProtoBufs
+ *
+ * <p>Wrapper types are mapped to scalar equivalents as we can manage null values. See {@link
+ * PrimitiveValueAccessor##createFieldAccessor(FieldDescriptor, Builder)} for details.
  *
  * @param <T> Protobuf message type
  */
@@ -95,7 +100,9 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
                           (AttributeValueAccessor<Object, Object>)
                               fieldAccessors.get(field.getName());
                       final Object value = object.getField(field);
-                      if (field.getJavaType().equals(JavaType.MESSAGE) && !field.isRepeated()) {
+                      if (field.getJavaType().equals(JavaType.MESSAGE)
+                          && !field.isRepeated()
+                          && accessor.getType().equals(Type.STRUCTURE)) {
                         StructureValue v = (StructureValue) accessor.valueOf(value);
                         return v.value();
                       }
@@ -113,7 +120,9 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
       if (input.containsKey(fieldName)) {
         final AttributeValueAccessor<Object, Object> fieldAccessor =
             (AttributeValueAccessor<Object, Object>) fieldAccessors.get(fieldName);
-        final Object value = prepareFieldValue(fieldDescriptor, input.get(fieldName));
+        Preconditions.checkNotNull(
+            fieldAccessor, "Unable to get accessor for field %s.", fieldName);
+        final Object value = prepareFieldValue(fieldAccessor, input.get(fieldName));
         if (fieldDescriptor.isRepeated()) {
           final List<Object> listValues = (List<Object>) fieldAccessor.createFrom(value);
           listValues.forEach(v -> builder.addRepeatedField(fieldDescriptor, v));
@@ -132,33 +141,33 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
   }
 
   @SuppressWarnings("unchecked")
-  private Object prepareFieldValue(FieldDescriptor descriptor, Object object) {
-    if (descriptor.isRepeated()) {
+  private Object prepareFieldValue(AttributeValueAccessor<?, ?> accessor, Object object) {
+    if (accessor.getType().equals(Type.ARRAY)) {
       if (List.class.isAssignableFrom(object.getClass())) {
         return ((List<Object>) object)
             .stream()
-            .map(v -> mapValue(descriptor, v))
+            .map(v -> mapValue(accessor, v))
             .collect(Collectors.toList());
       } else {
         // Create new list in case when originally scalar field changed to repeated
-        return Collections.singletonList(mapValue(descriptor, object));
+        return Collections.singletonList(mapValue(accessor, object));
       }
     }
-    return mapValue(descriptor, object);
+    return mapValue(accessor, object);
   }
 
   @SuppressWarnings("unchecked")
-  private Object mapValue(FieldDescriptor descriptor, Object value) {
-    if (descriptor.getJavaType().equals(JavaType.MESSAGE)) {
+  private Object mapValue(AttributeValueAccessor<?, ?> accessor, Object value) {
+    if (accessor.getType().equals(Type.STRUCTURE)) {
       return StructureValue.of((Map<String, Object>) value);
     }
     return value;
   }
 
-  @SuppressWarnings("unchecked")
-  private <InputT, OutputT> AttributeValueAccessor<InputT, OutputT> createFieldAccessor(
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private <FInputT, FOutputT> AttributeValueAccessor<FInputT, FOutputT> createFieldAccessor(
       FieldDescriptor fieldDescriptor, @Nullable Builder fieldBuilder) {
-    AttributeValueAccessor<InputT, OutputT> accessor;
+    AttributeValueAccessor<FInputT, FOutputT> accessor;
     switch (fieldDescriptor.getJavaType()) {
       case MESSAGE:
         Preconditions.checkArgument(
@@ -166,30 +175,30 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
             "Field builder must be specified for type %s.",
             fieldDescriptor.getJavaType());
         accessor =
-            (AttributeValueAccessor<InputT, OutputT>)
-                new ProtoMessageValueAccessor<>(fieldBuilder::getDefaultInstanceForType);
+            createFieldAccessorForWrappers(fieldDescriptor, fieldBuilder)
+                .orElse(new ProtoMessageValueAccessor(fieldBuilder::getDefaultInstanceForType));
         break;
       case ENUM:
         accessor =
-            (AttributeValueAccessor<InputT, OutputT>)
+            (AttributeValueAccessor<FInputT, FOutputT>)
                 PrimitiveValueAccessor.of(
                     EnumValueDescriptor::getName,
                     name -> fieldDescriptor.getEnumType().findValueByName(name));
         break;
       case BYTE_STRING:
         accessor =
-            (AttributeValueAccessor<InputT, OutputT>)
+            (AttributeValueAccessor<FInputT, FOutputT>)
                 PrimitiveValueAccessor.of(ByteString::toByteArray, ByteString::copyFrom);
         break;
       default:
         accessor =
-            (AttributeValueAccessor<InputT, OutputT>)
+            (AttributeValueAccessor<FInputT, FOutputT>)
                 PrimitiveValueAccessor.of(UnaryFunction.identity(), UnaryFunction.identity());
     }
     if (!fieldDescriptor.isRepeated()) {
       return accessor;
     } else {
-      return (AttributeValueAccessor<InputT, OutputT>) ArrayValueAccessor.of(accessor);
+      return (AttributeValueAccessor<FInputT, FOutputT>) ArrayValueAccessor.of(accessor);
     }
   }
 
@@ -198,5 +207,71 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
       defaultValue = defaultValueFactory.apply();
     }
     return defaultValue;
+  }
+
+  @SuppressWarnings("unchecked")
+  private <InputT, OutputT>
+      Optional<AttributeValueAccessor<InputT, OutputT>> createFieldAccessorForWrappers(
+          FieldDescriptor descriptor, Builder fieldBuilder) {
+    switch (descriptor.getMessageType().getFullName()) {
+      case "google.protobuf.BoolValue":
+      case "google.protobuf.DoubleValue":
+      case "google.protobuf.FloatValue":
+      case "google.protobuf.Int32Value":
+      case "google.protobuf.Int64Value":
+      case "google.protobuf.StringValue":
+      case "google.protobuf.UInt32Value":
+      case "google.protobuf.UInt64Value":
+        return Optional.of(
+            (AttributeValueAccessor<InputT, OutputT>)
+                new PrimitiveWrappersAccessor<>(() -> fieldBuilder));
+      case "google.protobuf.BytesValue":
+        return Optional.of(
+            (AttributeValueAccessor<InputT, OutputT>)
+                new PrimitiveValueAccessor<BytesValue, byte[]>() {
+                  @Override
+                  public byte[] valueOf(BytesValue object) {
+                    return object.getValue().toByteArray();
+                  }
+
+                  @Override
+                  public BytesValue createFrom(byte[] object) {
+                    return BytesValue.newBuilder().setValue(ByteString.copyFrom(object)).build();
+                  }
+                });
+      default:
+        return Optional.empty();
+    }
+  }
+
+  private static class PrimitiveWrappersAccessor<I extends Message, O>
+      implements PrimitiveValueAccessor<I, O> {
+
+    private final Factory<Builder> builderFactory;
+    @Nullable private transient FieldDescriptor fieldDescriptor;
+
+    public PrimitiveWrappersAccessor(Factory<Builder> builderFactory) {
+      this.builderFactory = builderFactory;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public O valueOf(I object) {
+      return (O) object.getField(getFieldDescriptor());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public I createFrom(O object) {
+      return (I) builderFactory.apply().setField(getFieldDescriptor(), object).build();
+    }
+
+    private FieldDescriptor getFieldDescriptor() {
+      if (fieldDescriptor == null) {
+        fieldDescriptor = builderFactory.apply().getDescriptorForType().findFieldByName("value");
+        Preconditions.checkNotNull(fieldDescriptor, "Missing field with name value.");
+      }
+      return fieldDescriptor;
+    }
   }
 }

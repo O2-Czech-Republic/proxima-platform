@@ -122,25 +122,25 @@ public class ProtoUtils {
         break;
       case MESSAGE:
         final String messageTypeName = proto.getMessageType().toProto().getName();
-        descriptor =
-            (SchemaTypeDescriptor<T>)
-                structCache.computeIfAbsent(
-                    messageTypeName,
-                    name -> {
-                      final Set<Descriptor> newSeenMessages = new HashSet<>(seenMessages);
-                      newSeenMessages.add(proto.getMessageType());
-                      @Nullable
-                      final SchemaTypeDescriptor<T> known =
-                          (SchemaTypeDescriptor<T>) mapKnownWrapperTypes(proto);
-                      if (known != null) {
-                        return known;
-                      } else {
-                        return convertProtoMessage(
-                            proto.getMessageType(),
-                            structCache,
-                            Collections.unmodifiableSet(newSeenMessages));
-                      }
-                    });
+        descriptor = (SchemaTypeDescriptor<T>) structCache.get(messageTypeName);
+        if (descriptor == null) {
+          final Set<Descriptor> newSeenMessages = new HashSet<>(seenMessages);
+          newSeenMessages.add(proto.getMessageType());
+          @Nullable
+          final SchemaTypeDescriptor<T> known =
+              (SchemaTypeDescriptor<T>) mapKnownWrapperTypes(proto);
+          if (known != null) {
+            descriptor = known;
+          } else {
+            descriptor =
+                (SchemaTypeDescriptor<T>)
+                    convertProtoMessage(
+                        proto.getMessageType(),
+                        structCache,
+                        Collections.unmodifiableSet(newSeenMessages));
+          }
+          structCache.put(messageTypeName, descriptor);
+        }
         break;
       default:
         throw new IllegalStateException(

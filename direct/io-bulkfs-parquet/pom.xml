@@ -143,8 +143,13 @@
           <groupId>org.slf4j</groupId>
           <artifactId>*</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
+
     <dependency>
       <!-- we need FileInputFormat class -->
       <groupId>org.apache.hadoop</groupId>
@@ -237,6 +242,13 @@
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j-impl</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>log4j-over-slf4j</artifactId>
+      <version>1.7.32</version>
+      <scope>provided</scope>
     </dependency>
 
   </dependencies>

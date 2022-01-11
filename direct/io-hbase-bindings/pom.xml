@@ -74,6 +74,7 @@
             <includes>
               <include>cz.o2.proxima:proxima-direct-io-hbase-bindings</include>
               <include>com.google.protobuf:protobuf-java</include>
+              <include>org.slf4j:log4j-over-slf4j</include>
             </includes>
           </artifactSet>
           <relocations>
@@ -213,12 +214,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>log4j-over-slf4j</artifactId>
-      <version>1.7.32</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-hdfs</artifactId>
       <version>${hadoop.version}</version>
@@ -256,6 +251,12 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>log4j-over-slf4j</artifactId>
+      <version>1.7.32</version>
     </dependency>
 
     <dependency>

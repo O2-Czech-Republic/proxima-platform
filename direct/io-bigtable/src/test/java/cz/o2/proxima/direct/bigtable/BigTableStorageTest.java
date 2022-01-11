@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.bigtable;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -25,6 +26,7 @@ import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
 import java.net.URI;
 import java.util.Collections;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.security.UserProvider;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -58,5 +60,16 @@ public class BigTableStorageTest {
   @Test(expected = IllegalArgumentException.class)
   public void testCreateAccessorForUriWithMissingInstanceId() {
     accessor.getConfFactory().apply(Collections.emptyMap(), URI.create("bigtable://projectId"));
+  }
+
+  @Test
+  public void testUserProviderInstantiation() {
+    try {
+      UserProvider provider = UserProvider.instantiate(new Configuration());
+      // pass
+      assertTrue(true);
+    } catch (Throwable err) {
+      throw new RuntimeException(err);
+    }
   }
 }

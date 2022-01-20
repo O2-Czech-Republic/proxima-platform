@@ -19,6 +19,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -45,6 +46,7 @@ import org.mockito.stubbing.Answer;
 public class S3BlobPathTest implements Serializable {
 
   private static final int MAX_READ_CYCLES = 10;
+  private static final String SSE_KEY = "MzJieXRlc2xvbmdzZWNyZXRrZXltdXN0YmVnaXZlbjE=";
 
   private static String toString(ByteBuffer buffer) {
     final byte[] result = new byte[buffer.position()];
@@ -110,6 +112,7 @@ public class S3BlobPathTest implements Serializable {
     final S3FileSystem fs = Mockito.mock(S3FileSystem.class);
     final AmazonS3 client = Mockito.mock(AmazonS3.class);
     Mockito.when(fs.client()).thenReturn(client);
+    Mockito.when(fs.getSseCustomerKey()).thenReturn(new SSECustomerKey(SSE_KEY));
     final S3Object object = new S3Object();
     final byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
     object.setObjectContent(new ByteArrayInputStream(messageBytes));
@@ -122,6 +125,7 @@ public class S3BlobPathTest implements Serializable {
                 invocationOnMock -> {
                   final GetObjectRequest request =
                       invocationOnMock.getArgument(0, GetObjectRequest.class);
+                  Assert.assertEquals(SSE_KEY, request.getSSECustomerKey().getKey());
                   if (request.getRange() != null) {
                     object.setObjectContent(
                         new ByteArrayInputStream(

@@ -17,16 +17,18 @@ package cz.o2.proxima.direct.s3;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.PartETag;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
 import com.google.common.annotations.VisibleForTesting;
@@ -122,25 +124,7 @@ class S3Client implements Serializable {
       String accessKey = getOpt(cfg, "access-key", Object::toString, "");
       String secretKey = getOpt(cfg, "secret-key", Object::toString, "");
       builder.setCredentials(
-          new AWSCredentialsProvider() {
-            @Override
-            public AWSCredentials getCredentials() {
-              return new AWSCredentials() {
-                @Override
-                public String getAWSAccessKeyId() {
-                  return accessKey;
-                }
-
-                @Override
-                public String getAWSSecretKey() {
-                  return secretKey;
-                }
-              };
-            }
-
-            @Override
-            public void refresh() {}
-          });
+          new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKey, secretKey)));
       return builder.build();
     }
 
@@ -149,6 +133,17 @@ class S3Client implements Serializable {
       String secretKey = getOpt(cfg, "secret-key", Object::toString, "");
       Preconditions.checkArgument(!accessKey.isEmpty(), "access-key must not be empty");
       Preconditions.checkArgument(!secretKey.isEmpty(), "secret-key must not be empty");
+      @Nullable String base64SseKey = getOpt(cfg, "ssec-base64-key", Object::toString, null);
+      boolean sslEnabled = getOpt(cfg, "ssl-enabled", Boolean::parseBoolean, false);
+      @Nullable URI endpoint = getOpt(cfg, "endpoint", URI::create, null);
+      if (!sslEnabled && endpoint != null) {
+        sslEnabled = endpoint.getScheme().equalsIgnoreCase("https");
+      }
+
+      if (base64SseKey != null) {
+        // SSE-C encryption require SSL
+        Preconditions.checkArgument(sslEnabled, "SSL is required when sse-c is enabled.");
+      }
     }
   }
 
@@ -157,6 +152,7 @@ class S3Client implements Serializable {
   @Getter private final RetryStrategy retry;
   private final Map<String, Object> cfg;
   @Nullable private transient AmazonS3 client;
+  @Nullable @Getter private transient SSECustomerKey sseCustomerKey;
 
   S3Client(URI uri, Map<String, Object> cfg) {
     this.bucket = uri.getAuthority();
@@ -164,6 +160,10 @@ class S3Client implements Serializable {
     int initialRetryDelay = getOpt(cfg, "initial-retry-delay-ms", Integer::valueOf, 5000);
     int maxRetryDelay = getOpt(cfg, "max-retry-delay-ms", Integer::valueOf, (2 << 10) * 5000);
     this.retry = new RetryStrategy(initialRetryDelay, maxRetryDelay);
+    @Nullable String base64SseKey = getOpt(cfg, "ssec-base64-key", Object::toString, null);
+    if (base64SseKey != null) {
+      sseCustomerKey = new SSECustomerKey(base64SseKey);
+    }
     this.cfg = cfg;
     new AmazonS3Factory(cfg).validate();
   }
@@ -187,7 +187,11 @@ class S3Client implements Serializable {
   }
 
   public S3Object getObject(String blobName) {
-    return client().getObject(getBucket(), blobName);
+    GetObjectRequest request = new GetObjectRequest(getBucket(), blobName);
+    if (sseCustomerKey != null) {
+      request.setSSECustomerKey(sseCustomerKey);
+    }
+    return client().getObject(request);
   }
 
   public void deleteObject(String key) {
@@ -203,10 +207,12 @@ class S3Client implements Serializable {
   public OutputStream putObject(String blobName) {
     Preconditions.checkState(!client().doesObjectExist(bucket, blobName), "Object already exists.");
     final String currentBucket = getBucket();
-    final String uploadId =
-        client()
-            .initiateMultipartUpload(new InitiateMultipartUploadRequest(currentBucket, blobName))
-            .getUploadId();
+    InitiateMultipartUploadRequest request =
+        new InitiateMultipartUploadRequest(currentBucket, blobName);
+    if (sseCustomerKey != null) {
+      request.setSSECustomerKey(sseCustomerKey);
+    }
+    final String uploadId = client().initiateMultipartUpload(request).getUploadId();
     final List<PartETag> eTags = new ArrayList<>();
     final byte[] partBuffer = new byte[UPLOAD_PART_SIZE];
     return new OutputStream() {
@@ -244,6 +250,10 @@ class S3Client implements Serializable {
                     .withPartNumber(partNumber)
                     .withInputStream(is)
                     .withPartSize(currentBytes);
+            if (sseCustomerKey != null) {
+              uploadPartRequest.setSSECustomerKey(sseCustomerKey);
+            }
+
             final UploadPartResult uploadPartResult = client().uploadPart(uploadPartRequest);
             eTags.add(uploadPartResult.getPartETag());
             partNumber++;

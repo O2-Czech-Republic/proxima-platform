@@ -17,6 +17,8 @@ package cz.o2.proxima.direct.s3;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
 
 import com.amazonaws.services.s3.AmazonS3;
@@ -80,6 +82,44 @@ public class S3ClientTest {
     }
     verify(mock, times(1)).uploadPart(any());
     verify(mock, times(1)).completeMultipartUpload(any());
+  }
+
+  @Test
+  public void testValidateClientOptions() {
+    final URI uri = URI.create("s3://bucket/path");
+    Map<String, Object> options = new HashMap<>();
+    assertThrows(
+        "access-key must not be empty",
+        IllegalArgumentException.class,
+        () -> new S3Client(uri, options));
+    options.put("access-key", "access-key");
+    assertThrows(
+        "secret-key must not be empty",
+        IllegalArgumentException.class,
+        () -> new S3Client(uri, options));
+    options.put("secret-key", "secret-key");
+    verifyCreateS3ClientNotThrowsException(uri, options);
+
+    // validate sse-c options
+    options.put("ssec-base64-key", "MzJieXRlc2xvbmdzZWNyZXRrZXltdXN0YmVnaXZlbjE=");
+    options.put("endpoint", "http://foo.example.com");
+    assertThrows(
+        "SSL is required when sse-c is enabled.",
+        IllegalArgumentException.class,
+        () -> new S3Client(uri, options));
+    options.put("ssl-enabled", "true");
+    verifyCreateS3ClientNotThrowsException(uri, options);
+    options.remove("ssl-enabled");
+    options.put("endpoint", "https://foo.example.com");
+    verifyCreateS3ClientNotThrowsException(uri, options);
+  }
+
+  private void verifyCreateS3ClientNotThrowsException(URI uri, Map<String, Object> options) {
+    try {
+      new S3Client(uri, options);
+    } catch (Exception e) {
+      fail("Unexpected exception " + e.getMessage());
+    }
   }
 
   private Map<String, Object> cfg() {

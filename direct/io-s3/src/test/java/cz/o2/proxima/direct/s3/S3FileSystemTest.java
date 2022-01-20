@@ -64,6 +64,7 @@ public class S3FileSystemTest {
     }
   }
 
+  private static final String SSEC_KEY = "MzJieXRlc2xvbmdzZWNyZXRrZXltdXN0YmVnaXZlbjE=";
   private final Repository repo =
       Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor gateway = repo.getEntity("gateway");
@@ -87,6 +88,7 @@ public class S3FileSystemTest {
                     invocationOnMock -> {
                       final InitiateMultipartUploadRequest req =
                           invocationOnMock.getArgument(0, InitiateMultipartUploadRequest.class);
+                      assertEquals(SSEC_KEY, req.getSSECustomerKey().getKey());
                       String name = req.getKey();
                       assertTrue(name.startsWith("path/"));
                       blobs.put(name.substring(5), new Blob(name.substring(5)));
@@ -111,6 +113,8 @@ public class S3FileSystemTest {
     return ImmutableMap.<String, Object>builder()
         .put("access-key", "access-key")
         .put("secret-key", "secret-key")
+        .put("ssl-enabled", "true")
+        .put("ssec-base64-key", SSEC_KEY)
         .build();
   }
 

@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.s3;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
@@ -121,6 +122,10 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> implements Path {
         if (object == null) {
           final S3FileSystem fs = (S3FileSystem) getFileSystem();
           final GetObjectRequest request = new GetObjectRequest(fs.getBucket(), getBlobName());
+          @Nullable final SSECustomerKey sseCustomerKey = fs.getSseCustomerKey();
+          if (sseCustomerKey != null) {
+            request.setSSECustomerKey(sseCustomerKey);
+          }
           if (position > 0) {
             request.setRange(position, contentLength);
           }

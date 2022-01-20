@@ -802,7 +802,7 @@ public class CassandraDBAccessorTest {
         .addContactPointsWithPorts(
             Collections.singletonList(InetSocketAddress.createUnresolved("host", 9042)));
     verify(builder).withCredentials("username", "password");
-    assertNotNull(accessor);
+    assertNotNull(accessor.createCluster("host:9042"));
   }
 
   @Test

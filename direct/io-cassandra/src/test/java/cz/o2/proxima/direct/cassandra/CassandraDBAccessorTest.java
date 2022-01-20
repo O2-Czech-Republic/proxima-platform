@@ -815,13 +815,8 @@ public class CassandraDBAccessorTest {
         new CassandraDBAccessor(
             entity, URI.create("cassandra://host:9042/table/?primary=data"), cfg);
     assertEquals("username", accessor.getUsername());
-    assertNull(accessor.getPassword());
+    assertEquals("", accessor.getPassword());
     assertEquals(CassandraDBAccessor.DEFAULT_CONSISTENCY_LEVEL, accessor.getConsistencyLevel());
-    Builder mock = Mockito.mock(Builder.class);
-    assertThrows(
-        "Password must be specified.",
-        IllegalArgumentException.class,
-        () -> accessor.configureClusterBuilder(mock, "host:9042"));
   }
 
   @Test
@@ -835,7 +830,7 @@ public class CassandraDBAccessorTest {
             entity, URI.create("cassandra://host:9042/table/?primary=data"), cfg);
     assertEquals(ConsistencyLevel.LOCAL_ONE, accessor.getConsistencyLevel());
     assertNull(accessor.getUsername());
-    assertNull(accessor.getPassword());
+    assertEquals("", accessor.getPassword());
     Builder mock = Mockito.mock(Builder.class);
     Builder builder = accessor.configureClusterBuilder(mock, "host:9042");
     verify(builder)

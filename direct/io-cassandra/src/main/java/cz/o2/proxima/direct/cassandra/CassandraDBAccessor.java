@@ -150,7 +150,7 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
     this.converter = getStringConverter(cfg);
     this.consistencyLevel = getConsistencyLevel(cfg);
     this.username = getOpt(cfg, USERNAME_CFG, Object::toString, null);
-    this.password = getOpt(cfg, PASSWORD_CFG, Object::toString, null);
+    this.password = getOpt(cfg, PASSWORD_CFG, Object::toString, "");
     initializeCqlFactory();
   }
 
@@ -262,7 +262,6 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
             .map(CassandraDBAccessor::getAddress)
             .collect(Collectors.toList()));
     if (username != null) {
-      Preconditions.checkArgument(password != null, "Password must be specified.");
       builder.withCredentials(username, password);
     }
     return builder;

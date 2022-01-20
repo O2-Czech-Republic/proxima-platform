@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Cluster.Builder;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Session;
@@ -31,6 +32,7 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
@@ -49,6 +51,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -107,6 +110,10 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   static final String CQL_FACTORY_CFG = "cqlFactory";
   static final String CQL_STRING_CONVERTER = "converter";
   static final String CQL_PARALLEL_SCANS = "scanParallelism";
+  static final String CONSISTENCY_LEVEL_CFG = "consistency-level";
+  static final ConsistencyLevel DEFAULT_CONSISTENCY_LEVEL = ConsistencyLevel.QUORUM;
+  static final String USERNAME_CFG = "username";
+  static final String PASSWORD_CFG = "password";
 
   /** Converter between string and native cassandra type used for wildcard types. */
   private final StringConverter<?> converter;
@@ -120,9 +127,20 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   private transient ThreadLocal<CqlFactory> cqlFactory;
 
   /** Quorum for both reads and writes. */
+  @VisibleForTesting
+  @Getter(AccessLevel.PACKAGE)
   private final ConsistencyLevel consistencyLevel;
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
+  @Nullable
+  @VisibleForTesting
+  @Getter(AccessLevel.PACKAGE)
+  private final String username;
+
+  @Nullable
+  @VisibleForTesting
+  @Getter(AccessLevel.PACKAGE)
+  private final String password;
+
   public CassandraDBAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     super(entityDesc, uri);
@@ -131,6 +149,8 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
     this.batchParallelism = getBatchParallelism(cfg);
     this.converter = getStringConverter(cfg);
     this.consistencyLevel = getConsistencyLevel(cfg);
+    this.username = getOpt(cfg, USERNAME_CFG, Object::toString, null);
+    this.password = getOpt(cfg, PASSWORD_CFG, Object::toString, null);
     initializeCqlFactory();
   }
 
@@ -166,10 +186,12 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   }
 
   private ConsistencyLevel getConsistencyLevel(Map<String, Object> cfg) {
-    return Optional.ofNullable(cfg.get("consistency-level"))
-        .map(Object::toString)
-        .map(ConsistencyLevel::valueOf)
-        .orElse(ConsistencyLevel.QUORUM);
+    return getOpt(cfg, CONSISTENCY_LEVEL_CFG, ConsistencyLevel::valueOf, DEFAULT_CONSISTENCY_LEVEL);
+  }
+
+  private static <T> T getOpt(
+      Map<String, Object> cfg, String name, UnaryFunction<String, T> map, T defval) {
+    return Optional.ofNullable(cfg.get(name)).map(Object::toString).map(map::apply).orElse(defval);
   }
 
   private void initializeCqlFactory() {
@@ -229,12 +251,21 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   @VisibleForTesting
   Cluster createCluster(String authority) {
     log.info("Creating cluster for authority {} in accessor {}", authority, this);
-    return Cluster.builder()
-        .addContactPointsWithPorts(
-            Arrays.stream(authority.split(","))
-                .map(CassandraDBAccessor::getAddress)
-                .collect(Collectors.toList()))
-        .build();
+    return configureClusterBuilder(Cluster.builder(), authority).build();
+  }
+
+  @VisibleForTesting
+  Builder configureClusterBuilder(Builder builder, String authority) {
+
+    builder.addContactPointsWithPorts(
+        Arrays.stream(authority.split(","))
+            .map(CassandraDBAccessor::getAddress)
+            .collect(Collectors.toList()));
+    if (username != null) {
+      Preconditions.checkArgument(password != null, "Password must be specified.");
+      builder.withCredentials(username, password);
+    }
+    return builder;
   }
 
   @VisibleForTesting

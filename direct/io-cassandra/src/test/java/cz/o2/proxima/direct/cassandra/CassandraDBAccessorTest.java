@@ -22,11 +22,14 @@ import static org.mockito.Mockito.*;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Cluster.Builder;
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -64,6 +67,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.junit.After;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 /** Test suite for {@link CassandraDBAccessor}. */
 public class CassandraDBAccessorTest {
@@ -777,6 +781,63 @@ public class CassandraDBAccessorTest {
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());
     BatchLogReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
     assertEquals(reader.getUri(), ((CassandraLogReader) factory.apply(repo)).getUri());
+  }
+
+  @Test
+  public void testCreateAccessorWithAuthentication() {
+    Map<String, Object> cfg =
+        ImmutableMap.<String, Object>builder()
+            .put(CassandraDBAccessor.USERNAME_CFG, "username")
+            .put(CassandraDBAccessor.PASSWORD_CFG, "password")
+            .build();
+    CassandraDBAccessor accessor =
+        new CassandraDBAccessor(
+            entity, URI.create("cassandra://host:9042/table/?primary=data"), cfg);
+    assertEquals("username", accessor.getUsername());
+    assertEquals("password", accessor.getPassword());
+    assertEquals(CassandraDBAccessor.DEFAULT_CONSISTENCY_LEVEL, accessor.getConsistencyLevel());
+    Builder mock = Mockito.mock(Builder.class);
+    Builder builder = accessor.configureClusterBuilder(mock, "host:9042");
+    verify(builder)
+        .addContactPointsWithPorts(
+            Collections.singletonList(InetSocketAddress.createUnresolved("host", 9042)));
+    verify(builder).withCredentials("username", "password");
+    assertNotNull(accessor.createCluster("host:9042"));
+  }
+
+  @Test
+  public void testCreateAccessorWithAuthenticationWithoutPassword() {
+    Map<String, Object> cfg =
+        ImmutableMap.<String, Object>builder()
+            .put(CassandraDBAccessor.USERNAME_CFG, "username")
+            .build();
+    CassandraDBAccessor accessor =
+        new CassandraDBAccessor(
+            entity, URI.create("cassandra://host:9042/table/?primary=data"), cfg);
+    assertEquals("username", accessor.getUsername());
+    assertEquals("", accessor.getPassword());
+    assertEquals(CassandraDBAccessor.DEFAULT_CONSISTENCY_LEVEL, accessor.getConsistencyLevel());
+  }
+
+  @Test
+  public void testCreateAccessorWithoutAuthentication() {
+    Map<String, Object> cfg =
+        ImmutableMap.<String, Object>builder()
+            .put(CassandraDBAccessor.CONSISTENCY_LEVEL_CFG, ConsistencyLevel.LOCAL_ONE.name())
+            .build();
+    CassandraDBAccessor accessor =
+        new CassandraDBAccessor(
+            entity, URI.create("cassandra://host:9042/table/?primary=data"), cfg);
+    assertEquals(ConsistencyLevel.LOCAL_ONE, accessor.getConsistencyLevel());
+    assertNull(accessor.getUsername());
+    assertEquals("", accessor.getPassword());
+    Builder mock = Mockito.mock(Builder.class);
+    Builder builder = accessor.configureClusterBuilder(mock, "host:9042");
+    verify(builder)
+        .addContactPointsWithPorts(
+            Collections.singletonList(InetSocketAddress.createUnresolved("host", 9042)));
+    verify(builder, never()).withCredentials(any(), any());
+    assertNotNull(accessor);
   }
 
   private Map<String, Object> getCfg(Class<?> cls, Class<? extends StringConverter<?>> converter) {

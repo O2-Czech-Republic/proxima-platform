@@ -34,8 +34,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
+@Slf4j
 public class S3ClientTest {
 
   @Test
@@ -114,10 +116,31 @@ public class S3ClientTest {
     verifyCreateS3ClientNotThrowsException(uri, options);
   }
 
+  @Test
+  public void validateOptionsWithEndpointWithoutScheme() {
+    final URI uri = URI.create("s3://bucket/path");
+    Map<String, Object> options = new HashMap<>();
+    options.put("access-key", "access-key");
+    options.put("secret-key", "secret-key");
+    options.put("endpoint", "127.0.0.1");
+    verifyCreateS3ClientNotThrowsException(uri, options);
+    options.put("ssec-base64-key", "MzJieXRlc2xvbmdzZWNyZXRrZXltdXN0YmVnaXZlbjE=");
+    assertThrows(
+        "SSL is required when sse-c is enabled.",
+        IllegalArgumentException.class,
+        () -> new S3Client(uri, options));
+    options.put("ssl-enabled", "true");
+    verifyCreateS3ClientNotThrowsException(uri, options);
+    options.remove("ssl-enabled");
+    options.put("endpoint", "https://127.0.0.1");
+    verifyCreateS3ClientNotThrowsException(uri, options);
+  }
+
   private void verifyCreateS3ClientNotThrowsException(URI uri, Map<String, Object> options) {
     try {
       new S3Client(uri, options);
     } catch (Exception e) {
+      log.error("Unexpected exception.", e);
       fail("Unexpected exception " + e.getMessage());
     }
   }

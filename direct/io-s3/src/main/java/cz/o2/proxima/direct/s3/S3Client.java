@@ -137,7 +137,10 @@ class S3Client implements Serializable {
       boolean sslEnabled = getOpt(cfg, "ssl-enabled", Boolean::parseBoolean, false);
       @Nullable URI endpoint = getOpt(cfg, "endpoint", URI::create, null);
       if (!sslEnabled && endpoint != null) {
-        sslEnabled = endpoint.getScheme().equalsIgnoreCase("https");
+        sslEnabled =
+            Optional.ofNullable(endpoint.getScheme())
+                .map(e -> e.equalsIgnoreCase("https"))
+                .orElse(false);
       }
 
       if (base64SseKey != null) {

@@ -34,8 +34,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
+@Slf4j
 public class S3ClientTest {
 
   @Test
@@ -138,6 +140,7 @@ public class S3ClientTest {
     try {
       new S3Client(uri, options);
     } catch (Exception e) {
+      log.error("Unexpected exception.", e);
       fail("Unexpected exception " + e.getMessage());
     }
   }

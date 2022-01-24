@@ -135,9 +135,12 @@ class S3Client implements Serializable {
       Preconditions.checkArgument(!secretKey.isEmpty(), "secret-key must not be empty");
       @Nullable String base64SseKey = getOpt(cfg, "ssec-base64-key", Object::toString, null);
       boolean sslEnabled = getOpt(cfg, "ssl-enabled", Boolean::parseBoolean, false);
-      @Nullable String endpoint = getOpt(cfg, "endpoint", Object::toString, null);
+      @Nullable URI endpoint = getOpt(cfg, "endpoint", URI::create, null);
       if (!sslEnabled && endpoint != null) {
-        sslEnabled = endpoint.toLowerCase().startsWith("https://");
+        sslEnabled =
+            Optional.ofNullable(endpoint.getScheme())
+                .map(e -> e.equalsIgnoreCase("https"))
+                .orElse(false);
       }
 
       if (base64SseKey != null) {

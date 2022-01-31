@@ -18,10 +18,10 @@ package cz.o2.proxima.tools.groovy.internal
 
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicInteger
+import org.apache.groovy.groovysh.Interpreter
+import org.apache.groovy.groovysh.Parser
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.runtime.MethodClosure
-import org.codehaus.groovy.tools.shell.Interpreter
-import org.codehaus.groovy.tools.shell.Parser
 
 
 /**

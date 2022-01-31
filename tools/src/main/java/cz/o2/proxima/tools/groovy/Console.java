@@ -57,7 +57,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.codehaus.groovy.tools.shell.Groovysh;
+import org.apache.groovy.groovysh.Groovysh;
 import org.codehaus.groovy.tools.shell.IO;
 
 /** This is the groovysh based console. */

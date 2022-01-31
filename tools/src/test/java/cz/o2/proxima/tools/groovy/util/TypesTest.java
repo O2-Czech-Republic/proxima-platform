@@ -22,10 +22,10 @@ import cz.o2.proxima.tools.groovy.ToolsClassLoader;
 import cz.o2.proxima.util.Classpath;
 import groovy.lang.Closure;
 import groovy.lang.Script;
-import org.codehaus.groovy.ast.ClassHelper;
-import org.codehaus.groovy.ast.ClassNode;
-import org.codehaus.groovy.reflection.CachedClass;
-import org.codehaus.groovy.reflection.ReflectionCache;
+import org.apache.groovy.ast.ClassHelper;
+import org.apache.groovy.ast.ClassNode;
+import org.apache.groovy.reflection.CachedClass;
+import org.apache.groovy.reflection.ReflectionCache;
 import org.junit.Before;
 import org.junit.Test;
 

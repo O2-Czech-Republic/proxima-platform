@@ -22,10 +22,6 @@ import cz.o2.proxima.tools.groovy.ToolsClassLoader;
 import cz.o2.proxima.util.Classpath;
 import groovy.lang.Closure;
 import groovy.lang.Script;
-import org.codehaus.groovy.ast.ClassHelper;
-import org.codehaus.groovy.ast.ClassNode;
-import org.codehaus.groovy.reflection.CachedClass;
-import org.codehaus.groovy.reflection.ReflectionCache;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -43,8 +39,6 @@ public class TypesTest {
   public void testSimpleClosure() {
     Script s = compile("def a = { 1L }");
     Closure<?> closure = (Closure<?>) s.run();
-    CachedClass cachedClass = ReflectionCache.getCachedClass(closure.getClass());
-    ClassNode classNode = ClassHelper.makeCached(closure.getClass());
     assertNotNull(Types.returnClass(closure));
     assertEquals(1L, closure.call());
   }

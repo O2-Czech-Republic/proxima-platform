@@ -16,19 +16,21 @@
 package cz.o2.proxima.direct.kafka;
 
 import static org.junit.Assert.*;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.anyCollectionOf;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.ConfigConstants;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.AccessType;
+import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
@@ -38,11 +40,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
@@ -76,7 +80,7 @@ public class KafkaAccessorTest implements Serializable {
     cfgEtrs = new ArrayList<>();
 
     // return Collection(Config) from describeConfigResult
-    when(adminClient.describeConfigs(anyCollectionOf(ConfigResource.class))).thenReturn(cfgResult);
+    when(adminClient.describeConfigs(anyCollection())).thenReturn(cfgResult);
     when(cfgResult.all()).thenReturn(kafkaFuture);
     when(kafkaFuture.get()).thenReturn(cfgMap);
     when(cfgMap.values()).thenReturn(cfgs);
@@ -140,6 +144,56 @@ public class KafkaAccessorTest implements Serializable {
   }
 
   @Test
+  public void testIsAcceptableFailsForRegexp() {
+    EntityDescriptor entity = EntityDescriptor.newBuilder().setName("entity").build();
+    URI storageUri = URI.create("kafka://broker/?topicPattern=pattern");
+    kafkaAccessor = new KafkaAccessor(entity, storageUri, new HashMap<>());
+    AttributeFamilyDescriptor descriptor =
+        AttributeFamilyDescriptor.newBuilder()
+            .setName("test-state-commit-log")
+            .setAccess(AccessType.from(ConfigConstants.STATE_COMMIT_LOG))
+            .setType(StorageType.PRIMARY)
+            .setStorageUri(storageUri)
+            .setEntity(entity)
+            .build();
+    assertThrows(IllegalStateException.class, () -> kafkaAccessor.isAcceptable(descriptor));
+  }
+
+  @Test
+  public void testCreatePropsWithDefaultValues() {
+    kafkaAccessor =
+        new KafkaAccessor(
+            EntityDescriptor.newBuilder().setName("entity").build(),
+            URI.create("kafka-test://dummy/topic"),
+            new HashMap<>());
+    Properties props = kafkaAccessor.createProps();
+    assertEquals("dummy", props.getProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    assertEquals(
+        KafkaAccessor.DEFAULT_PRODUCER_ACK_SETTINGS, props.getProperty(ProducerConfig.ACKS_CONFIG));
+    assertEquals(
+        KafkaAccessor.DEFAULT_PRODUCER_BATCH_SIZE_SETTINGS,
+        props.get(ProducerConfig.BATCH_SIZE_CONFIG));
+  }
+
+  @Test
+  public void testCreatePropsWithSpecifiedOptions() {
+    ImmutableMap<String, Object> options =
+        ImmutableMap.<String, Object>builder()
+            .put("kafka." + ProducerConfig.ACKS_CONFIG, 8)
+            .put("kafka." + ProducerConfig.BATCH_SIZE_CONFIG, 333)
+            .build();
+    kafkaAccessor =
+        new KafkaAccessor(
+            EntityDescriptor.newBuilder().setName("entity").build(),
+            URI.create("kafka-test://dummy/topic"),
+            options);
+    Properties props = kafkaAccessor.createProps();
+    assertEquals("dummy", props.getProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    assertEquals("8", props.getProperty(ProducerConfig.ACKS_CONFIG));
+    assertEquals("333", props.get(ProducerConfig.BATCH_SIZE_CONFIG));
+  }
+
+  @Test
   public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
     kafkaAccessor =
         new KafkaAccessor(
@@ -159,10 +213,10 @@ public class KafkaAccessorTest implements Serializable {
             EntityDescriptor.newBuilder().setName("entity").build(),
             URI.create("kafka-test://dummy/topic"),
             new HashMap<>());
-    KafkaWriter writer = kafkaAccessor.newWriter();
+    KafkaWriter<?, ?> writer = kafkaAccessor.newWriter();
     byte[] bytes = TestUtils.serializeObject(writer.asFactory());
     AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(writer.getUri(), ((KafkaWriter) factory.apply(repo)).getUri());
+    assertEquals(writer.getUri(), ((KafkaWriter<?, ?>) factory.apply(repo)).getUri());
   }
 
   @Test(expected = IllegalArgumentException.class)

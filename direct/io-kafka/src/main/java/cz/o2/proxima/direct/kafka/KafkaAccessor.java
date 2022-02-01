@@ -50,6 +50,7 @@ import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
 
@@ -95,6 +96,12 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   /** A name for a header containing sequential ID of {@link StreamElement} (if any). */
   public static final String SEQUENCE_ID_HEADER = "seqId";
+
+  /** Default ack value for kafka producer */
+  public static final String DEFAULT_PRODUCER_ACK_SETTINGS = "all";
+
+  /** Default batch size for kafka producer */
+  public static final int DEFAULT_PRODUCER_BATCH_SIZE_SETTINGS = 16384;
 
   @Getter @Nullable private final String topic;
 
@@ -228,19 +235,20 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   Properties createProps() {
     Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, this.getUri().getAuthority());
     for (Map.Entry<String, Object> e : cfg.entrySet()) {
       if (e.getKey().startsWith(KAFKA_CONFIG_PREFIX)) {
         props.put(e.getKey().substring(KAFKA_CONFIG_PREFIX.length()), e.getValue().toString());
       }
     }
+    props.putIfAbsent(ProducerConfig.ACKS_CONFIG, DEFAULT_PRODUCER_ACK_SETTINGS);
+    props.putIfAbsent(ProducerConfig.BATCH_SIZE_CONFIG, DEFAULT_PRODUCER_BATCH_SIZE_SETTINGS);
     return props;
   }
 
   @VisibleForTesting
   AdminClient createAdmin() {
-    Properties props = createProps();
-    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, this.getUri().getAuthority());
-    return AdminClient.create(props);
+    return AdminClient.create(createProps());
   }
 
   /**
@@ -266,6 +274,8 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
   public boolean isAcceptable(AttributeFamilyDescriptor familyDescriptor) {
     // Force checks for data compacting on state-commit-log topics
     if (familyDescriptor.getAccess().isStateCommitLog()) {
+      Preconditions.checkState(
+          this.topic != null, "State commit log is not supported on topics specified by regexp.");
       try (AdminClient adminClient = createAdmin()) {
         final DescribeConfigsResult configsResult =
             adminClient.describeConfigs(

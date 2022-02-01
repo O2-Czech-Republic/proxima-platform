@@ -50,7 +50,6 @@ import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
 
@@ -96,12 +95,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   /** A name for a header containing sequential ID of {@link StreamElement} (if any). */
   public static final String SEQUENCE_ID_HEADER = "seqId";
-
-  /** Default ack value for kafka producer */
-  public static final String DEFAULT_PRODUCER_ACK_SETTINGS = "all";
-
-  /** Default batch size for kafka producer */
-  public static final int DEFAULT_PRODUCER_BATCH_SIZE_SETTINGS = 16384;
 
   @Getter @Nullable private final String topic;
 
@@ -241,8 +234,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
         props.put(e.getKey().substring(KAFKA_CONFIG_PREFIX.length()), e.getValue().toString());
       }
     }
-    props.putIfAbsent(ProducerConfig.ACKS_CONFIG, DEFAULT_PRODUCER_ACK_SETTINGS);
-    props.putIfAbsent(ProducerConfig.BATCH_SIZE_CONFIG, DEFAULT_PRODUCER_BATCH_SIZE_SETTINGS);
     return props;
   }
 

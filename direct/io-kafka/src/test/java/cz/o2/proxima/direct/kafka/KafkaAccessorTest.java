@@ -168,11 +168,6 @@ public class KafkaAccessorTest implements Serializable {
             new HashMap<>());
     Properties props = kafkaAccessor.createProps();
     assertEquals("dummy", props.getProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
-    assertEquals(
-        KafkaAccessor.DEFAULT_PRODUCER_ACK_SETTINGS, props.getProperty(ProducerConfig.ACKS_CONFIG));
-    assertEquals(
-        KafkaAccessor.DEFAULT_PRODUCER_BATCH_SIZE_SETTINGS,
-        props.get(ProducerConfig.BATCH_SIZE_CONFIG));
   }
 
   @Test

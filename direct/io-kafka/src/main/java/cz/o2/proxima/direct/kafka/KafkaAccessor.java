@@ -228,6 +228,7 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   Properties createProps() {
     Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, this.getUri().getAuthority());
     for (Map.Entry<String, Object> e : cfg.entrySet()) {
       if (e.getKey().startsWith(KAFKA_CONFIG_PREFIX)) {
         props.put(e.getKey().substring(KAFKA_CONFIG_PREFIX.length()), e.getValue().toString());
@@ -238,9 +239,7 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   @VisibleForTesting
   AdminClient createAdmin() {
-    Properties props = createProps();
-    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, this.getUri().getAuthority());
-    return AdminClient.create(props);
+    return AdminClient.create(createProps());
   }
 
   /**
@@ -266,6 +265,8 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
   public boolean isAcceptable(AttributeFamilyDescriptor familyDescriptor) {
     // Force checks for data compacting on state-commit-log topics
     if (familyDescriptor.getAccess().isStateCommitLog()) {
+      Preconditions.checkState(
+          this.topic != null, "State commit log is not supported on topics specified by regexp.");
       try (AdminClient adminClient = createAdmin()) {
         final DescribeConfigsResult configsResult =
             adminClient.describeConfigs(

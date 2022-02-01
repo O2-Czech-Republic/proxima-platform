@@ -20,12 +20,10 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Partitioner;
-import java.util.Properties;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 /** ${link OnlineAttributeWriter} implementation for Kafka. */
@@ -61,12 +59,14 @@ public class KafkaWriter<K, V> extends AbstractOnlineAttributeWriter {
       producer.send(
           toWrite,
           (metadata, exception) -> {
-            log.debug(
-                "Written {} to topic {} offset {} and partition {}",
-                data,
-                metadata.topic(),
-                metadata.offset(),
-                metadata.partition());
+            if (metadata != null) {
+              log.debug(
+                  "Written {} to topic {} offset {} and partition {}",
+                  data,
+                  metadata.topic(),
+                  metadata.offset(),
+                  metadata.partition());
+            }
             callback.commit(exception == null, exception);
           });
     } catch (Exception ex) {
@@ -82,12 +82,10 @@ public class KafkaWriter<K, V> extends AbstractOnlineAttributeWriter {
   }
 
   private KafkaProducer<K, V> createProducer() {
-    Properties props = accessor.createProps();
-    props.put(ProducerConfig.ACKS_CONFIG, "all");
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getUri().getAuthority());
-    props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
     return new KafkaProducer<>(
-        props, serializer.keySerde().serializer(), serializer.valueSerde().serializer());
+        accessor.createProps(),
+        serializer.keySerde().serializer(),
+        serializer.valueSerde().serializer());
   }
 
   @Override

@@ -22,6 +22,7 @@ import cz.o2.proxima.repository.Repository;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLClassLoader;
+import java.util.Collections;
 import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.junit.Test;
@@ -80,14 +81,14 @@ public class BeamStreamProviderTest {
     File f = File.createTempFile("dummy", ".tmp");
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
     boolean isURLClassLoader = loader instanceof URLClassLoader;
-    BeamStreamProvider.injectJarIntoContextClassLoader(f);
+    BeamStreamProvider.injectJarIntoContextClassLoader(Collections.singletonList(f));
     if (isURLClassLoader) {
       assertSame(loader, Thread.currentThread().getContextClassLoader());
     } else {
       loader = Thread.currentThread().getContextClassLoader();
       assertTrue(loader instanceof URLClassLoader);
     }
-    BeamStreamProvider.injectJarIntoContextClassLoader(f);
+    BeamStreamProvider.injectJarIntoContextClassLoader(Collections.singletonList(f));
     assertSame(loader, Thread.currentThread().getContextClassLoader());
   }
 }

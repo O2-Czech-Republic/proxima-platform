@@ -152,6 +152,10 @@
               <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>com.google.gson.</pattern>
+              <shadedPattern>${shadePattern}.com.google.gson.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
             </relocation>
@@ -237,6 +241,11 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
     </dependency>
 
     <dependency>

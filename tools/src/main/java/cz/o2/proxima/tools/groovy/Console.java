@@ -105,32 +105,14 @@ public class Console implements AutoCloseable {
     }
   }
 
-  @VisibleForTesting
-  void run() throws Exception {
-    ToolsClassLoader loader = new ToolsClassLoader();
-    Thread.currentThread().setContextClassLoader(loader);
-    Binding binding = new Binding();
-    runInputForwarding();
-    setShell(
-        new Groovysh(
-            loader,
-            binding,
-            new IO(getInputStream(), System.out, System.err),
-            null,
-            loader.getConfiguration(),
-            new ProximaInterpreter(loader, binding, loader.getConfiguration())));
-    Runtime.getRuntime().addShutdownHook(new Thread(this::close));
-    createWrapperClass();
-    runShell(INITIAL_STATEMENT);
-  }
-
-  final String[] args;
-  final BlockingQueue<Integer> input = new LinkedBlockingDeque<>();
-  @Getter final Repository repo;
-  final List<ConsoleRandomReader> readers = new ArrayList<>();
-  final Configuration conf;
-  final Config config;
-  final ExecutorService executor =
+  private final ClassLoader previous;
+  private final String[] args;
+  private final BlockingQueue<Integer> input = new LinkedBlockingDeque<>();
+  @Getter private final Repository repo;
+  private final List<ConsoleRandomReader> readers = new ArrayList<>();
+  private final Configuration conf;
+  private final Config config;
+  private final ExecutorService executor =
       Executors.newCachedThreadPool(
           r -> {
             Thread t = new Thread(r);
@@ -159,6 +141,7 @@ public class Console implements AutoCloseable {
     this.repo = repo;
     this.direct =
         repo.hasOperator("direct") ? repo.getOrCreateOperator(DirectDataOperator.class) : null;
+    this.previous = Thread.currentThread().getContextClassLoader();
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
@@ -171,6 +154,25 @@ public class Console implements AutoCloseable {
     if (INSTANCE.get() == null) {
       INSTANCE.set(this);
     }
+  }
+
+  @VisibleForTesting
+  void run() throws Exception {
+    ToolsClassLoader loader = new ToolsClassLoader();
+    Thread.currentThread().setContextClassLoader(loader);
+    Binding binding = new Binding();
+    runInputForwarding();
+    setShell(
+        new Groovysh(
+            loader,
+            binding,
+            new IO(getInputStream(), System.out, System.err),
+            null,
+            loader.getConfiguration(),
+            new ProximaInterpreter(loader, binding, loader.getConfiguration())));
+    Runtime.getRuntime().addShutdownHook(new Thread(this::close));
+    createWrapperClass();
+    runShell(INITIAL_STATEMENT);
   }
 
   private void setShell(Groovysh shell) {
@@ -436,6 +438,7 @@ public class Console implements AutoCloseable {
     input.clear();
     Preconditions.checkState(input.offer(-1));
     Optional.ofNullable(direct).ifPresent(DirectDataOperator::close);
+    Thread.currentThread().setContextClassLoader(previous);
   }
 
   private boolean unboundedStreamInterrupt() {

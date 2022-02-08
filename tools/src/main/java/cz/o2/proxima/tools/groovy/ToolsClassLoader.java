@@ -15,13 +15,18 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import com.google.common.collect.Sets;
 import cz.o2.proxima.tools.groovy.internal.ClassloaderUtils;
+import cz.o2.proxima.util.ExceptionUtils;
 import groovy.lang.GroovyClassLoader;
+import java.net.URI;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.control.CompilationUnit;
 import org.codehaus.groovy.control.CompilerConfiguration;
@@ -43,11 +48,15 @@ public class ToolsClassLoader extends GroovyClassLoader {
     }
   }
 
+  private final Set<URI> preexistingURLs = new HashSet<>();
   private final Map<String, byte[]> byteCode = new ConcurrentHashMap<>();
   private final CompilerConfiguration conf = ClassloaderUtils.createConfiguration();
 
   public ToolsClassLoader() {
     super(Thread.currentThread().getContextClassLoader(), ClassloaderUtils.createConfiguration());
+    Arrays.stream(getURLs())
+        .map(url -> ExceptionUtils.uncheckedFactory(url::toURI))
+        .forEach(preexistingURLs::add);
   }
 
   public CompilerConfiguration getConfiguration() {
@@ -62,6 +71,14 @@ public class ToolsClassLoader extends GroovyClassLoader {
 
   public Set<String> getDefinedClasses() {
     return new HashSet<>(byteCode.keySet());
+  }
+
+  public Set<URI> getAddedURLs() {
+    Set<URI> current =
+        Arrays.stream(getURLs())
+            .map(url -> ExceptionUtils.uncheckedFactory(url::toURI))
+            .collect(Collectors.toSet());
+    return Sets.difference(current, preexistingURLs);
   }
 
   public byte[] getClassByteCode(String name) {

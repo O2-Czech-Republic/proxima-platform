@@ -24,6 +24,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Script;
 import groovy.lang.Tuple;
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -247,6 +248,20 @@ public abstract class GroovyEnvTest extends GroovyTest {
     List<byte[]> codes =
         closures.stream().map(loader::getClassByteCode).collect(Collectors.toList());
     assertEquals(closures.size(), codes.size());
+  }
+
+  @Test
+  public void testGrabJarAvailability() throws Exception {
+    Script compiled =
+        compile(
+            "@Grab(\"org.apache.groovy:groovy-json\")\n"
+                + "class Parser { groovy.json.JsonSlurper slurper = new groovy.json.JsonSlurper() }");
+    compiled.run();
+    assertTrue(
+        loader
+            .getAddedURLs()
+            .stream()
+            .anyMatch(u -> new File(u.getPath()).getName().startsWith("groovy-json")));
   }
 
   @Ignore(

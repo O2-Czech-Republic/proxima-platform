@@ -32,18 +32,21 @@ import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.ToolsClassLoader;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -242,35 +245,49 @@ public abstract class BeamStreamProvider implements StreamProvider {
     String runnerName = opts.getRunner().getSimpleName();
     try {
       File path = createJarFromUdfs();
-      log.info("Injecting generated jar at {} into {}", path, runnerName);
-      List<String> filesToStage = Collections.singletonList(path.getAbsolutePath());
-      if (runnerName.equals("FlinkRunner")) {
-        FlinkPipelineOptions flinkOpts = opts.as(FlinkPipelineOptions.class);
-        flinkOpts.setFilesToStage(addToList(filesToStage, flinkOpts.getFilesToStage()));
-      } else if (runnerName.equals("SparkRunner")) {
-        SparkCommonPipelineOptions sparkOpts = opts.as(SparkCommonPipelineOptions.class);
-        sparkOpts.setFilesToStage(addToList(filesToStage, sparkOpts.getFilesToStage()));
-      } else {
-        if (!runnerName.equals("DirectRunner")) {
-          log.warn(
-              "Injecting jar into unknown runner {}. It might not work as expected. "
-                  + "If you are experiencing issues with sub run and/or submission, "
-                  + "please fill github issue reporting the name of the runner.",
-              runnerName);
-        }
-        injectJarIntoContextClassLoader(path);
-      }
+      log.info("Created jar {} with generated classes.", path);
+      List<File> files = new ArrayList<>(Collections.singletonList(path));
+      getAddedJars().stream().map(u -> new File(u.getPath())).forEach(files::add);
+      registerToPipeline(opts, runnerName, files);
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }
   }
 
+  private Collection<URI> getAddedJars() {
+    return Optional.ofNullable(getToolsClassLoader())
+        .map(ToolsClassLoader::getAddedURLs)
+        .orElse(Collections.emptySet());
+  }
+
+  private void registerToPipeline(PipelineOptions opts, String runnerName, Collection<File> paths) {
+    log.info("Adding jars {} into classpath for runner {}", paths, runnerName);
+    List<String> filesToStage =
+        paths.stream().map(File::getAbsolutePath).collect(Collectors.toList());
+    if (runnerName.equals("FlinkRunner")) {
+      FlinkPipelineOptions flinkOpts = opts.as(FlinkPipelineOptions.class);
+      flinkOpts.setFilesToStage(addToList(filesToStage, flinkOpts.getFilesToStage()));
+    } else if (runnerName.equals("SparkRunner")) {
+      SparkCommonPipelineOptions sparkOpts = opts.as(SparkCommonPipelineOptions.class);
+      sparkOpts.setFilesToStage(addToList(filesToStage, sparkOpts.getFilesToStage()));
+    } else {
+      if (!runnerName.equals("DirectRunner")) {
+        log.warn(
+            "Injecting jar into unknown runner {}. It might not work as expected. "
+                + "If you are experiencing issues with sub run and/or submission, "
+                + "please fill github issue reporting the name of the runner.",
+            runnerName);
+      }
+      injectJarIntoContextClassLoader(paths);
+    }
+  }
+
   private List<String> addToList(@Nonnull List<String> first, @Nullable List<String> second) {
-    List<String> res = Lists.newArrayList(first);
+    Collection<String> res = new HashSet<>(first);
     if (second != null) {
       res.addAll(second);
     }
-    return res;
+    return new ArrayList<>(res);
   }
 
   private File createJarFromUdfs() throws IOException {
@@ -296,18 +313,19 @@ public abstract class BeamStreamProvider implements StreamProvider {
   }
 
   @VisibleForTesting
-  static void injectJarIntoContextClassLoader(File path) {
-    try {
-      URL url = new URL("file://" + path.getAbsolutePath());
-      ClassLoader loader = Thread.currentThread().getContextClassLoader();
-      if (loader instanceof URLClassLoader) {
-        // this is fallback
-        injectUrlIntoClassloader((URLClassLoader) loader, path);
-      } else {
-        Thread.currentThread().setContextClassLoader(new URLClassLoader(new URL[] {url}, loader));
-      }
-    } catch (MalformedURLException ex) {
-      log.warn("Exception trying to inject JAR {} into context classloader. Ignoring.", path, ex);
+  static void injectJarIntoContextClassLoader(Collection<File> paths) {
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    if (loader instanceof URLClassLoader) {
+      // this is fallback
+      paths.forEach(path -> injectUrlIntoClassloader((URLClassLoader) loader, path));
+    } else {
+      URL[] urls =
+          paths
+              .stream()
+              .map(p -> ExceptionUtils.uncheckedFactory(() -> p.toURI().toURL()))
+              .collect(Collectors.toList())
+              .toArray(new URL[] {});
+      Thread.currentThread().setContextClassLoader(new URLClassLoader(urls, loader));
     }
   }
 

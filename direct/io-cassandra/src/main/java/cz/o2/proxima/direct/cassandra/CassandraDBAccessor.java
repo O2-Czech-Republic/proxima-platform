@@ -234,15 +234,17 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   private Cluster getCluster(URI uri) {
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(uri.getAuthority()), "Invalid authority in %s", uri);
-    return getCluster(uri.getAuthority());
+    return getCluster(uri.getAuthority(), this.username);
   }
 
-  private Cluster getCluster(String authority) {
+  private Cluster getCluster(String authority, @Nullable String username) {
+    final String clusterCachedKey = (username != null ? username + "@" : "") + authority;
+
     synchronized (CLUSTER_MAP) {
-      Cluster cluster = CLUSTER_MAP.get(authority);
+      Cluster cluster = CLUSTER_MAP.get(clusterCachedKey);
       if (cluster == null) {
         cluster = createCluster(authority);
-        CLUSTER_MAP.put(authority, cluster);
+        CLUSTER_MAP.put(clusterCachedKey, cluster);
       }
       return Objects.requireNonNull(cluster);
     }

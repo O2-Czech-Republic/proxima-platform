@@ -94,7 +94,7 @@
     <gmaven.version>1.10.0</gmaven.version>
     <guava.version>30.1.1-jre</guava.version>
     <commons-io.version>2.7</commons-io.version>
-    <license-maven-plugin.version>3.0</license-maven-plugin.version>
+    <license-maven-plugin.version>4.1</license-maven-plugin.version>
     <log4j.version>2.17.1</log4j.version>
     <log4j-over-slf4j.version>1.7.33</log4j-over-slf4j.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -501,6 +501,9 @@
             <owner>O2 Czech Republic, a.s.</owner>
           </properties>
           <mapping>
+            <java>JAVADOC_STYLE</java>
+            <groovy>JAVADOC_STYLE</groovy>
+            <txt>SCRIPT_STYLE</txt>
             <proto>JAVADOC_STYLE</proto>
             <avsc>JAVADOC_STYLE</avsc>
             <Makefile>SCRIPT_STYLE</Makefile>

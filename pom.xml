@@ -501,15 +501,13 @@
             <owner>O2 Czech Republic, a.s.</owner>
           </properties>
           <mapping>
-            <java>JAVADOC_STYLE</java>
-            <groovy>JAVADOC_STYLE</groovy>
             <txt>SCRIPT_STYLE</txt>
-            <proto>JAVADOC_STYLE</proto>
+            <proto>SLASHSTAR_STYLE</proto>
             <avsc>JAVADOC_STYLE</avsc>
             <Makefile>SCRIPT_STYLE</Makefile>
             <yaml>SCRIPT_STYLE</yaml>
-            <conf>JAVADOC_STYLE</conf>
-            <cql>JAVADOC_STYLE</cql>
+            <conf>SLASHSTAR_STYLE</conf>
+            <cql>SLASHSTAR_STYLE</cql>
           </mapping>
 
           <excludes>

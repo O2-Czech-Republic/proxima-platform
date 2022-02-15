@@ -72,8 +72,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
   public static final String SERIALIZER_CLASS = "serializer-class";
   /** Maximal read speed in bytes per second. */
   public static final String MAX_BYTES_PER_SEC = "bytes-per-sec-max";
-  /** Allowed timestamp skew between consumer and producer. */
-  public static final String TIMESTAMP_SKEW = "timestamp-skew";
   /** Number of records per poll() */
   public static final String MAX_POLL_RECORDS =
       KAFKA_CONFIG_PREFIX + ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
@@ -111,9 +109,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   @Getter(AccessLevel.PACKAGE)
   private long maxBytesPerSec = Long.MAX_VALUE;
-
-  @Getter(AccessLevel.PACKAGE)
-  private long timestampSkew = 100;
 
   @Getter(AccessLevel.PACKAGE)
   private int maxPollRecords = 500;
@@ -169,11 +164,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
             .map(v -> Long.valueOf(v.toString()))
             .orElse(maxBytesPerSec);
 
-    this.timestampSkew =
-        Optional.ofNullable(cfg.get(TIMESTAMP_SKEW))
-            .map(v -> Long.valueOf(v.toString()))
-            .orElse(timestampSkew);
-
     this.maxPollRecords =
         Optional.ofNullable(cfg.get(MAX_POLL_RECORDS))
             .map(v -> Integer.valueOf(v.toString()))
@@ -209,7 +199,7 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
             + "consumerPollInterval {},"
             + "partitionerClass {}, "
             + "maxBytesPerSec {}, "
-            + "timestampSkew {}, "
+            + "watermarkConfiguration {}, "
             + "maxPollRecords {}, "
             + "autoCommitIntervalNs {}, "
             + "logStaleCommitIntervalNs {}, "
@@ -218,7 +208,7 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
         consumerPollInterval,
         partitioner.getClass(),
         maxBytesPerSec,
-        timestampSkew,
+        watermarkConfiguration,
         maxPollRecords,
         autoCommitIntervalNs,
         logStaleCommitIntervalNs,

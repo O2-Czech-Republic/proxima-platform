@@ -354,8 +354,7 @@ public final class ConfigRepository extends Repository {
     return this;
   }
 
-  public final void reloadConfig(boolean loadFamilies, Config conf) {
-
+  public void reloadConfig(boolean loadFamilies, Config conf) {
     this.config = conf;
     this.attributeToFamily.clear();
     this.entitiesByName.clear();

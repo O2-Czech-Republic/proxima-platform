@@ -36,7 +36,12 @@ public class BeamGroovyEnvTest extends GroovyEnvTest {
 
   @Parameters
   public static Collection<Class<? extends PipelineRunner<?>>> parameters() {
-    return Arrays.asList(DirectRunner.class, FlinkRunner.class, SparkRunner.class);
+    if (System.getProperty("java.version").startsWith("1.8")) {
+      return Arrays.asList(DirectRunner.class, FlinkRunner.class, SparkRunner.class);
+    }
+    // FIXME: add spark back once the issue is resolved
+    // https://github.com/O2-Czech-Republic/proxima-platform/issues/267
+    return Arrays.asList(DirectRunner.class, FlinkRunner.class);
   }
 
   public BeamGroovyEnvTest(Class<? extends PipelineRunner<?>> runner) {

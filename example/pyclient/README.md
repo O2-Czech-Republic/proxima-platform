@@ -8,13 +8,13 @@ You should set up your environment first to be able to run the client. The clien
 
 ### Prerequisites
 
-* python 3.5
+* python >= 3.7
 * pip
 * protoc
 * python packages from [requirements.txt](requirements.txt)
 
 ```
-(PXSExamplePyClient):pyclient$ pip install -f requirements.txt
+(PXSExamplePyClient):pyclient$ python3 -m pip install -r requirements.txt
 ```
 
 ### Installing

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.direct.time.BoundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.direct.time.SkewedProcessingTimeIdlePolicy;
 import cz.o2.proxima.direct.time.WatermarkConfiguration;
@@ -37,5 +38,13 @@ public class KafkaWatermarkConfiguration extends WatermarkConfiguration {
   @Override
   protected WatermarkEstimatorFactory getDefaultEstimatorFactory() {
     return new BoundedOutOfOrdernessWatermarkEstimator.Factory();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("defaultIdlePolicyFactory", getDefaultIdlePolicyFactory())
+        .add("defaultEstimatorFactory", getDefaultEstimatorFactory())
+        .toString();
   }
 }

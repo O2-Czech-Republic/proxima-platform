@@ -34,8 +34,9 @@
   <description>Proxima platform's Apache Beam module.</description>
 
   <properties>
-    <scala.version>2.11</scala.version>
+    <scala.version>2.12</scala.version>
     <jackson.version>2.12.1</jackson.version>
+    <apache.flink.version>1.13.5</apache.flink.version>
   </properties>
 
   <dependencyManagement>
@@ -95,6 +96,34 @@
         <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-runners-flink-1.13</artifactId>
         <version>${apache.beam.version}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-clients_${scala.version}</artifactId>
+        <version>${apache.flink.version}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-runtime_${scala.version}</artifactId>
+        <version>${apache.flink.version}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-streaming-java_${scala.version}</artifactId>
+        <version>${apache.flink.version}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-optimizer_${scala.version}</artifactId>
+        <version>${apache.flink.version}</version>
         <scope>provided</scope>
       </dependency>
 

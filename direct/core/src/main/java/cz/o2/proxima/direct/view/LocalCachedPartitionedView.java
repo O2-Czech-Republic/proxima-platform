@@ -209,7 +209,7 @@ public class LocalCachedPartitionedView implements CachedView {
             reader.observeBulkPartitions(partitions, Position.OLDEST, true, prefetchObserver);
         errorDuringPrefetch.take().ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
         log.info(
-            "Finished prefetching dafter {} records in {} millis. Starting consumption of updates.",
+            "Finished prefetching after {} records in {} millis. Starting consumption of updates.",
             prefetchedCount.get(),
             getCurrentTimeMillis() - prefetchStartTime);
         List<Offset> offsets = h.getCommittedOffsets();

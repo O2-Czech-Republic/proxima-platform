@@ -33,6 +33,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.time.Duration;
@@ -41,7 +42,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -132,7 +134,7 @@ public class LocalCachedPartitionedView implements CachedView {
 
     close();
     this.updateCallback = Objects.requireNonNull(updateCallback);
-    CountDownLatch latch = new CountDownLatch(1);
+    BlockingQueue<Optional<Throwable>> errorDuringPrefetch = new SynchronousQueue<>();
     AtomicLong prefetchedCount = new AtomicLong();
     final long prefetchStartTime = getCurrentTimeMillis();
 
@@ -160,13 +162,13 @@ public class LocalCachedPartitionedView implements CachedView {
           @Override
           public boolean onError(Throwable error) {
             log.error("Failed to prefetch data", error);
-            assign(partitions);
+            ExceptionUtils.unchecked(() -> errorDuringPrefetch.put(Optional.of(error)));
             return false;
           }
 
           @Override
           public void onCompleted() {
-            latch.countDown();
+            ExceptionUtils.unchecked(() -> errorDuringPrefetch.put(Optional.empty()));
           }
         };
 
@@ -192,29 +194,32 @@ public class LocalCachedPartitionedView implements CachedView {
             return false;
           }
         };
-    try {
-      // prefetch the data
-      log.info(
-          "Starting prefetching old topic data for partitions {} with preUpdate {}",
-          partitions
-              .stream()
-              .map(p -> String.format("%s[%d]", getUri(), p.getId()))
-              .collect(Collectors.toList()),
-          updateCallback);
-      ObserveHandle h =
-          reader.observeBulkPartitions(partitions, Position.OLDEST, true, prefetchObserver);
-      latch.await();
-      log.info(
-          "Finished prefetching of data after {} records in {} millis. Starting consumption of updates.",
-          prefetchedCount.get(),
-          getCurrentTimeMillis() - prefetchStartTime);
-      List<Offset> offsets = h.getCommittedOffsets();
-      // continue the processing
-      handle.set(reader.observeBulkOffsets(offsets, observer));
-      handle.get().waitUntilReady();
-    } catch (InterruptedException ex) {
-      Thread.currentThread().interrupt();
-      throw new RuntimeException(ex);
+
+    synchronized (this) {
+      try {
+        // prefetch the data
+        log.info(
+            "Starting prefetching old topic data for partitions {} with preUpdate {}",
+            partitions
+                .stream()
+                .map(p -> String.format("%s[%d]", getUri(), p.getId()))
+                .collect(Collectors.toList()),
+            updateCallback);
+        ObserveHandle h =
+            reader.observeBulkPartitions(partitions, Position.OLDEST, true, prefetchObserver);
+        errorDuringPrefetch.take().ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
+        log.info(
+            "Finished prefetching after {} records in {} millis. Starting consumption of updates.",
+            prefetchedCount.get(),
+            getCurrentTimeMillis() - prefetchStartTime);
+        List<Offset> offsets = h.getCommittedOffsets();
+        // continue the processing
+        handle.set(reader.observeBulkOffsets(offsets, observer));
+        handle.get().waitUntilReady();
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(ex);
+      }
     }
   }
 

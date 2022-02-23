@@ -34,6 +34,7 @@
   <properties>
     <shadePattern>cz.o2.proxima.beam.io.pubsub</shadePattern>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
+    <maven.shade.version>3.2.4</maven.shade.version>
   </properties>
 
   <build>
@@ -187,6 +188,24 @@
       <groupId>${apache.beam.groupId.raw}</groupId>
       <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
       <version>${apache.beam.version.raw}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.cloud</groupId>
+          <artifactId>google-cloud-bigquerystorage</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.cloud.bigtable</groupId>
+          <artifactId>bigtable-client-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.cloud</groupId>
+          <artifactId>google-cloud-firestore</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.cloud</groupId>
+          <artifactId>google-cloud-spanner</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>

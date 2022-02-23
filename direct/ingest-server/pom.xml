@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-direct</artifactId>
-    <version>0.8.0</version>
+    <version>0.8.0-jdk11</version>
   </parent>
 
   <artifactId>proxima-ingest-server-grpc</artifactId>

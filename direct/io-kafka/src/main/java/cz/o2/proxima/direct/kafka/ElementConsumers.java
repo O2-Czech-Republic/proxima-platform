@@ -32,8 +32,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -50,8 +48,6 @@ class ElementConsumers {
 
     final Map<TopicPartition, Long> committed = Collections.synchronizedMap(new HashMap<>());
     final Map<TopicPartition, Long> processing = Collections.synchronizedMap(new HashMap<>());
-    final AtomicReference<CompletableFuture<Map<PartitionWithTopic, Long>>> endOffsetsFuture =
-        new AtomicReference<>();
 
     long watermark;
 
@@ -87,6 +83,7 @@ class ElementConsumers {
               processing.put(
                   new TopicPartition(tp.getPartition().getTopic(), tp.getPartition().getId()),
                   tp.getOffset() - 1));
+      watermark = Watermarks.MIN_WATERMARK;
     }
 
     @Override
@@ -174,7 +171,8 @@ class ElementConsumers {
 
     @Override
     public void onIdle(WatermarkSupplier watermarkSupplier) {
-      observer.onIdle(asOnIdleContext(watermarkSupplier));
+      this.watermark = watermarkSupplier.getWatermark();
+      observer.onIdle(asOnIdleContext(() -> watermark));
     }
   }
 
@@ -204,6 +202,7 @@ class ElementConsumers {
         long offset,
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
+
       processing.put(tp, offset);
       watermark = watermarkSupplier.getWatermark();
       if (element != null) {
@@ -265,7 +264,8 @@ class ElementConsumers {
 
     @Override
     public void onIdle(WatermarkSupplier watermarkSupplier) {
-      observer.onIdle(asOnIdleContext(watermarkSupplier));
+      this.watermark = watermarkSupplier.getWatermark();
+      observer.onIdle(asOnIdleContext(() -> watermark));
     }
   }
 

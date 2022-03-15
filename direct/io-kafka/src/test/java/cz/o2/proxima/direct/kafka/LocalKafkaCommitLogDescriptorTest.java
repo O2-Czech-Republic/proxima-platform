@@ -2046,6 +2046,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.set(new CountDownLatch(1));
     view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     assertArrayEquals(new byte[] {1, 2}, Optionals.get(view.get("key", attr)).getValue());
+    long now = System.currentTimeMillis();
     update =
         StreamElement.upsert(
             entity,
@@ -2053,17 +2054,88 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             UUID.randomUUID().toString(),
             "key",
             attr.getName(),
-            System.currentTimeMillis(),
+            now,
             new byte[] {1, 2, 3});
+    assertEquals(Watermarks.MIN_WATERMARK, getMinWatermark(view.getRunningHandle().get()));
     writer.write(
         update,
         (succ, exc) -> {
           assertTrue(succ);
           latch.get().countDown();
         });
+    assertEquals(Watermarks.MIN_WATERMARK, getMinWatermark(view.getRunningHandle().get()));
     latch.get().await();
     TimeUnit.SECONDS.sleep(1);
     assertArrayEquals(new byte[] {1, 2, 3}, Optionals.get(view.get("key", attr)).getValue());
+    assertTrue(
+        "Expected watermark to be at least " + (now + 500),
+        now + 500 < getMinWatermark(view.getRunningHandle().get()));
+  }
+
+  @Test(timeout = 10000)
+  public void testCurrentOffsetsWatermark() throws InterruptedException {
+    final Accessor accessor =
+        kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(1)));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
+    final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
+    final long now = System.currentTimeMillis();
+    StreamElement update =
+        StreamElement.upsert(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            now,
+            new byte[] {1, 2});
+
+    writer.write(
+        update,
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.get().countDown();
+        });
+
+    latch.get().await();
+    latch.set(new CountDownLatch(1));
+
+    CommitLogObserver observer = (ingest, context) -> true;
+    try (ObserveHandle handle = reader.observe("dummy", Position.OLDEST, observer)) {
+      long minWatermark = getMinWatermark(handle);
+      assertTrue(
+          "Expecting watermark to be below " + now + ", got " + minWatermark, now >= minWatermark);
+      update =
+          StreamElement.upsert(
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key",
+              attr.getName(),
+              now + 100,
+              new byte[] {1, 2, 3});
+      writer.write(
+          update,
+          (succ, exc) -> {
+            assertTrue(succ);
+            latch.get().countDown();
+          });
+      latch.get().await();
+      TimeUnit.MILLISECONDS.sleep(50);
+      assertTrue(now + 100 >= getMinWatermark(handle));
+      TimeUnit.MILLISECONDS.sleep(600);
+      assertTrue(
+          "Expected watermark to be at least " + (now + 500), now + 500 < getMinWatermark(handle));
+    }
+  }
+
+  private long getMinWatermark(ObserveHandle handle) {
+    return handle
+        .getCurrentOffsets()
+        .stream()
+        .map(Offset::getWatermark)
+        .min(Comparator.naturalOrder())
+        .orElse(Watermarks.MIN_WATERMARK);
   }
 
   private Partition getPartition(int partition) {

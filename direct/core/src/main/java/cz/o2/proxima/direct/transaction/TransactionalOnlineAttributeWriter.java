@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.transform.DirectElementWiseTransform;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.TransactionMode;
@@ -31,6 +32,8 @@ import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
+import cz.o2.proxima.transform.ElementWiseTransformation;
+import cz.o2.proxima.transform.ElementWiseTransformation.Collector;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
@@ -41,6 +44,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -79,12 +83,79 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     };
   }
 
+  /** Interface for a transformation to get access to {@link Transaction}. */
+  public interface TransactionAware {
+    Transaction currentTransaction();
+
+    void setTransaction(Transaction transaction);
+  }
+
+  /**
+   * Base class for enforcing constraints on outputs of transaction (e.g. unique constraints).
+   * Extend this class to do any application-specific validation of to-be-committed outputs of a
+   * transaction.
+   */
+  public abstract static class TransactionValidator
+      implements TransactionAware, DirectElementWiseTransform {
+
+    transient Transaction transaction;
+
+    @Override
+    public final Transaction currentTransaction() {
+      return Objects.requireNonNull(transaction);
+    }
+
+    @Override
+    public void setTransaction(Transaction transaction) {
+      this.transaction = transaction;
+    }
+
+    @Override
+    public final void transform(StreamElement input, CommitCallback commit)
+        throws TransactionRejectedRuntimeException {
+      try {
+        validate(input, currentTransaction());
+      } catch (TransactionRejectedException ex) {
+        // this needs to be delegated to caller
+        throw new TransactionRejectedRuntimeException(ex);
+      }
+    }
+
+    /**
+     * Validate the input element. Use provided {@link Transaction} to add new inputs (if any). MUST
+     * NOT call {@link Transaction#commitWrite}.
+     *
+     * @param element the input stream element to transform
+     * @throws TransactionPreconditionFailedException if any precondition for a transaction fails.
+     */
+    public abstract void validate(StreamElement element, Transaction transaction)
+        throws TransactionPreconditionFailedException, TransactionRejectedException;
+  }
+
+  public static class TransactionPreconditionFailedException extends RuntimeException {
+    public TransactionPreconditionFailedException(String message) {
+      super(message);
+    }
+  }
+
   public static class TransactionRejectedException extends Exception {
     @Getter private final String transactionId;
 
     private TransactionRejectedException(String transactionId) {
       super("Transaction " + transactionId + " rejected. Please restart the transaction.");
       this.transactionId = transactionId;
+    }
+  }
+
+  /**
+   * This exception might be thrown in place of {@link TransactionRejectedException} where from
+   * {@link TransactionAware} transformations where the {@link
+   * ElementWiseTransformation#apply(StreamElement, Collector)} does not allow for throwing checked
+   * exceptions directly.
+   */
+  public static class TransactionRejectedRuntimeException extends RuntimeException {
+    public TransactionRejectedRuntimeException(TransactionRejectedException wrap) {
+      super(wrap.getMessage(), wrap);
     }
   }
 
@@ -155,7 +226,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
       List<StreamElement> injected =
           outputs.stream().map(this::injectSequenceIdAndStamp).collect(Collectors.toList());
-      Collection<StreamElement> transformed = applyTransforms(injected);
+      Collection<StreamElement> transformed;
+      try {
+        transformed = applyTransforms(injected);
+      } catch (TransactionRejectedRuntimeException ex) {
+        throw (TransactionRejectedException) ex.getCause();
+      }
       StreamElement toWrite = getSingleOrCommit(transformed);
       OnlineAttributeWriter writer =
           transformed.size() == 1 && !isGlobalTransaction ? delegate : commitDelegate;
@@ -204,21 +280,53 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
             if (applicableTransforms != null) {
               applicableTransforms
                   .stream()
+                  .filter(t -> !(t.getTransformation() instanceof TransactionValidator))
                   .filter(t -> t.getFilter().apply(el))
-                  .forEach(
-                      td ->
-                          td.getTransformation()
-                              .asElementWiseTransform()
-                              .apply(
-                                  el,
-                                  transformed ->
-                                      newElements.add(injectSequenceIdAndStamp(transformed))));
+                  .forEach(td -> applyTransform(newElements, el, td));
             }
           }
         }
         currentElements = newElements;
       } while (!currentElements.isEmpty());
+      applyValidations(elements);
       return elements;
+    }
+
+    private void applyValidations(Set<StreamElement> elements) {
+      for (StreamElement el : elements) {
+        List<TransformationDescriptor> applicableTransforms =
+            attributeTransforms.get(el.getAttributeDescriptor());
+        if (applicableTransforms != null) {
+          applicableTransforms
+              .stream()
+              .filter(t -> t.getTransformation() instanceof TransactionValidator)
+              .filter(t -> t.getFilter().apply(el))
+              .forEach(td -> applyTransform(Collections.emptyList(), el, td));
+        }
+      }
+    }
+
+    private void applyTransform(
+        List<StreamElement> newElements, StreamElement el, TransformationDescriptor td) {
+
+      if (td.getTransformation() instanceof TransactionValidator) {
+        TransactionValidator transform = (TransactionValidator) td.getTransformation();
+        transform.setTransaction(this);
+        transform.transform(el, CommitCallback.noop());
+      } else {
+        ElementWiseTransformation transform = td.getTransformation().asElementWiseTransform();
+        if (transform instanceof TransactionAware) {
+          ((TransactionAware) transform).setTransaction(this);
+        }
+        int currentSize = newElements.size();
+        int add =
+            transform.apply(
+                el, transformed -> newElements.add(injectSequenceIdAndStamp(transformed)));
+        Preconditions.checkState(
+            newElements.size() == currentSize + add,
+            "Transformation %s is asynchronous which not currently supported in transaction mode.",
+            transform.getClass());
+      }
     }
 
     private StreamElement getSingleOrCommit(Collection<StreamElement> outputs) {
@@ -353,7 +461,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
                     suffix);
             t.update(Collections.singletonList(outputKeyAttribute));
             t.commitWrite(Collections.singletonList(data), statusCallback);
-          } catch (TransactionRejectedException e) {
+          } catch (Throwable e) {
             statusCallback.commit(false, e);
           }
         });

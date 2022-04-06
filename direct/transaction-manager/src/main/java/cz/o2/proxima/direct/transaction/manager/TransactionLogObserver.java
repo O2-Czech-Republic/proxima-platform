@@ -501,7 +501,11 @@ public class TransactionLogObserver implements CommitLogObserver {
     Map<KeyWithAttribute, KeyAttribute> mapOfInputs =
         inputAttributes
             .stream()
-            .collect(Collectors.toMap(KeyWithAttribute::of, Function.identity()));
+            .collect(
+                Collectors.toMap(
+                    KeyWithAttribute::of,
+                    Function.identity(),
+                    (a, b) -> a.getSequenceId() < b.getSequenceId() ? a : b));
     outputAttributes.forEach(
         ka -> {
           Preconditions.checkArgument(!ka.isWildcardQuery());

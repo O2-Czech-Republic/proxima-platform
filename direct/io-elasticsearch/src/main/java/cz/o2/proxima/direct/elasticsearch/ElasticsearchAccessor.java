@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 
 @Slf4j
@@ -103,21 +102,6 @@ public class ElasticsearchAccessor extends AbstractStorage implements DataAccess
   @Override
   public Optional<CommitLogReader> getCommitLogReader(Context context) {
     return Optional.empty();
-  }
-
-  public RestClient getRestClient() {
-    return ElasticsearchClientFactory.create(
-        new ElasticsearchClientFactory.Configuration(
-            getScheme(),
-            getUri().getAuthority(),
-            getConnectTimeoutMs(),
-            getSocketTimeoutMs(),
-            getConnectionRequestTimeoutMs(),
-            getKeystoreType(),
-            getKeystorePath(),
-            getKeystorePassword(),
-            getTruststorePath(),
-            getTruststorePassword()));
   }
 
   public RestHighLevelClient getRestHighLevelClient() {

@@ -16,9 +16,18 @@
 package cz.o2.proxima.direct.elasticsearch;
 
 import static cz.o2.proxima.direct.elasticsearch.ElasticsearchClientFactory.parseHosts;
+import static java.io.File.createTempFile;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
+import cz.o2.proxima.direct.elasticsearch.ElasticsearchClientFactory.Configuration;
+import java.io.File;
+import java.io.IOException;
 import org.apache.http.HttpHost;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback;
 import org.junit.jupiter.api.Test;
 
 class ElasticsearchClientFactoryTest {
@@ -33,5 +42,26 @@ class ElasticsearchClientFactoryTest {
     assertEquals("example2.com", hosts[1].getHostName());
     assertEquals(9200, hosts[1].getPort());
     assertEquals("http", hosts[1].getSchemeName());
+  }
+
+  @Test
+  public void testCreateConfigurationCallback() {
+    Configuration conf = Configuration.builder().scheme("https").build();
+    HttpClientConfigCallback callback =
+        ElasticsearchClientFactory.createConfigurationCallback(conf);
+    HttpAsyncClientBuilder builder = mock(HttpAsyncClientBuilder.class);
+    callback.customizeHttpClient(builder);
+    verify(builder).setSSLContext(any());
+  }
+
+  @Test
+  public void testCreateConfigurationCallbackWithInvalidKeyStore() throws IOException {
+    final File p = createTempFile("keystore", ".tmp");
+    p.deleteOnExit();
+    Configuration conf = Configuration.builder().scheme("https").keystorePath(p.getPath()).build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ElasticsearchClientFactory.createConfigurationCallback(conf));
   }
 }

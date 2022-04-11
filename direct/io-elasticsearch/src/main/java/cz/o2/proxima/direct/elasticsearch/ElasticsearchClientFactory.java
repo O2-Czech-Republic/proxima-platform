@@ -76,7 +76,7 @@ public class ElasticsearchClientFactory {
   }
 
   @VisibleForTesting
-  public static HttpHost[] parseHosts(String hostnames, String scheme) {
+  static HttpHost[] parseHosts(String hostnames, String scheme) {
     final List<HttpHost> httpHosts =
         Arrays.stream(hostnames.split(","))
             .map(
@@ -107,15 +107,16 @@ public class ElasticsearchClientFactory {
             .setConnectionRequestTimeout(config.getConnectionRequestTimeoutMs());
   }
 
-  private static RestClientBuilder.HttpClientConfigCallback createConfigurationCallback(
+  @VisibleForTesting
+  static RestClientBuilder.HttpClientConfigCallback createConfigurationCallback(
       Configuration config) {
+
     try {
       SSLContextBuilder sslBuilder = SSLContexts.custom();
       loadClientKeyStore(sslBuilder, config);
       loadTrustStore(sslBuilder, config);
       final SSLContext sslContext = sslBuilder.build();
       return httpClientBuilder -> httpClientBuilder.setSSLContext(sslContext);
-
     } catch (NoSuchAlgorithmException | KeyManagementException e) {
       throw new IllegalArgumentException("Cannot initialize SSLContext", e);
     }

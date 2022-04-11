@@ -1,5 +1,5 @@
-/**
- * Copyright 2017-2021 O2 Czech Republic, a.s.
+/*
+ * Copyright 2017-2022 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,22 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.elastic;
+package cz.o2.proxima.direct.elasticsearch;
 
+import com.google.auto.service.AutoService;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
 
-public class ElasticStorage implements DataAccessorFactory {
+@AutoService(DataAccessorFactory.class)
+public class ElasticSearchStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;
 
   @Override
-  public ElasticAccessor createAccessor(DirectDataOperator op, AttributeFamilyDescriptor family) {
+  public ElasticSearchAccessor createAccessor(
+      DirectDataOperator op, AttributeFamilyDescriptor family) {
 
-    return new ElasticAccessor(family.getEntity(), family.getStorageUri(), family.getCfg());
+    return new ElasticSearchAccessor(family.getEntity(), family.getStorageUri(), family.getCfg());
   }
 
   @Override

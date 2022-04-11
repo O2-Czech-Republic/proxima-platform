@@ -1,5 +1,5 @@
-/**
- * Copyright 2017-2021 O2 Czech Republic, a.s.
+/*
+ * Copyright 2017-2022 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.elastic;
+package cz.o2.proxima.direct.elasticsearch;
 
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
@@ -31,10 +31,11 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 
 @Slf4j
-public class ElasticAccessor extends AbstractStorage implements DataAccessor {
+public class ElasticSearchAccessor extends AbstractStorage implements DataAccessor {
+
   private static final long serialVersionUID = 1L;
 
-  private static final String CFG_PREFIX = "elastic.";
+  private static final String CFG_PREFIX = "elasticsearch.";
 
   static final String DEFAULT_SCHEME = "http";
   static final int DEFAULT_CONNECT_TIMEOUT_MS = 5_000;
@@ -58,7 +59,7 @@ public class ElasticAccessor extends AbstractStorage implements DataAccessor {
   @Getter private final String truststorePath;
   @Getter private final String truststorePassword;
 
-  public ElasticAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public ElasticSearchAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
     super(entityDesc, uri);
     this.cfg = cfg;
     this.scheme = getStringConfig("scheme", DEFAULT_SCHEME);
@@ -93,7 +94,7 @@ public class ElasticAccessor extends AbstractStorage implements DataAccessor {
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
     if (getUri().getScheme().startsWith("elastic")) {
-      return Optional.of(new ElasticWriter(this));
+      return Optional.of(new ElasticSearchWriter(this));
     }
 
     return Optional.empty();
@@ -105,8 +106,8 @@ public class ElasticAccessor extends AbstractStorage implements DataAccessor {
   }
 
   public RestClient getRestClient() {
-    return ElasticClientFactory.create(
-        new ElasticClientFactory.Configuration(
+    return ElasticSearchClientFactory.create(
+        new ElasticSearchClientFactory.Configuration(
             getScheme(),
             getUri().getAuthority(),
             getConnectTimeoutMs(),
@@ -121,8 +122,8 @@ public class ElasticAccessor extends AbstractStorage implements DataAccessor {
 
   public RestHighLevelClient getRestHighLevelClient() {
     return new RestHighLevelClient(
-        ElasticClientFactory.createBuilder(
-            new ElasticClientFactory.Configuration(
+        ElasticSearchClientFactory.createBuilder(
+            new ElasticSearchClientFactory.Configuration(
                 getScheme(),
                 getUri().getAuthority(),
                 getConnectTimeoutMs(),

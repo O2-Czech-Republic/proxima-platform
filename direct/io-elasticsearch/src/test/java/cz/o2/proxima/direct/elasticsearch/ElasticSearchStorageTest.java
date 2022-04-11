@@ -1,5 +1,5 @@
-/**
- * Copyright 2017-2021 O2 Czech Republic, a.s.
+/*
+ * Copyright 2017-2022 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.elastic;
+package cz.o2.proxima.direct.elasticsearch;
 
 import static cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,11 +21,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.net.URI;
 import org.junit.jupiter.api.Test;
 
-class ElasticStorageTest {
+class ElasticSearchStorageTest {
 
   @Test
   public void testAccept() {
-    ElasticStorage storage = new ElasticStorage();
+    ElasticSearchStorage storage = new ElasticSearchStorage();
     assertEquals(Accept.ACCEPT, storage.accepts(URI.create("elastic://asdas")));
     assertEquals(Accept.ACCEPT, storage.accepts(URI.create("elasticsearch://asdas")));
     assertEquals(Accept.REJECT, storage.accepts(URI.create("es://asdas")));

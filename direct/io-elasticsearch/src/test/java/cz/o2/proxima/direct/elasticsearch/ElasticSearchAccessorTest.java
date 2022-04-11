@@ -1,5 +1,5 @@
-/**
- * Copyright 2017-2021 O2 Czech Republic, a.s.
+/*
+ * Copyright 2017-2022 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.elastic;
+package cz.o2.proxima.direct.elasticsearch;
 
-import static cz.o2.proxima.direct.elastic.ElasticAccessor.*;
-import static cz.o2.proxima.direct.elastic.ElasticAccessor.DEFAULT_KEYSTORE_TYPE;
-import static cz.o2.proxima.direct.elastic.ElasticAccessor.DEFAULT_SOCKET_TIMEOUT_MS;
-import static cz.o2.proxima.direct.elastic.ElasticAccessor.parseIndexName;
+import static cz.o2.proxima.direct.elasticsearch.ElasticSearchAccessor.*;
+import static cz.o2.proxima.direct.elasticsearch.ElasticSearchAccessor.DEFAULT_KEYSTORE_TYPE;
+import static cz.o2.proxima.direct.elasticsearch.ElasticSearchAccessor.DEFAULT_SOCKET_TIMEOUT_MS;
+import static cz.o2.proxima.direct.elasticsearch.ElasticSearchAccessor.parseIndexName;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.typesafe.config.ConfigFactory;
@@ -29,7 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-class ElasticAccessorTest {
+class ElasticSearchAccessorTest {
 
   private static final String MODEL =
       "{\n"
@@ -57,8 +57,8 @@ class ElasticAccessorTest {
 
   @Test
   public void testConfigurationDefault() {
-    ElasticAccessor accessor =
-        new ElasticAccessor(
+    ElasticSearchAccessor accessor =
+        new ElasticSearchAccessor(
             repository.getEntity("test"),
             URI.create("elastic://example.com/my_index"),
             Collections.emptyMap());
@@ -79,20 +79,20 @@ class ElasticAccessorTest {
     Map<String, Object> cfg =
         new HashMap<String, Object>() {
           {
-            put("elastic.scheme", "https");
-            put("elastic.connect-timeout-ms", 10);
-            put("elastic.connection-request-timeout-ms", 20);
-            put("elastic.socket-timeout-ms", 30);
-            put("elastic.keystore-type", "JKS");
-            put("elastic.keystore-path", "/opt/k1");
-            put("elastic.keystore-password", "secret");
-            put("elastic.truststore-path", "/opt/k2");
-            put("elastic.truststore-password", "secret2");
+            put("elasticsearch.scheme", "https");
+            put("elasticsearch.connect-timeout-ms", 10);
+            put("elasticsearch.connection-request-timeout-ms", 20);
+            put("elasticsearch.socket-timeout-ms", 30);
+            put("elasticsearch.keystore-type", "JKS");
+            put("elasticsearch.keystore-path", "/opt/k1");
+            put("elasticsearch.keystore-password", "secret");
+            put("elasticsearch.truststore-path", "/opt/k2");
+            put("elasticsearch.truststore-password", "secret2");
           }
         };
 
-    ElasticAccessor accessor =
-        new ElasticAccessor(
+    ElasticSearchAccessor accessor =
+        new ElasticSearchAccessor(
             repository.getEntity("test"), URI.create("elastic://example.com/my_index"), cfg);
     assertEquals("https", accessor.getScheme());
     assertEquals(10, accessor.getConnectTimeoutMs());

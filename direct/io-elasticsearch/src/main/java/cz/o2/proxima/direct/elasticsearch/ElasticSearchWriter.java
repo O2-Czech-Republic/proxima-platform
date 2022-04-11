@@ -1,5 +1,5 @@
-/**
- * Copyright 2017-2021 O2 Czech Republic, a.s.
+/*
+ * Copyright 2017-2022 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.elastic;
+package cz.o2.proxima.direct.elasticsearch;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.gson.JsonObject;
+import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
-import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
@@ -43,13 +39,15 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 
 @Slf4j
-public class ElasticWriter implements OnlineAttributeWriter, BulkProcessor.Listener {
-  private final ElasticAccessor accessor;
+public class ElasticSearchWriter implements BulkAttributeWriter, BulkProcessor.Listener {
+  private final ElasticSearchAccessor accessor;
   private final RestHighLevelClient client;
-  private final Map<IndexRequest, CommitCallback> callbacksToCommit = new ConcurrentHashMap<>();
-  private final BulkProcessor bulkProcessor;
+  private final Map<Long, CommitCallback> bulkCommits = new ConcurrentHashMap<>();
 
-  public ElasticWriter(ElasticAccessor accessor) {
+  private volatile CommitCallback lastWrittenOffset;
+  private BulkProcessor bulkProcessor;
+
+  public ElasticSearchWriter(ElasticSearchAccessor accessor) {
     this.accessor = accessor;
     this.client = accessor.getRestHighLevelClient();
     this.bulkProcessor =
@@ -69,18 +67,30 @@ public class ElasticWriter implements OnlineAttributeWriter, BulkProcessor.Liste
   }
 
   @Override
-  public void write(StreamElement element, CommitCallback commitCallback) {
-    Preconditions.checkArgument(!element.isDelete(), "Delete not supported.");
-    Preconditions.checkArgument(
-        !element.getAttributeDescriptor().isWildcard(), "Wildcard not supported.");
+  public void rollback() {
+    bulkProcessor.close();
+    bulkProcessor =
+        BulkProcessor.builder(
+                (request, bulkListener) ->
+                    client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
+                this)
+            .setBulkActions(accessor.getBatchSize())
+            .setConcurrentRequests(accessor.getConcurrentRequests())
+            .setBulkSize(new ByteSizeValue(10, ByteSizeUnit.MB))
+            .build();
+  }
 
+  @Override
+  public synchronized void write(
+      StreamElement element, long watermark, CommitCallback commitCallback) {
+    // FIXME: support deletes and wildcards
     final IndexRequest request =
         new IndexRequest(accessor.getIndexName())
             .id(element.getKey())
             .opType(DocWriteRequest.OpType.INDEX)
             .source(toJson(element), XContentType.JSON);
 
-    callbacksToCommit.put(request, commitCallback);
+    lastWrittenOffset = commitCallback;
     bulkProcessor.add(request);
   }
 
@@ -114,47 +124,31 @@ public class ElasticWriter implements OnlineAttributeWriter, BulkProcessor.Liste
       bulkProcessor.close();
       client.close();
     } catch (IOException e) {
-      log.warn("Closing problem", e);
+      log.warn("Error closing writer.", e);
       throw new RuntimeException(e);
     }
   }
 
   @Override
-  public void beforeBulk(long executionId, BulkRequest request) {
+  public synchronized void beforeBulk(long executionId, BulkRequest request) {
     log.debug("Bulk starting with executionId: {}", executionId);
+    bulkCommits.put(executionId, lastWrittenOffset);
   }
 
   @Override
   public void afterBulk(long executionId, BulkRequest bulkRequest, BulkResponse bulkResponse) {
     log.debug("Bulk with executionId: {} finished successfully ", executionId);
-    final List<DocWriteRequest<?>> requests = bulkRequest.requests();
-    Arrays.stream(bulkResponse.getItems())
-        .forEach(
-            resp -> {
-              final IndexRequest request = (IndexRequest) requests.get(resp.getItemId());
-              Preconditions.checkState(
-                  request.id().equals(resp.getId()),
-                  "Request document id doesn't match with response document id");
-              final CommitCallback callback =
-                  Objects.requireNonNull(callbacksToCommit.remove(request));
-              if (resp.isFailed()) {
-                callback.commit(false, resp.getFailure().getCause());
-              } else {
-                callback.commit(true, null);
-              }
-            });
+    Optional.ofNullable(bulkCommits.remove(executionId)).ifPresent(c -> c.commit(true, null));
   }
 
   @Override
   public void afterBulk(long executionId, BulkRequest bulkRequest, Throwable failure) {
     log.warn(String.format("Bulk with executionId: %s finished with error", executionId), failure);
-    bulkRequest
-        .requests()
-        .forEach(r -> Objects.requireNonNull(callbacksToCommit.remove(r)).commit(false, failure));
+    Optional.ofNullable(bulkCommits.remove(executionId)).ifPresent(c -> c.commit(false, failure));
   }
 
   @Override
-  public Factory<? extends OnlineAttributeWriter> asFactory() {
-    return repo -> new ElasticWriter(accessor);
+  public Factory<? extends BulkAttributeWriter> asFactory() {
+    return repo -> new ElasticSearchWriter(accessor);
   }
 }

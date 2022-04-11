@@ -36,18 +36,18 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
-import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.xcontent.XContentType;
 
 @Slf4j
-public class ElasticSearchWriter implements BulkAttributeWriter, BulkProcessor.Listener {
-  private final ElasticSearchAccessor accessor;
+public class ElasticsearchWriter implements BulkAttributeWriter, BulkProcessor.Listener {
+  private final ElasticsearchAccessor accessor;
   private final RestHighLevelClient client;
   private final Map<Long, CommitCallback> bulkCommits = new ConcurrentHashMap<>();
 
   private volatile CommitCallback lastWrittenOffset;
   private BulkProcessor bulkProcessor;
 
-  public ElasticSearchWriter(ElasticSearchAccessor accessor) {
+  public ElasticsearchWriter(ElasticsearchAccessor accessor) {
     this.accessor = accessor;
     this.client = accessor.getRestHighLevelClient();
     this.bulkProcessor =
@@ -149,6 +149,6 @@ public class ElasticSearchWriter implements BulkAttributeWriter, BulkProcessor.L
 
   @Override
   public Factory<? extends BulkAttributeWriter> asFactory() {
-    return repo -> new ElasticSearchWriter(accessor);
+    return repo -> new ElasticsearchWriter(accessor);
   }
 }

@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.elasticsearch;
 
-import static cz.o2.proxima.direct.elasticsearch.ElasticSearchAccessor.*;
-import static cz.o2.proxima.direct.elasticsearch.ElasticSearchAccessor.DEFAULT_KEYSTORE_TYPE;
-import static cz.o2.proxima.direct.elasticsearch.ElasticSearchAccessor.DEFAULT_SOCKET_TIMEOUT_MS;
-import static cz.o2.proxima.direct.elasticsearch.ElasticSearchAccessor.parseIndexName;
+import static cz.o2.proxima.direct.elasticsearch.ElasticsearchAccessor.*;
+import static cz.o2.proxima.direct.elasticsearch.ElasticsearchAccessor.DEFAULT_KEYSTORE_TYPE;
+import static cz.o2.proxima.direct.elasticsearch.ElasticsearchAccessor.DEFAULT_SOCKET_TIMEOUT_MS;
+import static cz.o2.proxima.direct.elasticsearch.ElasticsearchAccessor.parseIndexName;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.typesafe.config.ConfigFactory;
@@ -29,7 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-class ElasticSearchAccessorTest {
+class ElasticsearchAccessorTest {
 
   private static final String MODEL =
       "{\n"
@@ -57,8 +57,8 @@ class ElasticSearchAccessorTest {
 
   @Test
   public void testConfigurationDefault() {
-    ElasticSearchAccessor accessor =
-        new ElasticSearchAccessor(
+    ElasticsearchAccessor accessor =
+        new ElasticsearchAccessor(
             repository.getEntity("test"),
             URI.create("elastic://example.com/my_index"),
             Collections.emptyMap());
@@ -91,8 +91,8 @@ class ElasticSearchAccessorTest {
           }
         };
 
-    ElasticSearchAccessor accessor =
-        new ElasticSearchAccessor(
+    ElasticsearchAccessor accessor =
+        new ElasticsearchAccessor(
             repository.getEntity("test"), URI.create("elastic://example.com/my_index"), cfg);
     assertEquals("https", accessor.getScheme());
     assertEquals(10, accessor.getConnectTimeoutMs());

@@ -23,15 +23,15 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
 
 @AutoService(DataAccessorFactory.class)
-public class ElasticSearchStorage implements DataAccessorFactory {
+public class ElasticsearchStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;
 
   @Override
-  public ElasticSearchAccessor createAccessor(
+  public ElasticsearchAccessor createAccessor(
       DirectDataOperator op, AttributeFamilyDescriptor family) {
 
-    return new ElasticSearchAccessor(family.getEntity(), family.getStorageUri(), family.getCfg());
+    return new ElasticsearchAccessor(family.getEntity(), family.getStorageUri(), family.getCfg());
   }
 
   @Override

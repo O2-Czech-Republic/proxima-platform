@@ -42,7 +42,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
 @Slf4j
-public class ElasticSearchClientFactory {
+public class ElasticsearchClientFactory {
 
   @Value
   @Builder

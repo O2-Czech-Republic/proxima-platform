@@ -15,23 +15,19 @@
  */
 package cz.o2.proxima.direct.elasticsearch;
 
-import static cz.o2.proxima.direct.elasticsearch.ElasticSearchClientFactory.parseHosts;
+import static cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.apache.http.HttpHost;
+import java.net.URI;
 import org.junit.jupiter.api.Test;
 
-class ElasticSearchClientFactoryTest {
+class ElasticsearchStorageTest {
 
   @Test
-  public void testParseHosts() {
-    HttpHost[] hosts = parseHosts("example.com:9093,example2.com", "http");
-    assertEquals(2, hosts.length);
-    assertEquals("example.com", hosts[0].getHostName());
-    assertEquals(9093, hosts[0].getPort());
-    assertEquals("http", hosts[0].getSchemeName());
-    assertEquals("example2.com", hosts[1].getHostName());
-    assertEquals(9200, hosts[1].getPort());
-    assertEquals("http", hosts[1].getSchemeName());
+  public void testAccept() {
+    ElasticsearchStorage storage = new ElasticsearchStorage();
+    assertEquals(Accept.ACCEPT, storage.accepts(URI.create("elastic://asdas")));
+    assertEquals(Accept.ACCEPT, storage.accepts(URI.create("elasticsearch://asdas")));
+    assertEquals(Accept.REJECT, storage.accepts(URI.create("es://asdas")));
   }
 }

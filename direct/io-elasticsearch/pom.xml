@@ -24,7 +24,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-direct</artifactId>
-    <version>0.7-SNAPSHOT</version>
+    <version>0.9-SNAPSHOT</version>
   </parent>
 
   <artifactId>proxima-direct-io-elasticsearch</artifactId>
@@ -60,26 +60,37 @@
               <exclude>cz.o2.proxima:proxima-direct-core</exclude>
             </excludes>
           </artifactSet>
-          <shadeTestJar>true</shadeTestJar>
           <relocations>
             <relocation>
-              <pattern>org.apache.kafka.</pattern>
-              <shadedPattern>${shadePattern}.org.apache.kafka.</shadedPattern>
+              <pattern>com.google.gson.</pattern>
+              <shadedPattern>${shadePattern}.com.google.gson.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>net.sf.</pattern>
-              <shadedPattern>${shadePattern}.net.sf.</shadedPattern>
+              <pattern>org.apache.commons.</pattern>
+              <shadedPattern>${shadePattern}.org.apache.commons.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>com.yammer.</pattern>
-              <shadedPattern>${shadePattern}.com.yammer.</shadedPattern>
+              <pattern>org.apache.http.</pattern>
+              <shadedPattern>${shadePattern}.org.apache.http.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>scala.</pattern>
-              <shadedPattern>${shadePattern}.scala.</shadedPattern>
+              <pattern>com.fasterxml.jackson.</pattern>
+              <shadedPattern>${shadePattern}.com.fasterxml.jackson.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.joda.time.</pattern>
+              <shadedPattern>${shadePattern}.org.joda.time.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
@@ -105,7 +116,7 @@
     <dependency>
       <groupId>org.elasticsearch.client</groupId>
       <artifactId>elasticsearch-rest-high-level-client</artifactId>
-      <version>7.9.3</version>
+      <version>${elasticsearch.client.version}</version>
     </dependency>
 
     <dependency>

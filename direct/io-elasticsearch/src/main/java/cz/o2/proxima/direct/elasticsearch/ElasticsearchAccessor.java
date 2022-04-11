@@ -31,7 +31,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 
 @Slf4j
-public class ElasticSearchAccessor extends AbstractStorage implements DataAccessor {
+public class ElasticsearchAccessor extends AbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
 
@@ -59,7 +59,7 @@ public class ElasticSearchAccessor extends AbstractStorage implements DataAccess
   @Getter private final String truststorePath;
   @Getter private final String truststorePassword;
 
-  public ElasticSearchAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public ElasticsearchAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
     super(entityDesc, uri);
     this.cfg = cfg;
     this.scheme = getStringConfig("scheme", DEFAULT_SCHEME);
@@ -94,7 +94,7 @@ public class ElasticSearchAccessor extends AbstractStorage implements DataAccess
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
     if (getUri().getScheme().startsWith("elastic")) {
-      return Optional.of(new ElasticSearchWriter(this));
+      return Optional.of(new ElasticsearchWriter(this));
     }
 
     return Optional.empty();
@@ -106,8 +106,8 @@ public class ElasticSearchAccessor extends AbstractStorage implements DataAccess
   }
 
   public RestClient getRestClient() {
-    return ElasticSearchClientFactory.create(
-        new ElasticSearchClientFactory.Configuration(
+    return ElasticsearchClientFactory.create(
+        new ElasticsearchClientFactory.Configuration(
             getScheme(),
             getUri().getAuthority(),
             getConnectTimeoutMs(),
@@ -122,8 +122,8 @@ public class ElasticSearchAccessor extends AbstractStorage implements DataAccess
 
   public RestHighLevelClient getRestHighLevelClient() {
     return new RestHighLevelClient(
-        ElasticSearchClientFactory.createBuilder(
-            new ElasticSearchClientFactory.Configuration(
+        ElasticsearchClientFactory.createBuilder(
+            new ElasticsearchClientFactory.Configuration(
                 getScheme(),
                 getUri().getAuthority(),
                 getConnectTimeoutMs(),

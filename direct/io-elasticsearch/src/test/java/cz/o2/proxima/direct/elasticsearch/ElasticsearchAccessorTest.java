@@ -56,7 +56,7 @@ class ElasticsearchAccessorTest {
   private final Repository repository = Repository.of(ConfigFactory.parseString(MODEL));
 
   @Test
-  public void testConfigurationDefault() {
+  void testConfigurationDefault() {
     ElasticsearchAccessor accessor =
         new ElasticsearchAccessor(
             repository.getEntity("test"),
@@ -75,7 +75,7 @@ class ElasticsearchAccessorTest {
   }
 
   @Test
-  public void testConfiguration() {
+  void testConfiguration() {
     Map<String, Object> cfg =
         new HashMap<String, Object>() {
           {
@@ -107,7 +107,7 @@ class ElasticsearchAccessorTest {
   }
 
   @Test
-  public void testParseIndexName() {
+  void testParseIndexName() {
     assertEquals(
         "my_index", parseIndexName(URI.create("elastic://example.com:9093/my_index/?query=2")));
     assertEquals("my_index", parseIndexName(URI.create("elastic://example.com/my_index")));

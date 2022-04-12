@@ -69,7 +69,13 @@ public class ElasticsearchWriter implements BulkAttributeWriter {
     @Override
     public void afterBulk(long executionId, BulkRequest bulkRequest, BulkResponse bulkResponse) {
       log.debug("Bulk with executionId: {} finished successfully ", executionId);
-      doCommit(executionId, true, null);
+      doCommit(
+          executionId,
+          !bulkResponse.hasFailures(),
+          bulkResponse.hasFailures()
+              ? new IllegalStateException(
+                  String.format("Failures detected in bulk %s", bulkResponse))
+              : null);
     }
 
     @Override
@@ -148,7 +154,7 @@ public class ElasticsearchWriter implements BulkAttributeWriter {
 
   private final ElasticsearchAccessor accessor;
   private final DocumentFormatter formatter;
-  BulkWriter writer;
+  @VisibleForTesting BulkWriter writer;
 
   public ElasticsearchWriter(ElasticsearchAccessor accessor) {
     this.accessor = accessor;
@@ -215,7 +221,7 @@ public class ElasticsearchWriter implements BulkAttributeWriter {
       writer.close();
     } catch (IOException e) {
       log.warn("Error closing writer.", e);
-      throw new RuntimeException(e);
+      throw new IllegalStateException(e);
     }
   }
 

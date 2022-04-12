@@ -18,9 +18,10 @@ package cz.o2.proxima.direct.elasticsearch;
 import com.google.gson.JsonObject;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import java.io.Serializable;
 import java.util.Optional;
 
-public interface DocumentFormatter {
+public interface DocumentFormatter extends Serializable {
 
   class Default implements DocumentFormatter {
 

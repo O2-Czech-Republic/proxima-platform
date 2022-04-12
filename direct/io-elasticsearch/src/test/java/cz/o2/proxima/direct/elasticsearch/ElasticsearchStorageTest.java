@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 class ElasticsearchStorageTest {
 
   @Test
-  public void testAccept() {
+  void testAccept() {
     ElasticsearchStorage storage = new ElasticsearchStorage();
     assertEquals(Accept.ACCEPT, storage.accepts(URI.create("elastic://asdas")));
     assertEquals(Accept.ACCEPT, storage.accepts(URI.create("elasticsearch://asdas")));

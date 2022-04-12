@@ -42,7 +42,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 
 @Slf4j
-public class ElasticsearchClientFactory {
+public class ElasticsearchClients {
 
   @Value
   @Builder
@@ -90,7 +90,7 @@ public class ElasticsearchClientFactory {
                     return new HttpHost(parts[0], Integer.parseInt(parts[1]), scheme);
                   }
 
-                  throw new IllegalArgumentException("Invalid host " + p);
+                  throw new IllegalArgumentException("Invalid address " + p);
                 })
             .collect(Collectors.toList());
 
@@ -182,4 +182,6 @@ public class ElasticsearchClientFactory {
     }
     return keyStore;
   }
+
+  private ElasticsearchClients() {}
 }

@@ -112,8 +112,8 @@ public class ElasticsearchAccessor extends AbstractStorage implements DataAccess
 
   public RestHighLevelClient getRestHighLevelClient() {
     return new RestHighLevelClient(
-        ElasticsearchClientFactory.createBuilder(
-            new ElasticsearchClientFactory.Configuration(
+        ElasticsearchClients.createBuilder(
+            new ElasticsearchClients.Configuration(
                 getScheme(),
                 getUri().getAuthority(),
                 getConnectTimeoutMs(),

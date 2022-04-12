@@ -28,6 +28,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,8 +52,13 @@ public class ElasticsearchWriterTest {
 
   @Test
   public void testWriterToJson() {
+    ElasticsearchStorage storage = new ElasticsearchStorage();
+    ElasticsearchAccessor accessor =
+        storage.createAccessor(direct, repo.getFamilyByName("gateway-to-es"));
+    ElasticsearchWriter writer =
+        (ElasticsearchWriter) Optionals.get(accessor.getWriter(direct.getContext()));
     StreamElement element = metric.upsert("key", System.currentTimeMillis(), 1.0f);
-    String json = ElasticsearchWriter.toJson(element);
+    String json = writer.toJson(element);
     JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
     assertEquals("key", obj.get("key").getAsString());
     assertEquals("gateway", obj.get("entity").getAsString());

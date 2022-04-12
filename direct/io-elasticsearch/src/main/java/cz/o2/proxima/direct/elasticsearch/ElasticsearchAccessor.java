@@ -22,6 +22,7 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.util.Classpath;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +58,7 @@ public class ElasticsearchAccessor extends AbstractStorage implements DataAccess
   @Getter private final String keystorePassword;
   @Getter private final String truststorePath;
   @Getter private final String truststorePassword;
+  @Getter private final DocumentFormatter documentFormatter;
 
   public ElasticsearchAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
     super(entityDesc, uri);
@@ -75,6 +77,10 @@ public class ElasticsearchAccessor extends AbstractStorage implements DataAccess
     this.truststorePath = getStringConfig("truststore-path");
     this.truststorePassword = getStringConfig("truststore-password");
     this.indexName = parseIndexName(uri);
+    this.documentFormatter =
+        Classpath.newInstance(
+            getStringConfig("document-formatter", DocumentFormatter.Default.class.getName()),
+            DocumentFormatter.class);
   }
 
   @VisibleForTesting

@@ -16,10 +16,8 @@
 package cz.o2.proxima.direct.elasticsearch;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.gson.JsonObject;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
-import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.Closeable;
@@ -27,7 +25,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.NavigableMap;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentSkipListMap;
 import lombok.Getter;
 import lombok.Setter;
@@ -150,10 +147,12 @@ public class ElasticsearchWriter implements BulkAttributeWriter {
   }
 
   private final ElasticsearchAccessor accessor;
+  private final DocumentFormatter formatter;
   BulkWriter writer;
 
   public ElasticsearchWriter(ElasticsearchAccessor accessor) {
     this.accessor = accessor;
+    this.formatter = accessor.getDocumentFormatter();
     this.writer = createBulkWriter(accessor);
   }
 
@@ -206,27 +205,8 @@ public class ElasticsearchWriter implements BulkAttributeWriter {
   }
 
   @VisibleForTesting
-  static String toJson(StreamElement element) {
-    final JsonObject jsonObject = new JsonObject();
-
-    jsonObject.addProperty("key", element.getKey());
-    jsonObject.addProperty("entity", element.getEntityDescriptor().getName());
-    jsonObject.addProperty("attribute", element.getAttribute());
-    jsonObject.addProperty("timestamp", element.getStamp());
-    jsonObject.addProperty("uuid", element.getUuid());
-    jsonObject.addProperty("updated_at", System.currentTimeMillis());
-
-    final Optional<Object> data = element.getParsed();
-    if (data.isPresent()) {
-      @SuppressWarnings("unchecked")
-      final AttributeDescriptor<Object> attributeDescriptor =
-          (AttributeDescriptor<Object>) element.getAttributeDescriptor();
-      final String dataJson = attributeDescriptor.getValueSerializer().asJsonValue(data.get());
-      jsonObject.addProperty("data", "${data}");
-      return jsonObject.toString().replace("\"${data}\"", dataJson);
-    }
-
-    return jsonObject.toString();
+  String toJson(StreamElement element) {
+    return formatter.toJson(element);
   }
 
   @Override

@@ -21,12 +21,16 @@ import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.ExceptionUtils;
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentSkipListMap;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.DocWriteRequest.OpType;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -41,28 +45,121 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.xcontent.XContentType;
 
 @Slf4j
-public class ElasticsearchWriter implements BulkAttributeWriter, BulkProcessor.Listener {
-  private final ElasticsearchAccessor accessor;
-  private final RestHighLevelClient client;
-  private final NavigableMap<Long, CommitCallback> bulkCommits = new ConcurrentSkipListMap<>();
-  private final NavigableMap<Long, CommitCallback> awaitingCommits = new ConcurrentSkipListMap<>();
+public class ElasticsearchWriter implements BulkAttributeWriter {
 
-  private CommitCallback lastWrittenOffset;
-  private BulkProcessor bulkProcessor;
+  @VisibleForTesting
+  static class BulkProcessorListener implements BulkProcessor.Listener {
+
+    private final NavigableMap<Long, CommitCallback> pendingCommits;
+    private final NavigableMap<Long, CommitCallback> confirmedCommits;
+
+    @Setter @Getter CommitCallback lastWrittenOffset;
+
+    BulkProcessorListener(
+        NavigableMap<Long, CommitCallback> pendingCommits,
+        NavigableMap<Long, CommitCallback> confirmedCommits) {
+
+      this.pendingCommits = pendingCommits;
+      this.confirmedCommits = confirmedCommits;
+    }
+
+    @Override
+    public synchronized void beforeBulk(long executionId, BulkRequest request) {
+      log.debug("Bulk starting with executionId: {}", executionId);
+      pendingCommits.put(executionId, lastWrittenOffset);
+    }
+
+    @Override
+    public void afterBulk(long executionId, BulkRequest bulkRequest, BulkResponse bulkResponse) {
+      log.debug("Bulk with executionId: {} finished successfully ", executionId);
+      doCommit(executionId, true, null);
+    }
+
+    @Override
+    public void afterBulk(long executionId, BulkRequest bulkRequest, Throwable failure) {
+      log.warn(
+          String.format("Bulk with executionId: %s finished with error", executionId), failure);
+      doCommit(executionId, false, failure);
+    }
+
+    @VisibleForTesting
+    void doCommit(long executionId, boolean succ, Throwable err) {
+      CommitCallback currentCallback = pendingCommits.remove(executionId);
+      if (currentCallback != null) {
+        confirmedCommits.put(executionId, currentCallback);
+        long uncommittedExecutionId =
+            pendingCommits.isEmpty() ? Long.MAX_VALUE : pendingCommits.firstKey();
+        // prevent ConcurrentModificationException
+        new ArrayList<>(confirmedCommits.headMap(uncommittedExecutionId).entrySet())
+            .forEach(
+                e -> {
+                  confirmedCommits.remove(e.getKey());
+                  e.getValue().commit(succ, err);
+                });
+      } else {
+        log.warn("Missing commit callback for execution ID {}", executionId);
+      }
+    }
+  }
+
+  @VisibleForTesting
+  interface BulkWriter extends Closeable {
+    static BulkWriter viaBulkProcessor(ElasticsearchAccessor accessor) {
+      final NavigableMap<Long, CommitCallback> pendingCommits = new ConcurrentSkipListMap<>();
+      final NavigableMap<Long, CommitCallback> confirmedCommits = new ConcurrentSkipListMap<>();
+      BulkProcessorListener listener = new BulkProcessorListener(pendingCommits, confirmedCommits);
+      RestHighLevelClient client = accessor.getRestHighLevelClient();
+      BulkProcessor processor =
+          BulkProcessor.builder(
+                  (request, bulkListener) ->
+                      client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
+                  listener,
+                  "es-writer-" + accessor.getIndexName())
+              .setBulkActions(accessor.getBatchSize())
+              .setConcurrentRequests(accessor.getConcurrentRequests())
+              .setBulkSize(new ByteSizeValue(10, ByteSizeUnit.MB))
+              .build();
+      return new BulkWriter() {
+        @Override
+        public void add(IndexRequest request, CommitCallback commit) {
+          synchronized (listener) {
+            processor.add(request);
+            listener.setLastWrittenOffset(commit);
+          }
+        }
+
+        @Override
+        public void add(DeleteRequest request, CommitCallback commit) {
+          synchronized (listener) {
+            processor.add(request);
+            listener.setLastWrittenOffset(commit);
+          }
+        }
+
+        @Override
+        public void close() throws IOException {
+          processor.close();
+          client.close();
+        }
+      };
+    }
+
+    void add(IndexRequest request, CommitCallback commit);
+
+    void add(DeleteRequest request, CommitCallback commit);
+  }
+
+  private final ElasticsearchAccessor accessor;
+  BulkWriter writer;
 
   public ElasticsearchWriter(ElasticsearchAccessor accessor) {
     this.accessor = accessor;
-    this.client = accessor.getRestHighLevelClient();
-    this.bulkProcessor =
-        BulkProcessor.builder(
-                (request, bulkListener) ->
-                    client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
-                this,
-                "es-writer-" + accessor.getIndexName())
-            .setBulkActions(accessor.getBatchSize())
-            .setConcurrentRequests(accessor.getConcurrentRequests())
-            .setBulkSize(new ByteSizeValue(10, ByteSizeUnit.MB))
-            .build();
+    this.writer = createBulkWriter(accessor);
+  }
+
+  @VisibleForTesting
+  BulkWriter createBulkWriter(ElasticsearchAccessor accessor) {
+    return BulkWriter.viaBulkProcessor(accessor);
   }
 
   @Override
@@ -72,22 +169,12 @@ public class ElasticsearchWriter implements BulkAttributeWriter, BulkProcessor.L
 
   @Override
   public void rollback() {
-    bulkProcessor.close();
-    bulkProcessor =
-        BulkProcessor.builder(
-                (request, bulkListener) ->
-                    client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
-                this)
-            .setBulkActions(accessor.getBatchSize())
-            .setConcurrentRequests(accessor.getConcurrentRequests())
-            .setBulkSize(new ByteSizeValue(10, ByteSizeUnit.MB))
-            .build();
+    ExceptionUtils.unchecked(writer::close);
+    writer = createBulkWriter(accessor);
   }
 
   @Override
-  public synchronized void write(
-      StreamElement element, long watermark, CommitCallback commitCallback) {
-
+  public void write(StreamElement element, long watermark, CommitCallback commitCallback) {
     if (element.isDelete()) {
       if (element.isDeleteWildcard()) {
         log.warn("Wildcard deletes not supported. Got {}", element);
@@ -101,8 +188,7 @@ public class ElasticsearchWriter implements BulkAttributeWriter, BulkProcessor.L
 
   private void addDeleteRequest(StreamElement element, CommitCallback commitCallback) {
     DeleteRequest request = new DeleteRequest(accessor.getIndexName()).id(toEsKey(element));
-    lastWrittenOffset = commitCallback;
-    bulkProcessor.add(request);
+    writer.add(request, commitCallback);
   }
 
   private void addIndexRequest(StreamElement element, CommitCallback commitCallback) {
@@ -111,17 +197,16 @@ public class ElasticsearchWriter implements BulkAttributeWriter, BulkProcessor.L
             .id(toEsKey(element))
             .opType(OpType.INDEX)
             .source(toJson(element), XContentType.JSON);
-    lastWrittenOffset = commitCallback;
-    bulkProcessor.add(request);
+    writer.add(request, commitCallback);
   }
 
   @VisibleForTesting
-  String toEsKey(StreamElement element) {
+  static String toEsKey(StreamElement element) {
     return element.getKey() + ":" + element.getAttribute();
   }
 
   @VisibleForTesting
-  String toJson(StreamElement element) {
+  static String toJson(StreamElement element) {
     final JsonObject jsonObject = new JsonObject();
 
     jsonObject.addProperty("key", element.getKey());
@@ -147,46 +232,10 @@ public class ElasticsearchWriter implements BulkAttributeWriter, BulkProcessor.L
   @Override
   public void close() {
     try {
-      bulkProcessor.close();
-      client.close();
+      writer.close();
     } catch (IOException e) {
       log.warn("Error closing writer.", e);
       throw new RuntimeException(e);
-    }
-  }
-
-  @Override
-  public synchronized void beforeBulk(long executionId, BulkRequest request) {
-    log.debug("Bulk starting with executionId: {}", executionId);
-    bulkCommits.put(executionId, lastWrittenOffset);
-  }
-
-  @Override
-  public void afterBulk(long executionId, BulkRequest bulkRequest, BulkResponse bulkResponse) {
-    log.debug("Bulk with executionId: {} finished successfully ", executionId);
-    doCommit(executionId, true, null);
-  }
-
-  @Override
-  public void afterBulk(long executionId, BulkRequest bulkRequest, Throwable failure) {
-    log.warn(String.format("Bulk with executionId: %s finished with error", executionId), failure);
-    doCommit(executionId, false, failure);
-  }
-
-  private void doCommit(long executionId, boolean succ, Throwable err) {
-    CommitCallback currentCallback = bulkCommits.remove(executionId);
-    if (currentCallback != null) {
-      awaitingCommits.put(executionId, currentCallback);
-      long uncommittedExecutionId = bulkCommits.isEmpty() ? Long.MAX_VALUE : bulkCommits.firstKey();
-      // prevent ConcurrentModificationException
-      new ArrayList<>(awaitingCommits.headMap(uncommittedExecutionId).entrySet())
-          .forEach(
-              e -> {
-                awaitingCommits.remove(e.getKey());
-                e.getValue().commit(succ, err);
-              });
-    } else {
-      log.warn("Missing commit callback for execution ID {}", executionId);
     }
   }
 

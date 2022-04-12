@@ -13,22 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.repository;
+package cz.o2.proxima.util;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
-import java.util.Map;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.StreamElement;
+import java.util.Collections;
 import org.junit.Test;
+import org.mockito.Mockito;
 
-public class TransformationDescriptorTest {
+public class DummyFilterTest {
+  private final DummyFilter filter = new DummyFilter();
 
   @Test
-  public void testDefaultNamingOfTransformationConsumers() {
-    Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
-    Map<String, TransformationDescriptor> transformations = repo.getTransformations();
-    assertFalse(transformations.isEmpty());
-    transformations.forEach(
-        (name, t) -> assertEquals("transformer-" + name, t.getConsumerNameFactory().apply()));
+  public void filterContractTest() {
+    final StreamElement el = Mockito.mock(StreamElement.class);
+    assertThrows(IllegalStateException.class, () -> filter.apply(el));
+    final Repository repository = Mockito.mock(Repository.class);
+    filter.setup(repository, Collections.emptyMap());
+    assertTrue(filter.apply(el));
   }
 }

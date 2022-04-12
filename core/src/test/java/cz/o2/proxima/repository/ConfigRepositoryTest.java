@@ -27,7 +27,6 @@ import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.repository.TransformationDescriptor.OutputTransactionMode;
 import cz.o2.proxima.scheme.RepositoryInitializedValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Request;
@@ -91,7 +90,7 @@ public class ConfigRepositoryTest {
     assertEquals(1, repo.getTransformations().size());
     TransformationDescriptor transform =
         Iterables.getOnlyElement(repo.getTransformations().values());
-    assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
+    assertEquals(DummyFilter.class, transform.getFilter().getClass());
     assertEquals(Collections.singletonList(event.getAttribute("data")), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
 
@@ -246,6 +245,7 @@ public class ConfigRepositoryTest {
         repo.getTransformations().get("_dummyReplicationMasterSlave_slave");
     assertNotNull(desc);
     assertEquals(DummyFilter.class, desc.getFilter().getClass());
+    assertTrue(((DummyFilter) desc.getFilter()).isSetupCalled());
   }
 
   @Test

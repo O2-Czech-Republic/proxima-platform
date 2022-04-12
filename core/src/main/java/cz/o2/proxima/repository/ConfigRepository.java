@@ -1223,7 +1223,7 @@ public final class ConfigRepository extends Repository {
       allAttributes.addAll(attrDescs);
     }
     if (!filter.isEmpty() && !readonly) {
-      insertFilterIfPossible(allAttributes, type, filter, name, family);
+      insertFilterIfPossible(allAttributes, type, filter, name, family, cfg);
     }
     allAttributes.forEach(family::addAttribute);
     insertFamily(family.build(), overwrite);
@@ -1263,7 +1263,8 @@ public final class ConfigRepository extends Repository {
       StorageType type,
       String filter,
       String familyName,
-      AttributeFamilyDescriptor.Builder family) {
+      AttributeFamilyDescriptor.Builder family,
+      Map<String, Object> cfg) {
 
     boolean allProtected =
         allAttributes.stream().map(a -> !a.isPublic()).reduce(true, (a, b) -> a && b);
@@ -1282,8 +1283,9 @@ public final class ConfigRepository extends Repository {
             allAttributes);
       }
     }
-
-    family.setFilter(Classpath.newInstance(filter, StorageFilter.class));
+    final StorageFilter storageFilter = Classpath.newInstance(filter, StorageFilter.class);
+    storageFilter.setup(this, cfg);
+    family.setFilter(storageFilter);
   }
 
   private void insertFamily(AttributeFamilyDescriptor family, boolean overwrite) {
@@ -2070,7 +2072,11 @@ public final class ConfigRepository extends Repository {
           Optional.ofNullable(transformation.get(FILTER))
               .map(Object::toString)
               .map(s -> Classpath.newInstance(s, StorageFilter.class))
-              .ifPresent(desc::setFilter);
+              .ifPresent(
+                  f -> {
+                    f.setup(this, transformation);
+                    desc.setFilter(f);
+                  });
 
           TransformationDescriptor transformationDescriptor = desc.build();
           setupTransform(transformationDescriptor.getTransformation(), transformation);

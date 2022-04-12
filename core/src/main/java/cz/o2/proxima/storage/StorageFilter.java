@@ -16,17 +16,26 @@
 package cz.o2.proxima.storage;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.TransformationDescriptor;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-/** A filter that is applied to each input data ingest. */
+/**
+ * A filter that is applied to each input element.
+ *
+ * <p>Filter can be used for {@link AttributeFamilyDescriptor} and/or {@link
+ * TransformationDescriptor}
+ */
 @Stable
 @FunctionalInterface
 public interface StorageFilter extends Serializable {
 
   /** Filter consisting of several filters with applied function. */
-  public abstract class CompoundFilter implements StorageFilter {
+  abstract class CompoundFilter implements StorageFilter {
 
     protected final List<StorageFilter> filters = new ArrayList<>();
 
@@ -36,7 +45,7 @@ public interface StorageFilter extends Serializable {
   }
 
   /** Filter performing logical OR of several filters. */
-  public class OrFilter extends CompoundFilter {
+  class OrFilter extends CompoundFilter {
 
     protected OrFilter(List<StorageFilter> filters) {
       super(filters);
@@ -49,7 +58,7 @@ public interface StorageFilter extends Serializable {
   }
 
   /** Filter performing logical AND of several filters. */
-  public class AndFilter extends CompoundFilter {
+  class AndFilter extends CompoundFilter {
 
     protected AndFilter(List<StorageFilter> filters) {
       super(filters);
@@ -68,4 +77,14 @@ public interface StorageFilter extends Serializable {
    * @return {@code false} to throw the element away
    */
   boolean apply(StreamElement ingest);
+
+  /**
+   * Setup filter
+   *
+   * @param repository repository
+   * @param cfg configuration map
+   */
+  default void setup(Repository repository, Map<String, Object> cfg) {
+    // default no-op
+  }
 }

@@ -16,6 +16,7 @@
 package cz.o2.proxima.repository;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultReplicationConsumerNameFactory;
@@ -23,6 +24,7 @@ import cz.o2.proxima.scheme.AttributeValueType;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
@@ -154,5 +156,19 @@ public class AttributeFamilyDescriptorTest {
     SchemaTypeDescriptor<byte[]> descriptor = attribute.getSchemaTypeDescriptor();
     assertEquals(AttributeValueType.ARRAY, descriptor.getType());
     assertEquals(AttributeValueType.BYTE, descriptor.asArrayTypeDescriptor().getValueType());
+  }
+
+  @Test
+  public void testCallSetupForFilterInAttributeFamily() {
+    AttributeFamilyDescriptor af = repo.getFamilyByName("event-storage-bulk");
+    assertTrue(af.getFilter() instanceof DummyFilter);
+    assertTrue(((DummyFilter) af.getFilter()).isSetupCalled());
+  }
+
+  @Test
+  public void testCallSetupForFilterInTransformation() {
+    TransformationDescriptor td = repo.getTransformations().get("event-data-to-dummy-wildcard");
+    assertTrue(td.getFilter() instanceof DummyFilter);
+    assertTrue(((DummyFilter) td.getFilter()).isSetupCalled());
   }
 }

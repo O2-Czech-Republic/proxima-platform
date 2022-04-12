@@ -184,9 +184,11 @@ public class TransformationDescriptor implements Serializable {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
+        .add("name", name)
         .add("attributes", attributes)
         .add("inputTransactionMode", inputTransactionMode)
         .add("outputTransactionMode", outputTransactionMode)
+        .add("filter", filter)
         .toString();
   }
 }

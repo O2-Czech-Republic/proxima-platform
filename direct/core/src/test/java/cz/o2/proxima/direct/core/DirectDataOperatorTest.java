@@ -38,7 +38,6 @@ import cz.o2.proxima.repository.AttributeProxyDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.TransformationDescriptor;
-import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.ThroughputLimiter;
@@ -117,7 +116,7 @@ public class DirectDataOperatorTest {
     assertEquals(1, repo.getTransformations().size());
     TransformationDescriptor transform =
         Iterables.getOnlyElement(repo.getTransformations().values());
-    assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
+    assertEquals(DummyFilter.class, transform.getFilter().getClass());
     assertEquals(Arrays.asList(event.getAttribute("data")), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
   }

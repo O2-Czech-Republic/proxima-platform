@@ -55,6 +55,10 @@
               <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>org.apache.commons.</pattern>
+              <shadedPattern>${shadePattern}.org.apache.commons.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>org.apache.zookeeper.</pattern>
               <shadedPattern>${shadePattern}.org.apache.zookeeper.</shadedPattern>
             </relocation>

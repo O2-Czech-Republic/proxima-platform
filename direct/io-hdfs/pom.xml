@@ -90,6 +90,10 @@
               <shadedPattern>${shadePattern}.com.google.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>org.apache.commons.</pattern>
+              <shadedPattern>${shadePattern}.org.apache.commons.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>org.objectweb.</pattern>
               <shadedPattern>${shadePattern}.org.objectweb.</shadedPattern>
             </relocation>

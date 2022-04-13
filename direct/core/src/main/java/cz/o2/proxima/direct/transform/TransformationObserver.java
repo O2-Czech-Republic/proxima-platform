@@ -19,6 +19,7 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StreamElement;
@@ -103,7 +104,21 @@ public abstract class TransformationObserver implements CommitLogObserver {
     @Override
     void doTransform(StreamElement ingest, OffsetCommitter context) {
       log.debug("Transformation {}: processing input {}", name, ingest);
-      transformation.transform(ingest, context::commit);
+      for (int i = 0; ; i++) {
+        try {
+          transformation.transform(ingest, context::commit);
+          break;
+        } catch (TransactionRejectedRuntimeException ex) {
+          log.info(
+              "Caught {}. Retries so far {}. {}",
+              ex.getClass().getSimpleName(),
+              i,
+              i < 2 ? "Retrying." : "Rethrowing.");
+          if (i == 2) {
+            throw ex;
+          }
+        }
+      }
     }
   }
 

@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,7 +63,7 @@ public class OffsetCommitter<ID> {
     }
 
     void decrement() {
-      Preconditions.checkState(actions.decrementAndGet() >= 0);
+      actions.decrementAndGet();
     }
 
     @Override

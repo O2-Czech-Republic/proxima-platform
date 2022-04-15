@@ -141,7 +141,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   public static class TransactionRejectedException extends Exception {
     @Getter private final String transactionId;
 
-    private TransactionRejectedException(String transactionId) {
+    protected TransactionRejectedException(String transactionId) {
       super("Transaction " + transactionId + " rejected. Please restart the transaction.");
       this.transactionId = transactionId;
     }

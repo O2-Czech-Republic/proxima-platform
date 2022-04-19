@@ -23,6 +23,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigConstants;
@@ -30,6 +31,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.server.transaction.TransactionContext;
 import cz.o2.proxima.storage.StreamElement;
+import io.grpc.BindableService;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -37,6 +39,7 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCall.Listener;
 import io.grpc.ServerCallHandler;
 import java.io.File;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -61,14 +64,17 @@ public class IngestServer {
    * @throws Throwable on error
    */
   public static void main(String[] args) throws Throwable {
-    final IngestServer server;
+    runWithServerFactory(() -> new IngestServer(getCfgFromArgs(args)));
+  }
 
-    if (args.length == 0) {
-      server = new IngestServer(ConfigFactory.load().resolve());
-    } else {
-      server = new IngestServer(ConfigFactory.parseFile(new File(args[0])).resolve());
-    }
-    server.run();
+  protected static Config getCfgFromArgs(String[] args) {
+    return args.length == 0
+        ? ConfigFactory.load().resolve()
+        : ConfigFactory.parseFile(new File(args[0])).resolve();
+  }
+
+  protected static void runWithServerFactory(Factory<? extends IngestServer> serverFactory) {
+    serverFactory.apply().run();
   }
 
   @Getter final Executor executor;
@@ -189,7 +195,7 @@ public class IngestServer {
   }
 
   /** Run the server. */
-  private void run() {
+  protected void run() {
     final int port =
         cfg.hasPath(Constants.CFG_PORT) ? cfg.getInt(Constants.CFG_PORT) : Constants.DEFAULT_PORT;
 
@@ -222,16 +228,19 @@ public class IngestServer {
     return createServer(port, log.isDebugEnabled());
   }
 
-  Server createServer(int port, boolean debug) {
-    ServerBuilder<?> builder =
-        ServerBuilder.forPort(port)
-            .executor(executor)
-            .addService(new IngestService(repo, direct, transactionContext, scheduler))
-            .addService(new RetrieveService(repo, direct, transactionContext));
+  protected Server createServer(int port, boolean debug) {
+    ServerBuilder<?> builder = ServerBuilder.forPort(port).executor(executor);
+    getServices().forEach(builder::addService);
     if (debug) {
       builder = builder.intercept(new IngestServerInterceptor());
     }
     return builder.build();
+  }
+
+  protected Iterable<BindableService> getServices() {
+    return Arrays.asList(
+        new IngestService(repo, direct, transactionContext, scheduler),
+        new RetrieveService(repo, direct, transactionContext));
   }
 
   @VisibleForTesting

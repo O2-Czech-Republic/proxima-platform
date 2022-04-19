@@ -35,7 +35,7 @@
 
   <properties>
     <scala.version>2.12</scala.version>
-    <jackson.version>2.12.6</jackson.version>
+    <jackson.version>2.12.6.1</jackson.version>
     <apache.flink.version>1.13.5</apache.flink.version>
   </properties>
 

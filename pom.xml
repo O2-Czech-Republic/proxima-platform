@@ -120,6 +120,7 @@
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
     <zookeeper.version>3.6.2</zookeeper.version>
     <mockito.version>3.10.0</mockito.version>
+    <elasticsearch.client.version>7.17.2</elasticsearch.client.version>
   </properties>
 
   <profiles>

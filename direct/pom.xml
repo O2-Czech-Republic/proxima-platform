@@ -70,6 +70,7 @@
         <module>io-bulkfs</module>
         <module>io-bulkfs-parquet</module>
         <module>io-cassandra</module>
+        <module>io-elasticsearch</module>
         <module>io-gcloud-storage</module>
         <module>io-hadoop</module>
         <module>io-hbase</module>
@@ -100,6 +101,7 @@
         <module>io-bulkfs</module>
         <module>io-bulkfs-parquet</module>
         <module>io-cassandra</module>
+        <module>io-elasticsearch</module>
         <module>io-gcloud-storage</module>
         <module>io-http</module>
         <module>io-kafka</module>

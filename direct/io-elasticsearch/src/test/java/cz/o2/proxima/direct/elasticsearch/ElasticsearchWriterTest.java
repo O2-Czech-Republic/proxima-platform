@@ -31,6 +31,8 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.util.TestUtils;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableMap;
@@ -52,6 +54,18 @@ class ElasticsearchWriterTest {
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final Regular<Float> metric = Regular.of(gateway, gateway.getAttribute("metric"));
+
+  @Test
+  void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+    ElasticsearchStorage storage = new ElasticsearchStorage();
+    ElasticsearchAccessor accessor =
+        storage.createAccessor(direct, repo.getFamilyByName("gateway-to-es"));
+    ElasticsearchWriter writer =
+        (ElasticsearchWriter) Optionals.get(accessor.getWriter(direct.getContext()));
+    assertDoesNotThrow(
+        () -> TestUtils.deserializeObject(TestUtils.serializeObject(writer.asFactory())));
+    assertEquals(writer.asFactory().apply(repo).getUri(), writer.getUri());
+  }
 
   @Test
   void testWriterSimple() {

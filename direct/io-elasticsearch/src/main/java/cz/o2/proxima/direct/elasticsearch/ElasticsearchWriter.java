@@ -227,6 +227,7 @@ public class ElasticsearchWriter implements BulkAttributeWriter {
 
   @Override
   public Factory<? extends BulkAttributeWriter> asFactory() {
+    final ElasticsearchAccessor accessor = this.accessor;
     return repo -> new ElasticsearchWriter(accessor);
   }
 }

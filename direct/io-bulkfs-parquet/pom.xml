@@ -69,7 +69,7 @@
               <shadedPattern>${shadePattern}.com.google.gson.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>org.aoache.commons.</pattern>
+              <pattern>org.apache.commons.</pattern>
               <shadedPattern>${shadePattern}.org.apache.commons.</shadedPattern>
             </relocation>
           </relocations>

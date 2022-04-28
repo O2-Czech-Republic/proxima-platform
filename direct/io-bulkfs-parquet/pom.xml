@@ -30,6 +30,7 @@
   <name>${project.groupId}:${project.artifactId}</name>
   <properties>
     <parquet.version>1.12.2</parquet.version>
+    <maven.shade.version>3.2.4</maven.shade.version>
     <shadePattern>cz.o2.proxima.direct.io.parquet.shaded</shadePattern>
   </properties>
 

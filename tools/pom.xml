@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.9.0-jdk11</version>
+    <version>0.10-SNAPSHOT</version>
   </parent>
 
   <artifactId>proxima-tools</artifactId>

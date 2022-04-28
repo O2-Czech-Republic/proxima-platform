@@ -197,7 +197,7 @@ First, let's introduce some glossary:
       <plugin>
         <groupId>cz.o2.proxima</groupId>
         <artifactId>compiler-maven-plugin</artifactId>
-        <version>0.8.0</version>
+        <version>0.9.0</version>
         <configuration>
           <outputDir>${project.build.directory}/generated-sources/model</outputDir>
           <javaPackage>cz.o2.proxima.testing.model</javaPackage>
@@ -219,7 +219,7 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-direct-compiler-plugin</artifactId>
-            <version>0.8.0</version>
+            <version>0.9.0</version>
           </dependency>
           <!--
             The following dependencies define additional
@@ -234,12 +234,12 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto</artifactId>
-            <version>0.8.0</version>
+            <version>0.9.0</version>
           </dependency>
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto</artifactId>
-            <version>0.8.0</version>
+            <version>0.9.0</version>
             <classifier>tests</classifier>
           </dependency>
         </dependencies>
@@ -257,7 +257,7 @@ First, let's introduce some glossary:
   ```
 
 ## Platform's _DataOperators_
- The platform offers various modes of access to data. As of version 0.8.0, these types are:
+ The platform offers various modes of access to data. As of version 0.9.0, these types are:
   * direct
   * Apache Beam
   * Apache Flink (experimental)
@@ -335,8 +335,8 @@ First, let's introduce some glossary:
 
 ## Online Java docs
   * [Latest](https://proxima.datadriven.cz/javadoc/)
+  * [0.10-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.10-SNAPSHOT/index.html)
   * [0.9-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.9-SNAPSHOT/index.html)
-  * [0.8-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.8-SNAPSHOT/index.html)
 
 ## Build notes
  CI is run only against changed modules (and its dependents) in pull requests. To completely rebuild the whole project in a PR push a commit with commit message 'rebuild'. After the build, you can squash and remove the commit.

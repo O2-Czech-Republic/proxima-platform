@@ -121,6 +121,7 @@
     <zookeeper.version>3.6.2</zookeeper.version>
     <mockito.version>3.10.0</mockito.version>
     <elasticsearch.client.version>7.17.2</elasticsearch.client.version>
+    <jackson.databind.version>2.12.6.1</jackson.databind.version>
   </properties>
 
   <profiles>

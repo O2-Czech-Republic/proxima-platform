@@ -78,6 +78,7 @@
     <proxima.main.project.version>0.10-SNAPSHOT</proxima.main.project.version>
     <maven.shade.version>3.2.4</maven.shade.version>
     <maven.surefire.version>3.0.0-M5</maven.surefire.version>
+    <maven.source.version>3.2.1</maven.source.version>
     <maven.javadoc.version>3.2.0</maven.javadoc.version>
     <maven.jar.version>3.2.0</maven.jar.version>
     <maven.ext.os.version>1.6.2</maven.ext.os.version>
@@ -159,7 +160,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-source-plugin</artifactId>
-            <version>3.2.1</version>
+            <version>${maven.source.version}</version>
             <configuration>
               <includePom>true</includePom>
             </configuration>
@@ -224,6 +225,29 @@
           <snapshots><enabled>true</enabled></snapshots>
         </pluginRepository>
       </pluginRepositories>
+    </profile>
+    <profile>
+      <id>with-sources</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>${maven.source.version}</version>
+            <configuration>
+              <includePom>true</includePom>
+            </configuration>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
     <profile>
       <id>with-coverage</id>

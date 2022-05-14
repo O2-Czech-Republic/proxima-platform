@@ -171,12 +171,12 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
     this.autoCommitIntervalNs =
         Optional.ofNullable(cfg.get(AUTO_COMMIT_INTERVAL_MS))
-            .map(v -> Long.valueOf(v.toString()) * 1_000_000L)
+            .map(v -> Long.parseLong(v.toString()) * 1_000_000L)
             .orElse(autoCommitIntervalNs);
 
     this.logStaleCommitIntervalNs =
         Optional.ofNullable(cfg.get(LOG_STALE_COMMIT_INTERVAL_MS))
-            .map(v -> Long.valueOf(v.toString()) * 1_000_000L)
+            .map(v -> Long.parseLong(v.toString()) * 1_000_000L)
             .orElse(logStaleCommitIntervalNs);
 
     this.assignmentTimeoutMillis =
@@ -184,7 +184,7 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
             .map(v -> Long.parseLong(v.toString()))
             .orElse(assignmentTimeoutMillis);
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     Class<ElementSerializer<?, ?>> serializer =
         Optional.ofNullable(cfg.get(SERIALIZER_CLASS))
             .map(Object::toString)

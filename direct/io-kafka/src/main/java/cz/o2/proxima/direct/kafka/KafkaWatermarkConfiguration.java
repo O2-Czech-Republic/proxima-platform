@@ -45,6 +45,8 @@ public class KafkaWatermarkConfiguration extends WatermarkConfiguration {
     return MoreObjects.toStringHelper(this)
         .add("defaultIdlePolicyFactory", getDefaultIdlePolicyFactory())
         .add("defaultEstimatorFactory", getDefaultEstimatorFactory())
+        .add("currentIdlePolicyFactory", getWatermarkIdlePolicyFactory())
+        .add("currentEstimatorFactory", getWatermarkEstimatorFactory())
         .toString();
   }
 }

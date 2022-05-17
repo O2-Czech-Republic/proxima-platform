@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.InstantCoder;
@@ -150,43 +149,38 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
       watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
 
-      while (!tracker.currentRestriction().isFinished()) {
+      PartitionList restriction = Objects.requireNonNull(tracker.currentRestriction());
+      Partition part = Objects.requireNonNull(restriction.getFirstPartition());
 
-        PartitionList restriction = Objects.requireNonNull(tracker.currentRestriction());
-        Partition part = Objects.requireNonNull(restriction.getFirstPartition());
+      log.debug("Starting to process partition {} from restriction {}", part, restriction);
 
-        log.debug("Starting to process partition {} from restriction {}", part, restriction);
+      final BlockingQueueLogObserver.BatchLogObserver observer =
+          newObserver("observer-" + part.getId(), restriction.getTotalLimit());
 
-        final BlockingQueueLogObserver.BatchLogObserver observer =
-            newObserver("observer-" + part.getId(), restriction.getTotalLimit());
+      if (!tracker.tryClaim(part)) {
+        return ProcessContinuation.stop();
+      }
+      try (ObserveHandle handle = startObserve(part, observer)) {
+        while (observer.getWatermark() < Watermarks.MAX_WATERMARK
+            && !restriction.isLimitConsumed()) {
 
-        if (!tracker.tryClaim(part)) {
-          return ProcessContinuation.stop();
-        }
-        try (ObserveHandle handle = startObserve(part, observer)) {
-          while (observer.getWatermark() < Watermarks.MAX_WATERMARK
-              && !restriction.isLimitConsumed()) {
-
-            StreamElement element = observer.takeBlocking(30, TimeUnit.SECONDS);
-            if (element != null) {
-              restriction.reportConsumed();
-              output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
-            }
+          StreamElement element = observer.takeBlocking(100, TimeUnit.MILLISECONDS);
+          if (element != null) {
+            restriction.reportConsumed();
+            output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
           }
-          Optional.ofNullable(observer.getError())
-              .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
-        } catch (InterruptedException ex) {
-          Thread.currentThread().interrupt();
-          break;
         }
-
-        watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
+        log.debug("Finished processing partition {} from restriction {}", part, restriction);
+        Optional.ofNullable(observer.getError())
+            .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
       }
 
+      watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
+
       boolean terminated = tracker.currentRestriction().isFinished();
-      return terminated
-          ? ProcessContinuation.stop()
-          : ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
+      return terminated ? ProcessContinuation.stop() : ProcessContinuation.resume();
     }
 
     private ObserveHandle startObserve(

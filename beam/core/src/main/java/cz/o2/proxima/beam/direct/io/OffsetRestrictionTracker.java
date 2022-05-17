@@ -190,10 +190,6 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
 
     @Override
     public OffsetRestrictionTracker newTracker() {
-      Preconditions.checkState(
-          !finished, "Tracker can be created only for not-yet split restrictions");
-      Preconditions.checkState(
-          extensible, "Tracker can be created only for not-yet split restrictions");
       return new OffsetRestrictionTracker(this);
     }
 

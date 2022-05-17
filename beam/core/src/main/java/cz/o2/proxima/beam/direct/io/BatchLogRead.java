@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.InstantCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
@@ -50,6 +52,7 @@ import org.joda.time.Duration;
 import org.joda.time.Instant;
 
 /** A {@link PTransform} that reads from a {@link BatchLogReader} using splittable DoFn. */
+@Slf4j
 public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>> {
 
   /**
@@ -151,6 +154,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
         PartitionList restriction = Objects.requireNonNull(tracker.currentRestriction());
         Partition part = Objects.requireNonNull(restriction.getFirstPartition());
+
+        log.debug("Starting to process partition {} from restriction {}", part, restriction);
 
         final BlockingQueueLogObserver.BatchLogObserver observer =
             newObserver("observer-" + part.getId(), restriction.getTotalLimit());

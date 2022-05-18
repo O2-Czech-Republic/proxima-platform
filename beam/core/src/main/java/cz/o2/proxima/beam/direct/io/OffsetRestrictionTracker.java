@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.Partition;

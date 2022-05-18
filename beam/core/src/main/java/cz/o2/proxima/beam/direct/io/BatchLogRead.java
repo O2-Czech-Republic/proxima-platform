@@ -154,6 +154,11 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
       log.debug("Starting to process partition {} from restriction {}", part, restriction);
 
+      if (!restriction.isStarted()) {
+        restriction.setStarted(true);
+        return ProcessContinuation.resume().withResumeDelay(Duration.millis(1));
+      }
+
       final BlockingQueueLogObserver.BatchLogObserver observer =
           newObserver("observer-" + part.getId(), restriction.getTotalLimit());
 

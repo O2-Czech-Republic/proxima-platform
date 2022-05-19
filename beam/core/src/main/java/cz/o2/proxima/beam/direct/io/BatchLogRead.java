@@ -28,7 +28,9 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -154,11 +156,6 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
       log.debug("Starting to process partition {} from restriction {}", part, restriction);
 
-      if (!restriction.isStarted()) {
-        restriction.setStarted(true);
-        return ProcessContinuation.resume().withResumeDelay(Duration.millis(1));
-      }
-
       final BlockingQueueLogObserver.BatchLogObserver observer =
           newObserver("observer-" + part.getId(), restriction.getTotalLimit());
 
@@ -185,7 +182,9 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
 
       boolean terminated = tracker.currentRestriction().isFinished();
-      return terminated ? ProcessContinuation.stop() : ProcessContinuation.resume();
+      return terminated
+          ? ProcessContinuation.stop()
+          : ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
     }
 
     private ObserveHandle startObserve(
@@ -202,16 +201,28 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
     @SplitRestriction
     public void splitRestriction(
-        @Restriction PartitionList restriction, OutputReceiver<PartitionList> splits) {
+        @Restriction PartitionList restriction, OutputReceiver<PartitionList> output) {
 
       if (!restriction.isEmpty()) {
-        restriction
-            .getPartitions()
-            .forEach(
-                p ->
-                    splits.output(PartitionList.ofSinglePartition(p, restriction.getTotalLimit())));
+        List<PartitionList> splits = new ArrayList<>();
+        List<Partition> partitions = restriction.getPartitions();
+        partitions.sort(Comparator.comparing(Partition::getMinTimestamp));
+        int pos = 0;
+        int reduced = partitions.size() / 50 + 1;
+        for (Partition p : partitions) {
+          if (splits.size() <= pos) {
+            splits.add(
+                PartitionList.ofSinglePartition(
+                    p, restriction.getTotalLimit() / partitions.size()));
+          } else {
+            splits.get(pos).add(p);
+          }
+          // FIXME: how to configure this?
+          pos = pos + 1 % reduced;
+        }
+        splits.forEach(output::output);
       } else {
-        splits.output(restriction);
+        output.output(restriction);
       }
     }
 

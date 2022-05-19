@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.ToString;
 import org.apache.beam.sdk.transforms.splittabledofn.HasDefaultTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
@@ -70,7 +69,6 @@ public class BatchRestrictionTracker extends RestrictionTracker<PartitionList, P
     }
 
     @Getter private final List<Partition> partitions;
-    @Getter @Setter private boolean started = false;
 
     // maximal number of elements in all (split) ranges
     @Getter private long totalLimit;
@@ -143,6 +141,10 @@ public class BatchRestrictionTracker extends RestrictionTracker<PartitionList, P
         return Instant.ofEpochMilli(getFirstPartition().getMinTimestamp());
       }
       return BoundedWindow.TIMESTAMP_MAX_VALUE;
+    }
+
+    void add(Partition p) {
+      partitions.add(p);
     }
   }
 

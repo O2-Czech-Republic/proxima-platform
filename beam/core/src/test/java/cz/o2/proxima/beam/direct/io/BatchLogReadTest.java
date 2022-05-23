@@ -15,9 +15,13 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.beam.direct.io.BatchLogRead.BatchLogReadFn;
+import cz.o2.proxima.beam.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -25,6 +29,7 @@ import cz.o2.proxima.direct.storage.ListBatchReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.nio.ByteBuffer;
 import java.time.Instant;
@@ -33,6 +38,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.runners.flink.FlinkRunner;
@@ -42,6 +49,7 @@ import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Count;
+import org.apache.beam.sdk.transforms.DoFn.OutputReceiver;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.Sum;
@@ -158,6 +166,38 @@ public class BatchLogReadTest {
       err.printStackTrace(System.err);
       throw err;
     }
+  }
+
+  @Test
+  public void testInitialSplitting() {
+    BatchLogRead read =
+        BatchLogRead.of(Collections.emptyList(), Long.MAX_VALUE, repo, mock(BatchLogReader.class));
+    BatchLogReadFn readFn =
+        read
+        .new BatchLogReadFn(
+            Collections.emptyList(),
+            Long.MAX_VALUE,
+            repo.asFactory(),
+            mock(BatchLogReader.Factory.class));
+    PartitionList list =
+        PartitionList.initialRestriction(
+            IntStream.range(0, 10000).mapToObj(Partition::of).collect(Collectors.toList()),
+            Long.MAX_VALUE);
+    List<PartitionList> output = new ArrayList<>();
+    readFn.splitRestriction(
+        list,
+        new OutputReceiver<PartitionList>() {
+          @Override
+          public void output(PartitionList part) {
+            output.add(part);
+          }
+
+          @Override
+          public void outputWithTimestamp(PartitionList part, org.joda.time.Instant timestamp) {
+            output(part);
+          }
+        });
+    assertEquals(100, output.size());
   }
 
   private void testReadingFromBatchLog(List<AttributeDescriptor<?>> attrs, BatchLogReader reader) {

@@ -120,14 +120,15 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   }
 
   @DoFn.BoundedPerElement
-  private class BatchLogReadFn extends DoFn<byte[], StreamElement> {
+  @VisibleForTesting
+  class BatchLogReadFn extends DoFn<byte[], StreamElement> {
 
     private final List<AttributeDescriptor<?>> attributes;
     private final RepositoryFactory repositoryFactory;
     private final BatchLogReader.Factory<?> readerFactory;
     private final long limit;
 
-    private BatchLogReadFn(
+    BatchLogReadFn(
         List<AttributeDescriptor<?>> attributes,
         long limit,
         RepositoryFactory repositoryFactory,
@@ -159,6 +160,11 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       final BlockingQueueLogObserver.BatchLogObserver observer =
           newObserver("observer-" + part.getId(), restriction.getTotalLimit());
 
+      if (!restriction.isStarted()) {
+        restriction.setStarted(true);
+        return ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
+      }
+
       if (!tracker.tryClaim(part)) {
         return ProcessContinuation.stop();
       }
@@ -184,7 +190,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       boolean terminated = tracker.currentRestriction().isFinished();
       return terminated
           ? ProcessContinuation.stop()
-          : ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
+          : ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
     }
 
     private ObserveHandle startObserve(
@@ -208,7 +214,11 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         List<Partition> partitions = restriction.getPartitions();
         partitions.sort(Comparator.comparing(Partition::getMinTimestamp));
         int pos = 0;
-        int reduced = partitions.size() / 50 + 1;
+        int reduced = (int) Math.sqrt(partitions.size());
+        log.info(
+            "Splitting initial restriction of attributes {} into {} downstream parts.",
+            attributes,
+            reduced);
         for (Partition p : partitions) {
           if (splits.size() <= pos) {
             splits.add(
@@ -217,8 +227,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
           } else {
             splits.get(pos).add(p);
           }
-          // FIXME: how to configure this?
-          pos = pos + 1 % reduced;
+          pos = (pos + 1) % reduced;
         }
         splits.forEach(output::output);
       } else {

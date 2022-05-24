@@ -19,6 +19,7 @@ import static org.junit.Assert.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.functional.Factory;
@@ -30,6 +31,7 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.util.ReplicationRunner;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,7 +60,10 @@ import org.junit.Test;
 /** Test suite for {@link BeamDataOperator}. */
 public class BeamDataOperatorTest {
 
-  final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
+  final Repository repo =
+      Repository.ofTest(
+          ConfigFactory.load("test-config-parsing.conf")
+              .withFallback(ConfigFactory.load("test-reference.conf")));
   final EntityDescriptor gateway = repo.getEntity("gateway");
   final AttributeDescriptor<?> armed = gateway.getAttribute("armed");
   final EntityDescriptor proxied = repo.getEntity("proxied");
@@ -375,6 +380,15 @@ public class BeamDataOperatorTest {
     PCollection<StreamElement> input = beam.getStream(p, Position.OLDEST, true, true, event);
     PAssert.that(input.apply(Count.globally())).containsInAnyOrder(1L);
     assertNotNull(p.run());
+  }
+
+  @Test
+  public void testBatchLogReadConfigParsing() {
+    Pipeline p = Pipeline.create();
+    beam.getBatchUpdates(p, armed);
+    DataAccessor accessor = beam.getAccessorFor(repo.getFamilyByName("gateway-storage-batch"));
+    Map<String, Object> cfg = ((DirectDataAccessorWrapper) accessor).getCfg();
+    assertEquals(1, cfg.get("batch.max-initial-splits"));
   }
 
   private void terminatePipeline(

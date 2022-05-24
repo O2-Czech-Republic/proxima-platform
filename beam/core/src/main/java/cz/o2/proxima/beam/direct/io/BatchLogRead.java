@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -92,7 +93,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       long startStamp,
       long endStamp) {
 
-    return of(attributes, limit, repo.asFactory(), reader, startStamp, endStamp);
+    return of(
+        attributes, limit, repo.asFactory(), reader, startStamp, endStamp, Collections.emptyMap());
   }
 
   /**
@@ -105,6 +107,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
    * @param reader the reader
    * @param startStamp starting stamp (inclusive)
    * @param endStamp ending stamp (exclusive)
+   * @param cfg configuration of the family
    * @return {@link CommitLogRead} transform for the commit log
    */
   public static BatchLogRead of(
@@ -113,10 +116,11 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       RepositoryFactory repositoryFactory,
       BatchLogReader reader,
       long startStamp,
-      long endStamp) {
+      long endStamp,
+      Map<String, Object> cfg) {
 
     return new BatchLogRead(
-        attributes, limit, repositoryFactory, reader.asFactory(), startStamp, endStamp);
+        attributes, limit, repositoryFactory, reader.asFactory(), startStamp, endStamp, cfg);
   }
 
   @DoFn.BoundedPerElement
@@ -215,6 +219,9 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         partitions.sort(Comparator.comparing(Partition::getMinTimestamp));
         int pos = 0;
         int reduced = (int) Math.sqrt(partitions.size());
+        if (maxInitialSplits > 0 && reduced > maxInitialSplits) {
+          reduced = maxInitialSplits;
+        }
         log.info(
             "Splitting initial restriction of attributes {} into {} downstream parts.",
             attributes,
@@ -262,6 +269,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   private final Factory<?> readerFactory;
   private final long startStamp;
   private final long endStamp;
+  private final int maxInitialSplits;
 
   @VisibleForTesting
   BatchLogRead(
@@ -270,7 +278,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       RepositoryFactory repoFactory,
       BatchLogReader.Factory<?> readerFactory,
       long startStamp,
-      long endStamp) {
+      long endStamp,
+      Map<String, Object> cfg) {
 
     this.attributes = Lists.newArrayList(Objects.requireNonNull(attributes));
     this.limit = limit;
@@ -278,6 +287,14 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     this.readerFactory = readerFactory;
     this.startStamp = startStamp;
     this.endStamp = endStamp;
+    this.maxInitialSplits = readInitialSplits(cfg);
+  }
+
+  private int readInitialSplits(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("batch.max-initial-splits"))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .orElse(-1);
   }
 
   @Override

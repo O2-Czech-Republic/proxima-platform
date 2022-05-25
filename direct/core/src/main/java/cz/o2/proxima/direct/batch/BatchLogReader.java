@@ -128,4 +128,12 @@ public interface BatchLogReader {
    * @return the {@link Factory} representing this reader
    */
   Factory<?> asFactory();
+
+  /**
+   * Verify if we can read given partition without any (known in advance) delays defined by any
+   * possible {@link cz.o2.proxima.storage.ThroughputLimiter}.
+   */
+  default boolean isReadyForProcessing(Partition partition) {
+    return true;
+  }
 }

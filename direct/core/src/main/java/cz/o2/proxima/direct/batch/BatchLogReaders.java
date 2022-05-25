@@ -26,6 +26,7 @@ import cz.o2.proxima.util.SerializableUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -80,6 +81,23 @@ public class BatchLogReaders {
     public ThroughputLimitedBatchLogReader(BatchLogReader delegate, ThroughputLimiter limiter) {
       super(delegate);
       this.limiter = limiter;
+    }
+
+    @Override
+    public boolean isReadyForProcessing(Partition partition) {
+      Context context =
+          new Context() {
+            @Override
+            public Collection<Partition> getConsumedPartitions() {
+              return Collections.singletonList(partition);
+            }
+
+            @Override
+            public long getMinWatermark() {
+              return partition.getMinTimestamp();
+            }
+          };
+      return limiter.getPauseTime(context).equals(Duration.ZERO);
     }
 
     @Override

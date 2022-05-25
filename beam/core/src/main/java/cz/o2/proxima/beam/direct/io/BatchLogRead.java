@@ -169,10 +169,16 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         return ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
       }
 
+      BatchLogReader reader = readerFactory.apply(repositoryFactory.apply());
+      if (!reader.isReadyForProcessing(part)) {
+        log.debug("Delaying processing of partition {} due to limiter.", part);
+        return ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
+      }
+
       if (!tracker.tryClaim(part)) {
         return ProcessContinuation.stop();
       }
-      try (ObserveHandle handle = startObserve(part, observer)) {
+      try (ObserveHandle handle = startObserve(reader, part, observer)) {
         while (observer.getWatermark() < Watermarks.MAX_WATERMARK
             && !restriction.isLimitConsumed()) {
 
@@ -198,8 +204,10 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     }
 
     private ObserveHandle startObserve(
-        Partition partition, cz.o2.proxima.direct.batch.BatchLogObserver observer) {
-      BatchLogReader reader = readerFactory.apply(repositoryFactory.apply());
+        BatchLogReader reader,
+        Partition partition,
+        cz.o2.proxima.direct.batch.BatchLogObserver observer) {
+
       return reader.observe(Collections.singletonList(partition), attributes, observer);
     }
 

@@ -28,9 +28,11 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.ReplicationRunner;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -44,6 +46,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.After;
@@ -123,6 +126,7 @@ public class BatchLogReaderTest {
     }
     BatchLogReader reader = getBatchReader();
     BlockingQueue<StreamElement> read = new SynchronousQueue<>();
+    reader.getPartitions().forEach(p -> assertTrue(reader.isReadyForProcessing(p)));
     reader.observe(
         reader.getPartitions(),
         Collections.singletonList(attr),
@@ -179,6 +183,32 @@ public class BatchLogReaderTest {
         IntStream.range(0, numElements).boxed().collect(Collectors.toList()),
         values.stream().sorted().collect(Collectors.toList()));
     assertTrue(System.currentTimeMillis() - now > 1000);
+  }
+
+  @Test(timeout = 5000)
+  public void testObserveWithWatermarkLimit() throws InterruptedException {
+    int numElements = 100;
+    for (int i = 0; i < numElements; i++) {
+      write("gw" + i, new byte[] {(byte) i});
+    }
+    AtomicLong allowableWatermark = new AtomicLong(Long.MIN_VALUE);
+    ThroughputLimiter limitingWatermark =
+        new ThroughputLimiter() {
+          @Override
+          public Duration getPauseTime(Context context) {
+            return context.getMinWatermark() < allowableWatermark.get()
+                ? Duration.ZERO
+                : Duration.ofSeconds(1);
+          }
+
+          @Override
+          public void close() {}
+        };
+    BatchLogReader reader =
+        BatchLogReaders.withLimitedThroughput(getBatchReader(), limitingWatermark);
+    reader.getPartitions().forEach(p -> assertFalse(reader.isReadyForProcessing(p)));
+    allowableWatermark.set(Long.MAX_VALUE);
+    reader.getPartitions().forEach(p -> assertTrue(reader.isReadyForProcessing(p)));
   }
 
   @Test

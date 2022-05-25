@@ -87,7 +87,6 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   @GuardedBy("this")
   private transient Map<String, WatermarkWithUpdate> partialWatermarks;
 
-  private transient volatile boolean closed = false;
   private transient AtomicLong globalWatermark;
   private transient volatile CreateMode parentCreateMode;
   private transient volatile boolean parentCreated;
@@ -205,7 +204,6 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   @Override
   public synchronized void close() {
-    closed = true;
     disconnect();
   }
 
@@ -520,13 +518,10 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     final ZooKeeper ret = client;
     if (ret == null) {
       synchronized (this) {
-        if (!closed) {
-          if (client == null) {
-            client = createNewZooKeeper();
-          }
-          return client;
+        if (client == null) {
+          client = createNewZooKeeper();
         }
-        throw new ConcurrentModificationException("Tracker " + this + " has already been closed.");
+        return client;
       }
     }
     return ret;
@@ -567,7 +562,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   private void watchParentNode(WatchedEvent watchedEvent) {
     String path = watchedEvent.getPath();
     synchronized (this) {
-      if (path != null && !closed) {
+      if (path != null) {
         if (path.equals(getParentNode())) {
           handleWatchOnParentNode();
         } else if (path.length() > getParentNode().length()) {

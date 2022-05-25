@@ -155,7 +155,7 @@ public class ZKGlobalWatermarkTrackerTest {
   }
 
   private Map<String, Object> cfg() {
-    return cfg("name-" + UUID.randomUUID());
+    return cfg("name-" + UUID.randomUUID().toString());
   }
 
   private Map<String, Object> cfg(String name) {
@@ -278,35 +278,30 @@ public class ZKGlobalWatermarkTrackerTest {
       Factory<ZKGlobalWatermarkTracker> factory, int numInstances)
       throws ExecutionException, InterruptedException {
 
-    try {
-      List<ZKGlobalWatermarkTracker> trackers = Lists.newArrayList(tracker);
-      while (trackers.size() < numInstances) {
-        trackers.add(factory.apply());
-      }
-      long currentWatermark;
-      long now = System.currentTimeMillis();
-      long MIN_INSTANT = Long.MIN_VALUE;
-      for (int i = 0; i < numInstances; i++) {
-        trackers.get(i).initWatermarks(Collections.singletonMap("process" + i, MIN_INSTANT));
-      }
-      for (int i = 0; i < numInstances * 20; i++) {
-        int id = i % numInstances;
-        String process = "process" + id;
-        ZKGlobalWatermarkTracker instance = trackers.get(id);
-        instance.update(process, now + 1).get();
-        currentWatermark = instance.getGlobalWatermark(process, now + 1);
-        if (i > 2 * numInstances) {
-          assertTrue(
-              String.format(
-                  "Error in round %d, expected at least %d, got %d", i, now, currentWatermark),
-              now <= currentWatermark);
-        }
-      }
-      trackers.forEach(ZKGlobalWatermarkTracker::close);
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
+    List<ZKGlobalWatermarkTracker> trackers = Lists.newArrayList(tracker);
+    while (trackers.size() < numInstances) {
+      trackers.add(factory.apply());
     }
+    long currentWatermark;
+    long now = System.currentTimeMillis();
+    long MIN_INSTANT = Long.MIN_VALUE;
+    for (int i = 0; i < numInstances; i++) {
+      trackers.get(i).initWatermarks(Collections.singletonMap("process" + i, MIN_INSTANT));
+    }
+    for (int i = 0; i < numInstances * 20; i++) {
+      int id = i % numInstances;
+      String process = "process" + id;
+      ZKGlobalWatermarkTracker instance = trackers.get(id);
+      instance.update(process, now + 1).get();
+      currentWatermark = instance.getGlobalWatermark(process, now + 1);
+      if (i > 2 * numInstances) {
+        assertTrue(
+            String.format(
+                "Error in round %d, expected at least %d, got %d", i, now, currentWatermark),
+            now <= currentWatermark);
+      }
+    }
+    trackers.forEach(ZKGlobalWatermarkTracker::close);
   }
 
   @Test

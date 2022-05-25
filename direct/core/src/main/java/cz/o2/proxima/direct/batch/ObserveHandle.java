@@ -28,6 +28,14 @@ public interface ObserveHandle extends AutoCloseable {
     return () -> {};
   }
 
+  /**
+   * Verify if we can read without any (known in advance) delays defined by any possible {@link
+   * cz.o2.proxima.storage.ThroughputLimiter}.
+   */
+  default boolean isReadyForProcessing() {
+    return true;
+  }
+
   /** Stop the consumption. */
   @Override
   void close();

@@ -148,6 +148,10 @@ public class BatchRestrictionTracker extends RestrictionTracker<PartitionList, P
     void add(Partition p) {
       partitions.add(p);
     }
+
+    void reclaim(Partition part) {
+      partitions.add(0, part);
+    }
   }
 
   private final PartitionList currentRestriction;

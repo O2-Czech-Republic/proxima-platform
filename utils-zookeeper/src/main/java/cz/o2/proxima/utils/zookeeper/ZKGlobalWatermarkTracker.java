@@ -28,11 +28,14 @@ import java.io.File;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
-import java.util.ConcurrentModificationException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -60,6 +63,9 @@ import org.apache.zookeeper.data.Stat;
 @Slf4j
 public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
+  private static final Set<String> ZOOKEEPER_OWNERS = Collections.synchronizedSet(new HashSet<>());
+  private static volatile ZooKeeper CLIENT;
+
   private static final long serialVersionUID = 1L;
   private static final long MAX_WATERMARK = Long.MAX_VALUE;
 
@@ -76,18 +82,17 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     private long timestamp;
   }
 
+  private transient String trackerId;
   @VisibleForTesting TimeProvider timeProvider = TimeProvider.processingTime();
   @VisibleForTesting String zkConnectString;
   @VisibleForTesting String parentNode;
   private String trackerName;
   private int sessionTimeout;
   private long maxAcceptableUpdateMs;
-  private transient volatile ZooKeeper client;
 
   @GuardedBy("this")
   private transient Map<String, WatermarkWithUpdate> partialWatermarks;
 
-  private transient volatile boolean closed = false;
   private transient AtomicLong globalWatermark;
   private transient volatile CreateMode parentCreateMode;
   private transient volatile boolean parentCreated;
@@ -106,6 +111,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     if (timeProvider == null) {
       timeProvider = TimeProvider.processingTime();
     }
+    trackerId = UUID.randomUUID().toString();
   }
 
   @Override
@@ -205,18 +211,17 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   @Override
   public synchronized void close() {
-    closed = true;
     disconnect();
   }
 
   synchronized void disconnect() {
-    Optional.ofNullable(client)
-        .ifPresent(
-            c -> {
-              // first nullify the client so that concurrent reads will not see closed client
-              this.client = null;
-              ExceptionUtils.ignoringInterrupted(c::close);
-            });
+    synchronized (ZOOKEEPER_OWNERS) {
+      if (ZOOKEEPER_OWNERS.remove(trackerId) && ZOOKEEPER_OWNERS.isEmpty()) {
+        ZooKeeper current = CLIENT;
+        CLIENT = null;
+        ExceptionUtils.unchecked(current::close);
+      }
+    }
     init();
   }
 
@@ -517,19 +522,15 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   private ZooKeeper client() {
-    final ZooKeeper ret = client;
-    if (ret == null) {
-      synchronized (this) {
-        if (!closed) {
-          if (client == null) {
-            client = createNewZooKeeper();
-          }
-          return client;
+    if (CLIENT == null) {
+      synchronized (ZOOKEEPER_OWNERS) {
+        if (ZOOKEEPER_OWNERS.isEmpty()) {
+          CLIENT = createNewZooKeeper();
         }
-        throw new ConcurrentModificationException("Tracker " + this + " has already been closed.");
+        ZOOKEEPER_OWNERS.add(trackerId);
       }
     }
-    return ret;
+    return Objects.requireNonNull(CLIENT);
   }
 
   @VisibleForTesting
@@ -567,7 +568,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   private void watchParentNode(WatchedEvent watchedEvent) {
     String path = watchedEvent.getPath();
     synchronized (this) {
-      if (path != null && !closed) {
+      if (path != null) {
         if (path.equals(getParentNode())) {
           handleWatchOnParentNode();
         } else if (path.length() > getParentNode().length()) {

@@ -22,13 +22,14 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.TimeProvider;
 import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.watermark.GlobalWatermarkTracker;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
-import java.util.ConcurrentModificationException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -72,8 +73,8 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   @VisibleForTesting
   @Value
   static class WatermarkWithUpdate {
-    private long watermark;
-    private long timestamp;
+    long watermark;
+    long timestamp;
   }
 
   @VisibleForTesting TimeProvider timeProvider = TimeProvider.processingTime();
@@ -200,11 +201,6 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
       return path;
     }
     return path.substring(lastSlash + 1);
-  }
-
-  @Override
-  public synchronized void close() {
-    disconnect();
   }
 
   synchronized void disconnect() {
@@ -509,7 +505,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
                               < maxAcceptableUpdateMs)
               .map(Map.Entry::getValue)
               .map(WatermarkWithUpdate::getWatermark)
-              .min(Long::compare)
+              .min(Comparator.naturalOrder())
               .orElse(Long.MIN_VALUE));
     }
   }
@@ -580,7 +576,21 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     String process = path.startsWith(getParentNode()) ? getNodeName(path) : "";
     if (isDelete && !process.isEmpty()) {
       updatePartialWatermark(
-          process, new WatermarkWithUpdate(Long.MAX_VALUE, timeProvider.getCurrentTime()));
+          process,
+          new WatermarkWithUpdate(Watermarks.MAX_WATERMARK, timeProvider.getCurrentTime()));
+      long currentMinWatermark;
+      synchronized (this) {
+        currentMinWatermark =
+            partialWatermarks
+                .values()
+                .stream()
+                .map(WatermarkWithUpdate::getWatermark)
+                .min(Comparator.naturalOrder())
+                .orElse(Watermarks.MAX_WATERMARK);
+      }
+      if (currentMinWatermark >= Watermarks.MAX_WATERMARK) {
+        disconnect();
+      }
     } else {
       final AtomicReference<Runnable> retry = new AtomicReference<>();
       final DataCallback dataCallback =

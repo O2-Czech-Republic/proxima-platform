@@ -17,7 +17,6 @@ package cz.o2.proxima.storage.watermark;
 
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.time.WatermarkSupplier;
-import java.io.Closeable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
@@ -35,7 +34,7 @@ import javax.annotation.Nullable;
  * </ol>
  */
 @Evolving
-public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
+public interface GlobalWatermarkTracker extends WatermarkSupplier {
 
   /**
    * Retrieve name of this tracker.

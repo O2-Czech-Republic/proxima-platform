@@ -250,7 +250,7 @@ public class ZKGlobalWatermarkTrackerTest {
         () -> createUnimplementedContainerNodeTracker(name), 10);
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 20000)
   public void testParentNodeDelete() throws ExecutionException, InterruptedException {
     String name = tracker.getName();
     testMultipleInstancesWithTrackerFactory(
@@ -301,7 +301,11 @@ public class ZKGlobalWatermarkTrackerTest {
             now <= currentWatermark);
       }
     }
-    trackers.forEach(ZKGlobalWatermarkTracker::close);
+    for (int i = 0; i < numInstances; i++) {
+      for (int j = 0; j < numInstances; j++) {
+        trackers.get(i).finished("process" + j);
+      }
+    }
   }
 
   @Test

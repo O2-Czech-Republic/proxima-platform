@@ -55,9 +55,6 @@ public class GlobalWatermarkTrackerTest {
       }
       return updated.values().stream().mapToLong(e -> e).min().orElse(Long.MIN_VALUE);
     }
-
-    @Override
-    public void close() {}
   }
 
   @Test

@@ -77,9 +77,6 @@ public class GlobalWatermarkThroughputLimiterTest {
     public long getGlobalWatermark(@Nullable String processName, long currentWatermark) {
       return globalWatermark.toEpochMilli();
     }
-
-    @Override
-    public void close() {}
   }
 
   @Before

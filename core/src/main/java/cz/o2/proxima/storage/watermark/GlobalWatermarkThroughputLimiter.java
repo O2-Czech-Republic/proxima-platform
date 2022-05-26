@@ -39,6 +39,8 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   private static final long serialVersionUID = 1L;
 
+  private static volatile GlobalWatermarkTracker TRACKER;
+
   static final String TRACKER_CFG_PREFIX = "tracker.";
   static final String KW_CLASS = "class";
 
@@ -59,10 +61,11 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
    */
   public static final String DEFAULT_SLEEP_TIME_CFG = "default-sleep-time-ms";
 
-  @VisibleForTesting @Getter GlobalWatermarkTracker tracker;
-
   private long maxAheadTimeFromGlobalMs = Long.MAX_VALUE;
   private long globalWatermarkUpdatePeriodMs = Duration.ofMinutes(1).toMillis();
+
+  @VisibleForTesting @Getter private GlobalWatermarkTracker tracker;
+
   private transient String processName = UUID.randomUUID().toString();
 
   private long lastGlobalWatermarkUpdate = Long.MIN_VALUE;
@@ -70,29 +73,40 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   @Override
   public void setup(Map<String, Object> cfg) {
-    this.tracker =
-        Optional.ofNullable(cfg.get(TRACKER_CFG_PREFIX + KW_CLASS))
-            .map(Object::toString)
-            .map(
-                cls ->
-                    ExceptionUtils.uncheckedFactory(
-                        () -> Classpath.newInstance(cls, GlobalWatermarkTracker.class)))
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        String.format(
-                            "Missing %s%s specifying GlobalWatermarkTracker implementation",
-                            TRACKER_CFG_PREFIX, KW_CLASS)));
-    this.tracker.setup(
-        cfg.entrySet()
-            .stream()
-            .filter(e -> e.getKey().startsWith(TRACKER_CFG_PREFIX))
-            .map(e -> Pair.of(e.getKey().substring(TRACKER_CFG_PREFIX.length()), e.getValue()))
-            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+    initializeTracker(cfg);
+    this.tracker = TRACKER;
     this.maxAheadTimeFromGlobalMs = getLong(cfg, MAX_AHEAD_TIME_MS_CFG, maxAheadTimeFromGlobalMs);
     this.globalWatermarkUpdatePeriodMs =
         getLong(cfg, GLOBAL_WATERMARK_UPDATE_MS_CFG, globalWatermarkUpdatePeriodMs);
     this.sleepTimeMs = getLong(cfg, DEFAULT_SLEEP_TIME_CFG, sleepTimeMs);
+  }
+
+  private void initializeTracker(Map<String, Object> cfg) {
+    if (TRACKER == null) {
+      synchronized (GlobalWatermarkThroughputLimiter.class) {
+        if (TRACKER == null) {
+          TRACKER =
+              Optional.ofNullable(cfg.get(TRACKER_CFG_PREFIX + KW_CLASS))
+                  .map(Object::toString)
+                  .map(
+                      cls ->
+                          ExceptionUtils.uncheckedFactory(
+                              () -> Classpath.newInstance(cls, GlobalWatermarkTracker.class)))
+                  .orElseThrow(
+                      () ->
+                          new IllegalArgumentException(
+                              String.format(
+                                  "Missing %s%s specifying GlobalWatermarkTracker implementation",
+                                  TRACKER_CFG_PREFIX, KW_CLASS)));
+        }
+        TRACKER.setup(
+            cfg.entrySet()
+                .stream()
+                .filter(e -> e.getKey().startsWith(TRACKER_CFG_PREFIX))
+                .map(e -> Pair.of(e.getKey().substring(TRACKER_CFG_PREFIX.length()), e.getValue()))
+                .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+      }
+    }
   }
 
   private static Long getLong(Map<String, Object> cfg, String key, long defVal) {
@@ -121,7 +135,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   @Override
   public void close() {
     if (tracker != null) {
-      ExceptionUtils.unchecked(tracker::close);
+      tracker.finished(processName);
       tracker = null;
     }
   }
@@ -156,6 +170,16 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   protected Object readResolve() {
     this.processName = UUID.randomUUID().toString();
+    if (TRACKER == null) {
+      synchronized (GlobalWatermarkThroughputLimiter.class) {
+        if (TRACKER == null) {
+          TRACKER = this.tracker;
+        }
+      }
+    } else {
+      // enforce using singleton tracker
+      this.tracker = TRACKER;
+    }
     return this;
   }
 }

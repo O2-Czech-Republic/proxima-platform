@@ -79,11 +79,8 @@ public interface GlobalWatermarkTracker extends WatermarkSupplier {
    * Instant.ofEpochMilli(Long.MAX_VALUE))
    *
    * @param name name of the process to remove
-   * @return {@link CompletableFuture} to be able to wait for result being persisted
    */
-  default CompletableFuture<Void> finished(String name) {
-    return update(name, Long.MAX_VALUE);
-  }
+  void finished(String name);
 
   /**
    * Retrieve global watermark tracked by this tracker.

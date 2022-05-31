@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import lombok.experimental.Delegate;
 
@@ -124,13 +125,18 @@ public class BatchLogReaders {
       return new ForwardingObserveHandle(delegate) {
         @Override
         public boolean isReadyForProcessing() {
-          return limiter.getPauseTime(context).isZero();
+          return limitedObserver.getPauseTime(context).isZero();
         }
 
         @Override
         public void close() {
           clonedLimiter.close();
           super.close();
+        }
+
+        @Override
+        public void disableRateLimiting() {
+          limitedObserver.disableRateLimiting();
         }
       };
     }
@@ -155,6 +161,7 @@ public class BatchLogReaders {
 
     private final Collection<Partition> assignedPartitions;
     private final ThroughputLimiter limiter;
+    private final AtomicBoolean rateLimitingDisabled = new AtomicBoolean();
     private long watermark = Long.MIN_VALUE;
 
     public ThroughputLimitedBatchLogObserver(
@@ -212,7 +219,7 @@ public class BatchLogReaders {
     }
 
     private void waitIfNecessary() throws InterruptedException {
-      Duration pause = limiter.getPauseTime(getLimiterContext());
+      Duration pause = getPauseTime(getLimiterContext());
       if (!pause.equals(Duration.ZERO)) {
         TimeUnit.MILLISECONDS.sleep(pause.toMillis());
       }
@@ -231,6 +238,14 @@ public class BatchLogReaders {
           return watermark;
         }
       };
+    }
+
+    public void disableRateLimiting() {
+      rateLimitingDisabled.set(true);
+    }
+
+    public Duration getPauseTime(Context context) {
+      return rateLimitingDisabled.get() ? Duration.ZERO : limiter.getPauseTime(context);
     }
   }
 

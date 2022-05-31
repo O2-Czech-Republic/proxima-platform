@@ -32,12 +32,14 @@ import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.ReplicationRunner;
+import java.io.Serializable;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -46,7 +48,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.After;
@@ -192,7 +193,7 @@ public class BatchLogReaderTest {
     for (int i = 0; i < numElements; i++) {
       write("gw" + i, new byte[] {(byte) i});
     }
-    AtomicLong allowableWatermark = new AtomicLong(Long.MIN_VALUE);
+    SerializableLong allowableWatermark = new SerializableLong(Long.MIN_VALUE);
     ThroughputLimiter limitingWatermark = getWatermarkLimiter(allowableWatermark);
     BatchLogReader reader =
         BatchLogReaders.withLimitedThroughput(getBatchReader(), limitingWatermark);
@@ -206,7 +207,26 @@ public class BatchLogReaderTest {
     }
   }
 
-  private static ThroughputLimiter getWatermarkLimiter(AtomicLong allowableWatermark) {
+  @Test(timeout = 5000)
+  public void testObserveWithWatermarkLimitDisabled() {
+    int numElements = 100;
+    for (int i = 0; i < numElements; i++) {
+      write("gw" + i, new byte[] {(byte) i});
+    }
+    SerializableLong allowableWatermark = new SerializableLong(Long.MIN_VALUE);
+    ThroughputLimiter limitingWatermark = getWatermarkLimiter(allowableWatermark);
+    BatchLogReader reader =
+        BatchLogReaders.withLimitedThroughput(getBatchReader(), limitingWatermark);
+    try (ObserveHandle handle =
+        reader.observe(
+            reader.getPartitions(), Collections.singletonList(attr), getDummyObserver())) {
+
+      handle.disableRateLimiting();
+      assertTrue(handle.isReadyForProcessing());
+    }
+  }
+
+  private static ThroughputLimiter getWatermarkLimiter(SerializableLong allowableWatermark) {
     return new ThroughputLimiter() {
       @Override
       public Duration getPauseTime(Context context) {
@@ -322,5 +342,23 @@ public class BatchLogReaderTest {
 
   private void write(String key, byte[] value) {
     Optionals.get(direct.getWriter(attr)).write(newData(key, value), CommitCallback.noop());
+  }
+
+  private static class SerializableLong implements Serializable {
+
+    private static Map<String, Long> VALUES = new ConcurrentHashMap<>();
+    private final String uuid = UUID.randomUUID().toString();
+
+    public SerializableLong(long value) {
+      VALUES.put(uuid, value);
+    }
+
+    public long get() {
+      return VALUES.get(uuid);
+    }
+
+    public void set(long value) {
+      VALUES.put(uuid, value);
+    }
   }
 }

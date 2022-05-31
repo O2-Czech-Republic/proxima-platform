@@ -39,4 +39,9 @@ public interface ObserveHandle extends AutoCloseable {
   /** Stop the consumption. */
   @Override
   void close();
+
+  /** Disable any rate limit for this handle. */
+  default void disableRateLimiting() {
+    // nop
+  }
 }

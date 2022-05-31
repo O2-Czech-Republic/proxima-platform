@@ -178,6 +178,9 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
           tracker.currentRestriction().reclaim(part);
           return ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
         }
+        // disable any potential rate limit, we need to pass through the partition as quickly
+        // as possible
+        handle.disableRateLimiting();
         while (observer.getWatermark() < Watermarks.MAX_WATERMARK
             && !restriction.isLimitConsumed()) {
 

@@ -22,9 +22,11 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
@@ -115,6 +117,38 @@ public class TerminationContextTest {
     context.cancel();
     assertTrue(cancelLatch.await(1, TimeUnit.SECONDS));
     assertTrue(cancelled);
+    assertTrue(cancelFlag.get());
+  }
+
+  @Test
+  public void testFinished() throws InterruptedException {
+    TerminationContext context = new TerminationContext(observer);
+    ExecutorService pool = Executors.newCachedThreadPool();
+    AtomicBoolean cancelFlag = new AtomicBoolean();
+    CountDownLatch finishedLatch = new CountDownLatch(1);
+    CountDownLatch initLatch = new CountDownLatch(1);
+    BlockingQueue<Thread> thread = new SynchronousQueue<>();
+    pool.submit(
+        () -> {
+          ExceptionUtils.ignoringInterrupted(() -> thread.put(Thread.currentThread()));
+          context.setRunningThread();
+          initLatch.countDown();
+          int rounds = 0;
+          while (!context.isCancelled() && rounds++ < 10) {
+            ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(10));
+          }
+          cancelFlag.set(Thread.currentThread().isInterrupted());
+          context.finished();
+          finishedLatch.countDown();
+        });
+    final Thread runningThread;
+    try (ObserveHandle handle = context.asObserveHandle()) {
+      runningThread = thread.take();
+      initLatch.await();
+      assertTrue(finishedLatch.await(1, TimeUnit.SECONDS));
+    }
+    assertFalse(runningThread.isInterrupted());
+    assertFalse(cancelled);
     assertFalse(cancelFlag.get());
   }
 

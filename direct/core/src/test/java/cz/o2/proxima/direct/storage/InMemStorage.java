@@ -74,6 +74,7 @@ import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
@@ -366,6 +367,7 @@ public class InMemStorage implements DataAccessorFactory {
         List<ConsumedOffset> offsets,
         boolean stopAtCurrent,
         CommitLogObserver observer) {
+
       return doObserve(position, offsets, stopAtCurrent, observer, name);
     }
 
@@ -376,6 +378,7 @@ public class InMemStorage implements DataAccessorFactory {
         Position position,
         boolean stopAtCurrent,
         CommitLogObserver observer) {
+
       return observe(
           null,
           position,
@@ -387,6 +390,7 @@ public class InMemStorage implements DataAccessorFactory {
     @Override
     public ObserveHandle observeBulk(
         String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
+
       return doObserve(
           position,
           getPartitions().stream().map(ConsumedOffset::empty).collect(Collectors.toList()),
@@ -402,6 +406,7 @@ public class InMemStorage implements DataAccessorFactory {
         Position position,
         boolean stopAtCurrent,
         CommitLogObserver observer) {
+
       return doObserve(
           position,
           partitions.stream().map(ConsumedOffset::empty).collect(Collectors.toList()),
@@ -413,6 +418,7 @@ public class InMemStorage implements DataAccessorFactory {
     @Override
     public ObserveHandle observeBulkOffsets(
         Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
+
       @SuppressWarnings({"unchecked", "rawtypes"})
       final Collection<ConsumedOffset> cast = (Collection) offsets;
       return doObserve(Position.OLDEST, cast, stopAtCurrent, observer, null);
@@ -424,6 +430,7 @@ public class InMemStorage implements DataAccessorFactory {
         boolean stopAtCurrent,
         CommitLogObserver observer,
         @Nullable String name) {
+
       log.debug(
           "Observing {} as {} from offset {} with position {} and stopAtCurrent {} using observer {}",
           getUri(),
@@ -1035,9 +1042,12 @@ public class InMemStorage implements DataAccessorFactory {
       Preconditions.checkArgument(
           partitions.size() == 1, "This reader works on single partition only, got " + partitions);
       String prefix = toStoragePrefix(getUri());
+      CountDownLatch initLatch = new CountDownLatch(1);
       executor()
           .submit(
               () -> {
+                terminationContext.setRunningThread();
+                initLatch.countDown();
                 try {
                   try (Locker l = holder().lockRead()) {
                     final Map<String, StreamElement> data = getData().tailMap(prefix);
@@ -1054,6 +1064,7 @@ public class InMemStorage implements DataAccessorFactory {
                       () -> observeInternal(partitions, attributes, observer, terminationContext));
                 }
               });
+      ExceptionUtils.ignoringInterrupted(initLatch::await);
     }
 
     private boolean observeElement(

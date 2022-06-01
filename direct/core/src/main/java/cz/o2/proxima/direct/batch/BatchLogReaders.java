@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -171,7 +170,7 @@ public class BatchLogReaders {
 
       super(delegate);
       this.assignedPartitions = new ArrayList<>(assignedPartitions);
-      this.limiter = SerializableUtils.clone(Objects.requireNonNull(limiter));
+      this.limiter = limiter;
     }
 
     @Override
@@ -184,18 +183,18 @@ public class BatchLogReaders {
     }
 
     @Override
-    public boolean onError(Throwable error) {
+    public void onCancelled() {
       try {
-        return super.onError(error);
+        super.onCancelled();
       } finally {
         limiter.close();
       }
     }
 
     @Override
-    public void onCancelled() {
+    public boolean onError(Throwable error) {
       try {
-        super.onCancelled();
+        return super.onError(error);
       } finally {
         limiter.close();
       }

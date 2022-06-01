@@ -420,7 +420,7 @@ abstract class BlockingQueueLogObserver<
       return taken.getFirst();
     } else if (taken != null) {
       // we have read the finalizing marker
-      updateAndLogWatermark(Long.MAX_VALUE);
+      updateAndLogWatermark(Watermarks.MAX_WATERMARK);
       stopped = true;
     }
     return null;

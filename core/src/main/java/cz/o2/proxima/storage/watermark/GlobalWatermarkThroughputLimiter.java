@@ -66,6 +66,8 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   @VisibleForTesting @Getter private GlobalWatermarkTracker tracker;
 
+  private boolean closed = false;
+
   private transient String processName = UUID.randomUUID().toString();
 
   private long lastGlobalWatermarkUpdate = Long.MIN_VALUE;
@@ -117,27 +119,27 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   }
 
   @Override
-  public Duration getPauseTime(Context context) {
-    updateGlobalWatermarkIfNeeded(context);
-    long globalWatermark = tracker.getGlobalWatermark(processName, context.getMinWatermark());
-    if (globalWatermark + maxAheadTimeFromGlobalMs < context.getMinWatermark()) {
-      log.info(
-          "ThroughputLimiter {} pausing processing for {} ms on global watermark {} and context.minWatermark {}",
-          this,
-          sleepTimeMs,
-          globalWatermark,
-          context.getMinWatermark());
-      return Duration.ofMillis(sleepTimeMs);
+  public synchronized Duration getPauseTime(Context context) {
+    if (!closed) {
+      updateGlobalWatermarkIfNeeded(context);
+      long globalWatermark = tracker.getGlobalWatermark(processName, context.getMinWatermark());
+      if (globalWatermark + maxAheadTimeFromGlobalMs < context.getMinWatermark()) {
+        log.info(
+            "ThroughputLimiter {} pausing processing for {} ms on global watermark {} and context.minWatermark {}",
+            this,
+            sleepTimeMs,
+            globalWatermark,
+            context.getMinWatermark());
+        return Duration.ofMillis(sleepTimeMs);
+      }
     }
     return Duration.ZERO;
   }
 
   @Override
-  public void close() {
-    if (tracker != null) {
-      tracker.finished(processName);
-      tracker = null;
-    }
+  public synchronized void close() {
+    tracker.finished(processName);
+    closed = true;
   }
 
   @Override

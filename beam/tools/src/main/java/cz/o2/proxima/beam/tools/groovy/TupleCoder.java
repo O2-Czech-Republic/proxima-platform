@@ -19,7 +19,7 @@ import groovy.lang.Tuple;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderException;
@@ -52,14 +52,13 @@ public class TupleCoder extends Coder<Tuple<Object>> {
 
     int size = value.size();
     VarInt.encode(size, outStream);
-    for (int i = 0; i < size; i++) {
-      coder.encode(value.get(i), outStream);
+    for (Object o : value) {
+      coder.encode(o, outStream);
     }
   }
 
   @Override
   public Tuple<Object> decode(InputStream inStream) throws CoderException, IOException {
-
     int size = VarInt.decodeInt(inStream);
     Object[] read = new Object[size];
     for (int i = 0; i < size; i++) {
@@ -69,13 +68,13 @@ public class TupleCoder extends Coder<Tuple<Object>> {
   }
 
   @Override
-  public void verifyDeterministic() throws NonDeterministicException {
+  public void verifyDeterministic() {
     // deterministic
   }
 
   @Override
   public List<? extends Coder<?>> getCoderArguments() {
-    return Arrays.asList(coder);
+    return Collections.singletonList(coder);
   }
 
   @Override

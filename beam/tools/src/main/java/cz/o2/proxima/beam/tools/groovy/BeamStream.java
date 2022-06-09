@@ -1059,7 +1059,7 @@ class BeamStream<T> implements Stream<T> {
                 kryo.addDefaultSerializer(UnboundedSource.class, KryoSerializableSerializer.class),
             kryo ->
                 kryo.addDefaultSerializer(BoundedSource.class, KryoSerializableSerializer.class),
-            kryo -> kryo.addDefaultSerializer(Tuple.class, TupleSerializer.class),
+            BeamStream::addDefaultSerializersForGroovyTypes,
             kryo -> BeamStream.registerCodersForSchemes(kryo, repo),
             kryo -> BeamStream.registerCommonTypes(kryo, repo),
             kryo -> kryo.setRegistrationRequired(true));
@@ -1069,6 +1069,11 @@ class BeamStream<T> implements Stream<T> {
     registry.registerCoderForClass(Object.class, coder);
     registry.registerCoderForClass(Tuple.class, TupleCoder.of(coder));
     registry.registerCoderForClass(Pair.class, PairCoder.of(coder, coder));
+  }
+
+  private static void addDefaultSerializersForGroovyTypes(Kryo kryo) {
+    kryo.addDefaultSerializer(Tuple.class, TupleSerializer.class);
+    kryo.addDefaultSerializer(GStringImpl.class, GStringSerializer.class);
   }
 
   private static void registerCodersForSchemes(Kryo kryo, Repository repo) {
@@ -1356,7 +1361,6 @@ class BeamStream<T> implements Stream<T> {
     @RequiresTimeSortedInput
     @ProcessElement
     public void process(ProcessContext context, @StateId("combined") ValueState<V> state) {
-
       KV<K, V> element = context.element();
       K key = element.getKey();
       V value = element.getValue();

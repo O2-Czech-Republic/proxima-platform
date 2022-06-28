@@ -65,14 +65,12 @@ public class ConsoleRandomReader implements AutoCloseable {
   }
 
   public List<KeyValue> list(String key, String prefix, @Nullable String offset) {
-
     List<KeyValue> ret = new ArrayList<>();
     list(key, prefix, offset, -1, ret::add);
     return ret;
   }
 
   public List<KeyValue> list(String key, String prefix, @Nullable String offset, int limit) {
-
     List<KeyValue> ret = new ArrayList<>();
     list(key, prefix, offset, limit, ret::add);
     return ret;
@@ -87,7 +85,7 @@ public class ConsoleRandomReader implements AutoCloseable {
 
     AttributeDescriptor<?> desc =
         entityDesc
-            .findAttribute(prefix + ".*")
+            .findAttribute(prefix.contains(".") ? prefix : prefix + ".*")
             .orElseThrow(() -> new IllegalArgumentException("Unknown attribute " + prefix + ".*"));
 
     RandomAccessReader reader = readerFor(desc);

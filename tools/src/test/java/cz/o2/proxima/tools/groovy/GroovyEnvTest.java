@@ -329,6 +329,33 @@ public abstract class GroovyEnvTest extends GroovyTest {
   }
 
   @Test
+  public void testWildcardPrefixRead() throws Exception {
+    long now = 123456789000L;
+    Script compiled = compile("env.gateway.device.listPrefix(\"gw\", \"1\")");
+    write(
+        StreamElement.upsert(
+            gateway,
+            device,
+            "uuid",
+            "gw",
+            device.toAttributePrefix() + "1",
+            now + 1,
+            new byte[] {}));
+    write(
+        StreamElement.upsert(
+            gateway,
+            device,
+            "uuid",
+            "key",
+            device.toAttributePrefix() + "2",
+            now + 1,
+            new byte[] {}));
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+  @Test
   public void testMap() throws Exception {
     Script compiled =
         compile(

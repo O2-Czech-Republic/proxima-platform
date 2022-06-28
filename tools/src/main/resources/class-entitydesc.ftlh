@@ -132,6 +132,9 @@ class Environment implements RepositoryProvider {
             def List<KeyValue<${attribute.type}>> list(String key, String start) {
               return ${entity.classname}Descriptor.this.reader.list(key, name, start)
             }
+            def List<KeyValue<${attribute.type}>> listPrefix(String key, String prefix) {
+              return ${entity.classname}Descriptor.this.reader.list(key, desc.toAttributePrefix() + prefix)
+            }
             def void put(String key, String attribute, Object value) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, value)
             }

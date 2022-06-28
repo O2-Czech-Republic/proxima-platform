@@ -1381,6 +1381,9 @@ class BeamStream<T> implements Stream<T> {
   @VisibleForTesting
   static class ReduceValueStateByKey<K, V, S, O> extends DoFn<KV<K, V>, Pair<K, O>> {
 
+    private static final Instant MAX_ACCEPTABLE_STAMP =
+        BoundedWindow.TIMESTAMP_MAX_VALUE.minus(Duration.standardDays(300));
+
     static <K, V, S, O> ReduceValueStateByKey<K, V, S, O> of(
         Closure<S> initialState,
         Closure<S> stateUpdate,
@@ -1458,16 +1461,19 @@ class BeamStream<T> implements Stream<T> {
 
     @OnTimer("earlyTimer")
     public void onTimer(
-        OnTimerContext context,
+        @Timestamp Instant ts,
         @StateId("value") ValueState<Pair<K, S>> valueState,
-        @TimerId("earlyTimer") Timer earlyTimer) {
+        @TimerId("earlyTimer") Timer earlyTimer,
+        OutputReceiver<Pair<K, O>> collector) {
 
       Pair<K, S> current = Objects.requireNonNull(valueState.read());
       O outputElem = output.call(current.getSecond(), null);
       if (outputElem != null) {
-        context.output(Pair.of(current.getFirst(), outputElem));
+        collector.output(Pair.of(current.getFirst(), outputElem));
       }
-      earlyTimer.offset(earlyEmitting).setRelative();
+      if (ts.isBefore(MAX_ACCEPTABLE_STAMP)) {
+        earlyTimer.offset(earlyEmitting).setRelative();
+      }
     }
 
     @SuppressWarnings("unchecked")

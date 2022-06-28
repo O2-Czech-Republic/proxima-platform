@@ -309,7 +309,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
         StreamElement.upsert(
             gateway,
             device,
-            "uuid",
+            "uuid1",
             "gw",
             device.toAttributePrefix() + "1",
             now - 1,
@@ -318,7 +318,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
         StreamElement.upsert(
             gateway,
             device,
-            "uuid",
+            "uuid2",
             "key",
             device.toAttributePrefix() + "2",
             now + 1,
@@ -336,7 +336,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
         StreamElement.upsert(
             gateway,
             device,
-            "uuid",
+            "uuid1",
             "gw",
             device.toAttributePrefix() + "1",
             now + 1,
@@ -345,8 +345,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
         StreamElement.upsert(
             gateway,
             device,
-            "uuid",
-            "key",
+            "uuid2",
+            "gw",
             device.toAttributePrefix() + "2",
             now + 1,
             new byte[] {}));

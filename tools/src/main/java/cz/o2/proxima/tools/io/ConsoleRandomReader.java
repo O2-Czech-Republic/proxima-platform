@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.tools.io;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
@@ -83,15 +84,25 @@ public class ConsoleRandomReader implements AutoCloseable {
       int limit,
       Consumer<KeyValue<?>> consumer) {
 
-    AttributeDescriptor<?> desc =
+    boolean isPrefix = prefix.contains(".");
+    Preconditions.checkArgument(!isPrefix || offset == null);
+    AttributeDescriptor<Object> desc =
         entityDesc
-            .findAttribute(prefix.contains(".") ? prefix : prefix + ".*")
+            .findAttribute(isPrefix ? prefix : prefix + ".*")
             .orElseThrow(() -> new IllegalArgumentException("Unknown attribute " + prefix + ".*"));
 
     RandomAccessReader reader = readerFor(desc);
     RandomOffset off =
         offset == null ? null : reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, offset);
-    reader.scanWildcard(key, desc, off, limit, consumer::accept);
+    cz.o2.proxima.functional.Consumer<KeyValue<Object>> scanConsumer =
+        isPrefix
+            ? kv -> {
+              if (kv.getAttribute().startsWith(prefix)) {
+                consumer.accept(kv);
+              }
+            }
+            : consumer::accept;
+    reader.scanWildcard(key, desc, off, limit, scanConsumer);
   }
 
   public void listKeys(Consumer<Pair<RandomOffset, String>> consumer) {

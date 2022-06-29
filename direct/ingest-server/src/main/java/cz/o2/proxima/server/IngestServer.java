@@ -97,8 +97,12 @@ public class IngestServer {
 
   @VisibleForTesting
   IngestServer(Config cfg, boolean test) {
+    this(cfg, test ? Repository.ofTest(cfg) : Repository.of(cfg));
+  }
+
+  protected IngestServer(Config cfg, Repository repo) {
     this.cfg = cfg;
-    repo = test ? Repository.ofTest(cfg) : Repository.of(cfg);
+    this.repo = repo;
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
     if (log.isDebugEnabled()) {
       repo.getAllEntities()

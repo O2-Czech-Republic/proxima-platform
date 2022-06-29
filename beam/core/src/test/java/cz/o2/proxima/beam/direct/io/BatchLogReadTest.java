@@ -198,6 +198,9 @@ public class BatchLogReadTest {
           }
         });
     assertEquals(100, output.size());
+    for (PartitionList partitionList : output) {
+      assertEquals(100, partitionList.getPartitions().size());
+    }
   }
 
   private void testReadingFromBatchLog(List<AttributeDescriptor<?>> attrs, BatchLogReader reader) {

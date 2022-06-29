@@ -39,7 +39,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   private static final long serialVersionUID = 1L;
 
-  private static volatile GlobalWatermarkTracker TRACKER;
+  private static volatile GlobalWatermarkTracker singletonTracker;
 
   static final String TRACKER_CFG_PREFIX = "tracker.";
   static final String KW_CLASS = "class";
@@ -76,7 +76,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   @Override
   public void setup(Map<String, Object> cfg) {
     initializeTracker(cfg);
-    this.tracker = TRACKER;
+    this.tracker = singletonTracker;
     this.maxAheadTimeFromGlobalMs = getLong(cfg, MAX_AHEAD_TIME_MS_CFG, maxAheadTimeFromGlobalMs);
     this.globalWatermarkUpdatePeriodMs =
         getLong(cfg, GLOBAL_WATERMARK_UPDATE_MS_CFG, globalWatermarkUpdatePeriodMs);
@@ -84,10 +84,10 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   }
 
   private void initializeTracker(Map<String, Object> cfg) {
-    if (TRACKER == null) {
+    if (singletonTracker == null) {
       synchronized (GlobalWatermarkThroughputLimiter.class) {
-        if (TRACKER == null) {
-          TRACKER =
+        if (singletonTracker == null) {
+          singletonTracker =
               Optional.ofNullable(cfg.get(TRACKER_CFG_PREFIX + KW_CLASS))
                   .map(Object::toString)
                   .map(
@@ -101,7 +101,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
                                   "Missing %s%s specifying GlobalWatermarkTracker implementation",
                                   TRACKER_CFG_PREFIX, KW_CLASS)));
         }
-        TRACKER.setup(
+        singletonTracker.setup(
             cfg.entrySet()
                 .stream()
                 .filter(e -> e.getKey().startsWith(TRACKER_CFG_PREFIX))
@@ -172,15 +172,15 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   protected Object readResolve() {
     this.processName = UUID.randomUUID().toString();
-    if (TRACKER == null) {
+    if (singletonTracker == null) {
       synchronized (GlobalWatermarkThroughputLimiter.class) {
-        if (TRACKER == null) {
-          TRACKER = this.tracker;
+        if (singletonTracker == null) {
+          singletonTracker = this.tracker;
         }
       }
     } else {
       // enforce using singleton tracker
-      this.tracker = TRACKER;
+      this.tracker = singletonTracker;
     }
     return this;
   }

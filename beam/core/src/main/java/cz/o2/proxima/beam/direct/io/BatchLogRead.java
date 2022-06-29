@@ -28,11 +28,15 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.InstantCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
@@ -50,6 +54,7 @@ import org.joda.time.Duration;
 import org.joda.time.Instant;
 
 /** A {@link PTransform} that reads from a {@link BatchLogReader} using splittable DoFn. */
+@Slf4j
 public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>> {
 
   /**
@@ -88,7 +93,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       long startStamp,
       long endStamp) {
 
-    return of(attributes, limit, repo.asFactory(), reader, startStamp, endStamp);
+    return of(
+        attributes, limit, repo.asFactory(), reader, startStamp, endStamp, Collections.emptyMap());
   }
 
   /**
@@ -101,6 +107,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
    * @param reader the reader
    * @param startStamp starting stamp (inclusive)
    * @param endStamp ending stamp (exclusive)
+   * @param cfg configuration of the family
    * @return {@link CommitLogRead} transform for the commit log
    */
   public static BatchLogRead of(
@@ -109,21 +116,23 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       RepositoryFactory repositoryFactory,
       BatchLogReader reader,
       long startStamp,
-      long endStamp) {
+      long endStamp,
+      Map<String, Object> cfg) {
 
     return new BatchLogRead(
-        attributes, limit, repositoryFactory, reader.asFactory(), startStamp, endStamp);
+        attributes, limit, repositoryFactory, reader.asFactory(), startStamp, endStamp, cfg);
   }
 
   @DoFn.BoundedPerElement
-  private class BatchLogReadFn extends DoFn<byte[], StreamElement> {
+  @VisibleForTesting
+  class BatchLogReadFn extends DoFn<byte[], StreamElement> {
 
     private final List<AttributeDescriptor<?>> attributes;
     private final RepositoryFactory repositoryFactory;
     private final BatchLogReader.Factory<?> readerFactory;
     private final long limit;
 
-    private BatchLogReadFn(
+    BatchLogReadFn(
         List<AttributeDescriptor<?>> attributes,
         long limit,
         RepositoryFactory repositoryFactory,
@@ -147,36 +156,48 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
       watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
 
-      while (!tracker.currentRestriction().isFinished()) {
+      PartitionList restriction = Objects.requireNonNull(tracker.currentRestriction());
+      Partition part = Objects.requireNonNull(restriction.getFirstPartition());
 
-        PartitionList restriction = Objects.requireNonNull(tracker.currentRestriction());
-        Partition part = Objects.requireNonNull(restriction.getFirstPartition());
+      log.debug("Starting to process partition {} from restriction {}", part, restriction);
 
-        final BlockingQueueLogObserver.BatchLogObserver observer =
-            newObserver("observer-" + part.getId(), restriction.getTotalLimit());
+      final BlockingQueueLogObserver.BatchLogObserver observer =
+          newObserver("observer-" + part.getId(), restriction.getTotalLimit());
 
-        if (!tracker.tryClaim(part)) {
-          return ProcessContinuation.stop();
-        }
-        try (ObserveHandle handle = startObserve(part, observer)) {
-          while (observer.getWatermark() < Watermarks.MAX_WATERMARK
-              && !restriction.isLimitConsumed()) {
-
-            StreamElement element = observer.takeBlocking(30, TimeUnit.SECONDS);
-            if (element != null) {
-              restriction.reportConsumed();
-              output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
-            }
-          }
-          Optional.ofNullable(observer.getError())
-              .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
-        } catch (InterruptedException ex) {
-          Thread.currentThread().interrupt();
-          break;
-        }
-
-        watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
+      if (!restriction.isStarted()) {
+        restriction.setStarted(true);
+        return ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
       }
+
+      if (!tracker.tryClaim(part)) {
+        return ProcessContinuation.stop();
+      }
+      try (ObserveHandle handle = startObserve(part, observer)) {
+        if (!handle.isReadyForProcessing()) {
+          log.debug("Delaying processing of partition {} due to limiter.", part);
+          tracker.currentRestriction().reclaim(part);
+          return ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
+        }
+        // disable any potential rate limit, we need to pass through the partition as quickly
+        // as possible
+        handle.disableRateLimiting();
+        while (observer.getWatermark() < Watermarks.MAX_WATERMARK
+            && !restriction.isLimitConsumed()) {
+
+          StreamElement element = observer.takeBlocking(100, TimeUnit.MILLISECONDS);
+          if (element != null) {
+            restriction.reportConsumed();
+            output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
+          }
+        }
+        log.debug("Finished processing partition {} from restriction {}", part, restriction);
+        Optional.ofNullable(observer.getError())
+            .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+      }
+
+      watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
 
       boolean terminated = tracker.currentRestriction().isFinished();
       return terminated
@@ -186,6 +207,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
     private ObserveHandle startObserve(
         Partition partition, cz.o2.proxima.direct.batch.BatchLogObserver observer) {
+
       BatchLogReader reader = readerFactory.apply(repositoryFactory.apply());
       return reader.observe(Collections.singletonList(partition), attributes, observer);
     }
@@ -198,16 +220,34 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
     @SplitRestriction
     public void splitRestriction(
-        @Restriction PartitionList restriction, OutputReceiver<PartitionList> splits) {
+        @Restriction PartitionList restriction, OutputReceiver<PartitionList> output) {
 
       if (!restriction.isEmpty()) {
-        restriction
-            .getPartitions()
-            .forEach(
-                p ->
-                    splits.output(PartitionList.ofSinglePartition(p, restriction.getTotalLimit())));
+        List<PartitionList> splits = new ArrayList<>();
+        List<Partition> partitions = restriction.getPartitions();
+        partitions.sort(Comparator.comparing(Partition::getMinTimestamp));
+        int pos = 0;
+        int reduced = (int) Math.sqrt(partitions.size());
+        if (maxInitialSplits > 0 && reduced > maxInitialSplits) {
+          reduced = maxInitialSplits;
+        }
+        log.info(
+            "Splitting initial restriction of attributes {} into {} downstream parts.",
+            attributes,
+            reduced);
+        for (Partition p : partitions) {
+          if (splits.size() <= pos) {
+            splits.add(
+                PartitionList.ofSinglePartition(
+                    p, restriction.getTotalLimit() / partitions.size()));
+          } else {
+            splits.get(pos).add(p);
+          }
+          pos = (pos + 1) % reduced;
+        }
+        splits.forEach(output::output);
       } else {
-        splits.output(restriction);
+        output.output(restriction);
       }
     }
 
@@ -238,6 +278,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   private final Factory<?> readerFactory;
   private final long startStamp;
   private final long endStamp;
+  private final int maxInitialSplits;
 
   @VisibleForTesting
   BatchLogRead(
@@ -246,7 +287,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       RepositoryFactory repoFactory,
       BatchLogReader.Factory<?> readerFactory,
       long startStamp,
-      long endStamp) {
+      long endStamp,
+      Map<String, Object> cfg) {
 
     this.attributes = Lists.newArrayList(Objects.requireNonNull(attributes));
     this.limit = limit;
@@ -254,6 +296,14 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     this.readerFactory = readerFactory;
     this.startStamp = startStamp;
     this.endStamp = endStamp;
+    this.maxInitialSplits = readInitialSplits(cfg);
+  }
+
+  private int readInitialSplits(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("batch.max-initial-splits"))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .orElse(-1);
   }
 
   @Override

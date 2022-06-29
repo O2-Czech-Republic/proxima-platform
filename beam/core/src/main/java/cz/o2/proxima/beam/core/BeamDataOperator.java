@@ -422,7 +422,6 @@ public class BeamDataOperator implements DataOperator {
   }
 
   private DataAccessor createAccessorFor(AttributeFamilyDescriptor family) {
-
     if (family.isProxy()) {
       AttributeFamilyProxyDescriptor proxy = family.toProxy();
       DataAccessor readAccessor = accessorFor(proxy.getTargetFamilyRead());

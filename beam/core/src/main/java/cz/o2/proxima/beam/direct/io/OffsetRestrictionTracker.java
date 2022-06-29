@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.Partition;
@@ -190,10 +189,6 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
 
     @Override
     public OffsetRestrictionTracker newTracker() {
-      Preconditions.checkState(
-          !finished, "Tracker can be created only for not-yet split restrictions");
-      Preconditions.checkState(
-          extensible, "Tracker can be created only for not-yet split restrictions");
       return new OffsetRestrictionTracker(this);
     }
 

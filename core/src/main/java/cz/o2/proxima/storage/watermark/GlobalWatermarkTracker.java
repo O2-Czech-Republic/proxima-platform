@@ -17,7 +17,6 @@ package cz.o2.proxima.storage.watermark;
 
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.time.WatermarkSupplier;
-import java.io.Closeable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
@@ -35,7 +34,7 @@ import javax.annotation.Nullable;
  * </ol>
  */
 @Evolving
-public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
+public interface GlobalWatermarkTracker extends WatermarkSupplier {
 
   /**
    * Retrieve name of this tracker.
@@ -80,11 +79,8 @@ public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
    * Instant.ofEpochMilli(Long.MAX_VALUE))
    *
    * @param name name of the process to remove
-   * @return {@link CompletableFuture} to be able to wait for result being persisted
    */
-  default CompletableFuture<Void> finished(String name) {
-    return update(name, Long.MAX_VALUE);
-  }
+  void finished(String name);
 
   /**
    * Retrieve global watermark tracked by this tracker.

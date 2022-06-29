@@ -28,14 +28,18 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.ReplicationRunner;
+import java.io.Serializable;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -123,16 +127,18 @@ public class BatchLogReaderTest {
     }
     BatchLogReader reader = getBatchReader();
     BlockingQueue<StreamElement> read = new SynchronousQueue<>();
-    reader.observe(
-        reader.getPartitions(),
-        Collections.singletonList(attr),
-        new BatchLogObserver() {
-          @Override
-          public boolean onNext(StreamElement element) {
-            ExceptionUtils.unchecked(() -> read.put(element));
-            return true;
-          }
-        });
+    ObserveHandle handle =
+        reader.observe(
+            reader.getPartitions(),
+            Collections.singletonList(attr),
+            new BatchLogObserver() {
+              @Override
+              public boolean onNext(StreamElement element) {
+                ExceptionUtils.unchecked(() -> read.put(element));
+                return true;
+              }
+            });
+    assertTrue(handle.isReadyForProcessing());
 
     List<Integer> values = new ArrayList<>();
     for (int i = 0; i < numElements; i++) {
@@ -179,6 +185,68 @@ public class BatchLogReaderTest {
         IntStream.range(0, numElements).boxed().collect(Collectors.toList()),
         values.stream().sorted().collect(Collectors.toList()));
     assertTrue(System.currentTimeMillis() - now > 1000);
+  }
+
+  @Test(timeout = 5000)
+  public void testObserveWithWatermarkLimit() {
+    int numElements = 100;
+    for (int i = 0; i < numElements; i++) {
+      write("gw" + i, new byte[] {(byte) i});
+    }
+    SerializableLong allowableWatermark = new SerializableLong(Long.MIN_VALUE);
+    ThroughputLimiter limitingWatermark = getWatermarkLimiter(allowableWatermark);
+    BatchLogReader reader =
+        BatchLogReaders.withLimitedThroughput(getBatchReader(), limitingWatermark);
+    try (ObserveHandle handle =
+        reader.observe(
+            reader.getPartitions(), Collections.singletonList(attr), getDummyObserver())) {
+
+      assertFalse(handle.isReadyForProcessing());
+      allowableWatermark.set(Long.MAX_VALUE);
+      assertTrue(handle.isReadyForProcessing());
+    }
+  }
+
+  @Test(timeout = 5000)
+  public void testObserveWithWatermarkLimitDisabled() {
+    int numElements = 100;
+    for (int i = 0; i < numElements; i++) {
+      write("gw" + i, new byte[] {(byte) i});
+    }
+    SerializableLong allowableWatermark = new SerializableLong(Long.MIN_VALUE);
+    ThroughputLimiter limitingWatermark = getWatermarkLimiter(allowableWatermark);
+    BatchLogReader reader =
+        BatchLogReaders.withLimitedThroughput(getBatchReader(), limitingWatermark);
+    try (ObserveHandle handle =
+        reader.observe(
+            reader.getPartitions(), Collections.singletonList(attr), getDummyObserver())) {
+
+      handle.disableRateLimiting();
+      assertTrue(handle.isReadyForProcessing());
+    }
+  }
+
+  private static ThroughputLimiter getWatermarkLimiter(SerializableLong allowableWatermark) {
+    return new ThroughputLimiter() {
+      @Override
+      public Duration getPauseTime(Context context) {
+        return context.getMinWatermark() < allowableWatermark.get()
+            ? Duration.ZERO
+            : Duration.ofSeconds(1);
+      }
+
+      @Override
+      public void close() {}
+    };
+  }
+
+  private static BatchLogObserver getDummyObserver() {
+    return new BatchLogObserver() {
+      @Override
+      public boolean onNext(StreamElement element) {
+        return true;
+      }
+    };
   }
 
   @Test
@@ -274,5 +342,23 @@ public class BatchLogReaderTest {
 
   private void write(String key, byte[] value) {
     Optionals.get(direct.getWriter(attr)).write(newData(key, value), CommitCallback.noop());
+  }
+
+  private static class SerializableLong implements Serializable {
+
+    private static Map<String, Long> VALUES = new ConcurrentHashMap<>();
+    private final String uuid = UUID.randomUUID().toString();
+
+    public SerializableLong(long value) {
+      VALUES.put(uuid, value);
+    }
+
+    public long get() {
+      return VALUES.get(uuid);
+    }
+
+    public void set(long value) {
+      VALUES.put(uuid, value);
+    }
   }
 }

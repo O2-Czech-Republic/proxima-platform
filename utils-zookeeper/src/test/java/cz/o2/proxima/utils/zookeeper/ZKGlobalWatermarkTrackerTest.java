@@ -189,9 +189,9 @@ public class ZKGlobalWatermarkTrackerTest {
     assertEquals(now, tracker.getWatermark());
     tracker.update("first", now + 2).get();
     assertEquals(now + 1, tracker.getWatermark());
-    tracker.finished("second").get();
+    tracker.finished("second");
     assertEquals(now + 2, tracker.getWatermark());
-    tracker.finished("first").get();
+    tracker.finished("first");
     assertEquals(Long.MAX_VALUE, tracker.getWatermark());
   }
 
@@ -250,7 +250,7 @@ public class ZKGlobalWatermarkTrackerTest {
         () -> createUnimplementedContainerNodeTracker(name), 10);
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 20000)
   public void testParentNodeDelete() throws ExecutionException, InterruptedException {
     String name = tracker.getName();
     testMultipleInstancesWithTrackerFactory(
@@ -301,7 +301,16 @@ public class ZKGlobalWatermarkTrackerTest {
             now <= currentWatermark);
       }
     }
-    trackers.forEach(ZKGlobalWatermarkTracker::close);
+    for (int i = 0; i < numInstances; i++) {
+      for (int j = 0; j < numInstances; j++) {
+        try {
+          trackers.get(i).finished("process" + j);
+        } catch (Exception ex) {
+          ex.printStackTrace(System.err);
+          throw ex;
+        }
+      }
+    }
   }
 
   @Test

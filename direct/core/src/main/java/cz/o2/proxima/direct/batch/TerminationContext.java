@@ -40,15 +40,17 @@ public class TerminationContext {
     return cancelled || runningThread == Thread.currentThread() && runningThread.isInterrupted();
   }
 
-  /** Force cancellation of the observe. */
+  /** Force cancellation of {@link BatchLogReader#observe}. */
   public void cancel() {
-    setCancelled();
-    while (!Thread.currentThread().isInterrupted()) {
-      ExceptionUtils.ignoringInterrupted(() -> terminateLatch.await(1, TimeUnit.SECONDS));
-      if (terminateLatch.getCount() <= 0) {
-        break;
+    if (runningThread != null) {
+      setCancelled();
+      while (!Thread.currentThread().isInterrupted()) {
+        Optional.ofNullable(runningThread).ifPresent(Thread::interrupt);
+        ExceptionUtils.ignoringInterrupted(() -> terminateLatch.await(100, TimeUnit.MILLISECONDS));
+        if (terminateLatch.getCount() <= 0) {
+          break;
+        }
       }
-      Optional.ofNullable(runningThread).ifPresent(Thread::interrupt);
     }
   }
 
@@ -58,12 +60,15 @@ public class TerminationContext {
   }
 
   public void finished() {
-    if (isCancelled()) {
-      observer.onCancelled();
-    } else {
-      observer.onCompleted();
+    try {
+      if (isCancelled()) {
+        observer.onCancelled();
+      } else {
+        observer.onCompleted();
+      }
+    } finally {
+      markAsDone();
     }
-    terminateLatch.countDown();
   }
 
   public ObserveHandle asObserveHandle() {
@@ -82,9 +87,14 @@ public class TerminationContext {
       if (observer.onError(err)) {
         retry.run();
       } else {
-        terminateLatch.countDown();
+        markAsDone();
       }
     }
+  }
+
+  private void markAsDone() {
+    runningThread = null;
+    terminateLatch.countDown();
   }
 
   private void setCancelled() {

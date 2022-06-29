@@ -21,14 +21,16 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.SerializableUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import lombok.experimental.Delegate;
 
@@ -48,6 +50,15 @@ public class BatchLogReaders {
       return new ThroughputLimitedBatchLogReader(delegate, limiter);
     }
     return delegate;
+  }
+
+  private static class ForwardingObserveHandle implements ObserveHandle {
+
+    @Delegate private final ObserveHandle delegate;
+
+    ForwardingObserveHandle(ObserveHandle delegate) {
+      this.delegate = delegate;
+    }
   }
 
   public static class ForwardingBatchLogObserver implements BatchLogObserver {
@@ -88,7 +99,45 @@ public class BatchLogReaders {
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
 
-      return super.observe(partitions, attributes, throughputLimited(observer, partitions));
+      long minWatermark =
+          partitions
+              .stream()
+              .map(Partition::getMinTimestamp)
+              .min(Comparator.naturalOrder())
+              .orElse(Watermarks.MAX_WATERMARK);
+      ThroughputLimiter clonedLimiter = SerializableUtils.clone(limiter);
+      ThroughputLimitedBatchLogObserver limitedObserver =
+          new ThroughputLimitedBatchLogObserver(observer, partitions, clonedLimiter);
+      ObserveHandle delegate = super.observe(partitions, attributes, limitedObserver);
+      Context context =
+          new Context() {
+            @Override
+            public Collection<Partition> getConsumedPartitions() {
+              return partitions;
+            }
+
+            @Override
+            public long getMinWatermark() {
+              return minWatermark;
+            }
+          };
+      return new ForwardingObserveHandle(delegate) {
+        @Override
+        public boolean isReadyForProcessing() {
+          return limitedObserver.getPauseTime(context).isZero();
+        }
+
+        @Override
+        public void close() {
+          clonedLimiter.close();
+          super.close();
+        }
+
+        @Override
+        public void disableRateLimiting() {
+          limitedObserver.disableRateLimiting();
+        }
+      };
     }
 
     @Override
@@ -105,18 +154,13 @@ public class BatchLogReaders {
       final ThroughputLimiter limiter = this.limiter;
       return repo -> new ThroughputLimitedBatchLogReader(superFactory.apply(repo), limiter);
     }
-
-    private BatchLogObserver throughputLimited(
-        BatchLogObserver delegate, List<Partition> consumedPartitions) {
-
-      return new ThroughputLimitedBatchLogObserver(delegate, consumedPartitions, limiter);
-    }
   }
 
   private static class ThroughputLimitedBatchLogObserver extends ForwardingBatchLogObserver {
 
     private final Collection<Partition> assignedPartitions;
     private final ThroughputLimiter limiter;
+    private final AtomicBoolean rateLimitingDisabled = new AtomicBoolean();
     private long watermark = Long.MIN_VALUE;
 
     public ThroughputLimitedBatchLogObserver(
@@ -126,7 +170,7 @@ public class BatchLogReaders {
 
       super(delegate);
       this.assignedPartitions = new ArrayList<>(assignedPartitions);
-      this.limiter = SerializableUtils.clone(Objects.requireNonNull(limiter));
+      this.limiter = limiter;
     }
 
     @Override
@@ -139,18 +183,18 @@ public class BatchLogReaders {
     }
 
     @Override
-    public boolean onError(Throwable error) {
+    public void onCancelled() {
       try {
-        return super.onError(error);
+        super.onCancelled();
       } finally {
         limiter.close();
       }
     }
 
     @Override
-    public void onCancelled() {
+    public boolean onError(Throwable error) {
       try {
-        super.onCancelled();
+        return super.onError(error);
       } finally {
         limiter.close();
       }
@@ -174,7 +218,7 @@ public class BatchLogReaders {
     }
 
     private void waitIfNecessary() throws InterruptedException {
-      Duration pause = limiter.getPauseTime(getLimiterContext());
+      Duration pause = getPauseTime(getLimiterContext());
       if (!pause.equals(Duration.ZERO)) {
         TimeUnit.MILLISECONDS.sleep(pause.toMillis());
       }
@@ -193,6 +237,14 @@ public class BatchLogReaders {
           return watermark;
         }
       };
+    }
+
+    public void disableRateLimiting() {
+      rateLimitingDisabled.set(true);
+    }
+
+    public Duration getPauseTime(Context context) {
+      return rateLimitingDisabled.get() ? Duration.ZERO : limiter.getPauseTime(context);
     }
   }
 

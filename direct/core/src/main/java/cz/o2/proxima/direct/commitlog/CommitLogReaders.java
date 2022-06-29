@@ -51,10 +51,20 @@ public class CommitLogReaders {
    */
   public static CommitLogReader withThroughputLimit(
       CommitLogReader delegate, @Nullable ThroughputLimiter limiter) {
+
     if (limiter != null) {
       return new LimitedCommitLogReader(delegate, limiter);
     }
     return delegate;
+  }
+
+  private static class ForwardingObserveHandle implements ObserveHandle {
+
+    @Delegate private final ObserveHandle delegate;
+
+    private ForwardingObserveHandle(ObserveHandle delegate) {
+      this.delegate = delegate;
+    }
   }
 
   private static class ForwardingCommitLogReader implements CommitLogReader {
@@ -92,12 +102,14 @@ public class CommitLogReaders {
         Position position,
         boolean stopAtCurrent,
         CommitLogObserver observer) {
+
       return delegate.observePartitions(name, partitions, position, stopAtCurrent, observer);
     }
 
     @Override
     public ObserveHandle observeBulk(
         String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
+
       return delegate.observeBulk(name, position, stopAtCurrent, observer);
     }
 
@@ -108,6 +120,7 @@ public class CommitLogReaders {
         Position position,
         boolean stopAtCurrent,
         CommitLogObserver observer) {
+
       return delegate.observeBulkPartitions(name, partitions, position, stopAtCurrent, observer);
     }
 
@@ -143,8 +156,10 @@ public class CommitLogReaders {
 
     @Override
     public ObserveHandle observe(String name, Position position, CommitLogObserver observer) {
+
+      ThroughputLimiter clonedLimiter = SerializableUtils.clone(limiter);
       return super.observe(
-          name, position, throughputLimited(limiter, availablePartitions.get(), observer));
+          name, position, throughputLimited(clonedLimiter, availablePartitions.get(), observer));
     }
 
     @Override
@@ -154,22 +169,30 @@ public class CommitLogReaders {
         Position position,
         boolean stopAtCurrent,
         CommitLogObserver observer) {
-      return super.observePartitions(
-          name,
-          partitions,
-          position,
-          stopAtCurrent,
-          throughputLimited(limiter, partitions, observer));
+
+      ThroughputLimiter clonedLimiter = SerializableUtils.clone(limiter);
+      return withClosedLimiter(
+          super.observePartitions(
+              name,
+              partitions,
+              position,
+              stopAtCurrent,
+              throughputLimited(clonedLimiter, partitions, observer)),
+          clonedLimiter);
     }
 
     @Override
     public ObserveHandle observeBulk(
         String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
-      return super.observeBulk(
-          name,
-          position,
-          stopAtCurrent,
-          throughputLimited(limiter, availablePartitions.get(), observer));
+
+      ThroughputLimiter clonedLimiter = SerializableUtils.clone(limiter);
+      return withClosedLimiter(
+          super.observeBulk(
+              name,
+              position,
+              stopAtCurrent,
+              throughputLimited(clonedLimiter, availablePartitions.get(), observer)),
+          clonedLimiter);
     }
 
     @Override
@@ -179,20 +202,29 @@ public class CommitLogReaders {
         Position position,
         boolean stopAtCurrent,
         CommitLogObserver observer) {
-      return super.observeBulkPartitions(
-          name,
-          partitions,
-          position,
-          stopAtCurrent,
-          throughputLimited(limiter, partitions, observer));
+
+      ThroughputLimiter clonedLimiter = SerializableUtils.clone(limiter);
+      return withClosedLimiter(
+          super.observeBulkPartitions(
+              name,
+              partitions,
+              position,
+              stopAtCurrent,
+              throughputLimited(clonedLimiter, partitions, observer)),
+          clonedLimiter);
     }
 
     @Override
     public ObserveHandle observeBulkOffsets(
         Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
-      return super.observeBulkOffsets(
-          offsets, stopAtCurrent, throughputLimited(limiter, availablePartitions.get(), observer));
+      ThroughputLimiter clonedLimiter = SerializableUtils.clone(limiter);
+      return withClosedLimiter(
+          super.observeBulkOffsets(
+              offsets,
+              stopAtCurrent,
+              throughputLimited(clonedLimiter, availablePartitions.get(), observer)),
+          clonedLimiter);
     }
 
     @Override
@@ -211,43 +243,15 @@ public class CommitLogReaders {
     }
 
     private static CommitLogObserver throughputLimited(
-        ThroughputLimiter readerLimiter,
+        ThroughputLimiter limiter,
         Collection<Partition> readerPartitions,
         CommitLogObserver delegate) {
 
-      final ThroughputLimiter limiter = SerializableUtils.clone(readerLimiter);
       final List<Partition> partitions = new ArrayList<>(readerPartitions);
 
       return new ForwardingLogObserver(delegate) {
 
         long watermark = Long.MIN_VALUE;
-
-        @Override
-        public void onCompleted() {
-          try {
-            super.onCompleted();
-          } finally {
-            limiter.close();
-          }
-        }
-
-        @Override
-        public void onCancelled() {
-          try {
-            super.onCancelled();
-          } finally {
-            limiter.close();
-          }
-        }
-
-        @Override
-        public boolean onError(Throwable error) {
-          try {
-            return super.onError(error);
-          } finally {
-            limiter.close();
-          }
-        }
 
         @Override
         public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -292,6 +296,17 @@ public class CommitLogReaders {
               return watermark;
             }
           };
+        }
+      };
+    }
+
+    private static ObserveHandle withClosedLimiter(
+        ObserveHandle delegate, ThroughputLimiter limiter) {
+      return new ForwardingObserveHandle(delegate) {
+        @Override
+        public void close() {
+          limiter.close();
+          super.close();
         }
       };
     }

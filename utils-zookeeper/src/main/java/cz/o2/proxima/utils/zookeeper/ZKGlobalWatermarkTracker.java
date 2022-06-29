@@ -18,18 +18,24 @@ package cz.o2.proxima.utils.zookeeper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.TimeProvider;
 import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.watermark.GlobalWatermarkTracker;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
-import java.util.ConcurrentModificationException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,7 +67,6 @@ import org.apache.zookeeper.data.Stat;
 public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   private static final long serialVersionUID = 1L;
-  private static final long MAX_WATERMARK = Long.MAX_VALUE;
 
   public static final String CFG_NAME = "name";
   public static final String ZK_URI = "zk.url";
@@ -72,8 +77,8 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   @VisibleForTesting
   @Value
   static class WatermarkWithUpdate {
-    private long watermark;
-    private long timestamp;
+    long watermark;
+    long timestamp;
   }
 
   @VisibleForTesting TimeProvider timeProvider = TimeProvider.processingTime();
@@ -85,9 +90,14 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   private transient volatile ZooKeeper client;
 
   @GuardedBy("this")
+  private transient Map<String, List<CompletableFuture<Void>>> processingFutures;
+
+  @GuardedBy("this")
+  private transient Cache<String, Boolean> finished;
+
+  @GuardedBy("this")
   private transient Map<String, WatermarkWithUpdate> partialWatermarks;
 
-  private transient volatile boolean closed = false;
   private transient AtomicLong globalWatermark;
   private transient volatile CreateMode parentCreateMode;
   private transient volatile boolean parentCreated;
@@ -106,6 +116,8 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     if (timeProvider == null) {
       timeProvider = TimeProvider.processingTime();
     }
+    processingFutures = new HashMap<>();
+    finished = CacheBuilder.newBuilder().expireAfterWrite(Duration.ofSeconds(5)).build();
   }
 
   @Override
@@ -176,10 +188,29 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   @Override
   public CompletableFuture<Void> update(String processName, long currentWatermark) {
-    if (currentWatermark < MAX_WATERMARK) {
+    if (currentWatermark < Watermarks.MAX_WATERMARK) {
       return persistPartialWatermark(processName, currentWatermark);
     }
-    return deletePartialWatermark(processName);
+    finished(processName);
+    return CompletableFuture.completedFuture(null);
+  }
+
+  @Override
+  public void finished(String name) {
+    final List<CompletableFuture<Void>> incompleteFutures;
+    synchronized (this) {
+      finished.put(name, true);
+      incompleteFutures = processingFutures.remove(name);
+    }
+    if (incompleteFutures != null) {
+      incompleteFutures.forEach(f -> ExceptionUtils.unchecked(f::get));
+    }
+    ExceptionUtils.unchecked(
+        () -> {
+          CompletableFuture<Void> finishedFuture = new CompletableFuture<>();
+          deleteNodeToFuture(name, finishedFuture);
+          finishedFuture.get();
+        });
   }
 
   @Override
@@ -188,8 +219,16 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
       ExceptionUtils.ignoringInterrupted(this::createParentIfNotExists);
     }
     if (processName != null) {
-      updatePartialWatermark(
-          processName, new WatermarkWithUpdate(currentWatermark, timeProvider.getCurrentTime()));
+      final WatermarkWithUpdate currentProcessWatermark;
+      synchronized (this) {
+        currentProcessWatermark = partialWatermarks.get(processName);
+      }
+      if (currentProcessWatermark == null
+          || currentProcessWatermark.getWatermark() < currentWatermark) {
+
+        updatePartialWatermark(
+            processName, new WatermarkWithUpdate(currentWatermark, timeProvider.getCurrentTime()));
+      }
     }
     return globalWatermark.get();
   }
@@ -201,12 +240,6 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
       return path;
     }
     return path.substring(lastSlash + 1);
-  }
-
-  @Override
-  public synchronized void close() {
-    closed = true;
-    disconnect();
   }
 
   synchronized void disconnect() {
@@ -232,14 +265,18 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   private CompletableFuture<Void> persistPartialWatermark(String name, long watermark) {
-    CompletableFuture<Void> persisted = new CompletableFuture<>();
-    byte[] bytes = toPayload(watermark, timeProvider.getCurrentTime());
-    persistPartialWatermarkIntoFuture(name, bytes, persisted);
-    return persisted;
+    @Nullable CompletableFuture<Void> persisted = createNewIncompleteFuture(name);
+    if (persisted != null) {
+      byte[] bytes = toPayload(watermark, timeProvider.getCurrentTime());
+      persistPartialWatermarkIntoFuture(name, bytes, persisted);
+      return persisted;
+    }
+    return CompletableFuture.completedFuture(null);
   }
 
   private void persistPartialWatermarkIntoFuture(
       String name, byte[] bytes, CompletableFuture<Void> res) {
+
     if (!parentCreated) {
       ExceptionUtils.ignoringInterrupted(this::createParentIfNotExists);
     }
@@ -262,10 +299,16 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     }
   }
 
-  private CompletableFuture<Void> deletePartialWatermark(String name) {
-    CompletableFuture<Void> persisted = new CompletableFuture<>();
-    deleteNodeToFuture(name, persisted);
-    return persisted;
+  @Nullable
+  private synchronized CompletableFuture<Void> createNewIncompleteFuture(String name) {
+    if (!Boolean.TRUE.equals(finished.getIfPresent(name))) {
+      List<CompletableFuture<Void>> futuresList =
+          processingFutures.computeIfAbsent(name, tmp -> new ArrayList<>());
+      CompletableFuture<Void> future = new CompletableFuture<>();
+      futuresList.add(future);
+      return future;
+    }
+    return null;
   }
 
   private void deleteNodeToFuture(String name, CompletableFuture<Void> res) {
@@ -511,7 +554,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
                               < maxAcceptableUpdateMs)
               .map(Map.Entry::getValue)
               .map(WatermarkWithUpdate::getWatermark)
-              .min(Long::compare)
+              .min(Comparator.naturalOrder())
               .orElse(Long.MIN_VALUE));
     }
   }
@@ -520,13 +563,10 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     final ZooKeeper ret = client;
     if (ret == null) {
       synchronized (this) {
-        if (!closed) {
-          if (client == null) {
-            client = createNewZooKeeper();
-          }
-          return client;
+        if (client == null) {
+          client = createNewZooKeeper();
         }
-        throw new ConcurrentModificationException("Tracker " + this + " has already been closed.");
+        return client;
       }
     }
     return ret;
@@ -567,7 +607,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   private void watchParentNode(WatchedEvent watchedEvent) {
     String path = watchedEvent.getPath();
     synchronized (this) {
-      if (path != null && !closed) {
+      if (path != null) {
         if (path.equals(getParentNode())) {
           handleWatchOnParentNode();
         } else if (path.length() > getParentNode().length()) {
@@ -585,7 +625,21 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     String process = path.startsWith(getParentNode()) ? getNodeName(path) : "";
     if (isDelete && !process.isEmpty()) {
       updatePartialWatermark(
-          process, new WatermarkWithUpdate(Long.MAX_VALUE, timeProvider.getCurrentTime()));
+          process,
+          new WatermarkWithUpdate(Watermarks.MAX_WATERMARK, timeProvider.getCurrentTime()));
+      long currentMinWatermark;
+      synchronized (this) {
+        currentMinWatermark =
+            partialWatermarks
+                .values()
+                .stream()
+                .map(WatermarkWithUpdate::getWatermark)
+                .min(Comparator.naturalOrder())
+                .orElse(Watermarks.MAX_WATERMARK);
+      }
+      if (currentMinWatermark >= Watermarks.MAX_WATERMARK) {
+        disconnect();
+      }
     } else {
       final AtomicReference<Runnable> retry = new AtomicReference<>();
       final DataCallback dataCallback =

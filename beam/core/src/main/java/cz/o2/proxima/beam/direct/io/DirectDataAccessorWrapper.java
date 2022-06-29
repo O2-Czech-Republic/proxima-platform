@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -28,6 +29,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
@@ -45,6 +47,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   private final cz.o2.proxima.direct.core.DataAccessor direct;
   @Getter private final URI uri;
   private final Context context;
+  private final Map<String, Object> cfg;
 
   public DirectDataAccessorWrapper(
       Repository repo,
@@ -56,6 +59,12 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     this.direct = direct;
     this.uri = familyDescriptor.getStorageUri();
     this.context = context;
+    this.cfg = familyDescriptor.getCfg();
+  }
+
+  @VisibleForTesting
+  public Map<String, Object> getCfg() {
+    return cfg;
   }
 
   @Override
@@ -107,7 +116,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     PCollection<StreamElement> ret =
         pipeline.apply(
             "ReadBoundedBatch:" + uri,
-            BatchLogRead.of(attrs, Long.MAX_VALUE, factory, reader, startStamp, endStamp));
+            BatchLogRead.of(attrs, Long.MAX_VALUE, factory, reader, startStamp, endStamp, cfg));
 
     ret =
         ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
@@ -139,7 +148,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     ret =
         pipeline.apply(
             "ReadBatchUnbounded:" + uri,
-            BatchLogRead.of(attrs, Long.MAX_VALUE, factory, reader, startStamp, endStamp));
+            BatchLogRead.of(attrs, Long.MAX_VALUE, factory, reader, startStamp, endStamp, cfg));
     return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }

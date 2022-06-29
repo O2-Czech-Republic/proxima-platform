@@ -21,6 +21,7 @@ import static org.junit.Assert.assertNotSame;
 import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.time.Duration;
@@ -68,18 +69,20 @@ public class GlobalWatermarkThroughputLimiterTest {
     }
 
     @Override
-    public CompletableFuture<Void> update(String processName, long currentWatermark) {
+    public synchronized CompletableFuture<Void> update(String processName, long currentWatermark) {
       updates.put(processName, currentWatermark);
       return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public void finished(String name) {
+      update(name, Watermarks.MAX_WATERMARK);
     }
 
     @Override
     public long getGlobalWatermark(@Nullable String processName, long currentWatermark) {
       return globalWatermark.toEpochMilli();
     }
-
-    @Override
-    public void close() {}
   }
 
   @Before

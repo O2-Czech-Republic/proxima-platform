@@ -17,6 +17,7 @@ package cz.o2.proxima.storage.watermark;
 
 import static org.junit.Assert.assertEquals;
 
+import cz.o2.proxima.time.Watermarks;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -42,9 +43,14 @@ public class GlobalWatermarkTrackerTest {
     public void initWatermarks(Map<String, Long> initialWatermarks) {}
 
     @Override
-    public CompletableFuture<Void> update(String processName, long currentWatermark) {
+    public synchronized CompletableFuture<Void> update(String processName, long currentWatermark) {
       updated.put(processName, currentWatermark);
       return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public void finished(String name) {
+      update(name, Watermarks.MAX_WATERMARK);
     }
 
     @Override
@@ -55,9 +61,6 @@ public class GlobalWatermarkTrackerTest {
       }
       return updated.values().stream().mapToLong(e -> e).min().orElse(Long.MIN_VALUE);
     }
-
-    @Override
-    public void close() {}
   }
 
   @Test

@@ -33,7 +33,7 @@
 
   <properties>
     <shadePattern>cz.o2.proxima.s3.shaded</shadePattern>
-    <aws.client.version>1.11.785</aws.client.version>
+    <aws.client.version>1.12.261</aws.client.version>
   </properties>
 
   <build>

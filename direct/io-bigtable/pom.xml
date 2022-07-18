@@ -204,12 +204,12 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-direct-io-hbase-bindings</artifactId>
-      <version>${proxima.jdk8.project.version}</version>
+      <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>com.google.cloud.bigtable</groupId>
-      <artifactId>bigtable-hbase-1.x</artifactId>
+      <artifactId>bigtable-hbase-2.x</artifactId>
       <version>${bigtable.version}</version>
       <exclusions>
         <exclusion>

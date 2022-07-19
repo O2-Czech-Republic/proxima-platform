@@ -17,6 +17,7 @@ package cz.o2.proxima.server.transaction;
 
 import static org.junit.Assert.*;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
@@ -53,6 +54,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -249,6 +251,43 @@ public class TransactionsTest {
   }
 
   @Test
+  public void testBeginDuplicate() {
+    BeginTransactionResponse response = begin();
+    String transactionId = response.getTransactionId();
+    assertFalse(transactionId.isEmpty());
+    long stamp = System.currentTimeMillis();
+    StatusBulk status =
+        ingestBulk(
+            transactionId,
+            StreamElement.upsert(
+                gateway,
+                gatewayUsers,
+                UUID.randomUUID().toString(),
+                "gw1",
+                gatewayUsers.toAttributePrefix() + "usr1",
+                stamp,
+                new byte[] {1, 2, 3}));
+
+    assertEquals(200, status.getStatus(0).getStatus());
+
+    TransactionCommitResponse commitResponse = commit(transactionId);
+    assertEquals(TransactionCommitResponse.Status.COMMITTED, commitResponse.getStatus());
+
+    response = begin(transactionId);
+    assertEquals(transactionId, response.getTransactionId());
+
+    GetResponse getResponse =
+        get(
+            GetRequest.newBuilder()
+                .setTransactionId(transactionId)
+                .setEntity("gateway")
+                .setKey("gw1")
+                .setAttribute("user.usr1")
+                .build());
+    assertEquals(204, getResponse.getStatus());
+  }
+
+  @Test
   public void testTransactionRollbackOnCleanup() {
     AtomicLong clock = new AtomicLong(System.currentTimeMillis());
     try (TransactionContext context = new TransactionContext(direct, clock::get)) {
@@ -279,8 +318,16 @@ public class TransactionsTest {
   }
 
   private BeginTransactionResponse begin() {
+    return begin(null);
+  }
+
+  private BeginTransactionResponse begin(@Nullable String transactionId) {
     ListStreamObserver<BeginTransactionResponse> beginObserver = intoList();
-    retrieve.begin(BeginTransactionRequest.newBuilder().build(), beginObserver);
+    retrieve.begin(
+        BeginTransactionRequest.newBuilder()
+            .setTranscationId(MoreObjects.firstNonNull(transactionId, ""))
+            .build(),
+        beginObserver);
     return Iterables.getOnlyElement(beginObserver.getOutputs());
   }
 

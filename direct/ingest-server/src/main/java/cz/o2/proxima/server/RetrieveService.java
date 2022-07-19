@@ -35,6 +35,7 @@ import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.server.transaction.TransactionContext;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
+import cz.o2.proxima.transaction.Response.Flags;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -78,7 +79,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       Rpc.BeginTransactionRequest request,
       StreamObserver<Rpc.BeginTransactionResponse> responseObserver) {
 
-    String transactionId = transactionContext.create();
+    String transactionId = transactionContext.create(request.getTranscationId());
     responseObserver.onNext(
         Rpc.BeginTransactionResponse.newBuilder().setTransactionId(transactionId).build());
     responseObserver.onCompleted();
@@ -226,9 +227,10 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       responseObserver.onNext(
           Rpc.GetResponse.newBuilder().setStatus(s.statusCode).setStatusMessage(s.message).build());
     } catch (TransactionRejectedException ex) {
-      logStatus("get", request, 412, ex.getMessage());
+      int status = ex.getResponseFlags() == Flags.DUPLICATE ? 204 : 412;
+      logStatus("get", request, status, ex.getMessage());
       responseObserver.onNext(
-          Rpc.GetResponse.newBuilder().setStatus(412).setStatusMessage(ex.getMessage()).build());
+          Rpc.GetResponse.newBuilder().setStatus(status).setStatusMessage(ex.getMessage()).build());
     } catch (Exception ex) {
       log.error("Failed to process request {}", request, ex);
       logStatus("get", request, 500, ex.getMessage());

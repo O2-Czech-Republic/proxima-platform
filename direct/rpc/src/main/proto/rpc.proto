@@ -179,6 +179,7 @@ message GetResponse {
   /**
    * Status code. Can be
    *  200 - OK
+   *  204 - Already committed transaction
    *  400 - Bad request - if missing some required field(s) in request
    *  404 - Entity or attribute not found
    *  500 - Internal server error

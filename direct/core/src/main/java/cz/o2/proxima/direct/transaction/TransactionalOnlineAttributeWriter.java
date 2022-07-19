@@ -31,6 +31,7 @@ import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Response;
+import cz.o2.proxima.transaction.Response.Flags;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.ElementWiseTransformation.Collector;
@@ -140,10 +141,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
   public static class TransactionRejectedException extends Exception {
     @Getter private final String transactionId;
+    @Getter private final Response.Flags responseFlags;
 
-    protected TransactionRejectedException(String transactionId) {
+    protected TransactionRejectedException(String transactionId, Response.Flags flags) {
       super("Transaction " + transactionId + " rejected. Please restart the transaction.");
       this.transactionId = transactionId;
+      this.responseFlags = flags;
     }
   }
 
@@ -196,11 +199,11 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
           expectedResponse = Response.Flags.UPDATED;
           break;
         default:
-          throw new TransactionRejectedException(transactionId);
+          throw new TransactionRejectedException(transactionId, Flags.ABORTED);
       }
       Response response = takeResponse();
       if (response.getFlags() != expectedResponse) {
-        throw new TransactionRejectedException(transactionId);
+        throw new TransactionRejectedException(transactionId, response.getFlags());
       }
       if (response.hasSequenceId()) {
         Preconditions.checkState(
@@ -243,7 +246,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         if (response.getFlags() == Response.Flags.ABORTED) {
           state = State.Flags.ABORTED;
         }
-        throw new TransactionRejectedException(transactionId);
+        throw new TransactionRejectedException(transactionId, response.getFlags());
       }
       CommitCallback compositeCallback =
           (succ, exc) -> {
@@ -486,7 +489,10 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   }
 
   public Transaction begin() {
-    String transactionId = UUID.randomUUID().toString();
+    return begin(UUID.randomUUID().toString());
+  }
+
+  public Transaction begin(String transactionId) {
     return new Transaction(transactionId);
   }
 }

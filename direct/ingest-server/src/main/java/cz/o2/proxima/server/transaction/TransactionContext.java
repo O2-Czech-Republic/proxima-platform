@@ -113,9 +113,17 @@ public class TransactionContext implements AutoCloseable {
   }
 
   public String create() {
+    return create("");
+  }
+
+  public String create(String transactionId) {
     Preconditions.checkArgument(globalWriter != null, "No transactions are allowed in the model!");
 
-    Transaction res = wrap(globalWriter.begin());
+    Transaction res =
+        wrap(
+            Objects.requireNonNull(transactionId).isEmpty()
+                ? globalWriter.begin()
+                : globalWriter.begin(transactionId));
     openTransactions.put(res.getTransactionId(), res);
     return res.getTransactionId();
   }

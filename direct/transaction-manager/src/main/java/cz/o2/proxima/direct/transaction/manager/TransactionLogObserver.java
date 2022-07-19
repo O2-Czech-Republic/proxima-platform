@@ -380,6 +380,7 @@ public class TransactionLogObserver implements CommitLogObserver {
     } else if (request.getFlags() == Request.Flags.OPEN
         && (currentState.getFlags() == State.Flags.OPEN
             || currentState.getFlags() == State.Flags.COMMITTED)) {
+
       manager.writeResponseAndUpdateState(
           transactionId,
           currentState,

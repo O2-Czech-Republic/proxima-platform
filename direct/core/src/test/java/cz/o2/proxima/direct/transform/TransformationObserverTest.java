@@ -29,6 +29,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Response.Flags;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -54,7 +55,7 @@ public class TransformationObserverTest {
           public void transform(StreamElement input, CommitCallback commit) {
             if (failedCnt.incrementAndGet() < 3) {
               throw new TransactionRejectedRuntimeException(
-                  new TransactionRejectedException("t") {});
+                  new TransactionRejectedException("t", Flags.ABORTED) {});
             }
           }
 
@@ -79,7 +80,8 @@ public class TransformationObserverTest {
 
           @Override
           public void transform(StreamElement input, CommitCallback commit) {
-            throw new TransactionRejectedRuntimeException(new TransactionRejectedException("t") {});
+            throw new TransactionRejectedRuntimeException(
+                new TransactionRejectedException("t", Flags.ABORTED) {});
           }
 
           @Override

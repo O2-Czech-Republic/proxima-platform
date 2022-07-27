@@ -226,6 +226,30 @@ public class DefaultCqlFactoryTest {
   }
 
   @Test
+  public void testIngestWildcardMultiDots() {
+    long now = System.currentTimeMillis();
+    StreamElement ingest =
+        StreamElement.upsert(
+            entity, attrWildcard, "", "key", "device.1.2", now, "value".getBytes());
+    BoundStatement bound = mock(BoundStatement.class);
+    when(statement.bind("key", "1.2", ByteBuffer.wrap("value".getBytes()), now * 1000L))
+        .thenReturn(bound);
+    when(session.prepare((String) any())).thenReturn(statement);
+
+    Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
+    verify(statement)
+        .bind(
+            eq("key"), eq("1.2"),
+            eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    assertTrue(boundStatement.isPresent());
+    assertSame(bound, boundStatement.get());
+    assertEquals(1, preparedStatement.size());
+    assertEquals(
+        "INSERT INTO my_table (hgw, device, my_col) VALUES (?, ?, ?) USING TIMESTAMP ?",
+        preparedStatement.get(0));
+  }
+
+  @Test
   public void testIngestDeleteSimple() {
     long now = System.currentTimeMillis();
     StreamElement ingest = StreamElement.delete(entity, attr, "", "key", "myAttribute", now);

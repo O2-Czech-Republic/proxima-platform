@@ -21,7 +21,7 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
 import cz.o2.proxima.util.Classpath;
 import java.net.URI;
 import java.util.Map;
@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.RestHighLevelClient;
 
 @Slf4j
-public class ElasticsearchAccessor extends AbstractStorage implements DataAccessor {
+public class ElasticsearchAccessor extends SerializableAbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
 

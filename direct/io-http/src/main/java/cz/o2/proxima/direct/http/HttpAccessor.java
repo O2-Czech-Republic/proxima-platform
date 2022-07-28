@@ -21,13 +21,13 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.http.opentsdb.OpenTsdbWriter;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
 /** Accessor for HTTP(s) and websocket URLs. */
-public class HttpAccessor extends AbstractStorage implements DataAccessor {
+public class HttpAccessor extends SerializableAbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
 

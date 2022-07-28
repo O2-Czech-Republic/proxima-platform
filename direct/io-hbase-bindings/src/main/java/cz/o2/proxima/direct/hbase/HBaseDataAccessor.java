@@ -23,7 +23,7 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
@@ -51,7 +51,7 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
  * because the metadata preserves sequentialId (stored in {@link StreamElement#getSequentialId()}).
  **/
 @Slf4j
-public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
+public class HBaseDataAccessor extends SerializableAbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
 

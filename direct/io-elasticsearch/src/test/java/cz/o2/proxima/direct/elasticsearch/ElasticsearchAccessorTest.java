@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.TestUtils;
+import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
@@ -72,6 +74,18 @@ class ElasticsearchAccessorTest {
     assertEquals("", accessor.getKeystorePath());
     assertEquals("", accessor.getTruststorePath());
     assertEquals("", accessor.getTruststorePassword());
+  }
+
+  @Test
+  void testAccessorSerializable() throws IOException, ClassNotFoundException {
+    ElasticsearchAccessor accessor =
+        new ElasticsearchAccessor(
+            repository.getEntity("test"),
+            URI.create("elastic://example.com/my_index"),
+            Collections.emptyMap());
+
+    ElasticsearchAccessor cloned = TestUtils.assertSerializable(accessor);
+    assertEquals(accessor.getUri(), cloned.getUri());
   }
 
   @Test

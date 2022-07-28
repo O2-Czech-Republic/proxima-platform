@@ -37,6 +37,14 @@ public class HttpAccessorTest {
   private final EntityDescriptor entity = repo.getEntity("gateway");
 
   @Test
+  public void testAccessorSerializable() throws IOException, ClassNotFoundException {
+    HttpAccessor accessor =
+        new HttpAccessor(entity, URI.create("https://host"), Collections.emptyMap());
+    HttpAccessor cloned = TestUtils.assertSerializable(accessor);
+    assertEquals(accessor.getUri(), cloned.getUri());
+  }
+
+  @Test
   public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
     HttpAccessor accessor =
         new HttpAccessor(entity, URI.create("https://host"), Collections.emptyMap());

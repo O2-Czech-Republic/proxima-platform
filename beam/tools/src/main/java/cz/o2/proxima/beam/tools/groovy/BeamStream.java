@@ -28,6 +28,7 @@ import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
@@ -680,25 +681,33 @@ class BeamStream<T> implements Stream<T> {
     elements.forEach(
         name,
         el -> {
-          OnlineAttributeWriter writer = writerFactory.apply(el);
-          CountDownLatch latch = new CountDownLatch(1);
-          AtomicReference<Throwable> err = new AtomicReference<>();
-          writer
-              .online()
-              .write(
-                  el,
-                  (succ, exc) -> {
-                    latch.countDown();
-                    err.set(exc);
-                  });
-          try {
-            latch.await();
-          } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(ex);
-          }
-          if (err.get() != null) {
-            throw new RuntimeException(err.get());
+          while (true) {
+            OnlineAttributeWriter writer = writerFactory.apply(el);
+            CountDownLatch latch = new CountDownLatch(1);
+            AtomicReference<Throwable> err = new AtomicReference<>();
+            writer
+                .online()
+                .write(
+                    el,
+                    (succ, exc) -> {
+                      latch.countDown();
+                      err.set(exc);
+                    });
+            try {
+              latch.await();
+            } catch (InterruptedException ex) {
+              Thread.currentThread().interrupt();
+              throw new RuntimeException(ex);
+            }
+            if (err.get() != null) {
+              if (err.get() instanceof TransactionRejectedException) {
+                log.debug("Caught TransactionRejectedException, retrying write", err.get());
+              } else {
+                throw new RuntimeException(err.get());
+              }
+            } else {
+              break;
+            }
           }
         },
         false);

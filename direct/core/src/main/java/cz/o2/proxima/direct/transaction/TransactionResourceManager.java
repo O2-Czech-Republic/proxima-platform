@@ -590,6 +590,7 @@ public class TransactionResourceManager
               Optionals.get(k.getCommitLogReader())
                   .observe(
                       newResponseObserverNameFor(k), newTransactionResponseObserver(assignment)));
+          ExceptionUtils.ignoringInterrupted(() -> assignment.getObserveHandle().waitUntilReady());
           return assignment;
         });
   }

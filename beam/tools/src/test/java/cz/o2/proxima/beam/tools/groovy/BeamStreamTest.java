@@ -31,6 +31,8 @@ import cz.o2.proxima.beam.tools.groovy.BeamStream.IntegrateDoFn;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -41,6 +43,7 @@ import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamTest;
 import cz.o2.proxima.tools.groovy.TestStreamProvider;
 import cz.o2.proxima.tools.groovy.util.Closures;
+import cz.o2.proxima.transaction.Response.Flags;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.util.SerializableScopedValue;
 import groovy.lang.Closure;
@@ -555,36 +558,29 @@ public class BeamStreamTest extends StreamTest {
         watermarks);
   }
 
-  private static BulkAttributeWriter collectingBulkWriter(
-      Collector<Pair<Long, StreamElement>> collected) {
+  @Test
+  public void testTransactionRejectedException() {
+    Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
+    EntityDescriptor event = repo.getEntity("event");
+    AttributeDescriptor<byte[]> data = event.getAttribute("data");
+    long now = System.currentTimeMillis();
+    Pipeline p = Pipeline.create();
+    PCollection<StreamElement> elements =
+        p.apply(
+            Create.timestamped(
+                timestamped(upsertRandom(event, data, now)),
+                timestamped(upsertRandom(event, data, now - 1))));
 
-    return new BulkAttributeWriter() {
-      @Override
-      public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
-        collected.add(Pair.of(watermark, data));
-      }
+    SerializableScopedValue<Integer, List<StreamElement>> output =
+        new SerializableScopedValue<>(Lists::newArrayList);
+    SerializableScopedValue<Integer, OnlineAttributeWriter> writer =
+        new SerializableScopedValue<>(() -> rejectingOnlineWriter(output.get(0)));
 
-      @Override
-      public void updateWatermark(long watermark) {
-        collected.add(Pair.of(watermark, null));
-      }
-
-      @Override
-      public Factory<?> asFactory() {
-        return repo -> collectingBulkWriter(collected);
-      }
-
-      @Override
-      public URI getUri() {
-        return URI.create("fake:///");
-      }
-
-      @Override
-      public void rollback() {}
-
-      @Override
-      public void close() {}
-    };
+    BeamStream.wrap(elements).writeUsingOnlineWriterFactory("name", w -> writer.get(0));
+    assertEquals(2, output.get(0).size());
+    assertEquals(
+        Lists.newArrayList(now - 1, now),
+        output.get(0).stream().map(StreamElement::getStamp).sorted().collect(Collectors.toList()));
   }
 
   @Test
@@ -654,6 +650,68 @@ public class BeamStreamTest extends StreamTest {
     private NestedStaticClass staticInner;
     private int primitiveInt;
     private List<Object> list = new ArrayList<>();
+  }
+
+  private static BulkAttributeWriter collectingBulkWriter(
+      Collector<Pair<Long, StreamElement>> collected) {
+
+    return new BulkAttributeWriter() {
+      @Override
+      public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
+        collected.add(Pair.of(watermark, data));
+      }
+
+      @Override
+      public void updateWatermark(long watermark) {
+        collected.add(Pair.of(watermark, null));
+      }
+
+      @Override
+      public Factory<?> asFactory() {
+        return repo -> collectingBulkWriter(collected);
+      }
+
+      @Override
+      public URI getUri() {
+        return URI.create("fake:///");
+      }
+
+      @Override
+      public void rollback() {}
+
+      @Override
+      public void close() {}
+    };
+  }
+
+  private static OnlineAttributeWriter rejectingOnlineWriter(List<StreamElement> written) {
+    return new OnlineAttributeWriter() {
+      int attempt = 0;
+
+      @Override
+      public void write(StreamElement data, CommitCallback statusCallback) {
+        if (attempt++ < 1) {
+          statusCallback.commit(
+              false, new TransactionRejectedException("transaction", Flags.ABORTED) {});
+        } else {
+          written.add(data);
+          statusCallback.commit(true, null);
+        }
+      }
+
+      @Override
+      public Factory<? extends OnlineAttributeWriter> asFactory() {
+        return input -> rejectingOnlineWriter(written);
+      }
+
+      @Override
+      public URI getUri() {
+        return URI.create("fake:///");
+      }
+
+      @Override
+      public void close() {}
+    };
   }
 
   private static class Collector<T> implements Serializable {

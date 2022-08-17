@@ -23,24 +23,17 @@ from setuptools import setup
 def get_version():
   return "0.10.0" 
 
-def mkdirs(path):
-  if not os.path.exists(path):
-    parent = "/".join(path.split("/")[0:-1])
-    if parent:
-      mkdirs(parent)
-    os.mkdir(path)
-
 def build_ingest_rpc(name):
   
   proto_dir = os.path.split(os.path.abspath(sys.argv[0]))[0] + "/direct/rpc/src/main/proto/"
-  protos = list(filter(lambda x: x.endswith(".proto"), os.listdir(proto_dir)))
-  
+  protos = filter(lambda x: x.endswith(".proto"), os.listdir(proto_dir))
+  protos = list(map(lambda x: proto_dir + "/" + x, protos))
+
   packages = []
   imports = ""
  
-  mkdirs("./target") 
+  os.makedirs("./target", exist_ok=True)
     
-  protos = list(map(lambda x: proto_dir + "/" + x, protos))
   
   args = [
     "grpc_tools.protoc",

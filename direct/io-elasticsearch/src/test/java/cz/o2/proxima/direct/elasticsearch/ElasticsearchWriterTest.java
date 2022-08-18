@@ -84,7 +84,7 @@ class ElasticsearchWriterTest {
     assertTrue(obj.has("updated_at"));
     assertTrue(obj.has("uuid"));
     assertEquals(1.0f, obj.get("data").getAsFloat(), 0.0001);
-    assertEquals("key:metric", ElasticsearchWriter.toEsKey(element));
+    assertEquals("key:metric", writer.toEsKey(element));
     assertEquals(accessor.getUri(), writer.getUri());
 
     BulkWriter oldWriter = writer.writer;
@@ -100,7 +100,7 @@ class ElasticsearchWriterTest {
     assertTrue(obj.has("timestamp"));
     assertTrue(obj.has("updated_at"));
     assertTrue(obj.has("uuid"));
-    assertEquals("key:metric", ElasticsearchWriter.toEsKey(element));
+    assertEquals("key:metric", writer.toEsKey(element));
   }
 
   @Test

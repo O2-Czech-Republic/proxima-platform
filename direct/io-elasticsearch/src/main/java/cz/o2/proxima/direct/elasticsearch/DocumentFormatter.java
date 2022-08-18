@@ -51,4 +51,8 @@ public interface DocumentFormatter extends Serializable {
   }
 
   String toJson(StreamElement element);
+
+  default String toKey(StreamElement element) {
+    return element.getKey() + ":" + element.getAttribute();
+  }
 }

@@ -206,8 +206,8 @@ public class ElasticsearchWriter implements BulkAttributeWriter {
   }
 
   @VisibleForTesting
-  static String toEsKey(StreamElement element) {
-    return element.getKey() + ":" + element.getAttribute();
+  String toEsKey(StreamElement element) {
+    return formatter.toKey(element);
   }
 
   @VisibleForTesting

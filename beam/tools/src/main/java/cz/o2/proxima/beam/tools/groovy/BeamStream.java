@@ -118,6 +118,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.Reshuffle;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
@@ -931,6 +932,15 @@ class BeamStream<T> implements Stream<T> {
             ret = ret.apply(Window.into(new GlobalWindows()));
           }
           return ret;
+        });
+  }
+
+  @Override
+  public Stream<T> reshuffle(@Nullable String name) {
+    return descendant(
+        pipeline -> {
+          PCollection<T> in = collection.materialize(pipeline);
+          return in.apply(Reshuffle.viaRandomKey());
         });
   }
 

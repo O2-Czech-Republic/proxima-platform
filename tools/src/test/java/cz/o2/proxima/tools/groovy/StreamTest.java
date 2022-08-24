@@ -90,6 +90,14 @@ public abstract class StreamTest extends AbstractStreamTest {
     assertEquals(Sets.newHashSet(1, 2, 3, 4), result);
   }
 
+  @Test
+  public void testReshuffle() {
+    Stream<Integer> stream = stream(1, 2, 3, 4);
+    List<Integer> result =
+        stream.reshuffle().map(wrap(arg -> (int) arg + 1, Integer.class)).collect();
+    assertUnorderedEquals(result, 2, 3, 4, 5);
+  }
+
   @SafeVarargs
   final <T> void assertUnorderedEquals(List<T> input, T... elements) {
     assertEquals(elementCounts(Arrays.stream(elements)), elementCounts(input.stream()));

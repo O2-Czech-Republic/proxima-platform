@@ -453,4 +453,17 @@ public interface Stream<T> {
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       @ClosureParams(value = FromString.class, options = "K") Closure<V> initialValue,
       @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner);
+
+  /** Reshuffle the stream via random key. */
+  default Stream<T> reshuffle() {
+    return reshuffle(null);
+  }
+
+  /**
+   * Reshuffle the stream via random key.
+   *
+   * @param name name of the transform
+   */
+  @SuppressWarnings("unchecked")
+  Stream<T> reshuffle(@Nullable String name);
 }

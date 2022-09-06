@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.randomaccess;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.ContextProvider;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.view.CachedView.Factory;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -27,8 +26,11 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.Pair;
 import java.io.Closeable;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import lombok.Value;
 
 /**
  * Reader of data stored in random access storage. Every class that implements both {@code
@@ -42,6 +44,42 @@ public interface RandomAccessReader extends Closeable {
   /** {@link Serializable} factory for {@link RandomAccessReader}. */
   @FunctionalInterface
   interface Factory<T extends RandomAccessReader> extends UnaryFunction<Repository, T> {}
+
+  /** A wraper for a get request. */
+  @Value
+  class GetRequest<T> {
+
+    public static <T> GetRequest<T> of(
+        String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
+
+      return new GetRequest<>(key, attribute, desc, stamp);
+    }
+
+    String key;
+    String attribute;
+    AttributeDescriptor<T> desc;
+    long stamp;
+  }
+
+  /** A facade for fetching multiple {@link KeyValue KeyValues} in single request. */
+  interface MultiFetch {
+
+    /**
+     * Add new {@link GetRequest} to the multi fetch.
+     *
+     * @param <T> type of attribute
+     * @param request the request to add
+     * @return this
+     */
+    <T> MultiFetch get(GetRequest<T> request);
+
+    /**
+     * Perform the multi fetch and pass results through the provided consumer
+     *
+     * @param consumer consumer to receive results of the multifetch
+     */
+    void fetch(Consumer<Pair<GetRequest<?>, Optional<KeyValue<?>>>> consumer);
+  }
 
   /**
    * Create a new builder that is able to construct {@link RandomAccessReader} from multiple readers
@@ -109,6 +147,17 @@ public interface RandomAccessReader extends Closeable {
   }
 
   /**
+   * Get single {@link KeyValue} using {@link GetRequest}.
+   *
+   * @param <T> value type
+   * @param request the request
+   * @return optional {@link KeyValue} if present
+   */
+  default <T> Optional<KeyValue<T>> get(GetRequest<T> request) {
+    return get(request.getKey(), request.getAttribute(), request.getDesc(), request.getStamp());
+  }
+
+  /**
    * Retrieve data stored under given (key, attribute) pair (if any).
    *
    * @param <T> value type
@@ -120,6 +169,32 @@ public interface RandomAccessReader extends Closeable {
    */
   <T> Optional<KeyValue<T>> get(
       String key, String attribute, AttributeDescriptor<T> desc, long stamp);
+
+  /**
+   * Return a facade {@link MultiFetch} object that can be used to queue multiple requests to the
+   * storage and fetch them at once using {@link MultiFetch#fetch(Consumer)}.
+   *
+   * @return the {@link MultiFetch}
+   */
+  default MultiFetch multiFetch() {
+    return new MultiFetch() {
+
+      final List<GetRequest<?>> requests = new ArrayList<>();
+
+      @Override
+      public <T> MultiFetch get(GetRequest<T> request) {
+        requests.add(request);
+        return this;
+      }
+
+      @SuppressWarnings({"rawtypes", "unchecked"})
+      @Override
+      public void fetch(Consumer<Pair<GetRequest<?>, Optional<KeyValue<?>>>> consumer) {
+        requests.forEach(
+            r -> consumer.accept(Pair.of(r, RandomAccessReader.this.get((GetRequest) r))));
+      }
+    };
+  }
 
   /**
    * Scan all data stored per given key.

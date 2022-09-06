@@ -171,6 +171,7 @@ message GetRequest {
 
 }
 
+
 /**
  * Response to the GetRequest.
  */
@@ -264,6 +265,45 @@ message ListResponse {
 }
 
 /**
+ * A multiget/multilist request.
+ */
+message MultigetRequest {
+
+  /**
+   * List of get requests to be performed.
+   **/
+  repeated GetRequest getRequest = 1;
+
+  /**
+   * List of list requests to be performed.
+   */
+  repeated ListRequest listRequest = 2;
+
+  /**
+   * ID of transaction of the requests. All requests MUST have empty transaction ID and
+   * share this global on (if any).
+   */
+  string transactionId = 3;
+
+}
+
+message MultigetResponse {
+
+  /**
+   * Response to all get requests sent in MultigetRequest.
+   * The order of responses is preserved.
+   */
+  repeated GetResponse getResponse = 1;
+
+  /**
+   * Response to all list requests sent in MultigetRequest
+   * The order of responses is preserved.
+   */
+  repeated ListResponse listResponse = 2;
+
+}
+
+/**
  * A message describing entity-key-attribute without actual data.
  * Transactions use this information to properly route requests to transaction managers
  * that are able to ensure the required isolation level.
@@ -313,6 +353,12 @@ service RetrieveService {
 
   /** Synchronous request to list attributes of a specified entity by prefix. */
   rpc listAttributes (ListRequest) returns (ListResponse);
+
+  /**
+   * Synchronous request to fetch a list of multiple requests. The returned list contains responses
+   * in the same order as specified in the input list.
+   */
+  rpc multiget (MultigetRequest) returns (MultigetResponse);
 
   /**
    * Synchronous request to begin a transaction.

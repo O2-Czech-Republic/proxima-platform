@@ -21,8 +21,10 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.proto.service.Rpc;
+import cz.o2.proxima.proto.service.Rpc.GetRequest;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;
@@ -40,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -79,7 +82,6 @@ public class RetrieveServiceTest {
 
   @Test
   public void testGetWithMissingFields() {
-
     final Rpc.GetRequest request = Rpc.GetRequest.newBuilder().build();
     final List<Rpc.GetResponse> responses = new ArrayList<>();
     final AtomicBoolean finished = new AtomicBoolean(false);
@@ -112,7 +114,6 @@ public class RetrieveServiceTest {
 
   @Test
   public void testListWithMissingFields() {
-
     final Rpc.ListRequest request = Rpc.ListRequest.newBuilder().build();
     final List<Rpc.ListResponse> responses = new ArrayList<>();
     final AtomicBoolean finished = new AtomicBoolean(false);
@@ -158,7 +159,7 @@ public class RetrieveServiceTest {
                 attribute.getName(),
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
-            (s, err) -> {});
+            CommitCallback.noop());
     Rpc.GetRequest request =
         Rpc.GetRequest.newBuilder()
             .setEntity(entity.getName())
@@ -200,6 +201,72 @@ public class RetrieveServiceTest {
   }
 
   @Test
+  public void testMultifetchValid() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("data");
+    String[] keys = new String[] {"key1", "key2"};
+    for (int i = 0; i < keys.length; i++) {
+      String key = keys[i];
+      Optionals.get(server.direct.getWriter(attribute))
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  attribute,
+                  UUID.randomUUID().toString(),
+                  key,
+                  attribute.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, (byte) i}),
+              CommitCallback.noop());
+    }
+    Rpc.MultifetchRequest request =
+        Rpc.MultifetchRequest.newBuilder()
+            .addAllGetRequest(
+                Arrays.stream(keys)
+                    .map(
+                        key ->
+                            GetRequest.newBuilder()
+                                .setEntity(entity.getName())
+                                .setAttribute(attribute.getName())
+                                .setKey(key)
+                                .build())
+                    .collect(Collectors.toList()))
+            .build();
+
+    final List<Rpc.MultifetchResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.MultifetchResponse> responseObserver;
+    responseObserver =
+        new StreamObserver<Rpc.MultifetchResponse>() {
+          @Override
+          public void onNext(Rpc.MultifetchResponse res) {
+            responses.add(res);
+          }
+
+          @Override
+          public void onError(Throwable thrwbl) {
+            throw new RuntimeException(thrwbl);
+          }
+
+          @Override
+          public void onCompleted() {
+            finished.set(true);
+          }
+        };
+
+    retrieve.multifetch(request, responseObserver);
+
+    assertTrue(finished.get());
+    assertEquals(1, responses.size());
+    Rpc.MultifetchResponse response = responses.get(0);
+    for (int i = 0; i < keys.length; i++) {
+      Rpc.GetResponse r = response.getGetResponse(i);
+      assertEquals("Error: " + r.getStatus() + ": " + r.getStatusMessage(), 200, r.getStatus());
+      assertArrayEquals(new byte[] {1, 2, (byte) i}, r.getValue().toByteArray());
+    }
+  }
+
+  @Test
   public void testGetValidWithTransaction() {
     EntityDescriptor entity = server.repo.getEntity("dummy");
     AttributeDescriptor<?> attribute = entity.getAttribute("data");
@@ -214,7 +281,7 @@ public class RetrieveServiceTest {
                 attribute.getName(),
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
-            (s, err) -> {});
+            CommitCallback.noop());
     String transactionId = UUID.randomUUID().toString();
     Rpc.GetRequest request =
         Rpc.GetRequest.newBuilder()
@@ -259,6 +326,83 @@ public class RetrieveServiceTest {
     assertEquals(
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(entity, key, attribute, 1000L)),
+        transactionUpdates.get(transactionId));
+  }
+
+  @Test
+  public void testMultifetchValidWithTransaction() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("data");
+    String[] keys = new String[] {"key1", "key2"};
+    for (int i = 0; i < keys.length; i++) {
+      String key = keys[i];
+      Optionals.get(server.direct.getWriter(attribute))
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  attribute,
+                  1000L,
+                  key,
+                  attribute.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, (byte) i}),
+              CommitCallback.noop());
+    }
+    String transactionId = UUID.randomUUID().toString();
+    Rpc.MultifetchRequest request =
+        Rpc.MultifetchRequest.newBuilder()
+            .setTransactionId(transactionId)
+            .addAllGetRequest(
+                Arrays.stream(keys)
+                    .map(
+                        key ->
+                            Rpc.GetRequest.newBuilder()
+                                .setEntity(entity.getName())
+                                .setAttribute(attribute.getName())
+                                .setKey(key)
+                                .build())
+                    .collect(Collectors.toList()))
+            .build();
+
+    final List<Rpc.MultifetchResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.MultifetchResponse> responseObserver;
+    responseObserver =
+        new StreamObserver<Rpc.MultifetchResponse>() {
+          @Override
+          public void onNext(Rpc.MultifetchResponse res) {
+            responses.add(res);
+          }
+
+          @Override
+          public void onError(Throwable thrwbl) {
+            throw new RuntimeException(thrwbl);
+          }
+
+          @Override
+          public void onCompleted() {
+            finished.set(true);
+          }
+        };
+
+    retrieve.multifetch(request, responseObserver);
+    assertTrue(finished.get());
+    assertEquals(1, responses.size());
+    for (int i = 0; i < keys.length; i++) {
+      String key = keys[i];
+      Rpc.GetResponse response = responses.get(0).getGetResponse(i);
+      assertEquals(
+          "Error: " + response.getStatus() + ": " + response.getStatusMessage(),
+          200,
+          response.getStatus());
+      assertArrayEquals(new byte[] {1, 2, (byte) i}, response.getValue().toByteArray());
+      assertEquals(1, transactionUpdates.size());
+      assertTrue(transactionUpdates.containsKey(transactionId));
+    }
+    assertEquals(
+        Arrays.asList(
+            KeyAttributes.ofAttributeDescriptor(entity, keys[0], attribute, 1000L),
+            KeyAttributes.ofAttributeDescriptor(entity, keys[1], attribute, 1000L)),
         transactionUpdates.get(transactionId));
   }
 
@@ -357,7 +501,7 @@ public class RetrieveServiceTest {
                 "wildcard.1",
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
-            (s, err) -> {});
+            CommitCallback.noop());
     Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
@@ -368,7 +512,7 @@ public class RetrieveServiceTest {
                 "wildcard.2",
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3, 4}),
-            (s, err) -> {});
+            CommitCallback.noop());
 
     Rpc.ListRequest request =
         Rpc.ListRequest.newBuilder()
@@ -412,6 +556,90 @@ public class RetrieveServiceTest {
   }
 
   @Test
+  public void testMultifetchListValid() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
+    String[] keys = new String[] {"key1", "key2"};
+
+    for (int i = 0; i < keys.length; i++) {
+      String key = keys[i];
+      Optionals.get(server.direct.getWriter(attribute))
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  attribute,
+                  UUID.randomUUID().toString(),
+                  key,
+                  "wildcard.1",
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, (byte) (2 * i)}),
+              CommitCallback.noop());
+      Optionals.get(server.direct.getWriter(attribute))
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  attribute,
+                  UUID.randomUUID().toString(),
+                  key,
+                  "wildcard.2",
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, 3, (byte) (2 * i + 1)}),
+              CommitCallback.noop());
+    }
+
+    Rpc.MultifetchRequest request =
+        Rpc.MultifetchRequest.newBuilder()
+            .addAllListRequest(
+                Arrays.stream(keys)
+                    .map(
+                        key ->
+                            Rpc.ListRequest.newBuilder()
+                                .setEntity(entity.getName())
+                                .setWildcardPrefix("wildcard")
+                                .setKey(key)
+                                .build())
+                    .collect(Collectors.toList()))
+            .build();
+
+    List<Rpc.MultifetchResponse> responses = new ArrayList<>();
+    AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.MultifetchResponse> responseObserver;
+    responseObserver =
+        new StreamObserver<Rpc.MultifetchResponse>() {
+          @Override
+          public void onNext(Rpc.MultifetchResponse res) {
+            responses.add(res);
+          }
+
+          @Override
+          public void onError(Throwable thrwbl) {
+            throw new RuntimeException(thrwbl);
+          }
+
+          @Override
+          public void onCompleted() {
+            finished.set(true);
+          }
+        };
+
+    retrieve.multifetch(request, responseObserver);
+
+    assertTrue(finished.get());
+    assertEquals(1, responses.size());
+    for (int i = 0; i < keys.length; i++) {
+      Rpc.ListResponse response = responses.get(0).getListResponse(i);
+      assertEquals(200, response.getStatus());
+      assertEquals(2, response.getValueCount());
+      assertEquals("wildcard.1", response.getValue(0).getAttribute());
+      assertArrayEquals(
+          new byte[] {1, 2, (byte) (2 * i)}, response.getValue(0).getValue().toByteArray());
+      assertEquals("wildcard.2", response.getValue(1).getAttribute());
+      assertArrayEquals(
+          new byte[] {1, 2, 3, (byte) (2 * i + 1)}, response.getValue(1).getValue().toByteArray());
+    }
+  }
+
+  @Test
   public void testListValidWithTransaction() {
     EntityDescriptor entity = server.repo.getEntity("dummy");
     AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
@@ -439,7 +667,7 @@ public class RetrieveServiceTest {
     elements.forEach(
         el ->
             Optionals.get(server.direct.getWriter(el.getAttributeDescriptor()))
-                .write(el, (succ, exc) -> {}));
+                .write(el, CommitCallback.noop()));
 
     String transactionId = UUID.randomUUID().toString();
     Rpc.ListRequest request =
@@ -485,6 +713,96 @@ public class RetrieveServiceTest {
   }
 
   @Test
+  public void testMultifetchListValidWithTransaction() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
+    String[] keys = new String[] {"key1", "key2"};
+
+    List<StreamElement> elements = new ArrayList<>();
+    for (int i = 0; i < keys.length; i++) {
+      String key = keys[i];
+      elements.add(
+          StreamElement.upsert(
+              entity,
+              attribute,
+              1000L,
+              key,
+              "wildcard.1",
+              System.currentTimeMillis(),
+              new byte[] {1, 2, (byte) (2 * i)}));
+      elements.add(
+          StreamElement.upsert(
+              entity,
+              attribute,
+              1001L,
+              key,
+              "wildcard.2",
+              System.currentTimeMillis(),
+              new byte[] {1, 2, 3, (byte) (2 * i + 1)}));
+    }
+
+    elements.forEach(
+        el ->
+            Optionals.get(server.direct.getWriter(el.getAttributeDescriptor()))
+                .write(el, CommitCallback.noop()));
+
+    String transactionId = UUID.randomUUID().toString();
+    Rpc.MultifetchRequest request =
+        Rpc.MultifetchRequest.newBuilder()
+            .setTransactionId(transactionId)
+            .addAllListRequest(
+                Arrays.stream(keys)
+                    .map(
+                        key ->
+                            Rpc.ListRequest.newBuilder()
+                                .setEntity(entity.getName())
+                                .setWildcardPrefix("wildcard")
+                                .setKey(key)
+                                .build())
+                    .collect(Collectors.toList()))
+            .build();
+
+    List<Rpc.MultifetchResponse> responses = new ArrayList<>();
+    final StreamObserver<Rpc.MultifetchResponse> responseObserver;
+    responseObserver =
+        new StreamObserver<Rpc.MultifetchResponse>() {
+          @Override
+          public void onNext(Rpc.MultifetchResponse res) {
+            responses.add(res);
+          }
+
+          @Override
+          public void onError(Throwable thrwbl) {
+            throw new RuntimeException(thrwbl);
+          }
+
+          @Override
+          public void onCompleted() {}
+        };
+
+    retrieve.multifetch(request, responseObserver);
+    assertEquals(1, responses.size());
+    for (int i = 0; i < keys.length; i++) {
+      Rpc.ListResponse response = responses.get(0).getListResponse(i);
+      assertEquals(200, response.getStatus());
+      assertEquals(2, response.getValueCount());
+      assertEquals("wildcard.1", response.getValue(0).getAttribute());
+      assertArrayEquals(
+          new byte[] {1, 2, (byte) (2 * i)}, response.getValue(0).getValue().toByteArray());
+      assertEquals("wildcard.2", response.getValue(1).getAttribute());
+      assertArrayEquals(
+          new byte[] {1, 2, 3, (byte) (2 * i + 1)}, response.getValue(1).getValue().toByteArray());
+      assertEquals(1, transactionUpdates.size());
+      assertTrue(transactionUpdates.containsKey(transactionId));
+    }
+    List<KeyAttribute> expected =
+        KeyAttributes.ofWildcardQueryElements(entity, keys[0], attribute, elements.subList(0, 2));
+    expected.addAll(
+        KeyAttributes.ofWildcardQueryElements(entity, keys[1], attribute, elements.subList(2, 4)));
+    assertEquals(expected, transactionUpdates.get(transactionId));
+  }
+
+  @Test
   public void testListValidWithOffset() {
     EntityDescriptor entity = server.repo.getEntity("dummy");
     AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
@@ -500,7 +818,7 @@ public class RetrieveServiceTest {
                 "wildcard.1",
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
-            (s, err) -> {});
+            CommitCallback.noop());
     Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
@@ -511,7 +829,7 @@ public class RetrieveServiceTest {
                 "wildcard.2",
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3, 4}),
-            (s, err) -> {});
+            CommitCallback.noop());
 
     Rpc.ListRequest request =
         Rpc.ListRequest.newBuilder()
@@ -608,7 +926,7 @@ public class RetrieveServiceTest {
                 "wildcard.1",
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
-            (s, err) -> {});
+            CommitCallback.noop());
     Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
@@ -619,7 +937,7 @@ public class RetrieveServiceTest {
                 "wildcard.2",
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3, 4}),
-            (s, err) -> {});
+            CommitCallback.noop());
 
     Rpc.ListRequest request =
         Rpc.ListRequest.newBuilder()
@@ -718,7 +1036,7 @@ public class RetrieveServiceTest {
                 attribute.getName(),
                 System.currentTimeMillis(),
                 payload.toByteArray()),
-            (s, err) -> {});
+            CommitCallback.noop());
     Rpc.GetRequest request =
         Rpc.GetRequest.newBuilder()
             .setEntity(entity.getName())

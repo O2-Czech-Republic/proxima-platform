@@ -141,7 +141,7 @@ public class RetrieveServiceTest {
   }
 
   private void mockRetrieveService(List<?> responses) {
-    RetrieveServiceGrpc.RetrieveServiceImplBase fakeRetrieveServiceIml =
+    RetrieveServiceGrpc.RetrieveServiceImplBase fakeRetrieveServiceImpl =
         new RetrieveServiceGrpc.RetrieveServiceImplBase() {
           @Override
           public void get(
@@ -158,7 +158,7 @@ public class RetrieveServiceTest {
             responseObserver.onCompleted();
           }
         };
-    serviceRegistry.addService(fakeRetrieveServiceIml);
+    serviceRegistry.addService(fakeRetrieveServiceImpl);
   }
 
   private IngestClient create(Options opts) {

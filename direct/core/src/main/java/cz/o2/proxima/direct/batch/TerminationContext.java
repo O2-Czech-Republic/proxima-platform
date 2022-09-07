@@ -43,7 +43,6 @@ public class TerminationContext {
   /** Force cancellation of {@link BatchLogReader#observe}. */
   public void cancel() {
     if (runningThread != null) {
-      setCancelled();
       while (!Thread.currentThread().isInterrupted()) {
         Optional.ofNullable(runningThread).ifPresent(Thread::interrupt);
         ExceptionUtils.ignoringInterrupted(() -> terminateLatch.await(100, TimeUnit.MILLISECONDS));
@@ -51,6 +50,7 @@ public class TerminationContext {
           break;
         }
       }
+      setCancelled();
     }
   }
 

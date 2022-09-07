@@ -20,8 +20,6 @@ import static org.junit.Assert.assertTrue;
 
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -35,10 +33,7 @@ import org.junit.Test;
 /** Test {@link TerminationContext}. */
 public class TerminationContextTest {
 
-  private final List<StreamElement> observed = new ArrayList<>();
-  private boolean completed = false;
   private boolean cancelled = false;
-  private Throwable error = null;
   private boolean retryError = false;
   private final BatchLogObserver observer =
       new BatchLogObserver() {
@@ -47,7 +42,6 @@ public class TerminationContextTest {
 
         @Override
         public boolean onNext(StreamElement element, OnNextContext context) {
-          observed.add(element);
           return true;
         }
 
@@ -63,17 +57,13 @@ public class TerminationContextTest {
 
         @Override
         public boolean onError(Throwable error) {
-          TerminationContextTest.this.error = error;
           return retryError;
         }
       };
 
   @Before
   public void setUp() {
-    observed.clear();
-    completed = false;
     cancelled = false;
-    error = null;
     retryError = false;
   }
 

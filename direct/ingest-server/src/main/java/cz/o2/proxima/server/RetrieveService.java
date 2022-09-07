@@ -27,7 +27,11 @@ import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Trans
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.proto.service.Rpc.GetRequest;
+import cz.o2.proxima.proto.service.Rpc.GetResponse;
 import cz.o2.proxima.proto.service.Rpc.ListRequest;
+import cz.o2.proxima.proto.service.Rpc.ListResponse;
+import cz.o2.proxima.proto.service.Rpc.MultifetchRequest;
+import cz.o2.proxima.proto.service.Rpc.MultifetchResponse;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -44,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 
 /** Service for reading data. */
@@ -238,6 +243,60 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
           Rpc.GetResponse.newBuilder().setStatus(500).setStatusMessage(ex.getMessage()).build());
     }
     responseObserver.onCompleted();
+  }
+
+  @Override
+  public void multifetch(
+      MultifetchRequest request, StreamObserver<MultifetchResponse> responseObserver) {
+    AtomicBoolean wasError = new AtomicBoolean();
+    MultifetchResponse.Builder response = MultifetchResponse.newBuilder();
+    for (GetRequest getRequest : request.getGetRequestList()) {
+      get(
+          getRequest.toBuilder().setTransactionId(request.getTransactionId()).build(),
+          new StreamObserver<GetResponse>() {
+            @Override
+            public void onNext(GetResponse getResponse) {
+              response.addGetResponse(getResponse);
+            }
+
+            @Override
+            public void onError(Throwable throwable) {
+              wasError.set(true);
+              responseObserver.onError(throwable);
+            }
+
+            @Override
+            public void onCompleted() {}
+          });
+      if (wasError.get()) {
+        break;
+      }
+    }
+    if (!wasError.get()) {
+      for (ListRequest listRequest : request.getListRequestList()) {
+        listAttributes(
+            listRequest.toBuilder().setTransactionId(request.getTransactionId()).build(),
+            new StreamObserver<ListResponse>() {
+              @Override
+              public void onNext(ListResponse listResponse) {
+                response.addListResponse(listResponse);
+              }
+
+              @Override
+              public void onError(Throwable throwable) {
+                wasError.set(true);
+                responseObserver.onError(throwable);
+              }
+
+              @Override
+              public void onCompleted() {}
+            });
+      }
+      if (!wasError.get()) {
+        responseObserver.onNext(response.build());
+        responseObserver.onCompleted();
+      }
+    }
   }
 
   private void noticeGetResult(

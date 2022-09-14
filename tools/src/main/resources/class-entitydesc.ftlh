@@ -235,4 +235,12 @@ class Environment implements RepositoryProvider {
     return console.getBatchUpdates(startStamp, endTimestamp, descriptors)
   }
 
+  def <T> WindowedStream<T> impulse(Closure<T> factory) {
+    return console.getImpulse(factory);
+  }
+
+  def <T> WindowedStream<T> periodicImpulse(Closure<T> factory, long durationMs) {
+    return console.getPeriodicImpulse(factory, durationMs);
+  }
+
 }

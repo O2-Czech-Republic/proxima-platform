@@ -37,6 +37,7 @@ import cz.o2.proxima.util.Optionals;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Binding;
+import groovy.lang.Closure;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;
@@ -259,7 +260,6 @@ public class Console implements AutoCloseable {
   }
 
   public WindowedStream<StreamElement> getBatchSnapshot(AttributeDescriptor<?> attrDesc) {
-
     return getBatchSnapshot(attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
   }
 
@@ -281,6 +281,14 @@ public class Console implements AutoCloseable {
         endStamp,
         this::unboundedStreamInterrupt,
         attrList.toArray(new AttributeDescriptor[attrList.size()]));
+  }
+
+  public <T> WindowedStream<T> getImpulse(Closure<T> factory) {
+    return streamProvider.impulse(factory);
+  }
+
+  public <T> WindowedStream<T> getPeriodicImpulse(Closure<T> factory, long durationMs) {
+    return streamProvider.periodicImpulse(factory, durationMs);
   }
 
   public ConsoleRandomReader getRandomAccessReader(String entity) {

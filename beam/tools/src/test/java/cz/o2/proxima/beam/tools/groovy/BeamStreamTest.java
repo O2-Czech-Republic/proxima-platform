@@ -52,6 +52,7 @@ import groovy.lang.Closure;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -85,6 +86,7 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestStream;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
@@ -692,6 +694,16 @@ public class BeamStreamTest extends StreamTest {
     latch.get(0).await();
     // make sonar happy
     assertTrue(true);
+  }
+
+  @Test
+  public void testWrapWithRepository() {
+    Pipeline p = Pipeline.create();
+    PCollection<byte[]> input = p.apply(Impulse.create());
+    Stream<byte[]> stream = BeamStreamProvider.wrap(repo, input);
+    List<ByteBuffer> result =
+        stream.collect().stream().map(ByteBuffer::wrap).collect(Collectors.toList());
+    assertEquals(Collections.singletonList(ByteBuffer.wrap(new byte[] {})), result);
   }
 
   private void expectThrow(Runnable r, Class<? extends Throwable> errorClass) {

@@ -68,6 +68,7 @@ import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.ExperimentalOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.values.PCollection;
 
 /** A {@link StreamProvider} for groovy tools based on beam. */
 @Slf4j
@@ -130,6 +131,17 @@ public abstract class BeamStreamProvider implements StreamProvider {
       }
       return remaining.toArray(new String[] {});
     }
+  }
+
+  /**
+   * Create a {@link Stream} from given {@link PCollection}.
+   *
+   * @param repo {@link Repository} to use
+   * @param pCollection the {@link PCollection} to wrap
+   * @return {@link PCollection} wrapped as {@link Stream}.
+   */
+  public static <T> Stream<T> wrap(Repository repo, PCollection<T> pCollection) {
+    return BeamStream.wrap(repo, pCollection);
   }
 
   Repository repo;

@@ -150,10 +150,29 @@ import org.joda.time.Instant;
 @Slf4j
 class BeamStream<T> implements Stream<T> {
 
-  @SuppressWarnings("unchecked")
+  /**
+   * Create a {@link Stream} from given {@link PCollection} and {@link Repository}
+   *
+   * @return {@link PCollection} wrapped as {@link Stream}.
+   */
+  static <T> BeamStream<T> wrap(Repository repo, PCollection<T> collection) {
+    return wrapPCollection(
+        StreamConfig.of(repo.getOrCreateOperator(BeamDataOperator.class)), collection);
+  }
+
+  /**
+   * Create a {@link Stream} from given {@link PCollection}.
+   *
+   * @return {@link PCollection} wrapped as {@link Stream}.
+   */
   static <T> BeamStream<T> wrap(PCollection<T> collection) {
+    return wrapPCollection(StreamConfig.empty(), collection);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T> BeamStream<T> wrapPCollection(StreamConfig config, PCollection<T> collection) {
     return new BeamStream<T>(
-        StreamConfig.empty(),
+        config,
         collection.isBounded() == IsBounded.BOUNDED,
         PCollectionProvider.wrap(collection),
         (WindowingStrategy<Object, ?>) collection.getWindowingStrategy(),

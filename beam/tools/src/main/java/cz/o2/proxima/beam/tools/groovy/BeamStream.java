@@ -280,7 +280,10 @@ class BeamStream<T> implements Stream<T> {
         false,
         PCollectionProvider.fixedType(
             p ->
-                p.apply(PeriodicImpulse.create().withInterval(Duration.millis(durationMs)))
+                p.apply(
+                        PeriodicImpulse.create()
+                            .withInterval(Duration.millis(durationMs))
+                            .applyWindowing())
                     .apply(
                         org.apache.beam.sdk.transforms.MapElements.into(
                                 (TypeDescriptor<T>) TypeDescriptor.of(Object.class))

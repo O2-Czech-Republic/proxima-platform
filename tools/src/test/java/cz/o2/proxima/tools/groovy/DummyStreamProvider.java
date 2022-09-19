@@ -19,6 +19,7 @@ import com.google.auto.service.AutoService;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import groovy.lang.Closure;
 
 @AutoService(StreamProvider.class)
 public class DummyStreamProvider implements StreamProvider {
@@ -54,6 +55,16 @@ public class DummyStreamProvider implements StreamProvider {
       TerminatePredicate terminateCheck,
       AttributeDescriptor<?>... attrs) {
 
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public <T> WindowedStream<T> impulse(Closure<T> factory) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public <T> WindowedStream<T> periodicImpulse(Closure<T> factory, long durationMs) {
     throw new UnsupportedOperationException();
   }
 }

@@ -27,6 +27,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
+import groovy.lang.Closure;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -55,6 +56,18 @@ public class ConsoleTest {
             .filter(c -> c.endsWith("_run_closure1"))
             .collect(Collectors.toList());
     assertEquals(1, definedClosures.size());
+  }
+
+  @Test
+  public void testImpulse() throws Exception {
+    final ToolsClassLoader toolsLoader;
+    String script = "env.impulse()\n";
+    try (ClassLoaderFence fence = new ClassLoaderFence();
+        Console console = newConsole(script)) {
+      console.run();
+      // pass, did not throw
+      assertTrue(true);
+    }
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -138,6 +151,18 @@ public class ConsoleTest {
                   long toStamp,
                   TerminatePredicate terminateCheck,
                   AttributeDescriptor<?>... attrs) {
+                return mock(WindowedStream.class);
+              }
+
+              @SuppressWarnings("unchecked")
+              @Override
+              public <T> WindowedStream<T> impulse(Closure<T> factory) {
+                return mock(WindowedStream.class);
+              }
+
+              @SuppressWarnings("unchecked")
+              @Override
+              public <T> WindowedStream<T> periodicImpulse(Closure<T> factory, long durationMs) {
                 return mock(WindowedStream.class);
               }
             };

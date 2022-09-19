@@ -42,8 +42,10 @@ import cz.o2.proxima.tools.groovy.JavaTypedClosure;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamTest;
 import cz.o2.proxima.tools.groovy.TestStreamProvider;
+import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Closures;
 import cz.o2.proxima.transaction.Response.Flags;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.util.SerializableScopedValue;
 import groovy.lang.Closure;
@@ -63,10 +65,13 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.runners.direct.DirectOptions;
 import org.apache.beam.runners.spark.SparkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
@@ -96,6 +101,8 @@ import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -104,6 +111,10 @@ import org.junit.runners.Parameterized.Parameters;
 @Slf4j
 @RunWith(Parameterized.class)
 public class BeamStreamTest extends StreamTest {
+
+  private final transient Repository repo =
+      Repository.ofTest(ConfigFactory.load("test-reference.conf"));
+  transient BeamDataOperator op;
 
   @Parameters
   public static Collection<Boolean> parameters() {
@@ -115,6 +126,16 @@ public class BeamStreamTest extends StreamTest {
   public BeamStreamTest(boolean stream) {
     super(provider(stream));
     this.stream = stream;
+  }
+
+  @Before
+  public void setUp() {
+    op = repo.getOrCreateOperator(BeamDataOperator.class);
+  }
+
+  @After
+  public void tearDown() {
+    op.close();
   }
 
   static TestStreamProvider provider(boolean stream) {
@@ -256,8 +277,6 @@ public class BeamStreamTest extends StreamTest {
 
   @Test(timeout = 10000)
   public void testInterruptible() throws InterruptedException {
-    Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
-    BeamDataOperator op = repo.getOrCreateOperator(BeamDataOperator.class);
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<?> armed = gateway.getAttribute("armed");
     SynchronousQueue<Boolean> interrupt = new SynchronousQueue<>();
@@ -608,6 +627,71 @@ public class BeamStreamTest extends StreamTest {
     expectThrow(() -> BeamStream.rethrow(new OutOfMemoryError()), OutOfMemoryError.class);
     expectThrow(() -> BeamStream.rethrow(new RuntimeException("exc")), RuntimeException.class);
     expectThrow(() -> BeamStream.rethrow(new IOException()), IllegalStateException.class);
+  }
+
+  @Test
+  public void testImpulse() {
+    WindowedStream<Integer> impulse = BeamStream.impulse(op, Pipeline::create, () -> 1);
+    List<Pair<String, Integer>> result =
+        impulse
+            .combine(
+                Closures.from(this, ign -> ""), 0, Closures.from(this, (a, b) -> (int) a + (int) b))
+            .collect();
+    assertEquals(Collections.singletonList(Pair.of("", 1)), result);
+  }
+
+  @Test(timeout = 15000)
+  public void testPeriodicImpulse() throws InterruptedException {
+    SerializableScopedValue<Integer, AtomicBoolean> finished =
+        new SerializableScopedValue<>(AtomicBoolean::new);
+    SerializableScopedValue<Integer, AtomicInteger> seen =
+        new SerializableScopedValue<>(AtomicInteger::new);
+    SerializableScopedValue<Integer, AtomicInteger> emitted =
+        new SerializableScopedValue<>(AtomicInteger::new);
+    SerializableScopedValue<Integer, CountDownLatch> latch =
+        new SerializableScopedValue<>(() -> new CountDownLatch(3));
+    WindowedStream<Integer> impulse =
+        BeamStream.periodicImpulse(
+            op,
+            () -> {
+              PipelineOptions opts = PipelineOptionsFactory.create();
+              opts.as(DirectOptions.class).setBlockOnRun(false);
+              return Pipeline.create(opts);
+            },
+            () -> {
+              latch.get(0).countDown();
+              return emitted.get(0).incrementAndGet();
+            },
+            1000,
+            () -> finished.get(0).get());
+
+    Thread pipeline =
+        new Thread(
+            () -> {
+              try {
+                impulse
+                    .map(
+                        Closures.from(
+                            this,
+                            el -> {
+                              if (seen.get(0).incrementAndGet() > 3) {
+                                finished.get(0).set(true);
+                              }
+                              return el;
+                            }))
+                    .collect();
+              } catch (Exception ex) {
+                if (ex.getCause() != null && ExceptionUtils.isInterrupted(ex.getCause())) {
+                  // pass
+                }
+                throw ex;
+              }
+            });
+    pipeline.setDaemon(true);
+    pipeline.start();
+    latch.get(0).await();
+    // make sonar happy
+    assertTrue(true);
   }
 
   private void expectThrow(Runnable r, Class<? extends Throwable> errorClass) {

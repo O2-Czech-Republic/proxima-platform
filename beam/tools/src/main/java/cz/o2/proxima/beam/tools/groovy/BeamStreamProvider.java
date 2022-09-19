@@ -33,6 +33,7 @@ import cz.o2.proxima.tools.groovy.ToolsClassLoader;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.ExceptionUtils;
+import groovy.lang.Closure;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -180,6 +181,17 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
     return BeamStream.batchSnapshot(
         beam, fromStamp, toStamp, terminateCheck, getJarRegisteringPipelineFactory(), attrs);
+  }
+
+  @Override
+  public <T> WindowedStream<T> impulse(Closure<T> factory) {
+    return BeamStream.impulse(beam, getJarRegisteringPipelineFactory(), factory::call);
+  }
+
+  @Override
+  public <T> WindowedStream<T> periodicImpulse(Closure<T> factory, long durationMs) {
+    return BeamStream.periodicImpulse(
+        beam, getJarRegisteringPipelineFactory(), factory::call, durationMs);
   }
 
   @Override

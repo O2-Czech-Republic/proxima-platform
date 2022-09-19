@@ -47,7 +47,6 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
 import cz.o2.proxima.tools.groovy.Stream;
-import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.StreamProvider.TerminatePredicate;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Types;
@@ -116,8 +115,10 @@ import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
+import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.PeriodicImpulse;
 import org.apache.beam.sdk.transforms.Reshuffle;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
@@ -166,7 +167,7 @@ class BeamStream<T> implements Stream<T> {
       Position position,
       boolean stopAtCurrent,
       boolean eventTime,
-      StreamProvider.TerminatePredicate terminateCheck,
+      TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>... attrs) {
 
@@ -184,7 +185,7 @@ class BeamStream<T> implements Stream<T> {
       BeamDataOperator beam,
       long startStamp,
       long endStamp,
-      StreamProvider.TerminatePredicate terminateCheck,
+      TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
@@ -204,7 +205,7 @@ class BeamStream<T> implements Stream<T> {
       BeamDataOperator beam,
       long fromStamp,
       long toStamp,
-      StreamProvider.TerminatePredicate terminateCheck,
+      TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
@@ -218,6 +219,58 @@ class BeamStream<T> implements Stream<T> {
         pipelineFactory) {}.windowAll();
   }
 
+  @SuppressWarnings("unchecked")
+  static <T> WindowedStream<T> impulse(
+      BeamDataOperator beam, Factory<Pipeline> pipelineFactory, Factory<T> factory) {
+
+    return new BeamWindowedStream<T>(
+        asConfig(beam),
+        true,
+        PCollectionProvider.fixedType(
+            p ->
+                p.apply(Impulse.create())
+                    .apply(
+                        org.apache.beam.sdk.transforms.MapElements.into(
+                                (TypeDescriptor<T>) TypeDescriptor.of(Object.class))
+                            .via(e -> factory.apply()))),
+        WindowingStrategy.globalDefault(),
+        () -> false,
+        pipelineFactory) {}.windowAll();
+  }
+
+  static <T> WindowedStream<T> periodicImpulse(
+      BeamDataOperator beam,
+      Factory<Pipeline> pipelineFactory,
+      Factory<T> factory,
+      long durationMs) {
+
+    return periodicImpulse(beam, pipelineFactory, factory, durationMs, () -> false);
+  }
+
+  @SuppressWarnings("unchecked")
+  @VisibleForTesting
+  static <T> WindowedStream<T> periodicImpulse(
+      BeamDataOperator beam,
+      Factory<Pipeline> pipelineFactory,
+      Factory<T> factory,
+      long durationMs,
+      TerminatePredicate terminatePredicate) {
+
+    return new BeamWindowedStream<T>(
+        asConfig(beam),
+        false,
+        PCollectionProvider.fixedType(
+            p ->
+                p.apply(PeriodicImpulse.create().withInterval(Duration.millis(durationMs)))
+                    .apply(
+                        org.apache.beam.sdk.transforms.MapElements.into(
+                                (TypeDescriptor<T>) TypeDescriptor.of(Object.class))
+                            .via(e -> factory.apply()))),
+        WindowingStrategy.of(FixedWindows.of(Duration.millis(durationMs))),
+        terminatePredicate,
+        pipelineFactory) {}.windowAll();
+  }
+
   private static StreamConfig asConfig(BeamDataOperator beam) {
     return StreamConfig.of(beam);
   }
@@ -225,7 +278,7 @@ class BeamStream<T> implements Stream<T> {
   final StreamConfig config;
   final boolean bounded;
   final PCollectionProvider<T> collection;
-  final StreamProvider.TerminatePredicate terminateCheck;
+  final TerminatePredicate terminateCheck;
   final Factory<Pipeline> pipelineFactory;
 
   private final List<RemoteConsumer<?>> remoteConsumers = new ArrayList<>();
@@ -237,7 +290,7 @@ class BeamStream<T> implements Stream<T> {
       boolean bounded,
       PCollectionProvider<T> input,
       WindowingStrategy<Object, ?> windowingStrategy,
-      StreamProvider.TerminatePredicate terminateCheck) {
+      TerminatePredicate terminateCheck) {
 
     this(
         config,
@@ -253,7 +306,7 @@ class BeamStream<T> implements Stream<T> {
       boolean bounded,
       PCollectionProvider<T> input,
       WindowingStrategy<Object, ?> windowingStrategy,
-      StreamProvider.TerminatePredicate terminateCheck,
+      TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory) {
 
     this.config = config;
@@ -1510,6 +1563,7 @@ class BeamStream<T> implements Stream<T> {
 
   private <T> DoFn<T, Void> asDoFn(
       PipelineOptions opts, boolean allowStable, Consumer<T> consumer) {
+
     if (allowStable && supportsStableInput(opts)) {
       return new StableConsumeFn<>(consumer);
     }

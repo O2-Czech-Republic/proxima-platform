@@ -642,7 +642,7 @@ public class BeamStreamTest extends StreamTest {
     assertEquals(Collections.singletonList(Pair.of("", 1)), result);
   }
 
-  @Test(timeout = 15000)
+  @Test(timeout = 20000)
   public void testPeriodicImpulse() throws InterruptedException {
     SerializableScopedValue<Integer, AtomicBoolean> finished =
         new SerializableScopedValue<>(AtomicBoolean::new);

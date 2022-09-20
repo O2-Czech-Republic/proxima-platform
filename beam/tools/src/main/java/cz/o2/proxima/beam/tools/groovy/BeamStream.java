@@ -103,6 +103,7 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.FlatMap;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.io.BoundedSource;
+import org.apache.beam.sdk.io.GenerateSequence;
 import org.apache.beam.sdk.io.UnboundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -118,7 +119,6 @@ import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.PeriodicImpulse;
 import org.apache.beam.sdk.transforms.Reshuffle;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
@@ -280,15 +280,12 @@ class BeamStream<T> implements Stream<T> {
         false,
         PCollectionProvider.fixedType(
             p ->
-                p.apply(
-                        PeriodicImpulse.create()
-                            .withInterval(Duration.millis(durationMs))
-                            .applyWindowing())
+                p.apply(GenerateSequence.from(0).withRate(1, Duration.millis(durationMs)))
                     .apply(
                         org.apache.beam.sdk.transforms.MapElements.into(
                                 (TypeDescriptor<T>) TypeDescriptor.of(Object.class))
                             .via(e -> factory.apply()))),
-        WindowingStrategy.of(FixedWindows.of(Duration.millis(durationMs))),
+        WindowingStrategy.globalDefault(),
         terminatePredicate,
         pipelineFactory) {}.windowAll();
   }

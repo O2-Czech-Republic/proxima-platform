@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import static cz.o2.proxima.beam.tools.groovy.BeamStream.dehydrate;
+
 import com.google.api.client.util.Lists;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
@@ -197,13 +199,15 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   @Override
   public <T> WindowedStream<T> impulse(Closure<T> factory) {
-    return BeamStream.impulse(beam, getJarRegisteringPipelineFactory(), factory::call);
+    Closure<T> dehydrated = dehydrate(factory);
+    return BeamStream.impulse(beam, getJarRegisteringPipelineFactory(), dehydrated::call);
   }
 
   @Override
   public <T> WindowedStream<T> periodicImpulse(Closure<T> factory, long durationMs) {
+    Closure<T> dehydrated = dehydrate(factory);
     return BeamStream.periodicImpulse(
-        beam, getJarRegisteringPipelineFactory(), factory::call, durationMs);
+        beam, getJarRegisteringPipelineFactory(), dehydrated::call, durationMs);
   }
 
   @Override

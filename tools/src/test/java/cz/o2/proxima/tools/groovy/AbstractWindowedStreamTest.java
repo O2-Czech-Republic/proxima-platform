@@ -16,6 +16,7 @@
 package cz.o2.proxima.tools.groovy;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Sets;
 import cz.o2.proxima.util.Pair;
@@ -59,6 +60,21 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
                 wrap((a, b) -> (int) a + (int) b, Integer.class))
             .collect();
     assertUnorderedEquals(result, Pair.of(0, 15));
+  }
+
+  @Test
+  public void testWindowAllReduceEarlyEmitWithValue() {
+    Stream<Integer> stream = stream(1, 2, 3, 4);
+    List<Pair<Integer, Integer>> result =
+        intoSingleWindow(stream)
+            .withEarlyEmitting(1)
+            .reduce(
+                wrap(tmp -> 0, Integer.class),
+                wrap(arg -> (int) arg + 1, Integer.class),
+                1,
+                wrap((a, b) -> (int) a + (int) b, Integer.class))
+            .collect();
+    assertTrue(result.contains(Pair.of(0, 15)));
   }
 
   @SuppressWarnings("unchecked")

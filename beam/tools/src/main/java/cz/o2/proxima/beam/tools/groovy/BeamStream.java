@@ -240,14 +240,17 @@ class BeamStream<T> implements Stream<T> {
 
   @SuppressWarnings("unchecked")
   static <T> WindowedStream<T> impulse(
-      BeamDataOperator beam, Factory<Pipeline> pipelineFactory, Factory<T> factory) {
+      @Nullable String name,
+      BeamDataOperator beam,
+      Factory<Pipeline> pipelineFactory,
+      Factory<T> factory) {
 
     return new BeamWindowedStream<T>(
         asConfig(beam),
         true,
         PCollectionProvider.fixedType(
             p ->
-                p.apply(Impulse.create())
+                (name == null ? p.apply(Impulse.create()) : p.apply(name, Impulse.create()))
                     .apply(
                         org.apache.beam.sdk.transforms.MapElements.into(
                                 (TypeDescriptor<T>) TypeDescriptor.of(Object.class))
@@ -258,29 +261,33 @@ class BeamStream<T> implements Stream<T> {
   }
 
   static <T> WindowedStream<T> periodicImpulse(
+      @Nullable String name,
       BeamDataOperator beam,
       Factory<Pipeline> pipelineFactory,
       Factory<T> factory,
       long durationMs) {
 
-    return periodicImpulse(beam, pipelineFactory, factory, durationMs, () -> false);
+    return periodicImpulse(name, beam, pipelineFactory, factory, durationMs, () -> false);
   }
 
   @SuppressWarnings("unchecked")
   @VisibleForTesting
   static <T> WindowedStream<T> periodicImpulse(
+      @Nullable String name,
       BeamDataOperator beam,
       Factory<Pipeline> pipelineFactory,
       Factory<T> factory,
       long durationMs,
       TerminatePredicate terminatePredicate) {
 
+    final GenerateSequence transform =
+        GenerateSequence.from(0).withRate(1, Duration.millis(durationMs));
     return new BeamWindowedStream<T>(
         asConfig(beam),
         false,
         PCollectionProvider.fixedType(
             p ->
-                p.apply(GenerateSequence.from(0).withRate(1, Duration.millis(durationMs)))
+                (name == null ? p.apply(transform) : p.apply(name, transform))
                     .apply(
                         org.apache.beam.sdk.transforms.MapElements.into(
                                 (TypeDescriptor<T>) TypeDescriptor.of(Object.class))

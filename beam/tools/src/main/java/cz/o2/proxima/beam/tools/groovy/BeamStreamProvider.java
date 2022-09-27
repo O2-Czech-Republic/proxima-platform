@@ -198,16 +198,16 @@ public abstract class BeamStreamProvider implements StreamProvider {
   }
 
   @Override
-  public <T> WindowedStream<T> impulse(Closure<T> factory) {
+  public <T> WindowedStream<T> impulse(String name, Closure<T> factory) {
     Closure<T> dehydrated = dehydrate(factory);
-    return BeamStream.impulse(beam, getJarRegisteringPipelineFactory(), dehydrated::call);
+    return BeamStream.impulse(name, beam, getJarRegisteringPipelineFactory(), dehydrated::call);
   }
 
   @Override
-  public <T> WindowedStream<T> periodicImpulse(Closure<T> factory, long durationMs) {
+  public <T> WindowedStream<T> periodicImpulse(String name, Closure<T> factory, long durationMs) {
     Closure<T> dehydrated = dehydrate(factory);
     return BeamStream.periodicImpulse(
-        beam, getJarRegisteringPipelineFactory(), dehydrated::call, durationMs);
+        name, beam, getJarRegisteringPipelineFactory(), dehydrated::call, durationMs);
   }
 
   @Override

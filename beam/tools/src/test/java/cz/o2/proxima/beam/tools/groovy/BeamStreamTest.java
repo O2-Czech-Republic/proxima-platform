@@ -633,7 +633,7 @@ public class BeamStreamTest extends StreamTest {
 
   @Test
   public void testImpulse() {
-    WindowedStream<Integer> impulse = BeamStream.impulse(op, Pipeline::create, () -> 1);
+    WindowedStream<Integer> impulse = BeamStream.impulse(null, op, Pipeline::create, () -> 1);
     List<Pair<String, Integer>> result =
         impulse
             .combine(
@@ -654,6 +654,7 @@ public class BeamStreamTest extends StreamTest {
         new SerializableScopedValue<>(() -> new CountDownLatch(3));
     WindowedStream<Integer> impulse =
         BeamStream.periodicImpulse(
+            null,
             op,
             () -> {
               PipelineOptions opts = PipelineOptionsFactory.create();

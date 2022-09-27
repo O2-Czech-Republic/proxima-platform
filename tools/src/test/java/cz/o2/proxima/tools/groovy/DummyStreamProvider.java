@@ -59,12 +59,12 @@ public class DummyStreamProvider implements StreamProvider {
   }
 
   @Override
-  public <T> WindowedStream<T> impulse(Closure<T> factory) {
+  public <T> WindowedStream<T> impulse(String name, Closure<T> factory) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public <T> WindowedStream<T> periodicImpulse(Closure<T> factory, long durationMs) {
+  public <T> WindowedStream<T> periodicImpulse(String name, Closure<T> factory, long durationMs) {
     throw new UnsupportedOperationException();
   }
 }

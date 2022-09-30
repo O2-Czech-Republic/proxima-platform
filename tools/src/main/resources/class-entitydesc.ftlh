@@ -236,11 +236,18 @@ class Environment implements RepositoryProvider {
   }
 
   def <T> WindowedStream<T> impulse(Closure<T> factory) {
-    return console.getImpulse(factory);
+    return console.getImpulse(null, factory);
+  }
+
+  def <T> WindowedStream<T> impulse(String name, Closure<T> factory) {
+    return console.getImpulse(name, factory);
   }
 
   def <T> WindowedStream<T> periodicImpulse(Closure<T> factory, long durationMs) {
-    return console.getPeriodicImpulse(factory, durationMs);
+    return console.getPeriodicImpulse(null, factory, durationMs);
   }
 
+  def <T> WindowedStream<T> periodicImpulse(String name, Closure<T> factory, long durationMs) {
+    return console.getPeriodicImpulse(name, factory, durationMs);
+  }
 }

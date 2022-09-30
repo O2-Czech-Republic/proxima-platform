@@ -283,11 +283,12 @@ public class Console implements AutoCloseable {
         attrList.toArray(new AttributeDescriptor[attrList.size()]));
   }
 
-  public <T> WindowedStream<T> getImpulse(Closure<T> factory) {
+  public <T> WindowedStream<T> getImpulse(@Nullable String name, Closure<T> factory) {
     return streamProvider.impulse(factory);
   }
 
-  public <T> WindowedStream<T> getPeriodicImpulse(Closure<T> factory, long durationMs) {
+  public <T> WindowedStream<T> getPeriodicImpulse(
+      @Nullable String name, Closure<T> factory, long durationMs) {
     return streamProvider.periodicImpulse(factory, durationMs);
   }
 

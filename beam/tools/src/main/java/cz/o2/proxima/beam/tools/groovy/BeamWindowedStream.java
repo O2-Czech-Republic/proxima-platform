@@ -63,6 +63,7 @@ import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
+import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode;
 import org.joda.time.Duration;
 
 /** A {@link WindowedStream} backed by beam. */
@@ -622,12 +623,14 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   public WindowedStream<T> withEarlyEmitting(long duration) {
     this.windowingStrategy =
-        windowingStrategy.withTrigger(
-            AfterWatermark.pastEndOfWindow()
-                .withEarlyFirings(
-                    AfterProcessingTime.pastFirstElementInPane()
-                        .plusDelayOf(Duration.millis(duration)))
-                .withLateFirings(AfterPane.elementCountAtLeast(1)));
+        windowingStrategy
+            .withTrigger(
+                AfterWatermark.pastEndOfWindow()
+                    .withEarlyFirings(
+                        AfterProcessingTime.pastFirstElementInPane()
+                            .plusDelayOf(Duration.millis(duration)))
+                    .withLateFirings(AfterPane.elementCountAtLeast(1)))
+            .withMode(AccumulationMode.ACCUMULATING_FIRED_PANES);
     return this;
   }
 

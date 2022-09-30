@@ -19,10 +19,13 @@ import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.tools.groovy.WindowedStream;
+import cz.o2.proxima.tools.groovy.util.Closures;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLClassLoader;
 import java.util.Collections;
+import java.util.List;
 import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.junit.Test;
@@ -90,5 +93,25 @@ public class BeamStreamProviderTest {
     }
     BeamStreamProvider.injectJarIntoContextClassLoader(Collections.singletonList(f));
     assertSame(loader, Thread.currentThread().getContextClassLoader());
+  }
+
+  @Test
+  public void testImpulses() {
+    try (BeamStreamProvider.Default provider = new BeamStreamProvider.Default()) {
+      provider.init(
+          repo,
+          new String[] {
+            "--runner=TestFlinkRunner",
+            "--runnerRegistrar=" + Registrar.class.getName(),
+            "--checkpointingInterval=10000"
+          });
+      WindowedStream<Long> periodicImpulse =
+          provider.periodicImpulse(Closures.from(this, () -> 1L), 1000L);
+      WindowedStream<Long> impulse = provider.impulse(Closures.from(this, () -> 1L));
+      assertNotNull(periodicImpulse);
+      assertNotNull(impulse);
+      List<Long> collected = impulse.collect();
+      assertEquals(Collections.singletonList(1L), collected);
+    }
   }
 }

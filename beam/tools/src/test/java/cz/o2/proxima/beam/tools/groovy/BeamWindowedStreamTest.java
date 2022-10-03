@@ -16,26 +16,10 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.tools.groovy.WindowedStreamTest;
-import org.junit.Ignore;
-import org.junit.Test;
 
 public class BeamWindowedStreamTest extends WindowedStreamTest {
 
   public BeamWindowedStreamTest() {
     super(BeamStreamTest.provider(true));
-  }
-
-  @Ignore("Sorting is TODO in Beamphoria")
-  @Test
-  @Override
-  public void testWindowAllSortedWithComparator() {
-    super.testWindowAllSortedWithComparator();
-  }
-
-  @Ignore("Sorting is TODO in Beamphoria")
-  @Test
-  @Override
-  public void testWindowAllSorted() {
-    super.testWindowAllSorted();
   }
 }

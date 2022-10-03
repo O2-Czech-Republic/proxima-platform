@@ -23,12 +23,13 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.testing.model.Model;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
+import org.apache.beam.sdk.transforms.Count;
+import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode;
 import org.joda.time.Duration;
 
 /**
@@ -50,19 +51,21 @@ class ReadMe {
         operator.getStream(
             pipeline, Position.OLDEST, false, true, model.getEvent().getDataDescriptor());
     PCollection<KV<String, Long>> counted =
-        CountByKey.of(input)
-            .keyBy(
-                el ->
-                    model
-                        .getEvent()
-                        .getDataDescriptor()
-                        .valueOf(el)
-                        .map(BaseEvent::getProductId)
-                        .orElse(""))
-            .windowBy(FixedWindows.of(Duration.standardMinutes(1)))
-            .triggeredBy(AfterWatermark.pastEndOfWindow())
-            .accumulationMode(AccumulationMode.DISCARDING_FIRED_PANES)
-            .output();
+        input
+            .apply(
+                Window.<StreamElement>into(FixedWindows.of(Duration.standardMinutes(1)))
+                    .triggering(AfterWatermark.pastEndOfWindow())
+                    .discardingFiredPanes())
+            .apply(
+                WithKeys.of(
+                    el ->
+                        model
+                            .getEvent()
+                            .getDataDescriptor()
+                            .valueOf(el)
+                            .map(BaseEvent::getProductId)
+                            .orElse("")))
+            .apply(Count.perKey());
     // do something with the output
   }
 

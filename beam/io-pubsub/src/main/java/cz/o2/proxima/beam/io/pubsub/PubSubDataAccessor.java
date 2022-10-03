@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.io.pubsub;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
+import cz.o2.proxima.beam.transforms.AssignEventTime;
 import cz.o2.proxima.io.pubsub.util.PubSubUtils;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -27,18 +28,16 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.extensions.euphoria.core.client.io.Collector;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.FlatMap;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
+import org.apache.beam.sdk.transforms.FlatMapElements;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
-import org.joda.time.Duration;
 
 /** A {@link DataAccessor} for PubSub. */
 @Slf4j
@@ -73,19 +72,18 @@ public class PubSubDataAccessor implements DataAccessor {
 
     PCollection<PubsubMessage> input = pipeline.apply(PubsubIO.readMessages().fromTopic(topic));
     PCollection<StreamElement> parsed =
-        FlatMap.of(input)
-            .using(
-                (PubsubMessage in, Collector<StreamElement> ctx) ->
-                    PubSubUtils.toStreamElement(entity, in.getMessageId(), in.getPayload())
-                        .ifPresent(ctx::collect),
-                TypeDescriptor.of(StreamElement.class))
-            .output()
-            .setCoder(StreamElementCoder.of(repoFactory));
+        input
+            .apply(
+                FlatMapElements.into(TypeDescriptor.of(StreamElement.class))
+                    .via(
+                        in ->
+                            PubSubUtils.toStreamElement(entity, in.getMessageId(), in.getPayload())
+                                .map(Collections::singletonList)
+                                .orElse(Collections.emptyList())))
+            .setCoder(StreamElementCoder.of(repoFactory))
+            .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
     if (eventTime) {
-      return AssignEventTime.of(parsed)
-          .using(StreamElement::getStamp, Duration.millis(Long.MAX_VALUE))
-          .output()
-          .setCoder(parsed.getCoder());
+      return parsed.apply(AssignEventTime.forStreamElement());
     }
     return parsed;
   }

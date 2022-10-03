@@ -308,18 +308,38 @@ First, let's introduce some glossary:
  ```
  Next, use this operator to create PCollection from Model.
  ```java
-   // some import omitted, including these for clarity
-   import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
+   // some imports omitted, including these for clarity
+   import org.apache.beam.sdk.Pipeline;
+   import org.apache.beam.sdk.transforms.Count;
+   import org.apache.beam.sdk.transforms.WithKeys;
    import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
    import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+   import org.apache.beam.sdk.transforms.windowing.Window;
    import org.apache.beam.sdk.values.KV;
    import org.apache.beam.sdk.values.PCollection;
-   import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode;
+   import org.joda.time.Duration;
 
    Pipeline pipeline = Pipeline.create();
    PCollection<StreamElement> input = operator.getStream(
        pipeline, Position.OLDEST, false, true,
        model.getEvent().getDataDescriptor());
+   PCollection<KV<String, Long>> counted =
+       input
+           .apply(
+               Window.<StreamElement>into(FixedWindows.of(Duration.standardMinutes(1)))
+                   .triggering(AfterWatermark.pastEndOfWindow())
+                   .discardingFiredPanes())
+           .apply(
+               WithKeys.of(
+                   el ->
+                       model
+                           .getEvent()
+                           .getDataDescriptor()
+                           .valueOf(el)
+                           .map(BaseEvent::getProductId)
+                           .orElse("")))
+           .apply(Count.perKey());
+
    PCollection<KV<String, Long>> counted = CountByKey.of(input)
        .keyBy(el -> model.getEvent()
            .getDataDescriptor()

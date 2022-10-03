@@ -79,7 +79,6 @@ import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.coders.VarIntCoder;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -87,6 +86,7 @@ import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestStream;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.Impulse;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
@@ -322,14 +322,14 @@ public class BeamStreamTest extends StreamTest {
       PipelineOptions opts = PipelineOptionsFactory.create();
       Pipeline pipeline = Pipeline.create(opts);
       PCollection<Integer> input = pipeline.apply(test);
-      PCollection<KV<Integer, Integer>> kvs =
-          MapElements.of(input)
-              .using(
-                  i -> KV.of(0, i),
-                  TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
-              .output();
       PCollection<Pair<Integer, Integer>> result =
-          kvs.apply(
+          input
+              .apply(
+                  MapElements.into(
+                          TypeDescriptors.kvs(
+                              TypeDescriptors.integers(), TypeDescriptors.integers()))
+                      .via(i -> KV.of(0, i)))
+              .apply(
                   ParDo.of(
                       new IntegrateDoFn<>(
                           Integer::sum, k -> 0, KvCoder.of(VarIntCoder.of(), VarIntCoder.of()))))
@@ -355,14 +355,14 @@ public class BeamStreamTest extends StreamTest {
       PipelineOptions opts = PipelineOptionsFactory.create();
       Pipeline pipeline = Pipeline.create(opts);
       PCollection<Integer> input = pipeline.apply(test);
-      PCollection<KV<Integer, Integer>> kvs =
-          MapElements.of(input)
-              .using(
-                  i -> KV.of(i % 2, i),
-                  TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
-              .output();
       PCollection<Pair<Integer, Integer>> result =
-          kvs.apply(
+          input
+              .apply(
+                  MapElements.into(
+                          TypeDescriptors.kvs(
+                              TypeDescriptors.integers(), TypeDescriptors.integers()))
+                      .via(i -> KV.of(i % 2, i)))
+              .apply(
                   ParDo.of(
                       new IntegrateDoFn<>(
                           Integer::sum, k -> k, KvCoder.of(VarIntCoder.of(), VarIntCoder.of()))))
@@ -633,13 +633,20 @@ public class BeamStreamTest extends StreamTest {
 
   @Test
   public void testImpulse() {
-    WindowedStream<Integer> impulse = BeamStream.impulse(null, op, Pipeline::create, () -> 1);
-    List<Pair<String, Integer>> result =
-        impulse
-            .combine(
-                Closures.from(this, ign -> ""), 0, Closures.from(this, (a, b) -> (int) a + (int) b))
-            .collect();
-    assertEquals(Collections.singletonList(Pair.of("", 1)), result);
+    try {
+      WindowedStream<Integer> impulse = BeamStream.impulse(null, op, Pipeline::create, () -> 1);
+      List<Pair<String, Integer>> result =
+          impulse
+              .combine(
+                  Closures.from(this, ign -> ""),
+                  0,
+                  Closures.from(this, (a, b) -> (int) a + (int) b))
+              .collect();
+      assertEquals(Collections.singletonList(Pair.of("", 1)), result);
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
   }
 
   @Test(timeout = 20000)

@@ -37,22 +37,24 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.Pipeline.PipelineVisitor;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
 import org.apache.beam.sdk.runners.TransformHierarchy.Node;
 import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.transforms.Combine;
 import org.apache.beam.sdk.transforms.Count;
+import org.apache.beam.sdk.transforms.Filter;
+import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PDone;
 import org.apache.beam.sdk.values.PValue;
-import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
 import org.junit.Before;
 import org.junit.Test;
@@ -95,13 +97,11 @@ public class BeamDataOperatorTest {
             (succ, exc) -> {});
     PCollection<StreamElement> stream =
         beam.getStream(pipeline, Position.OLDEST, true, true, armed);
-    PCollection<KV<String, Long>> counted =
-        CountByKey.of(stream).keyBy(e -> "", TypeDescriptors.strings()).output();
+    PCollection<KV<String, Long>> counted = stream.apply(WithKeys.of("")).apply(Count.perKey());
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
     runPipeline(pipeline);
   }
 
-  @SuppressWarnings("unchecked")
   @Test(timeout = 60000)
   public synchronized void testBoundedCommitLogConsumptionWithWindow() {
     OnlineAttributeWriter writer =
@@ -121,21 +121,21 @@ public class BeamDataOperatorTest {
     PCollection<StreamElement> stream =
         beam.getStream(pipeline, Position.OLDEST, true, true, armed);
 
-    PCollection<KV<String, Long>> counted =
-        CountByKey.of(stream)
-            .keyBy(e -> "", TypeDescriptors.strings())
-            .windowBy(FixedWindows.of(Duration.millis(1000)))
-            .triggeredBy(
-                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
-            .discardingFiredPanes()
-            .withAllowedLateness(Duration.ZERO)
-            .output();
+    PCollection<Long> counted =
+        stream
+            .apply(
+                Window.<StreamElement>into(FixedWindows.of(Duration.millis(1000)))
+                    .triggering(
+                        AfterWatermark.pastEndOfWindow()
+                            .withLateFirings(AfterPane.elementCountAtLeast(1)))
+                    .withAllowedLateness(Duration.ZERO)
+                    .discardingFiredPanes())
+            .apply(Combine.globally(Count.<StreamElement>combineFn()).withoutDefaults());
 
-    PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
+    PAssert.that(counted).containsInAnyOrder(1L, 1L);
     runPipeline(pipeline);
   }
 
-  @SuppressWarnings("unchecked")
   @Test(timeout = 60000)
   public synchronized void testUnboundedCommitLogConsumptionWithWindow() {
     OnlineAttributeWriter writer =
@@ -155,17 +155,17 @@ public class BeamDataOperatorTest {
     PCollection<StreamElement> stream =
         beam.getStream("", pipeline, Position.OLDEST, false, true, 2, armed);
 
-    PCollection<KV<String, Long>> counted =
-        CountByKey.of(stream)
-            .keyBy(e -> "", TypeDescriptors.strings())
-            .windowBy(FixedWindows.of(Duration.millis(1000)))
-            .triggeredBy(
-                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
-            .discardingFiredPanes()
-            .withAllowedLateness(Duration.millis(10000))
-            .output();
-
-    PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
+    PCollection<Long> counted =
+        stream
+            .apply(
+                Window.<StreamElement>into(FixedWindows.of(Duration.millis(1000)))
+                    .triggering(
+                        AfterWatermark.pastEndOfWindow()
+                            .withLateFirings(AfterPane.elementCountAtLeast(1)))
+                    .withAllowedLateness(Duration.ZERO)
+                    .discardingFiredPanes())
+            .apply(Combine.globally(Count.<StreamElement>combineFn()).withoutDefaults());
+    PAssert.that(counted).containsInAnyOrder(1L, 1L);
     runPipeline(pipeline);
   }
 
@@ -230,13 +230,12 @@ public class BeamDataOperatorTest {
             (succ, exc) -> {});
     PCollection<StreamElement> stream =
         beam.getStream(pipeline, Position.OLDEST, true, true, event);
-    stream =
-        Filter.of(stream)
-            .by(e -> e.getAttributeDescriptor().toAttributePrefix().startsWith("event"))
-            .output();
-    PCollection<KV<String, Long>> counted =
-        CountByKey.of(stream).keyBy(e -> "", TypeDescriptors.strings()).output();
-    PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
+    PCollection<Long> counted =
+        stream
+            .apply(
+                Filter.by(e -> e.getAttributeDescriptor().toAttributePrefix().startsWith("event")))
+            .apply(Count.globally());
+    PAssert.that(counted).containsInAnyOrder(1L);
     runPipeline(pipeline);
   }
 
@@ -294,7 +293,11 @@ public class BeamDataOperatorTest {
         beam.getStream(pipeline, Position.OLDEST, true, true, event);
     PCollection<StreamElement> armedStream =
         beam.getStream(pipeline, Position.OLDEST, true, true, armed);
-    PCollection<Long> result = Union.of(events, armedStream).output().apply(Count.globally());
+    PCollection<Long> result =
+        PCollectionList.of(events)
+            .and(armedStream)
+            .apply(Flatten.pCollections())
+            .apply(Count.globally());
     PAssert.that(result).containsInAnyOrder(2L);
     runPipeline(pipeline);
   }
@@ -393,8 +396,7 @@ public class BeamDataOperatorTest {
 
   private void terminatePipeline(
       PCollection<StreamElement> first, PCollection<StreamElement> second) {
-    PCollection<StreamElement> union = Union.of(first, second).output();
-    union.apply(done());
+    PCollectionList.of(first).and(second).apply(Flatten.pCollections()).apply(done());
   }
 
   private static <T> PTransform<PCollection<T>, PDone> done() {
@@ -476,17 +478,19 @@ public class BeamDataOperatorTest {
             gateway, armed, "uuid", "key-last", armed.getName(), now, new byte[] {1, 2, 3}),
         (succ, exc) -> {});
 
-    PCollection<KV<String, Long>> counted =
-        CountByKey.of(input.apply())
-            .keyBy(e -> "", TypeDescriptors.strings())
-            .windowBy(Sessions.withGapDuration(Duration.millis(1000)))
-            .triggeredBy(
-                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
-            .discardingFiredPanes()
-            .withAllowedLateness(Duration.millis(10000))
-            .output();
+    PCollection<Long> counted =
+        input
+            .apply()
+            .apply(
+                Window.<StreamElement>into(Sessions.withGapDuration(Duration.millis(1000)))
+                    .triggering(
+                        AfterWatermark.pastEndOfWindow()
+                            .withLateFirings(AfterPane.elementCountAtLeast(1)))
+                    .withAllowedLateness(Duration.millis(10000))
+                    .discardingFiredPanes())
+            .apply(Combine.globally(Count.<StreamElement>combineFn()).withoutDefaults());
 
-    PAssert.that(counted).containsInAnyOrder(KV.of("", elements), KV.of("", 1L));
+    PAssert.that(counted).containsInAnyOrder(elements, 1L);
     runPipeline(pipeline);
   }
 

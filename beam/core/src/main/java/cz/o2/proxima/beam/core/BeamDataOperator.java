@@ -42,20 +42,20 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.Value;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.CoderRegistry;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
 import org.apache.beam.sdk.transforms.Filter;
+import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow.IntervalWindowCoder;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.TypeDescriptor;
 
 /** A {@link DataOperator} for Apache Beam transformations. */
@@ -219,8 +219,17 @@ public class BeamDataOperator implements DataOperator {
               return getOrCreatePCollection(
                   desc, limit < 0 || limit == Long.MAX_VALUE, d -> d.createStream(limit));
             })
-        .reduce((left, right) -> Union.of(left, right).output())
-        .orElseThrow(failNotFound(attrs, "commit-log"))
+        .reduce(
+            PCollectionList.<StreamElement>empty(pipeline),
+            PCollectionList::and,
+            (list1, list2) -> {
+              PCollectionList<StreamElement> l = list1;
+              for (PCollection<StreamElement> pc : list2.getAll()) {
+                l = l.and(pc);
+              }
+              return l;
+            })
+        .apply(Flatten.pCollections())
         .apply(filterAttrs(attrs));
   }
 
@@ -290,8 +299,17 @@ public class BeamDataOperator implements DataOperator {
                   new BatchUpdatesDescriptor(pipeline, da, startStamp, endStamp, asStream);
               return getOrCreatePCollection(desc, true, d -> d.createBatchUpdates(attrClosure));
             })
-        .reduce((left, right) -> Union.of(left, right).output())
-        .orElseThrow(failNotFound(attrs, "batch-updates"))
+        .reduce(
+            PCollectionList.<StreamElement>empty(pipeline),
+            PCollectionList::and,
+            (list1, list2) -> {
+              PCollectionList<StreamElement> l = list1;
+              for (PCollection<StreamElement> pc : list2.getAll()) {
+                l = l.and(pc);
+              }
+              return l;
+            })
+        .apply(Flatten.pCollections())
         .apply(filterAttrs(attrs));
   }
 
@@ -355,8 +373,17 @@ public class BeamDataOperator implements DataOperator {
                     new BatchSnapshotDescriptor(pipeline, da, fromStamp, untilStamp);
                 return getOrCreatePCollection(desc, true, d -> d.createBatchUpdates(attrList));
               })
-          .reduce((left, right) -> Union.of(left, right).output())
-          .orElseThrow(failNotFound(attrs, "batch-snapshot"))
+          .reduce(
+              PCollectionList.<StreamElement>empty(pipeline),
+              PCollectionList::and,
+              (list1, list2) -> {
+                PCollectionList<StreamElement> l = list1;
+                for (PCollection<StreamElement> pc : list2.getAll()) {
+                  l = l.and(pc);
+                }
+                return l;
+              })
+          .apply(Flatten.pCollections())
           .apply(filterAttrs(attrs));
     }
     return PCollectionTools.reduceAsSnapshot(
@@ -456,23 +483,9 @@ public class BeamDataOperator implements DataOperator {
     return new PTransform<PCollection<StreamElement>, PCollection<StreamElement>>() {
       @Override
       public PCollection<StreamElement> expand(PCollection<StreamElement> input) {
-        return input
-            .apply(Filter.by(el -> attrSet.contains(el.getAttributeDescriptor())))
-            .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
+        return input.apply(Filter.by(el -> attrSet.contains(el.getAttributeDescriptor())));
       }
     };
-  }
-
-  private Supplier<IllegalArgumentException> failNotFound(
-      AttributeDescriptor<?>[] attrs, String accessorType) {
-    Set<AttributeFamilyDescriptor> families =
-        Arrays.stream(attrs)
-            .flatMap(a -> repo.getFamiliesForAttribute(a).stream())
-            .collect(Collectors.toSet());
-    return () ->
-        new IllegalArgumentException(
-            String.format(
-                "Failed to find suitable family type [%s] in [%s]", accessorType, families));
   }
 
   private <T extends PCollectionDescriptor> PCollection<StreamElement> getOrCreatePCollection(
@@ -483,7 +496,11 @@ public class BeamDataOperator implements DataOperator {
       synchronized (createdStreamsMap) {
         PCollection<StreamElement> current = createdStreamsMap.get(desc);
         if (current == null) {
-          ret = factory.apply(desc);
+          ret =
+              factory
+                  .apply(desc)
+                  .setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
+                  .setCoder(StreamElementCoder.of(repo.asFactory()));
           createdStreamsMap.put(desc, ret);
         } else {
           ret = current;
@@ -491,7 +508,11 @@ public class BeamDataOperator implements DataOperator {
       }
     } else {
       // when limit is applied we must create a new source for each input
-      ret = factory.apply(desc);
+      ret =
+          factory
+              .apply(desc)
+              .setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
+              .setCoder(StreamElementCoder.of(repo.asFactory()));
     }
     if (!typesRegisteredFor(ret.getPipeline())) {
       registerTypesFor(ret.getPipeline());

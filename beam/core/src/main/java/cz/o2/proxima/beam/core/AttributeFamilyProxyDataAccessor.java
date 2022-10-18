@@ -33,7 +33,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.values.PCollection;
 
 /** {@link DataAccessor} for {@link AttributeFamilyProxyDescriptor}. */
@@ -143,7 +143,7 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
   }
 
   private PCollection<StreamElement> applyTransform(PCollection<StreamElement> in) {
-    return MapElements.of(in).using(this::transformSingleRead, in.getTypeDescriptor()).output();
+    return in.apply(MapElements.into(in.getTypeDescriptor()).via(this::transformSingleRead));
   }
 
   private StreamElement transformSingleRead(StreamElement input) {

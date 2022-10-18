@@ -38,27 +38,31 @@ public class GStringSerializerTest {
         p.apply(Create.of(new GStringImpl(new Object[] {}, new String[] {"str"})));
     BeamStream<GStringImpl> stream = BeamStream.wrap(input);
 
-    @SuppressWarnings("unchecked")
-    List<Pair<Integer, GString>> result =
-        stream
-            .map(Closures.from(this, e -> Pair.of(1, (GString) e)))
-            .windowAll()
-            .groupReduce(
-                Closures.from(this, pair -> ((Pair<Integer, GString>) pair).getFirst()),
-                Closures.from(
-                    this,
-                    (window, values) ->
-                        ((List<Pair<Integer, GString>>) values)
-                            .stream()
-                            .map(Pair::getSecond)
-                            .collect(Collectors.toList())))
-            .collect();
-
-    assertEquals(
-        Collections.singletonList(Pair.of(1, "str")),
-        result
-            .stream()
-            .map(pair -> Pair.of(pair.getFirst(), pair.getSecond().toString()))
-            .collect(Collectors.toList()));
+    try {
+      @SuppressWarnings("unchecked")
+      List<Pair<Integer, GString>> result =
+          stream
+              .map(Closures.from(this, e -> Pair.of(1, (GString) e)))
+              .windowAll()
+              .groupReduce(
+                  Closures.from(this, pair -> ((Pair<Integer, GString>) pair).getFirst()),
+                  Closures.from(
+                      this,
+                      (window, values) ->
+                          ((List<Pair<Integer, GString>>) values)
+                              .stream()
+                              .map(Pair::getSecond)
+                              .collect(Collectors.toList())))
+              .collect();
+      assertEquals(
+          Collections.singletonList(Pair.of(1, "str")),
+          result
+              .stream()
+              .map(pair -> Pair.of(pair.getFirst(), pair.getSecond().toString()))
+              .collect(Collectors.toList()));
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
   }
 }

@@ -25,6 +25,6 @@ public abstract class WindowedStreamTest extends AbstractWindowedStreamTest {
   @SuppressWarnings("unchecked")
   @Override
   <T> WindowedStream<T> intoSingleWindow(Stream<T> stream) {
-    return (WindowedStream) stream.windowAll();
+    return stream.windowAll();
   }
 }

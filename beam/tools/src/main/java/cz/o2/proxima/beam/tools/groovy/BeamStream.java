@@ -23,6 +23,7 @@ import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
+import cz.o2.proxima.beam.transforms.AssignEventTime;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -96,11 +97,6 @@ import org.apache.beam.sdk.coders.CoderRegistry;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.coders.VarLongCoder;
-import org.apache.beam.sdk.extensions.euphoria.core.client.io.Collector;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.FlatMap;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.GenerateSequence;
@@ -115,11 +111,15 @@ import org.apache.beam.sdk.state.TimerSpec;
 import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.Filter;
+import org.apache.beam.sdk.transforms.FlatMapElements;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.Impulse;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Reshuffle;
+import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
@@ -362,16 +362,13 @@ class BeamStream<T> implements Stream<T> {
     return descendant(
         pipeline -> {
           // FIXME: need a way to retrieve inner type of the list
-          final Coder<Object> valueCoder = getCoder(pipeline, TypeDescriptor.of(Object.class));
-          @SuppressWarnings("unchecked")
-          final PCollection<X> ret =
-              (PCollection)
-                  FlatMap.named(name)
-                      .of(collection.materialize(pipeline))
-                      .using((elem, ctx) -> dehydrated.call(elem).forEach(ctx::collect))
-                      .output()
-                      .setCoder(valueCoder);
-          return ret;
+          @SuppressWarnings({"unchecked", "rawtypes"})
+          final Coder<X> valueCoder = (Coder) getCoder(pipeline, TypeDescriptor.of(Object.class));
+          TypeDescriptor<X> valueType = valueCoder.getEncodedTypeDescriptor();
+          return collection
+              .materialize(pipeline)
+              .apply(FlatMapElements.into(valueType).via(dehydrated::call))
+              .setCoder(valueCoder);
         });
   }
 
@@ -384,10 +381,10 @@ class BeamStream<T> implements Stream<T> {
     return descendant(
         pipeline -> {
           Coder<X> coder = coderOf(pipeline, dehydrated);
-          return MapElements.named(name)
-              .of(collection.materialize(pipeline))
-              .using(e -> dehydrated.call(e))
-              .output()
+          TypeDescriptor<X> type = coder.getEncodedTypeDescriptor();
+          return collection
+              .materialize(pipeline)
+              .apply(MapElements.into(type).via(dehydrated::call))
               .setCoder(coder);
         });
   }
@@ -401,22 +398,17 @@ class BeamStream<T> implements Stream<T> {
     return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
-          return Filter.named(name).of(in).by(dehydrated::call).output().setCoder(in.getCoder());
+          return in.apply(Filter.by(dehydrated::call));
         });
   }
 
   @Override
   public Stream<T> assignEventTime(@Nullable String name, Closure<Long> assigner) {
     Closure<Long> dehydrated = dehydrate(assigner);
+    SerializableFunction<T, Instant> timestampFn = in -> Instant.ofEpochMilli(dehydrated.call(in));
     return descendant(
-        pipeline -> {
-          PCollection<T> in = collection.materialize(pipeline);
-          return AssignEventTime.named(name)
-              .of(in)
-              .using(dehydrated::call)
-              .output()
-              .setCoder(in.getCoder());
-        });
+        pipeline ->
+            collection.materialize(pipeline).apply(AssignEventTime.forTimestampFn(timestampFn)));
   }
 
   @Override
@@ -593,34 +585,37 @@ class BeamStream<T> implements Stream<T> {
     BeamStream<StreamElement> toWrite =
         descendant(
             pipeline ->
-                FlatMap.named("persistIntoTargetReplica")
-                    .of((PCollection<StreamElement>) collection.materialize(pipeline))
-                    .using(
-                        (StreamElement in, Collector<StreamElement> ctx) -> {
-                          String key = in.getKey();
-                          String attribute = in.getAttribute();
-                          EntityDescriptor entity = in.getEntityDescriptor();
-                          String replicatedName =
-                              String.format("_%s_%s$%s", replicationName, target, attribute);
-                          Optional<AttributeDescriptor<Object>> attr =
-                              entity.findAttribute(replicatedName, true);
-                          if (attr.isPresent()) {
-                            long stamp = in.getStamp();
-                            byte[] value = in.getValue();
-                            ctx.collect(
-                                StreamElement.upsert(
-                                    entity,
-                                    attr.get(),
-                                    UUID.randomUUID().toString(),
-                                    key,
-                                    replicatedName,
-                                    stamp,
-                                    value));
-                          } else {
-                            log.warn("Cannot find attribute {} in {}", replicatedName, entity);
-                          }
-                        })
-                    .output());
+                ((PCollection<StreamElement>) collection.materialize(pipeline))
+                    .apply(
+                        "persistIntoTargetReplica",
+                        FlatMapElements.into(TypeDescriptor.of(StreamElement.class))
+                            .via(
+                                in -> {
+                                  String key = in.getKey();
+                                  String attribute = in.getAttribute();
+                                  EntityDescriptor entity = in.getEntityDescriptor();
+                                  String replicatedName =
+                                      String.format(
+                                          "_%s_%s$%s", replicationName, target, attribute);
+                                  Optional<AttributeDescriptor<Object>> attr =
+                                      entity.findAttribute(replicatedName, true);
+                                  if (attr.isPresent()) {
+                                    long stamp = in.getStamp();
+                                    byte[] value = in.getValue();
+                                    return Collections.singletonList(
+                                        StreamElement.upsert(
+                                            entity,
+                                            attr.get(),
+                                            UUID.randomUUID().toString(),
+                                            key,
+                                            replicatedName,
+                                            stamp,
+                                            value));
+                                  }
+                                  log.warn(
+                                      "Cannot find attribute {} in {}", replicatedName, entity);
+                                  return Collections.emptyList();
+                                })));
 
     toWrite.write(repoProvider);
   }
@@ -694,33 +689,36 @@ class BeamStream<T> implements Stream<T> {
 
     return descendant(
         pipeline ->
-            MapElements.named("asStreamElements")
-                .of(collection.materialize(pipeline))
-                .using(
-                    data -> {
-                      CharSequence key = keyDehydrated.call(data);
-                      CharSequence attribute = attributeDehydrated.call(data);
-                      AttributeDescriptor<Object> attrDesc =
-                          entity
-                              .findAttribute(attribute.toString(), true)
-                              .orElseThrow(
-                                  () ->
-                                      new IllegalArgumentException(
-                                          "No attribute " + attribute + " in " + entity));
-                      long timestamp = timeDehydrated.call(data);
-                      byte[] value =
-                          attrDesc.getValueSerializer().serialize(valueDehydrated.call(data));
-                      return StreamElement.upsert(
-                          entity,
-                          attrDesc,
-                          UUID.randomUUID().toString(),
-                          key.toString(),
-                          attribute.toString(),
-                          timestamp,
-                          value);
-                    },
-                    TypeDescriptor.of(StreamElement.class))
-                .output()
+            collection
+                .materialize(pipeline)
+                .apply(
+                    "asStreamElements",
+                    MapElements.into(TypeDescriptor.of(StreamElement.class))
+                        .via(
+                            data -> {
+                              CharSequence key = keyDehydrated.call(data);
+                              CharSequence attribute = attributeDehydrated.call(data);
+                              AttributeDescriptor<Object> attrDesc =
+                                  entity
+                                      .findAttribute(attribute.toString(), true)
+                                      .orElseThrow(
+                                          () ->
+                                              new IllegalArgumentException(
+                                                  "No attribute " + attribute + " in " + entity));
+                              long timestamp = timeDehydrated.call(data);
+                              byte[] value =
+                                  attrDesc
+                                      .getValueSerializer()
+                                      .serialize(valueDehydrated.call(data));
+                              return StreamElement.upsert(
+                                  entity,
+                                  attrDesc,
+                                  UUID.randomUUID().toString(),
+                                  key.toString(),
+                                  attribute.toString(),
+                                  timestamp,
+                                  value);
+                            }))
                 .setCoder(StreamElementCoder.of(factory)));
   }
 
@@ -821,16 +819,13 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public <K> WindowedStream<Pair<K, T>> sessionWindow(Closure<K> keyExtractor, long gapDuration) {
-
     Closure<K> dehydrated = dehydrate(keyExtractor);
-
     return windowed(
         pipeline -> {
           Coder<K> coder = coderOf(pipeline, dehydrated);
           PCollection<T> in = collection.materialize(pipeline);
-          return MapElements.of(in)
-              .using(e -> Pair.of(dehydrated.call(e), e))
-              .output()
+          TypeDescriptor<Pair<K, T>> type = new TypeDescriptor<Pair<K, T>>() {};
+          return in.apply(MapElements.into(type).via(e -> Pair.of(dehydrated.call(e), e)))
               .setCoder(PairCoder.of(coder, in.getCoder()));
         },
         Sessions.withGapDuration(Duration.millis(gapDuration)));
@@ -904,16 +899,20 @@ class BeamStream<T> implements Stream<T> {
           PCollection<T> in = collection.materialize(pipeline);
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
           Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
+          TypeDescriptor<K> keyType = keyCoder.getEncodedTypeDescriptor();
+          TypeDescriptor<V> valueType = valueCoder.getEncodedTypeDescriptor();
           if (!in.getWindowingStrategy().equals(windowingStrategy)) {
             @SuppressWarnings("unchecked")
             WindowingStrategy<T, ?> strategy = (WindowingStrategy<T, ?>) windowingStrategy;
             in = in.apply(withWindowingStrategy(strategy));
           }
           PCollection<KV<K, V>> kvs =
-              MapElements.named(withSuffix(name, ".mapToKv"))
-                  .of(in)
-                  .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
-                  .output()
+              applyNamedTransform(
+                      name,
+                      ".mapToKv",
+                      in,
+                      MapElements.into(TypeDescriptors.kvs(keyType, valueType))
+                          .<T>via(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e))))
                   .setCoder(KvCoder.of(keyCoder, valueCoder));
           KvCoder<K, V> coder = (KvCoder<K, V>) kvs.getCoder();
           PCollection<Pair<K, V>> ret =
@@ -969,6 +968,8 @@ class BeamStream<T> implements Stream<T> {
           Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
           Coder<O> outputCoder = coderOf(pipeline, outputDehydrated);
           Coder<S> stateCoder = coderOf(pipeline, initialStateDehydrated);
+          TypeDescriptor<K> keyType = keyCoder.getEncodedTypeDescriptor();
+          TypeDescriptor<V> valueType = valueCoder.getEncodedTypeDescriptor();
           if (!in.getWindowingStrategy().equals(windowingStrategy)) {
             @SuppressWarnings("unchecked")
             WindowingStrategy<T, ?> strategy = (WindowingStrategy<T, ?>) windowingStrategy;
@@ -976,16 +977,20 @@ class BeamStream<T> implements Stream<T> {
           }
           Duration earlyEmitting = extractEarlyEmitting(windowingStrategy.getTrigger());
           PCollection<KV<K, V>> kvs =
-              MapElements.named(withSuffix(name, ".mapToKvs"))
-                  .of(in)
-                  .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
-                  .output()
+              applyNamedTransform(
+                      name,
+                      ".mapToKvs",
+                      in,
+                      MapElements.into(TypeDescriptors.kvs(keyType, valueType))
+                          .via(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e))))
                   .setCoder(KvCoder.of(keyCoder, valueCoder));
           PCollection<Pair<K, O>> ret;
           if (name != null) {
             ret =
-                kvs.apply(
-                    withSuffix(name, ".reduce"),
+                applyNamedTransform(
+                    name,
+                    ".reduce",
+                    kvs,
                     ParDo.of(
                         ReduceValueStateByKey.of(
                             initialStateDehydrated,
@@ -1665,8 +1670,14 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  static @Nullable String withSuffix(@Nullable String prefix, String suffix) {
-    return prefix == null ? null : prefix + suffix;
+  static <
+          InputT,
+          OutputT,
+          TransformT extends PTransform<? super PCollection<InputT>, PCollection<OutputT>>>
+      PCollection<OutputT> applyNamedTransform(
+          @Nullable String prefix, String suffix, PCollection<InputT> in, TransformT transform) {
+
+    return prefix == null ? in.apply(transform) : in.apply(prefix + suffix, transform);
   }
 
   @VisibleForTesting

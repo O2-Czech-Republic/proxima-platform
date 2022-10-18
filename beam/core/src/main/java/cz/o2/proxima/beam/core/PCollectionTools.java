@@ -15,11 +15,16 @@
  */
 package cz.o2.proxima.beam.core;
 
+import com.google.common.collect.Streams;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Optionals;
 import java.util.Comparator;
 import javax.annotation.Nullable;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.ReduceByKey;
+import org.apache.beam.sdk.transforms.Combine;
+import org.apache.beam.sdk.transforms.Combine.PerKey;
+import org.apache.beam.sdk.transforms.MapElements;
+import org.apache.beam.sdk.transforms.WithKeys;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
@@ -31,20 +36,32 @@ public class PCollectionTools {
    * Reduce given {@link PCollection} from updates to snapshot.
    *
    * @param name name of the operation
-   * @param other the other {@link PCollection} containing updates
+   * @param input the other {@link PCollection} containing updates
    * @return snapshot
    */
   public static PCollection<StreamElement> reduceAsSnapshot(
-      @Nullable String name, PCollection<StreamElement> other) {
+      @Nullable String name, PCollection<StreamElement> input) {
 
-    return ReduceByKey.named(name)
-        .of(other)
-        .keyBy(e -> e.getKey() + "#" + e.getAttribute(), TypeDescriptors.strings())
-        .valueBy(e -> e, TypeDescriptor.of(StreamElement.class))
-        .combineBy(
-            values -> Optionals.get(values.max(Comparator.comparingLong(StreamElement::getStamp))),
-            TypeDescriptor.of(StreamElement.class))
-        .outputValues();
+    PCollection<KV<String, StreamElement>> withKeys =
+        input.apply(
+            WithKeys.<String, StreamElement>of(
+                    e ->
+                        e.getAttributeDescriptor().getEntity()
+                            + "@"
+                            + e.getKey()
+                            + "#"
+                            + e.getAttribute())
+                .withKeyType(TypeDescriptors.strings()));
+    PerKey<String, StreamElement, StreamElement> transform =
+        Combine.perKey(
+            values ->
+                Optionals.get(
+                    Streams.stream(values).max(Comparator.comparingLong(StreamElement::getStamp))));
+
+    PCollection<KV<String, StreamElement>> combined =
+        name == null ? withKeys.apply(transform) : withKeys.apply(name, transform);
+    return combined.apply(
+        MapElements.into(TypeDescriptor.of(StreamElement.class)).via(KV::getValue));
   }
 
   private PCollectionTools() {}

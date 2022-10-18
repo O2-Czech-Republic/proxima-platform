@@ -546,6 +546,7 @@
             <exclude>**/src/main/resources/**</exclude>
             <exclude>install-jdk.sh</exclude>
             <exclude>**/*.odg</exclude>
+            <exclude>docs/**</exclude>
           </excludes>
         </configuration>
         <executions>

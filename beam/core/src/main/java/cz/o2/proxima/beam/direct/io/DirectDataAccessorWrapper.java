@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.transforms.Filter;
 import org.apache.beam.sdk.values.PCollection;
@@ -118,16 +117,9 @@ public class DirectDataAccessorWrapper implements DataAccessor {
             "ReadBoundedBatch:" + uri,
             BatchLogRead.of(attrs, Long.MAX_VALUE, factory, reader, startStamp, endStamp, cfg));
 
-    ret =
-        ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
-            .setCoder(StreamElementCoder.of(factory))
-            .apply(Filter.by(el -> el.getStamp() >= startStamp && el.getStamp() < endStamp));
-
-    return AssignEventTime.of(ret)
-        .using(StreamElement::getStamp)
-        .output()
-        .setCoder(ret.getCoder())
-        .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
+    return ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
+        .setCoder(StreamElementCoder.of(factory))
+        .apply(Filter.by(el -> el.getStamp() >= startStamp && el.getStamp() < endStamp));
   }
 
   @Override

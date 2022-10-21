@@ -93,10 +93,10 @@
     <protoc.version>3.21.4</protoc.version>
     <grpc.version>1.48.0</grpc.version>
     <gmaven.version>1.10.0</gmaven.version>
-    <guava.version>31.0.1-jre</guava.version>
+    <guava.version>31.1-jre</guava.version>
     <commons-io.version>2.7</commons-io.version>
     <license-maven-plugin.version>4.1</license-maven-plugin.version>
-    <log4j.version>2.17.1</log4j.version>
+    <log4j.version>2.19.0</log4j.version>
     <log4j-over-slf4j.version>1.7.33</log4j-over-slf4j.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <netty.version>4.1.42.Final</netty.version>
@@ -116,7 +116,7 @@
     <spotless.version>2.0.1</spotless.version>
     <!-- apache beam related properties -->
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
-    <apache.beam.version>2.41.0</apache.beam.version>
+    <apache.beam.version>2.42.0</apache.beam.version>
     <apache.beam.groupId.raw>org.apache.beam</apache.beam.groupId.raw>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
     <zookeeper.version>3.6.2</zookeeper.version>

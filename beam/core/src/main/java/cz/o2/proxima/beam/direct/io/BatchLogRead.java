@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.direct.io.BatchRestrictionTracker.PartitionList;
@@ -40,7 +41,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.InstantCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
+import org.apache.beam.sdk.options.Default;
+import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.options.PipelineOptionsRegistrar;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.BoundedPerElement;
 import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -56,6 +61,21 @@ import org.joda.time.Instant;
 /** A {@link PTransform} that reads from a {@link BatchLogReader} using splittable DoFn. */
 @Slf4j
 public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>> {
+
+  public interface BatchLogReadPipelineOptions extends PipelineOptions {
+    @Default.Long(0L)
+    long getStartBatchReadDelayMs();
+
+    void setStartBatchReadDelayMs(long readDelayMs);
+  }
+
+  @AutoService(PipelineOptionsRegistrar.class)
+  public static class BatchLogReadOptionsFactory implements PipelineOptionsRegistrar {
+    @Override
+    public Iterable<Class<? extends PipelineOptions>> getPipelineOptions() {
+      return Collections.singletonList(BatchLogReadPipelineOptions.class);
+    }
+  }
 
   /**
    * Create the {@link BatchLogRead} transform that reads from {@link BatchLogReader} in batch
@@ -123,7 +143,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         attributes, limit, repositoryFactory, reader.asFactory(), startStamp, endStamp, cfg);
   }
 
-  @DoFn.BoundedPerElement
+  @BoundedPerElement
   @VisibleForTesting
   class BatchLogReadFn extends DoFn<byte[], StreamElement> {
 
@@ -131,10 +151,13 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     private final RepositoryFactory repositoryFactory;
     private final BatchLogReader.Factory<?> readerFactory;
     private final long limit;
+    private final long startDelayMs;
+    private long startedAt;
 
     BatchLogReadFn(
         List<AttributeDescriptor<?>> attributes,
         long limit,
+        long startDelayMs,
         RepositoryFactory repositoryFactory,
         BatchLogReader.Factory<?> readerFactory) {
 
@@ -142,6 +165,12 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       this.repositoryFactory = repositoryFactory;
       this.readerFactory = readerFactory;
       this.limit = limit;
+      this.startDelayMs = startDelayMs;
+    }
+
+    @Setup
+    public void setUp() {
+      startedAt = System.currentTimeMillis();
     }
 
     @ProcessElement
@@ -152,6 +181,13 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
       if (tracker.currentRestriction().isEmpty()) {
         return ProcessContinuation.stop();
+      }
+
+      if (startDelayMs > 0) {
+        long remaining = System.currentTimeMillis() - startedAt - startDelayMs;
+        if (remaining < 0) {
+          return ProcessContinuation.resume().withResumeDelay(Duration.millis(startDelayMs));
+        }
       }
 
       watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
@@ -308,9 +344,16 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
   @Override
   public PCollection<StreamElement> expand(PBegin input) {
+    long delayMs =
+        input
+            .getPipeline()
+            .getOptions()
+            .as(BatchLogReadPipelineOptions.class)
+            .getStartBatchReadDelayMs();
     return input
         .apply(Impulse.create())
-        .apply(ParDo.of(new BatchLogReadFn(attributes, limit, repoFactory, readerFactory)));
+        .apply(
+            ParDo.of(new BatchLogReadFn(attributes, limit, delayMs, repoFactory, readerFactory)));
   }
 
   @VisibleForTesting

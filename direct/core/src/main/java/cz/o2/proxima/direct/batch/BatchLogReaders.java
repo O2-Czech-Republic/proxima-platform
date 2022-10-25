@@ -130,6 +130,7 @@ public class BatchLogReaders {
         @Override
         public void close() {
           clonedLimiter.close();
+          disableRateLimiting();
           super.close();
         }
 

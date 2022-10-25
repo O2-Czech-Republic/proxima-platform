@@ -200,11 +200,6 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       final BlockingQueueLogObserver.BatchLogObserver observer =
           newObserver("observer-" + part.getId(), restriction.getTotalLimit());
 
-      if (!restriction.isStarted()) {
-        restriction.setStarted(true);
-        return ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
-      }
-
       if (!tracker.tryClaim(part)) {
         return ProcessContinuation.stop();
       }

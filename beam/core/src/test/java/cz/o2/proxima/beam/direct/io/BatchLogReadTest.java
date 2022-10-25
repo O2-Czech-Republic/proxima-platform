@@ -109,6 +109,18 @@ public class BatchLogReadTest {
   }
 
   @Test(timeout = 60000)
+  public void testBatchLogReadWithDelay() {
+    int numElements = 1000;
+    List<StreamElement> input = createInput(numElements);
+    ListBatchReader reader = ListBatchReader.of(direct.getContext(), input);
+    PipelineOptions opts = PipelineOptionsFactory.create();
+    opts.as(BatchLogRead.BatchLogReadPipelineOptions.class).setStartBatchReadDelayMs(1000L);
+    Pipeline p = createPipeline(opts);
+    testReadingFromBatchLogMany(
+        p, 50, BatchLogRead.of(Collections.singletonList(this.data), 50, repo, reader));
+  }
+
+  @Test(timeout = 60000)
   public void testWithMultiplePartitions() {
     // this fails randomly on Flink
     if (runner.getSimpleName().equals("DirectRunner")) {
@@ -148,9 +160,17 @@ public class BatchLogReadTest {
   private void testReadingFromBatchLogMany(
       int numElements, PTransform<PBegin, PCollection<StreamElement>> readTransform) {
 
-    Pipeline p = createPipeline();
+    testReadingFromBatchLogMany(createPipeline(), numElements, readTransform);
+  }
+
+  private void testReadingFromBatchLogMany(
+      Pipeline pipeline,
+      int numElements,
+      PTransform<PBegin, PCollection<StreamElement>> readTransform) {
+
     PCollection<Integer> count =
-        p.apply(readTransform)
+        pipeline
+            .apply(readTransform)
             .apply(
                 Window.<StreamElement>into(new GlobalWindows())
                     .triggering(Repeatedly.forever(AfterWatermark.pastEndOfWindow()))
@@ -161,7 +181,7 @@ public class BatchLogReadTest {
             .apply(Sum.integersGlobally());
     PAssert.that(count).containsInAnyOrder(numElements * (numElements - 1) / 2);
     try {
-      assertNotNull(p.run().waitUntilFinish());
+      assertNotNull(pipeline.run().waitUntilFinish());
     } catch (Throwable err) {
       err.printStackTrace(System.err);
       throw err;
@@ -177,6 +197,7 @@ public class BatchLogReadTest {
         .new BatchLogReadFn(
             Collections.emptyList(),
             Long.MAX_VALUE,
+            0L,
             repo.asFactory(),
             mock(BatchLogReader.Factory.class));
     PartitionList list =
@@ -226,7 +247,10 @@ public class BatchLogReadTest {
   }
 
   private Pipeline createPipeline() {
-    PipelineOptions opts = PipelineOptionsFactory.create();
+    return createPipeline(PipelineOptionsFactory.create());
+  }
+
+  private Pipeline createPipeline(PipelineOptions opts) {
     opts.setRunner(runner);
     if (!isDirect()) {
       FlinkPipelineOptions flinkOpts = opts.as(FlinkPipelineOptions.class);

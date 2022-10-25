@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.direct.io.BatchLogRead.BatchLogReadFn;
 import cz.o2.proxima.beam.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.BatchLogReaders;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.storage.ListBatchReader;
@@ -31,7 +31,9 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.ThroughputLimiter;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -117,7 +119,19 @@ public class BatchLogReadTest {
     opts.as(BatchLogRead.BatchLogReadPipelineOptions.class).setStartBatchReadDelayMs(1000L);
     Pipeline p = createPipeline(opts);
     testReadingFromBatchLogMany(
-        p, 50, BatchLogRead.of(Collections.singletonList(this.data), 50, repo, reader));
+        p,
+        numElements,
+        BatchLogRead.of(Collections.singletonList(this.data), Long.MAX_VALUE, repo, reader));
+  }
+
+  @Test(timeout = 60000)
+  public void testReadWithThroughputLimitDisabled() {
+    int numElements = 1000;
+    List<StreamElement> input = createInput(numElements);
+    ListBatchReader listReader = ListBatchReader.of(direct.getContext(), input);
+    ThroughputLimiter limiter = getThroughputLimiter();
+    BatchLogReader reader = BatchLogReaders.withLimitedThroughput(listReader, limiter);
+    testReadingFromBatchLogMany(Collections.singletonList(this.data), numElements, reader);
   }
 
   @Test(timeout = 60000)
@@ -152,7 +166,7 @@ public class BatchLogReadTest {
   }
 
   private void testReadingFromBatchLogMany(
-      List<AttributeDescriptor<?>> attrs, int numElements, ListBatchReader reader) {
+      List<AttributeDescriptor<?>> attrs, int numElements, BatchLogReader reader) {
 
     testReadingFromBatchLogMany(numElements, BatchLogRead.of(attrs, Long.MAX_VALUE, repo, reader));
   }
@@ -277,5 +291,23 @@ public class BatchLogReadTest {
               ByteBuffer.allocate(4).putInt(i).array()));
     }
     return ret;
+  }
+
+  private static ThroughputLimiter getThroughputLimiter() {
+    return new ThroughputLimiter() {
+      long numInvocations = 0L;
+
+      @Override
+      public Duration getPauseTime(Context context) {
+        if (++numInvocations > 1) {
+          return Duration.ofSeconds(5);
+        }
+        // on first two invocations return zero
+        return Duration.ZERO;
+      }
+
+      @Override
+      public void close() {}
+    };
   }
 }

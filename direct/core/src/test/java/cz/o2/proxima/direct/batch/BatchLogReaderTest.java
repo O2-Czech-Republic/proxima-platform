@@ -32,14 +32,13 @@ import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.ReplicationRunner;
-import java.io.Serializable;
+import cz.o2.proxima.util.SerializableLong;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -342,23 +341,5 @@ public class BatchLogReaderTest {
 
   private void write(String key, byte[] value) {
     Optionals.get(direct.getWriter(attr)).write(newData(key, value), CommitCallback.noop());
-  }
-
-  private static class SerializableLong implements Serializable {
-
-    private static Map<String, Long> VALUES = new ConcurrentHashMap<>();
-    private final String uuid = UUID.randomUUID().toString();
-
-    public SerializableLong(long value) {
-      VALUES.put(uuid, value);
-    }
-
-    public long get() {
-      return VALUES.get(uuid);
-    }
-
-    public void set(long value) {
-      VALUES.put(uuid, value);
-    }
   }
 }

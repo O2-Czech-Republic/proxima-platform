@@ -33,7 +33,6 @@ import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -543,19 +542,18 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   private synchronized void updatePartialWatermark(String name, WatermarkWithUpdate update) {
     if (update.getWatermark() > Long.MIN_VALUE) {
       partialWatermarks.put(name, update);
-      globalWatermark.set(
-          partialWatermarks
-              .entrySet()
-              .stream()
-              .filter(
-                  e ->
-                      e.getKey().equals(name)
-                          || timeProvider.getCurrentTime() - e.getValue().getTimestamp()
-                              < maxAcceptableUpdateMs)
-              .map(Map.Entry::getValue)
-              .map(WatermarkWithUpdate::getWatermark)
-              .min(Comparator.naturalOrder())
-              .orElse(Long.MIN_VALUE));
+      long minWatermark = Watermarks.MAX_WATERMARK;
+      for (Map.Entry<String, WatermarkWithUpdate> entry : partialWatermarks.entrySet()) {
+        if (entry.getKey().equals(name)
+            || timeProvider.getCurrentTime() - entry.getValue().getTimestamp()
+                < maxAcceptableUpdateMs) {
+          long watermark = entry.getValue().getWatermark();
+          if (minWatermark > watermark) {
+            minWatermark = watermark;
+          }
+        }
+      }
+      globalWatermark.set(minWatermark);
     }
   }
 
@@ -627,16 +625,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
       updatePartialWatermark(
           process,
           new WatermarkWithUpdate(Watermarks.MAX_WATERMARK, timeProvider.getCurrentTime()));
-      long currentMinWatermark;
-      synchronized (this) {
-        currentMinWatermark =
-            partialWatermarks
-                .values()
-                .stream()
-                .map(WatermarkWithUpdate::getWatermark)
-                .min(Comparator.naturalOrder())
-                .orElse(Watermarks.MAX_WATERMARK);
-      }
+      long currentMinWatermark = globalWatermark.get();
       if (currentMinWatermark >= Watermarks.MAX_WATERMARK) {
         disconnect();
       }

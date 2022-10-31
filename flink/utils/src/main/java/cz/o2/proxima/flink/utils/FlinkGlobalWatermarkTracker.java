@@ -191,7 +191,6 @@ public class FlinkGlobalWatermarkTracker implements GlobalWatermarkTracker {
         .map(JsonElement::getAsJsonArray)
         .flatMapToLong(
             arr -> Streams.stream(arr).mapToLong(o -> o.getAsJsonObject().get("value").getAsLong()))
-        .filter(w -> w > Watermarks.MIN_WATERMARK)
         .min()
         .orElse(Watermarks.MAX_WATERMARK);
   }

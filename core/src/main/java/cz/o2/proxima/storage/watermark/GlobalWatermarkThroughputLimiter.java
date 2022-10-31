@@ -18,6 +18,7 @@ package cz.o2.proxima.storage.watermark;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.storage.ThroughputLimiter;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
@@ -123,7 +124,8 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
     if (!closed) {
       updateGlobalWatermarkIfNeeded(context);
       long globalWatermark = tracker.getGlobalWatermark(processName, context.getMinWatermark());
-      if (globalWatermark + maxAheadTimeFromGlobalMs < context.getMinWatermark()) {
+      if (globalWatermark < Watermarks.MAX_WATERMARK
+          && globalWatermark + maxAheadTimeFromGlobalMs < context.getMinWatermark()) {
         log.info(
             "ThroughputLimiter {} pausing processing for {} ms on global watermark {} and context.minWatermark {}",
             this,

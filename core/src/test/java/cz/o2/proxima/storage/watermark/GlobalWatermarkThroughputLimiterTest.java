@@ -116,6 +116,14 @@ public class GlobalWatermarkThroughputLimiterTest {
   }
 
   @Test
+  public void testLimiterWithMaxWatermark() {
+    long watermark = Watermarks.MAX_WATERMARK;
+    TestTracker tracker = (TestTracker) limiter.getTracker();
+    tracker.setGlobalWatermark(Instant.ofEpochMilli(watermark));
+    assertEquals(Duration.ZERO, limiter.getPauseTime(context(watermark)));
+  }
+
+  @Test
   public void testLimiterSerializable() throws IOException, ClassNotFoundException {
     Object deserialized = TestUtils.deserializeObject(TestUtils.serializeObject(limiter));
     assertNotSame(limiter, deserialized);

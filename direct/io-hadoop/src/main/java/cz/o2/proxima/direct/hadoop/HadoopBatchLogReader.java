@@ -83,7 +83,7 @@ public class HadoopBatchLogReader implements BatchLogReader {
 
     TerminationContext terminationContext = new TerminationContext(observer);
     observeInternal(partitions, attributes, observer, terminationContext);
-    return terminationContext.asObserveHandle();
+    return terminationContext;
   }
 
   private void observeInternal(
@@ -94,7 +94,6 @@ public class HadoopBatchLogReader implements BatchLogReader {
 
     executor.submit(
         () -> {
-          terminationContext.setRunningThread();
           try {
             outer:
             for (Iterator<Partition> it = partitions.iterator(); it.hasNext(); ) {

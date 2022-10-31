@@ -51,8 +51,8 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
 import org.junit.Rule;
@@ -189,15 +189,14 @@ public class HadoopStorageTest {
     List<Partition> partitions = reader.getPartitions();
     assertEquals(1, partitions.size());
     CountDownLatch cancelledLatch = new CountDownLatch(1);
-    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
-    handle.set(
+    ObserveHandle handle =
         reader.observe(
             partitions,
             Collections.singletonList(attribute),
             new BatchLogObserver() {
               @Override
               public boolean onNext(StreamElement element) {
-                handle.get().close();
+                ExceptionUtils.unchecked(() -> TimeUnit.MILLISECONDS.sleep(100));
                 return true;
               }
 
@@ -216,7 +215,8 @@ public class HadoopStorageTest {
                 onCancelled();
                 return true;
               }
-            }));
+            });
+    handle.close();
     cancelledLatch.await();
   }
 

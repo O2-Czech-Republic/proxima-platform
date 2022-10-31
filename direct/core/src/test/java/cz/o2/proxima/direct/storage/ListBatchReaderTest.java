@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.Test;
@@ -96,6 +97,31 @@ public class ListBatchReaderTest {
     latch.await();
     keys = read.stream().map(StreamElement::getUuid).distinct().count();
     assertEquals(3 * count, keys);
+  }
+
+  @Test(timeout = 10000)
+  public void testReadingFromTwoPartitionsWithCancel() throws InterruptedException {
+    int count = 100;
+    List<StreamElement> dataFirst = getData(count);
+    List<StreamElement> dataSecond = getData(2 * count);
+    ListBatchReader reader = ListBatchReader.ofPartitioned(context, dataFirst, dataSecond);
+    AtomicInteger consumed = new AtomicInteger();
+    CountDownLatch latch = new CountDownLatch(1);
+    BatchLogObserver observer =
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            return consumed.incrementAndGet() < count;
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+        };
+    reader.observe(reader.getPartitions(), Collections.singletonList(status), observer);
+    latch.await();
+    assertEquals(count, consumed.get());
   }
 
   private BatchLogObserver toList(List<StreamElement> list, Runnable onCompleted) {

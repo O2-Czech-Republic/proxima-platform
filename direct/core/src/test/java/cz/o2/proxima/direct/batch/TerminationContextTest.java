@@ -71,13 +71,7 @@ public class TerminationContextTest {
   public void testIsCancelled() {
     TerminationContext context = new TerminationContext(observer);
     assertFalse(context.isCancelled());
-    Thread.currentThread().interrupt();
-    assertFalse(context.isCancelled());
-    clearInterrupted();
-    context.setRunningThread();
-    Thread.currentThread().interrupt();
-    assertTrue(context.isCancelled());
-    clearInterrupted();
+    context.markAsDone();
     assertFalse(context.isCancelled());
     context.cancel();
     assertTrue(context.isCancelled());
@@ -94,12 +88,11 @@ public class TerminationContextTest {
     CountDownLatch initLatch = new CountDownLatch(1);
     pool.submit(
         () -> {
-          context.setRunningThread();
           initLatch.countDown();
           while (!context.isCancelled()) {
             ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(10));
           }
-          cancelFlag.set(Thread.currentThread().isInterrupted());
+          cancelFlag.set(context.isCancelled());
           context.finished();
           cancelLatch.countDown();
         });
@@ -121,18 +114,17 @@ public class TerminationContextTest {
     pool.submit(
         () -> {
           ExceptionUtils.ignoringInterrupted(() -> thread.put(Thread.currentThread()));
-          context.setRunningThread();
           initLatch.countDown();
           int rounds = 0;
           while (!context.isCancelled() && rounds++ < 10) {
             ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(10));
           }
-          cancelFlag.set(Thread.currentThread().isInterrupted());
+          cancelFlag.set(context.isCancelled());
           context.finished();
           finishedLatch.countDown();
         });
     final Thread runningThread;
-    try (ObserveHandle handle = context.asObserveHandle()) {
+    try (ObserveHandle handle = context) {
       runningThread = thread.take();
       initLatch.await();
       assertTrue(finishedLatch.await(1, TimeUnit.SECONDS));
@@ -146,6 +138,7 @@ public class TerminationContextTest {
   public void testErrorCaught() {
     TerminationContext context = new TerminationContext(observer);
     AtomicBoolean called = new AtomicBoolean();
+    context.markAsDone();
     context.handleErrorCaught(new InterruptedException(), () -> called.set(true));
     assertTrue(cancelled);
     cancelled = false;
@@ -156,14 +149,5 @@ public class TerminationContextTest {
     retryError = true;
     context.handleErrorCaught(new RuntimeException(), () -> called.set(true));
     assertTrue(called.get());
-  }
-
-  private void clearInterrupted() {
-    try {
-      Thread.currentThread().interrupt();
-      TimeUnit.MILLISECONDS.sleep(10);
-    } catch (InterruptedException ex) {
-      // nop
-    }
   }
 }

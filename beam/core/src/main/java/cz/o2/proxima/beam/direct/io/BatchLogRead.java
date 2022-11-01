@@ -190,8 +190,6 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         }
       }
 
-      watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
-
       PartitionList restriction = Objects.requireNonNull(tracker.currentRestriction());
       Partition part = Objects.requireNonNull(restriction.getFirstPartition());
 
@@ -203,11 +201,16 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       if (!tracker.tryClaim(part)) {
         return ProcessContinuation.stop();
       }
+
+      watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
+
       try (ObserveHandle handle = startObserve(part, observer)) {
         if (!handle.isReadyForProcessing()) {
           log.debug("Delaying processing of partition {} due to limiter.", part);
           tracker.currentRestriction().reclaim(part);
-          return ProcessContinuation.resume().withResumeDelay(Duration.standardSeconds(1));
+          return ProcessContinuation.resume()
+              .withResumeDelay(
+                  Duration.standardSeconds(ThreadLocalRandom.current().nextInt(5) + 1L));
         }
         // disable any potential rate limit, we need to pass through the partition as quickly
         // as possible

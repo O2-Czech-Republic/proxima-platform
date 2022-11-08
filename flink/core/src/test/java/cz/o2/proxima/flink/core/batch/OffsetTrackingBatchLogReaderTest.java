@@ -99,7 +99,7 @@ class OffsetTrackingBatchLogReaderTest {
 
               @Override
               public void onCancelled() {
-                latch.countDown();
+                onCompleted();
               }
 
               @Override

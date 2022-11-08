@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -74,16 +75,7 @@ public class FlinkGlobalWatermarkTracker implements GlobalWatermarkTracker {
             .orElseThrow(() -> new IllegalArgumentException("Missing job-name config option"));
     vertexNames =
         Optional.ofNullable(cfg.get("vertex-names"))
-            .map(
-                e -> {
-                  if (e instanceof List) {
-                    return ((List<Object>) e)
-                        .stream()
-                        .map(Object::toString)
-                        .collect(Collectors.toList());
-                  }
-                  return Collections.singletonList(e.toString());
-                })
+            .map(FlinkGlobalWatermarkTracker::parseVertexNamesToList)
             .orElse(Collections.emptyList());
     name = String.format("%s(%s)e", getClass().getSimpleName(), jobName);
     updateInterval =
@@ -92,6 +84,18 @@ public class FlinkGlobalWatermarkTracker implements GlobalWatermarkTracker {
             .map(Long::valueOf)
             .orElse(30000L);
     globalWatermark = Watermarks.MAX_WATERMARK;
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  @VisibleForTesting
+  static List<String> parseVertexNamesToList(Object o) {
+    if (o instanceof List) {
+      return Stream.of(o)
+          .map(List.class::cast)
+          .flatMap(l -> (Stream<String>) l.stream().map(Object::toString))
+          .collect(Collectors.toList());
+    }
+    return Collections.singletonList(o.toString());
   }
 
   private List<String> getVertices() {
@@ -113,7 +117,7 @@ public class FlinkGlobalWatermarkTracker implements GlobalWatermarkTracker {
           .findAny()
           .orElseThrow(() -> new IllegalStateException(String.format("Job %s not found", jobName)));
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new IllegalStateException("Cannot get job id for " + jobName, e);
     }
   }
 
@@ -138,7 +142,7 @@ public class FlinkGlobalWatermarkTracker implements GlobalWatermarkTracker {
           .map(el -> el.get("id").getAsString())
           .collect(Collectors.toList());
     } catch (IOException ex) {
-      throw new RuntimeException(ex);
+      throw new IllegalStateException("Cannot read vertex ids", ex);
     }
   }
 
@@ -167,7 +171,9 @@ public class FlinkGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   @Override
-  public void finished(String name) {}
+  public void finished(String name) {
+    // nop
+  }
 
   @Override
   public long getGlobalWatermark(@Nullable String processName, long currentWatermark) {

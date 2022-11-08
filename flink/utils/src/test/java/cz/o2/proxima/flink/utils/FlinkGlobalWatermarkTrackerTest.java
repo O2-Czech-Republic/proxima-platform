@@ -29,6 +29,8 @@ import java.io.ByteArrayInputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -54,6 +56,16 @@ public class FlinkGlobalWatermarkTrackerTest {
         newTracker(fromMap(urlToContent, defaultWatermarkPayload()));
 
     assertEquals(Watermarks.MAX_WATERMARK, tracker.getWatermark());
+  }
+
+  @Test
+  public void testParseVertices() {
+    assertEquals(
+        Collections.singletonList("vertex1"),
+        FlinkGlobalWatermarkTracker.parseVertexNamesToList("vertex1"));
+    assertEquals(
+        Arrays.asList("1", "2"),
+        FlinkGlobalWatermarkTracker.parseVertexNamesToList(Arrays.asList(1L, 2L)));
   }
 
   @Test

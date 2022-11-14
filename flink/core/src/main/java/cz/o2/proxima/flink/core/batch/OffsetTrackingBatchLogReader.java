@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.experimental.Delegate;
 
 /**
  * A simple wrapper for {@link BatchLogReader batch log reader}, that is able to track the "highest"
@@ -92,7 +93,7 @@ public class OffsetTrackingBatchLogReader implements BatchLogReader {
   public interface OffsetTrackingObserveHandle extends ObserveHandle {
 
     /**
-     * Get consumed offset. Please note, that for offset to be consider as consumed, you must call
+     * Get consumed offset. Please note, that for offset to be considered as consumed, you must call
      * {@link OffsetCommitter#markOffsetAsConsumed()} first.
      *
      * @return List of consumed offsets.
@@ -101,7 +102,6 @@ public class OffsetTrackingBatchLogReader implements BatchLogReader {
   }
 
   public interface OffsetCommitter {
-
     void markOffsetAsConsumed();
   }
 
@@ -159,25 +159,10 @@ public class OffsetTrackingBatchLogReader implements BatchLogReader {
   private abstract static class OffsetTrackingOnNextContext
       implements BatchLogObserver.OnNextContext, OffsetCommitter {
 
-    private final BatchLogObserver.OnNextContext delegate;
+    private final @Delegate BatchLogObserver.OnNextContext delegate;
 
     OffsetTrackingOnNextContext(BatchLogObserver.OnNextContext delegate) {
       this.delegate = delegate;
-    }
-
-    @Override
-    public Partition getPartition() {
-      return delegate.getPartition();
-    }
-
-    @Override
-    public Offset getOffset() {
-      return delegate.getOffset();
-    }
-
-    @Override
-    public long getWatermark() {
-      return delegate.getWatermark();
     }
   }
 
@@ -197,6 +182,7 @@ public class OffsetTrackingBatchLogReader implements BatchLogReader {
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
+
     final OffsetTrackingBatchLogObserver wrappedObserver =
         new OffsetTrackingBatchLogObserver(observer);
     final ObserveHandle handle = delegate.observe(partitions, attributes, wrappedObserver);

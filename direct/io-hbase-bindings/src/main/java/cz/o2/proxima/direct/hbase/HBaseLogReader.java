@@ -95,7 +95,7 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
 
     TerminationContext terminationContext = new TerminationContext(observer);
     observeInternal(partitions, attributes, observer, terminationContext);
-    return terminationContext.asObserveHandle();
+    return terminationContext;
   }
 
   public void observeInternal(
@@ -106,7 +106,6 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
 
     executor.submit(
         () -> {
-          terminationContext.setRunningThread();
           ensureClient();
           try {
             ExceptionUtils.ignoringInterrupted(
@@ -152,7 +151,7 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
         Result next = null;
         do {
           if (terminationContext.isCancelled()
-              || next != null && !consume(next, attributes, hp, observer)) {
+              || next != null && !consume(next, attributes, hp, observer, terminationContext)) {
             break outer;
           }
         } while ((next = scanner.next()) != null);
@@ -162,11 +161,15 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
   }
 
   private boolean consume(
-      Result r, List<AttributeDescriptor<?>> attrs, HBasePartition hp, BatchLogObserver observer)
+      Result r,
+      List<AttributeDescriptor<?>> attrs,
+      HBasePartition hp,
+      BatchLogObserver observer,
+      TerminationContext terminationContext)
       throws IOException {
 
     CellScanner scanner = r.cellScanner();
-    while (scanner.advance()) {
+    while (!terminationContext.isCancelled() && scanner.advance()) {
       if (!observer.onNext(
           toStreamElement(scanner.current(), attrs), BatchLogObservers.defaultContext(hp))) {
         return false;

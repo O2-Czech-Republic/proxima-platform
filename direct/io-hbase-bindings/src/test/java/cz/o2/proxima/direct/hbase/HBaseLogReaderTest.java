@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
@@ -165,15 +166,15 @@ public class HBaseLogReaderTest {
     List<Partition> partitions = reader.getPartitions();
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    ExecutorService pool = Executors.newCachedThreadPool();
     handle.set(
         reader.observe(
             partitions.subList(0, 1),
             Collections.singletonList(attr),
             new BatchLogObserver() {
-
               @Override
               public boolean onNext(StreamElement element) {
-                handle.get().close();
+                pool.submit(handle.get()::close);
                 return true;
               }
 

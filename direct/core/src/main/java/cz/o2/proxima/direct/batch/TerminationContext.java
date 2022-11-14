@@ -15,48 +15,33 @@
  */
 package cz.o2.proxima.direct.batch;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.util.ExceptionUtils;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /** A context that guards correct termination of batch observation process. */
 @Internal
 @Slf4j
-public class TerminationContext {
+public class TerminationContext implements ObserveHandle {
 
   private final BatchLogObserver observer;
   private final CountDownLatch terminateLatch = new CountDownLatch(1);
-  private volatile boolean cancelled = false;
-  private volatile Thread runningThread;
+  @Getter private volatile boolean cancelled = false;
 
   public TerminationContext(BatchLogObserver observer) {
     this.observer = observer;
   }
 
-  public boolean isCancelled() {
-    return cancelled || runningThread == Thread.currentThread() && runningThread.isInterrupted();
-  }
-
   /** Force cancellation of {@link BatchLogReader#observe}. */
   public void cancel() {
-    if (runningThread != null) {
-      while (!Thread.currentThread().isInterrupted()) {
-        Optional.ofNullable(runningThread).ifPresent(Thread::interrupt);
-        ExceptionUtils.ignoringInterrupted(() -> terminateLatch.await(100, TimeUnit.MILLISECONDS));
-        if (terminateLatch.getCount() <= 0) {
-          break;
-        }
-      }
-      setCancelled();
+    cancelled = true;
+    while (terminateLatch.getCount() > 0) {
+      ExceptionUtils.ignoringInterrupted(() -> terminateLatch.await(100, TimeUnit.MILLISECONDS));
     }
-  }
-
-  /** Set the thread running the task to be terminated to the calling thread. */
-  public void setRunningThread() {
-    runningThread = Thread.currentThread();
   }
 
   public void finished() {
@@ -71,16 +56,9 @@ public class TerminationContext {
     }
   }
 
-  public ObserveHandle asObserveHandle() {
-    return () -> {
-      cancel();
-      ExceptionUtils.ignoringInterrupted(terminateLatch::await);
-    };
-  }
-
   public void handleErrorCaught(Throwable err, Runnable retry) {
     if (ExceptionUtils.isInterrupted(err)) {
-      setCancelled();
+      cancelled = true;
       finished();
     } else {
       log.warn("Exception while running batch observe", err);
@@ -92,12 +70,13 @@ public class TerminationContext {
     }
   }
 
-  private void markAsDone() {
-    runningThread = null;
+  @VisibleForTesting
+  void markAsDone() {
     terminateLatch.countDown();
   }
 
-  private void setCancelled() {
-    this.cancelled = true;
+  @Override
+  public void close() {
+    cancel();
   }
 }

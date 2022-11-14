@@ -135,6 +135,16 @@ public class BatchLogReadTest {
   }
 
   @Test(timeout = 60000)
+  public void testReadWithThroughputLimitWait() {
+    int numElements = 1000;
+    List<StreamElement> input = createInput(numElements);
+    ListBatchReader listReader = ListBatchReader.of(direct.getContext(), input);
+    ThroughputLimiter limiter = getThroughputLimiter(3);
+    BatchLogReader reader = BatchLogReaders.withLimitedThroughput(listReader, limiter);
+    testReadingFromBatchLogMany(Collections.singletonList(this.data), numElements, reader);
+  }
+
+  @Test(timeout = 60000)
   public void testWithMultiplePartitions() {
     // this fails randomly on Flink
     if (runner.getSimpleName().equals("DirectRunner")) {
@@ -294,12 +304,16 @@ public class BatchLogReadTest {
   }
 
   private static ThroughputLimiter getThroughputLimiter() {
+    return getThroughputLimiter(1);
+  }
+
+  private static ThroughputLimiter getThroughputLimiter(int waitInvocations) {
     return new ThroughputLimiter() {
       long numInvocations = 0L;
 
       @Override
       public Duration getPauseTime(Context context) {
-        if (++numInvocations > 1) {
+        if (++numInvocations > waitInvocations) {
           return Duration.ofSeconds(5);
         }
         // on first two invocations return zero

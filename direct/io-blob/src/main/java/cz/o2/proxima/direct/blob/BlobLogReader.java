@@ -33,7 +33,6 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -41,7 +40,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -215,7 +213,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
 
     TerminationContext terminationContext = new TerminationContext(observer);
     observeInternal(partitions, attributes, observer, terminationContext);
-    return terminationContext.asObserveHandle();
+    return terminationContext;
   }
 
   private void observeInternal(
@@ -228,11 +226,8 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
         partitions.stream().map(Partition::getId).distinct().count() == partitions.size(),
         "Passed partitions must be unique, got partitions %s",
         partitions);
-    CountDownLatch initLatch = new CountDownLatch(1);
     executor.submit(
         () -> {
-          terminationContext.setRunningThread();
-          initLatch.countDown();
           try {
             Set<AttributeDescriptor<?>> attrs = new HashSet<>(attributes);
             AtomicBoolean stopProcessing = new AtomicBoolean(false);
@@ -253,7 +248,6 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
                 });
           }
         });
-    ExceptionUtils.ignoringInterrupted(initLatch::await);
   }
 
   private void processSinglePartition(

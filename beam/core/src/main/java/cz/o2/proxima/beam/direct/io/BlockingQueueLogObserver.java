@@ -254,7 +254,7 @@ abstract class BlockingQueueLogObserver<
   public boolean onError(Throwable error) {
     this.error.set(error);
     // unblock any waiting thread
-    ExceptionUtils.unchecked(() -> putToQueue(null, null));
+    putToQueue(null, null);
     return false;
   }
 
@@ -267,9 +267,6 @@ abstract class BlockingQueueLogObserver<
       }
       log.debug(
           "{}: Terminating consumption due to limit {} while enqueuing {}", name, limit, element);
-    } catch (InterruptedException ex) {
-      log.warn("Interrupted while putting element {} to queue", element, ex);
-      Thread.currentThread().interrupt();
     } finally {
       if (nackAllIncoming && context != null) {
         context.nack();
@@ -287,22 +284,21 @@ abstract class BlockingQueueLogObserver<
 
   @Override
   public void onCompleted() {
-    try {
-      log.debug("{}: Finished reading from observer", name);
-      putToQueue(null, null);
-    } catch (InterruptedException ex) {
-      Thread.currentThread().interrupt();
-      log.warn("{}: Interrupted while passing end-of-stream.", name, ex);
-    }
+    log.debug("{}: Finished reading from observer", name);
+    putToQueue(null, null);
   }
 
-  private boolean putToQueue(@Nullable StreamElement element, @Nullable UnifiedContext context)
-      throws InterruptedException {
-
+  private boolean putToQueue(@Nullable StreamElement element, @Nullable UnifiedContext context) {
     Pair<StreamElement, UnifiedContext> p = Pair.of(element, context);
-    while (!stopped) {
-      if (queue.offer(p, 50, TimeUnit.MILLISECONDS)) {
-        return true;
+    while (!stopped && !cancelled) {
+      try {
+        if (queue.offer(p, 50, TimeUnit.MILLISECONDS)) {
+          return true;
+        }
+      } catch (InterruptedException ex) {
+        log.debug("Caught interrupted exception", ex);
+        stop(true);
+        Thread.currentThread().interrupt();
       }
     }
     log.debug("{}: Finishing consumption due to source being stopped", name);

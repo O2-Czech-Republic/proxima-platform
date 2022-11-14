@@ -135,7 +135,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
 
       TerminationContext terminationContext = new TerminationContext(observer);
       observeInternal(partitions, attributes, observer, terminationContext);
-      return terminationContext.asObserveHandle();
+      return terminationContext;
     }
 
     private void observeInternal(

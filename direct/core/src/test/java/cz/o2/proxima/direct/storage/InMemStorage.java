@@ -74,7 +74,6 @@ import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Classpath;
-import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
@@ -1028,7 +1027,7 @@ public class InMemStorage implements DataAccessorFactory {
 
       TerminationContext terminationContext = new TerminationContext(observer);
       observeInternal(partitions, attributes, observer, terminationContext);
-      return terminationContext.asObserveHandle();
+      return terminationContext;
     }
 
     private void observeInternal(
@@ -1042,12 +1041,9 @@ public class InMemStorage implements DataAccessorFactory {
       Preconditions.checkArgument(
           partitions.size() == 1, "This reader works on single partition only, got " + partitions);
       String prefix = toStoragePrefix(getUri());
-      CountDownLatch initLatch = new CountDownLatch(1);
       executor()
           .submit(
               () -> {
-                terminationContext.setRunningThread();
-                initLatch.countDown();
                 try {
                   try (Locker l = holder().lockRead()) {
                     final Map<String, StreamElement> data = getData().tailMap(prefix);
@@ -1064,7 +1060,6 @@ public class InMemStorage implements DataAccessorFactory {
                       () -> observeInternal(partitions, attributes, observer, terminationContext));
                 }
               });
-      ExceptionUtils.ignoringInterrupted(initLatch::await);
     }
 
     private boolean observeElement(

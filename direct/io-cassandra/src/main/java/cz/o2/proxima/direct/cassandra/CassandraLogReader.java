@@ -78,7 +78,7 @@ class CassandraLogReader implements BatchLogReader {
 
     TerminationContext terminationContext = new TerminationContext(observer);
     observeInternal(partitions, attributes, observer, terminationContext);
-    return terminationContext.asObserveHandle();
+    return terminationContext;
   }
 
   private void observeInternal(
@@ -89,7 +89,6 @@ class CassandraLogReader implements BatchLogReader {
 
     executor.submit(
         () -> {
-          terminationContext.setRunningThread();
           try {
             for (Partition p : partitions) {
               if (!processSinglePartition(

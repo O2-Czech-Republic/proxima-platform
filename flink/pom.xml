@@ -15,60 +15,62 @@
     limitations under the License.
 
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-    <modelVersion>4.0.0</modelVersion>
+  <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>cz.o2.proxima</groupId>
-        <artifactId>platform-parent</artifactId>
-        <version>0.10-SNAPSHOT</version>
-    </parent>
+  <parent>
+    <groupId>cz.o2.proxima</groupId>
+    <artifactId>platform-parent</artifactId>
+    <version>0.10-SNAPSHOT</version>
+  </parent>
 
-    <artifactId>proxima-flink</artifactId>
-    <packaging>pom</packaging>
+  <artifactId>proxima-flink</artifactId>
+  <packaging>pom</packaging>
 
-    <name>${project.groupId}:${project.artifactId}</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
-    <description>Proxima platform's Apache Flink module.</description>
+  <description>Proxima platform's Apache Flink module.</description>
 
-    <properties>
-        <scala.version>2.11</scala.version>
-        <jackson.version>2.10.2</jackson.version>
-        <flink.version>1.13.6</flink.version>
-    </properties>
+  <properties>
+    <scala.version>2.11</scala.version>
+    <jackson.version>2.10.2</jackson.version>
+    <flink.version>1.13.6</flink.version>
+  </properties>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>${project.groupId}</groupId>
-                <artifactId>proxima-core</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>${project.groupId}</groupId>
-                <artifactId>proxima-direct-core</artifactId>
-                <version>${project.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.projectlombok</groupId>
-                <artifactId>lombok</artifactId>
-                <version>${lombok.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-api</artifactId>
-                <version>${slf4j.version}</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>proxima-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>proxima-direct-core</artifactId>
+        <version>${project.version}</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
-    <modules>
-        <module>core</module>
-    </modules>
+  <modules>
+    <module>core</module>
+    <module>utils</module>
+  </modules>
 
 </project>
 

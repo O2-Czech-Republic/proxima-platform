@@ -26,9 +26,11 @@ import cz.o2.proxima.util.Classpath;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.core.TimeValue;
 
 @Slf4j
 public class ElasticsearchAccessor extends SerializableAbstractStorage implements DataAccessor {
@@ -44,6 +46,7 @@ public class ElasticsearchAccessor extends SerializableAbstractStorage implement
   static final int DEFAULT_CONCURRENT_REQUESTS = 1;
   static final int DEFAULT_BATCH_SIZE = 100;
   static final String DEFAULT_KEYSTORE_TYPE = "PKCS12";
+  static final int DEFAULT_BULK_SIZE_MB = 10;
 
   @Getter private final Map<String, Object> cfg;
   @Getter private final String scheme;
@@ -59,6 +62,8 @@ public class ElasticsearchAccessor extends SerializableAbstractStorage implement
   @Getter private final String truststorePath;
   @Getter private final String truststorePassword;
   @Getter private final DocumentFormatter documentFormatter;
+  private final int flushIntervalMs;
+  @Getter private final int bulkSizeMb;
 
   public ElasticsearchAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
     super(entityDesc, uri);
@@ -81,6 +86,8 @@ public class ElasticsearchAccessor extends SerializableAbstractStorage implement
         Classpath.newInstance(
             getStringConfig("document-formatter", DocumentFormatter.Default.class.getName()),
             DocumentFormatter.class);
+    this.flushIntervalMs = getIntConfig("flush-interval-ms", 0);
+    this.bulkSizeMb = getIntConfig("bulk-size-mb", DEFAULT_BULK_SIZE_MB);
   }
 
   @VisibleForTesting
@@ -136,5 +143,9 @@ public class ElasticsearchAccessor extends SerializableAbstractStorage implement
 
   private String getStringConfig(String key, String defaultValue) {
     return cfg.getOrDefault(CFG_PREFIX + key, defaultValue).toString();
+  }
+
+  public @Nullable TimeValue getFlushInterval() {
+    return flushIntervalMs > 0 ? TimeValue.timeValueMillis(flushIntervalMs) : null;
   }
 }

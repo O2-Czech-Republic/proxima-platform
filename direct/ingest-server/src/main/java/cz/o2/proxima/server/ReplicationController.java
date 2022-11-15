@@ -231,6 +231,12 @@ public class ReplicationController {
     if (log.isDebugEnabled()) {
       log.debug("Min watermark of consumers calculated as {}", Instant.ofEpochMilli(minWatermark));
     }
+    if (!isLive) {
+      log.warn(
+          "{} is not alive due to consumer watermark lags {}",
+          ReplicationController.class.getSimpleName(),
+          Metrics.consumerWatermarkLags());
+    }
     Metrics.LIVENESS.increment(isLive ? 1 : 0);
     return isLive;
   }

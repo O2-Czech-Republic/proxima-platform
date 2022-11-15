@@ -25,8 +25,10 @@ import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
@@ -165,9 +167,20 @@ public class Metrics {
       return consumerMetrics
           .values()
           .stream()
-          .mapToLong(m -> (long) (double) m.getValue())
+          .mapToLong(m -> m.getValue().longValue())
           .min()
           .orElse(Long.MIN_VALUE);
+    }
+  }
+
+  public static List<String> consumerWatermarkLags() {
+    long now = System.currentTimeMillis();
+    synchronized (consumerMetrics) {
+      return consumerMetrics
+          .entrySet()
+          .stream()
+          .map(e -> String.format("%s(%d)", e.getKey(), now - e.getValue().getValue().longValue()))
+          .collect(Collectors.toList());
     }
   }
 

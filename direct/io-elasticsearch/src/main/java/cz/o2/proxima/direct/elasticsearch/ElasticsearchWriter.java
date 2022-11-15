@@ -120,7 +120,8 @@ public class ElasticsearchWriter implements BulkAttributeWriter {
                   "es-writer-" + accessor.getIndexName())
               .setBulkActions(accessor.getBatchSize())
               .setConcurrentRequests(accessor.getConcurrentRequests())
-              .setBulkSize(new ByteSizeValue(10, ByteSizeUnit.MB))
+              .setFlushInterval(accessor.getFlushInterval())
+              .setBulkSize(new ByteSizeValue(accessor.getBulkSizeMb(), ByteSizeUnit.MB))
               .build();
       return new BulkWriter() {
         @Override

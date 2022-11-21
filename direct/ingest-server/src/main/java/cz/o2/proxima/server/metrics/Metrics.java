@@ -21,6 +21,8 @@ import cz.o2.proxima.metrics.GaugeMetric;
 import cz.o2.proxima.metrics.Metric;
 import cz.o2.proxima.metrics.TimeAveragingMetric;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.util.Pair;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.Collections;
@@ -97,7 +99,7 @@ public class Metrics {
   public static final GaugeMetric LIVENESS =
       getOrCreate("liveness", name -> GaugeMetric.of(GROUP, name));
 
-  private static final Map<String, GaugeMetric> consumerMetrics =
+  private static final Map<String, Pair<Boolean, GaugeMetric>> consumerMetrics =
       Collections.synchronizedMap(new HashMap<>());
 
   public static Metric<Double> ingestsForAttribute(AttributeDescriptor<?> attr) {
@@ -119,8 +121,9 @@ public class Metrics {
   }
 
   public static void reportConsumerWatermark(
-      String consumer, long watermark, long elementTimestamp) {
-    consumerWatermark(consumer, watermark);
+      String consumer, boolean bulk, long watermark, long elementTimestamp) {
+
+    consumerWatermark(consumer, bulk, watermark);
     consumerWatermarkLag(consumer, watermark);
     // Element timestamp is set to -1 for onIdle methods.
     if (elementTimestamp >= 0) {
@@ -128,12 +131,12 @@ public class Metrics {
     }
   }
 
-  private static void consumerWatermark(String consumer, long watermark) {
+  private static void consumerWatermark(String consumer, boolean bulk, long watermark) {
     GaugeMetric metric =
         getOrCreate(
             toJmxCompatibleConsumerName(consumer) + "_watermark",
             name -> GaugeMetric.of(GROUP, name));
-    consumerMetrics.put(consumer, metric);
+    consumerMetrics.putIfAbsent(consumer, Pair.of(bulk, metric));
     metric.increment(watermark);
   }
 
@@ -162,14 +165,20 @@ public class Metrics {
     return consumer.replace('-', '_');
   }
 
-  public static long minWatermarkOfConsumers() {
+  public static Pair<Long, Long> minWatermarkOfConsumers() {
     synchronized (consumerMetrics) {
-      return consumerMetrics
-          .values()
-          .stream()
-          .mapToLong(m -> m.getValue().longValue())
-          .min()
-          .orElse(Long.MIN_VALUE);
+      long minBulkWatermark = Watermarks.MAX_WATERMARK;
+      long minOnlineWatermark = Watermarks.MAX_WATERMARK;
+      for (Pair<Boolean, GaugeMetric> p : consumerMetrics.values()) {
+        if (p.getFirst()) {
+          if (minBulkWatermark > p.getSecond().getValue().longValue()) {
+            minBulkWatermark = p.getSecond().getValue().longValue();
+          }
+        } else if (minOnlineWatermark > p.getSecond().getValue().longValue()) {
+          minOnlineWatermark = p.getSecond().getValue().longValue();
+        }
+      }
+      return Pair.of(minOnlineWatermark, minBulkWatermark);
     }
   }
 
@@ -179,7 +188,13 @@ public class Metrics {
       return consumerMetrics
           .entrySet()
           .stream()
-          .map(e -> String.format("%s(%d)", e.getKey(), now - e.getValue().getValue().longValue()))
+          .map(
+              e ->
+                  String.format(
+                      "%s(%b:%d)",
+                      e.getKey(),
+                      e.getValue().getFirst(),
+                      now - e.getValue().getSecond().getValue().longValue()))
           .collect(Collectors.toList());
     }
   }

@@ -42,7 +42,6 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.util.Pair;
 import java.io.File;
-import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -99,6 +98,7 @@ public class ReplicationController {
   abstract class ReplicationLogObserver implements CommitLogObserver {
 
     private final String consumerName;
+    private final boolean bulk;
     private final CommitLogReader commitLog;
     private final Set<AttributeDescriptor<?>> allowedAttributes;
     private final StorageFilter filter;
@@ -164,7 +164,11 @@ public class ReplicationController {
 
     @Override
     public void onIdle(OnIdleContext context) {
-      Metrics.reportConsumerWatermark(consumerName, context.getWatermark(), -1);
+      reportConsumerWatermark(context.getWatermark(), -1);
+    }
+
+    void reportConsumerWatermark(long watermark, long elementStamp) {
+      Metrics.reportConsumerWatermark(consumerName, bulk, watermark, elementStamp);
     }
 
     abstract void ingestElement(StreamElement ingest, OnNextContext context);
@@ -226,10 +230,12 @@ public class ReplicationController {
 
   @VisibleForTesting
   boolean checkLiveness() {
-    long minWatermark = Metrics.minWatermarkOfConsumers();
-    boolean isLive = minWatermark > System.currentTimeMillis() - 10_000;
+    Pair<Long, Long> minWatermarks = Metrics.minWatermarkOfConsumers();
+    boolean isLive =
+        minWatermarks.getFirst() > System.currentTimeMillis() - 10_000
+            || minWatermarks.getSecond() > 2 * 3600_000;
     if (log.isDebugEnabled()) {
-      log.debug("Min watermark of consumers calculated as {}", Instant.ofEpochMilli(minWatermark));
+      log.debug("Min watermark of consumers calculated as {}", minWatermarks);
     }
     if (!isLive) {
       log.warn(
@@ -431,7 +437,7 @@ public class ReplicationController {
 
       @Override
       protected void reportConsumerWatermark(String name, long watermark, long elementStamp) {
-        Metrics.reportConsumerWatermark(name, watermark, elementStamp);
+        Metrics.reportConsumerWatermark(name, false, watermark, elementStamp);
       }
 
       @Override
@@ -453,7 +459,7 @@ public class ReplicationController {
 
       @Override
       protected void reportConsumerWatermark(String name, long watermark, long elementStamp) {
-        Metrics.reportConsumerWatermark(name, watermark, elementStamp);
+        Metrics.reportConsumerWatermark(name, false, watermark, elementStamp);
       }
 
       @Override
@@ -544,12 +550,13 @@ public class ReplicationController {
       BulkAttributeWriter writer) {
 
     final ReplicationLogObserver observer =
-        new ReplicationLogObserver(consumerName, commitLog, allowedAttributes, filter, writer) {
+        new ReplicationLogObserver(
+            consumerName, true, commitLog, allowedAttributes, filter, writer) {
 
           @Override
           void ingestElement(StreamElement ingest, OnNextContext context) {
             final long watermark = context.getWatermark();
-            Metrics.reportConsumerWatermark(consumerName, watermark, ingest.getStamp());
+            reportConsumerWatermark(watermark, ingest.getStamp());
             log.debug(
                 "Consumer {}: writing element {} into {} at watermark {}",
                 consumerName,
@@ -598,12 +605,12 @@ public class ReplicationController {
       OnlineAttributeWriter writer) {
 
     final ReplicationLogObserver observer =
-        new ReplicationLogObserver(consumerName, commitLog, allowedAttributes, filter, writer) {
+        new ReplicationLogObserver(
+            consumerName, false, commitLog, allowedAttributes, filter, writer) {
 
           @Override
           void ingestElement(StreamElement ingest, OnNextContext context) {
-            Metrics.reportConsumerWatermark(
-                consumerName, context.getWatermark(), ingest.getStamp());
+            reportConsumerWatermark(context.getWatermark(), ingest.getStamp());
             log.debug("Consumer {}: writing element {} into {}", consumerName, ingest, writer);
             writer.write(
                 ingest,

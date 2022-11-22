@@ -15,10 +15,13 @@
  */
 package cz.o2.proxima.direct.transform;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StorageFilter;
@@ -54,35 +57,61 @@ public abstract class TransformationObserver implements CommitLogObserver {
       AtomicInteger toConfirm = new AtomicInteger(0);
       try {
         ElementWiseTransformation.Collector<StreamElement> collector =
-            elem -> {
-              try {
-                log.debug("Transformation {}: writing transformed element {}", name, elem);
-                Optionals.get(direct().getWriter(elem.getAttributeDescriptor()))
-                    .write(
-                        elem,
-                        (succ, exc) -> {
-                          if (succ) {
-                            onReplicated(elem);
-                            if (toConfirm.decrementAndGet() == 0) {
-                              committer.confirm();
-                            }
-                          } else {
-                            toConfirm.set(-1);
-                            committer.fail(exc);
-                          }
-                        });
-              } catch (Exception ex) {
-                toConfirm.set(-1);
-                committer.fail(ex);
-              }
-            };
+            elem -> collectWrittenElement(committer, toConfirm, elem);
+
         if (toConfirm.addAndGet(transformation.apply(ingest, collector)) == 0) {
           committer.confirm();
         }
       } catch (Exception ex) {
-        toConfirm.set(-1);
-        committer.fail(ex);
+        failCommit(committer, toConfirm, ex);
       }
+    }
+
+    private void collectWrittenElement(
+        OffsetCommitter committer, AtomicInteger toConfirm, StreamElement elem) {
+
+      collectWrittenElement(committer, toConfirm, elem, 0);
+    }
+
+    private void collectWrittenElement(
+        OffsetCommitter committer, AtomicInteger toConfirm, StreamElement elem, int retryNum) {
+
+      try {
+        log.debug("Transformation {}: writing transformed element {}", name, elem);
+        getOnlineWriterFor(elem)
+            .write(
+                elem,
+                (succ, exc) -> {
+                  if (succ) {
+                    onReplicated(elem);
+                    if (toConfirm.decrementAndGet() == 0) {
+                      committer.confirm();
+                    }
+                  } else if (retryNum < 5 && exc instanceof TransactionRejectedException) {
+                    TransactionRejectedException ex = (TransactionRejectedException) exc;
+                    log.info(
+                        "Failed transaction {} flags {} for element {}, going to retry.",
+                        ex.getTransactionId(),
+                        ex.getResponseFlags(),
+                        elem);
+                    collectWrittenElement(committer, toConfirm, elem, retryNum + 1);
+                  } else {
+                    failCommit(committer, toConfirm, exc);
+                  }
+                });
+      } catch (Exception ex) {
+        failCommit(committer, toConfirm, ex);
+      }
+    }
+
+    private void failCommit(OffsetCommitter committer, AtomicInteger toConfirm, Throwable exc) {
+      toConfirm.set(-1);
+      committer.fail(exc);
+    }
+
+    @VisibleForTesting
+    OnlineAttributeWriter getOnlineWriterFor(StreamElement elem) {
+      return Optionals.get(direct().getWriter(elem.getAttributeDescriptor()));
     }
   }
 

@@ -15,22 +15,28 @@
  */
 package cz.o2.proxima.direct.transform;
 
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.direct.transform.TransformationObserver.Contextual;
+import cz.o2.proxima.direct.transform.TransformationObserver.NonContextual;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Response.Flags;
+import cz.o2.proxima.transform.ElementWiseTransformation;
+import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 
@@ -71,7 +77,7 @@ public class TransformationObserverTest {
   }
 
   @Test
-  public void testTransactionRejectedExceptionHandlingFailed() {
+  public void testContextualTransactionRejectedExceptionHandlingFailed() {
     DirectElementWiseTransform transform =
         new DirectElementWiseTransform() {
           @Override
@@ -92,5 +98,90 @@ public class TransformationObserverTest {
     assertThrows(
         TransactionRejectedRuntimeException.class,
         () -> observer.doTransform(element, (succ, exc) -> {}));
+  }
+
+  @Test
+  public void testNonContextualTransactionRejectedExceptionHandlingFailed()
+      throws InterruptedException {
+    StreamElement element = armed.upsert("key", System.currentTimeMillis(), new byte[] {});
+    ElementWiseTransformation transform =
+        new ElementWiseTransformation() {
+          @Override
+          public void setup(Repository repo, Map<String, Object> cfg) {}
+
+          @Override
+          public int apply(StreamElement input, Collector<StreamElement> collector) {
+            collector.collect(element);
+            return 1;
+          }
+        };
+    NonContextual observer =
+        new NonContextual(direct, "name", transform, true, new PassthroughFilter()) {
+          @Override
+          OnlineAttributeWriter getOnlineWriterFor(StreamElement elem) {
+            return throwingWriter();
+          }
+        };
+    BlockingQueue<Optional<Throwable>> commitQueue = new ArrayBlockingQueue<>(1);
+    observer.doTransform(element, (succ, exc) -> commitQueue.offer(Optional.ofNullable(exc)));
+    Optional<Throwable> thrown = commitQueue.take();
+    assertTrue(thrown.isPresent());
+    assertTrue(
+        "Expected TransactionRejectedException, got " + thrown.get(),
+        thrown.get() instanceof TransactionRejectedException);
+  }
+
+  @Test
+  public void testNonContextualTransactionRejectedExceptionHandlingSuccess()
+      throws InterruptedException {
+    AtomicInteger fails = new AtomicInteger();
+    StreamElement element = armed.upsert("key", System.currentTimeMillis(), new byte[] {});
+    ElementWiseTransformation transform =
+        new ElementWiseTransformation() {
+          @Override
+          public void setup(Repository repo, Map<String, Object> cfg) {}
+
+          @Override
+          public int apply(StreamElement input, Collector<StreamElement> collector) {
+            collector.collect(element);
+            return 1;
+          }
+        };
+    NonContextual observer =
+        new NonContextual(direct, "name", transform, true, new PassthroughFilter()) {
+          @Override
+          OnlineAttributeWriter getOnlineWriterFor(StreamElement elem) {
+            if (fails.incrementAndGet() < 3) {
+              return throwingWriter();
+            }
+            return super.getOnlineWriterFor(elem);
+          }
+        };
+    BlockingQueue<Optional<Throwable>> commitQueue = new ArrayBlockingQueue<>(1);
+    observer.doTransform(element, (succ, exc) -> commitQueue.offer(Optional.ofNullable(exc)));
+    Optional<Throwable> thrown = commitQueue.take();
+    assertFalse(thrown.isPresent());
+  }
+
+  private OnlineAttributeWriter throwingWriter() {
+    return new OnlineAttributeWriter() {
+      @Override
+      public void write(StreamElement data, CommitCallback statusCallback) {
+        statusCallback.commit(false, new TransactionRejectedException("t", Flags.ABORTED) {});
+      }
+
+      @Override
+      public Factory<? extends OnlineAttributeWriter> asFactory() {
+        return repo -> throwingWriter();
+      }
+
+      @Override
+      public URI getUri() {
+        return URI.create("throwing-writer:///");
+      }
+
+      @Override
+      public void close() {}
+    };
   }
 }

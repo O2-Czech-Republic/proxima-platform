@@ -16,18 +16,24 @@
 package cz.o2.proxima.direct.transaction;
 
 import static cz.o2.proxima.direct.transaction.TransactionResourceManagerTest.runObservations;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionPreconditionFailedException;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionValidator;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransactionMode;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.Response.Flags;
@@ -36,9 +42,11 @@ import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.util.TransformationRunner;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.After;
 import org.junit.Before;
@@ -126,6 +134,65 @@ public class TransactionValidatorTest {
     assertThrows(TransactionPreconditionFailedException.class, () -> write("k2", 1));
   }
 
+  @Test
+  public void testTransactionValidatorRetryOk() {
+    AtomicInteger retries = new AtomicInteger();
+    StreamElement element = intField.upsert("key", System.currentTimeMillis(), 1);
+    TransactionValidator validator =
+        new TransactionValidator() {
+          @Override
+          public void validate(StreamElement element, Transaction transaction)
+              throws TransactionPreconditionFailedException, TransactionRejectedException {
+
+            if (retries.incrementAndGet() < 4) {
+              throw new TransactionRejectedException("t", Flags.ABORTED) {};
+            }
+          }
+
+          @Override
+          public void setup(
+              Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {}
+
+          @Override
+          public void close() {}
+        };
+
+    try (Transaction t = mock(Transaction.class)) {
+      validator.setTransaction(t);
+      validator.transform(element, CommitCallback.noop());
+      // does not throw
+      assertTrue(true);
+    }
+  }
+
+  @Test
+  public void testTransactionValidatorRetryFailed() {
+    StreamElement element = intField.upsert("key", System.currentTimeMillis(), 1);
+    TransactionValidator validator =
+        new TransactionValidator() {
+          @Override
+          public void validate(StreamElement element, Transaction transaction)
+              throws TransactionPreconditionFailedException, TransactionRejectedException {
+
+            throw new TransactionRejectedException("t", Flags.ABORTED) {};
+          }
+
+          @Override
+          public void setup(
+              Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {}
+
+          @Override
+          public void close() {}
+        };
+
+    try (Transaction t = mock(Transaction.class)) {
+      validator.setTransaction(t);
+      assertThrows(
+          TransactionRejectedRuntimeException.class,
+          () -> validator.transform(element, CommitCallback.noop()));
+    }
+  }
+
   private Response getRejectedResponse(Request request) {
     switch (request.getFlags()) {
       case COMMIT:
@@ -158,9 +225,7 @@ public class TransactionValidatorTest {
     Optionals.get(direct.getWriter(intField))
         .write(
             intField.upsert(key, System.currentTimeMillis(), value),
-            (succ, exc) -> {
-              ExceptionUtils.unchecked(() -> err.put(Pair.of(succ, exc)));
-            });
+            (succ, exc) -> ExceptionUtils.unchecked(() -> err.put(Pair.of(succ, exc))));
     Pair<Boolean, Throwable> status = ExceptionUtils.uncheckedFactory(err::take);
     if (!status.getFirst()) {
       throw status.getSecond();

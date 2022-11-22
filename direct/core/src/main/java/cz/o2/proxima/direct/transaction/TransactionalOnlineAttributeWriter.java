@@ -114,11 +114,23 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     @Override
     public final void transform(StreamElement input, CommitCallback commit)
         throws TransactionRejectedRuntimeException {
-      try {
-        validate(input, currentTransaction());
-      } catch (TransactionRejectedException ex) {
-        // this needs to be delegated to caller
-        throw new TransactionRejectedRuntimeException(ex);
+
+      TransactionRejectedException caught = null;
+      for (int i = 0; ; i++) {
+        try {
+          validate(input, currentTransaction());
+          break;
+        } catch (TransactionRejectedException ex) {
+          if (caught == null) {
+            caught = ex;
+          } else {
+            caught.addSuppressed(ex);
+          }
+          if (i == 4) {
+            // this needs to be delegated to the caller
+            throw new TransactionRejectedRuntimeException(caught);
+          }
+        }
       }
     }
 

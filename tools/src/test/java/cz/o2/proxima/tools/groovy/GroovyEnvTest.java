@@ -684,6 +684,59 @@ public abstract class GroovyEnvTest extends GroovyTest {
   }
 
   @Test
+  public void testReduceValueStateByKeyUnsorted() throws Exception {
+    int prefixLen = wildcard.toAttributePrefix().length();
+    final Script compiled =
+        compile(
+            "env.batch.wildcard.batchUpdates()"
+                + ".reduceValueStateByKeyUnsorted("
+                + "{ it.key }, { Integer.valueOf(it.attribute.substring("
+                + prefixLen
+                + ")) }"
+                + ", { 0 }, { s, v -> s + v }, { s, v -> s + v })"
+                + ".collect()");
+
+    write(
+        StreamElement.upsert(
+            batch,
+            wildcard,
+            "uuid1",
+            "key1",
+            wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {}));
+    write(
+        StreamElement.upsert(
+            batch,
+            wildcard,
+            "uuid2",
+            "key2",
+            wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(),
+            new byte[] {}));
+    write(
+        StreamElement.upsert(
+            batch,
+            wildcard,
+            "uuid3",
+            "key1",
+            wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(),
+            new byte[] {}));
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    List<Pair<String, Integer>> result = (List) compiled.run();
+    Map<String, List<Integer>> resultMap =
+        result
+            .stream()
+            .collect(
+                Collectors.groupingBy(
+                    Pair::getFirst, Collectors.mapping(Pair::getSecond, Collectors.toList())));
+    assertUnorderedEquals(Arrays.asList(1, 4), resultMap.get("key1"));
+    assertUnorderedEquals(Collections.singletonList(2), resultMap.get("key2"));
+  }
+
+  @Test
   public void testReduceValueWithIntegratePerKey() throws Exception {
     int prefixLen = wildcard.toAttributePrefix().length();
     final Script compiled =

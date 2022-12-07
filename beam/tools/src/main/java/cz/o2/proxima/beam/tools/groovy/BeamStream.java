@@ -954,7 +954,8 @@ class BeamStream<T> implements Stream<T> {
       Closure<V> valueExtractor,
       Closure<S> initialState,
       Closure<O> outputFn,
-      Closure<S> stateUpdate) {
+      Closure<S> stateUpdate,
+      boolean sorted) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
@@ -992,24 +993,26 @@ class BeamStream<T> implements Stream<T> {
                     ".reduce",
                     kvs,
                     ParDo.of(
-                        ReduceValueStateByKey.of(
+                        AbstractReduceValueStateByKey.of(
                             initialStateDehydrated,
                             stateUpdateDehydrated,
                             outputDehydrated,
                             keyCoder,
                             stateCoder,
-                            earlyEmitting)));
+                            earlyEmitting,
+                            sorted)));
           } else {
             ret =
                 kvs.apply(
                     ParDo.of(
-                        ReduceValueStateByKey.of(
+                        AbstractReduceValueStateByKey.of(
                             initialStateDehydrated,
                             stateUpdateDehydrated,
                             outputDehydrated,
                             keyCoder,
                             stateCoder,
-                            earlyEmitting)));
+                            earlyEmitting,
+                            sorted)));
           }
           ret = ret.setCoder(PairCoder.of(keyCoder, outputCoder));
           if (!ret.getWindowingStrategy().equals(WindowingStrategy.globalDefault())) {
@@ -1485,22 +1488,27 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  @VisibleForTesting
-  static class ReduceValueStateByKey<K, V, S, O> extends DoFn<KV<K, V>, Pair<K, O>> {
+  private static class AbstractReduceValueStateByKey<K, V, S, O>
+      extends DoFn<KV<K, V>, Pair<K, O>> {
 
     private static final Instant MAX_ACCEPTABLE_STAMP =
         BoundedWindow.TIMESTAMP_MAX_VALUE.minus(Duration.standardDays(300));
 
-    static <K, V, S, O> ReduceValueStateByKey<K, V, S, O> of(
+    static <K, V, S, O> AbstractReduceValueStateByKey<K, V, S, O> of(
         Closure<S> initialState,
         Closure<S> stateUpdate,
         Closure<O> output,
         Coder<K> keyCoder,
         Coder<S> stateCoder,
-        Duration earlyEmitting) {
+        Duration earlyEmitting,
+        boolean sorted) {
 
-      return new ReduceValueStateByKey<>(
-          initialState, stateUpdate, output, keyCoder, stateCoder, earlyEmitting);
+      if (sorted) {
+        return new ReduceValueStateByKey<>(
+            initialState, stateUpdate, output, earlyEmitting, keyCoder, stateCoder);
+      }
+      return new ReduceValueStateByKeyUnsorted<>(
+          initialState, stateUpdate, output, earlyEmitting, keyCoder, stateCoder);
     }
 
     private final Closure<S> initialState;
@@ -1508,45 +1516,23 @@ class BeamStream<T> implements Stream<T> {
     private final Closure<O> output;
     private final Duration earlyEmitting;
 
-    @StateId("value")
-    private final StateSpec<ValueState<Pair<K, S>>> state;
-
-    @TimerId("earlyTimer")
-    private final TimerSpec earlyTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
-
-    @VisibleForTesting
-    ReduceValueStateByKey(
+    AbstractReduceValueStateByKey(
         Closure<S> initialState,
         Closure<S> stateUpdate,
         Closure<O> output,
-        Coder<K> keyCoder,
-        Coder<S> stateCoder) {
-
-      this(initialState, stateUpdate, output, keyCoder, stateCoder, Duration.ZERO);
-    }
-
-    ReduceValueStateByKey(
-        Closure<S> initialState,
-        Closure<S> stateUpdate,
-        Closure<O> output,
-        Coder<K> keyCoder,
-        Coder<S> stateCoder,
         Duration earlyEmitting) {
 
-      this.state = StateSpecs.value(PairCoder.of(keyCoder, stateCoder));
       this.initialState = initialState;
       this.stateUpdate = stateUpdate;
       this.output = output;
       this.earlyEmitting = earlyEmitting;
     }
 
-    @RequiresTimeSortedInput
-    @ProcessElement
-    public void processElement(
-        @Element KV<K, V> element,
-        @Timestamp Instant ts,
-        @StateId("value") ValueState<Pair<K, S>> valueState,
-        @TimerId("earlyTimer") Timer earlyTimer,
+    void processElement(
+        KV<K, V> element,
+        Instant ts,
+        ValueState<Pair<K, S>> valueState,
+        Timer earlyTimer,
         OutputReceiver<Pair<K, O>> outputReceiver) {
 
       K key = element.getKey();
@@ -1566,11 +1552,10 @@ class BeamStream<T> implements Stream<T> {
       }
     }
 
-    @OnTimer("earlyTimer")
-    public void onTimer(
-        @Timestamp Instant ts,
-        @StateId("value") ValueState<Pair<K, S>> valueState,
-        @TimerId("earlyTimer") Timer earlyTimer,
+    void onTimer(
+        Instant ts,
+        ValueState<Pair<K, S>> valueState,
+        Timer earlyTimer,
         OutputReceiver<Pair<K, O>> collector) {
 
       Pair<K, S> current = Objects.requireNonNull(valueState.read());
@@ -1589,6 +1574,97 @@ class BeamStream<T> implements Stream<T> {
       return PairCoder.descriptor(
           (TypeDescriptor<K>) TypeDescriptor.of(Object.class),
           (TypeDescriptor<O>) TypeDescriptor.of(Object.class));
+    }
+  }
+
+  public static class ReduceValueStateByKey<K, V, S, O>
+      extends AbstractReduceValueStateByKey<K, V, S, O> {
+
+    @StateId("value")
+    private final StateSpec<ValueState<Pair<K, S>>> state;
+
+    @TimerId("earlyTimer")
+    private final TimerSpec earlyTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+
+    ReduceValueStateByKey(
+        Closure<S> initialState,
+        Closure<S> stateUpdate,
+        Closure<O> output,
+        Duration earlyEmitting,
+        Coder<K> keyCoder,
+        Coder<S> stateCoder) {
+
+      super(initialState, stateUpdate, output, earlyEmitting);
+      this.state = StateSpecs.value(PairCoder.of(keyCoder, stateCoder));
+    }
+
+    @RequiresTimeSortedInput
+    @ProcessElement
+    @Override
+    public void processElement(
+        @Element KV<K, V> element,
+        @Timestamp Instant ts,
+        @StateId("value") ValueState<Pair<K, S>> valueState,
+        @TimerId("earlyTimer") Timer earlyTimer,
+        OutputReceiver<Pair<K, O>> outputReceiver) {
+
+      super.processElement(element, ts, valueState, earlyTimer, outputReceiver);
+    }
+
+    @OnTimer("earlyTimer")
+    @Override
+    public void onTimer(
+        @Timestamp Instant ts,
+        @StateId("value") ValueState<Pair<K, S>> valueState,
+        @TimerId("earlyTimer") Timer earlyTimer,
+        OutputReceiver<Pair<K, O>> collector) {
+
+      super.onTimer(ts, valueState, earlyTimer, collector);
+    }
+  }
+
+  public static class ReduceValueStateByKeyUnsorted<K, V, S, O>
+      extends AbstractReduceValueStateByKey<K, V, S, O> {
+
+    @StateId("value")
+    private final StateSpec<ValueState<Pair<K, S>>> state;
+
+    @TimerId("earlyTimer")
+    private final TimerSpec earlyTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+
+    ReduceValueStateByKeyUnsorted(
+        Closure<S> initialState,
+        Closure<S> stateUpdate,
+        Closure<O> output,
+        Duration earlyEmitting,
+        Coder<K> keyCoder,
+        Coder<S> stateCoder) {
+
+      super(initialState, stateUpdate, output, earlyEmitting);
+      this.state = StateSpecs.value(PairCoder.of(keyCoder, stateCoder));
+    }
+
+    @ProcessElement
+    @Override
+    public void processElement(
+        @Element KV<K, V> element,
+        @Timestamp Instant ts,
+        @StateId("value") ValueState<Pair<K, S>> valueState,
+        @TimerId("earlyTimer") Timer earlyTimer,
+        OutputReceiver<Pair<K, O>> outputReceiver) {
+
+      super.processElement(element, ts, valueState, earlyTimer, outputReceiver);
+    }
+
+    @OnTimer("earlyTimer")
+    @Override
+    public void onTimer(
+        @Timestamp Instant ts,
+        @StateId("value") ValueState<Pair<K, S>> valueState,
+        @TimerId("earlyTimer") Timer earlyTimer,
+        OutputReceiver<Pair<K, O>> collector) {
+
+      super.onTimer(ts, valueState, earlyTimer, collector);
     }
   }
 

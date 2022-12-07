@@ -384,6 +384,32 @@ public interface Stream<T> {
   }
 
   /**
+   * Transform this stream using stateful processing without time-sorting.
+   *
+   * @param <K> type of key
+   * @param <S> type of value state
+   * @param <V> type of intermediate value
+   * @param <O> type of output value
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialState closure providing initial state value for key
+   * @param outputFn function for outputting values (when function returns {@code null} the output
+   *     is discarded
+   * @param stateUpdate update (accumulation) function for the state the output is discarded
+   * @return the statefully reduced stream
+   */
+  default <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKeyUnsorted(
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "K") Closure<S> initialState,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate) {
+
+    return reduceValueStateByKeyUnsorted(
+        null, keyExtractor, valueExtractor, initialState, outputFn, stateUpdate);
+  }
+
+  /**
    * Transform this stream using stateful processing.
    *
    * @param <K> type of key
@@ -399,13 +425,71 @@ public interface Stream<T> {
    *     is discarded
    * @return the statefully reduced stream
    */
+  default <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "K") Closure<S> initialState,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate) {
+
+    return reduceValueStateByKey(
+        name, keyExtractor, valueExtractor, initialState, outputFn, stateUpdate, true);
+  }
+
+  /**
+   * Transform this stream using stateful processing without time-sorting.
+   *
+   * @param <K> type of key
+   * @param <S> type of value state
+   * @param <V> type of intermediate value
+   * @param <O> type of output value
+   * @param name optional name of the stateful operation
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialState closure providing initial state value for key
+   * @param stateUpdate update (accumulation) function for the state
+   * @param outputFn function for outputting values (when function returns {@code null} the output
+   *     is discarded
+   * @return the statefully reduced stream
+   */
+  default <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKeyUnsorted(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "K") Closure<S> initialState,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate) {
+
+    return reduceValueStateByKey(
+        name, keyExtractor, valueExtractor, initialState, outputFn, stateUpdate, false);
+  }
+
+  /**
+   * Transform this stream using stateful processing.
+   *
+   * @param <K> type of key
+   * @param <S> type of value state
+   * @param <V> type of intermediate value
+   * @param <O> type of output value
+   * @param name optional name of the stateful operation
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialState closure providing initial state value for key
+   * @param stateUpdate update (accumulation) function for the state
+   * @param outputFn function for outputting values (when function returns {@code null} the output
+   *     is discarded
+   * @param sorted {@code true} if the input to the state update function should be time-sorted
+   * @return the statefully reduced stream
+   */
   <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
       @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       @ClosureParams(value = FromString.class, options = "K") Closure<S> initialState,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
-      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate);
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate,
+      boolean sorted);
 
   /**
    * Transform this stream to another stream by applying combining transform in global window

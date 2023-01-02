@@ -317,6 +317,19 @@ public class LocalCachedPartitionedViewTest {
   }
 
   @Test
+  public void testPreserveStampOnWrite() {
+    view.assign(singlePartition());
+    writer.write(update("key", armed.getName(), armed, now, 0L, new byte[] {1}), (succ, exc) -> {});
+    writer.write(
+        update("key", armed.getName(), armed, now - 1, 0L, new byte[] {2}), (succ, exc) -> {});
+    assertTrue(view.get("key", armed, now).isPresent());
+    assertTrue(view.get("key", armed, now - 1).isPresent());
+    assertFalse(view.get("key", armed, now - 2).isPresent());
+    assertEquals(2, view.get("key", armed, now - 1).get().getValue()[0]);
+    assertEquals(1, view.get("key", armed, now).get().getValue()[0]);
+  }
+
+  @Test
   public void testGetWithTtl() {
     timeProvider = () -> now;
     view.assign(singlePartition(), Duration.ofMinutes(1));
@@ -353,13 +366,22 @@ public class LocalCachedPartitionedViewTest {
 
   private StreamElement update(
       String key, String attribute, AttributeDescriptor<?> desc, long stamp, long seqId) {
+    return update(key, attribute, desc, stamp, seqId, new byte[] {1, 2, 3});
+  }
+
+  private StreamElement update(
+      String key,
+      String attribute,
+      AttributeDescriptor<?> desc,
+      long stamp,
+      long seqId,
+      byte[] value) {
 
     if (seqId > 0) {
-      return StreamElement.upsert(
-          gateway, desc, seqId, key, attribute, stamp, new byte[] {1, 2, 3});
+      return StreamElement.upsert(gateway, desc, seqId, key, attribute, stamp, value);
     }
     return StreamElement.upsert(
-        gateway, desc, UUID.randomUUID().toString(), key, attribute, stamp, new byte[] {1, 2, 3});
+        gateway, desc, UUID.randomUUID().toString(), key, attribute, stamp, value);
   }
 
   private Collection<Partition> singlePartition() {

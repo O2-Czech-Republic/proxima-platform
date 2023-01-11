@@ -156,10 +156,10 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     static final long MAX_SLEEP_MILLIS = 100;
     static final int MAX_QUEUED_STATUSES = 500;
 
-    Runnable flushTask = createFlushTask();
+    final Runnable flushTask = createFlushTask();
 
     // schedule the flush periodically
-    ScheduledFuture<?> flushFuture =
+    final ScheduledFuture<?> flushFuture =
         scheduler.scheduleAtFixedRate(
             flushTask, MAX_SLEEP_MILLIS, MAX_SLEEP_MILLIS, TimeUnit.MILLISECONDS);
 

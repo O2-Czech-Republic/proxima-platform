@@ -22,7 +22,7 @@
   <parent>
     <artifactId>proxima-io</artifactId>
     <groupId>cz.o2.proxima</groupId>
-    <version>0.10.0</version>
+    <version>0.10.0-jdk11</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 

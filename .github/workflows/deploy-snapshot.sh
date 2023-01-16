@@ -59,7 +59,7 @@ function verify_jdk() {
 set -eu
 
 VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | grep SNAPSHOT | grep -v INFO)
-JDK11_VERSION=$(echo $VERSION | sed "s/\(.\+\)-SNAPSHOT/\1-jdk11-SNAPSHOT/")
+JDK8_VERSION=$(echo $VERSION | sed "s/\(.\+\)-SNAPSHOT/\1-jdk8-SNAPSHOT/")
 
 if [ -z "${VERSION}" ]; then
   echo "Failed to retrieve version from repository"
@@ -86,12 +86,12 @@ if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | gre
 
     "8")
       verify_jdk "1\.8"
-      deploy ${VERSION}
+      deploy ${JDK8_VERSION}
       ;;
 
     "11")
       verify_jdk "11"
-      deploy ${JDK11_VERSION}
+      deploy ${VERSION}
       ;;
 
   esac

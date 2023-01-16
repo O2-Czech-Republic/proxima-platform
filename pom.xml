@@ -22,7 +22,7 @@
 
   <groupId>cz.o2.proxima</groupId>
   <artifactId>platform-parent</artifactId>
-  <version>0.10-SNAPSHOT</version>
+  <version>0.10.0</version>
   <packaging>pom</packaging>
   <inceptionYear>2017</inceptionYear>
 
@@ -75,8 +75,8 @@
   </distributionManagement>
 
   <properties>
-    <proxima.main.project.version>0.10-SNAPSHOT</proxima.main.project.version>
-    <maven.shade.version>3.2.4</maven.shade.version>
+    <proxima.main.project.version>0.10.0</proxima.main.project.version>
+    <maven.shade.version>3.4.1</maven.shade.version>
     <maven.surefire.version>3.0.0-M5</maven.surefire.version>
     <maven.source.version>3.2.1</maven.source.version>
     <maven.javadoc.version>3.2.0</maven.javadoc.version>
@@ -129,11 +129,6 @@
 
     <profile>
       <id>release</id>
-      <properties>
-        <!-- workaround of duplicate key: META-INF/services error -->
-        <!-- works only locally, not to be used on any CI machine -->
-        <maven.shade.version>3.2.2-SNAPSHOT</maven.shade.version>
-      </properties>
       <build>
         <plugins>
           <plugin>
@@ -403,10 +398,6 @@
 
     <profile>
       <id>release-snapshot</id>
-      <properties>
-        <!-- workaround of duplicate key: META-INF/services error -->
-        <maven.shade.version>3.2.2-SNAPSHOT</maven.shade.version>
-      </properties>
       <pluginRepositories>
         <pluginRepository>
           <id>my-repo-bucket-snapshot</id>

@@ -22,7 +22,7 @@
 
   <groupId>cz.o2.proxima</groupId>
   <artifactId>platform-parent</artifactId>
-  <version>0.10.0-jdk11</version>
+  <version>0.11-SNAPSHOT</version>
   <packaging>pom</packaging>
   <inceptionYear>2017</inceptionYear>
 
@@ -75,7 +75,7 @@
   </distributionManagement>
 
   <properties>
-    <proxima.main.project.version>0.10.0</proxima.main.project.version>
+    <proxima.jdk8.project.version>0.11-jdk8-SNAPSHOT</proxima.jdk8.project.version>
     <maven.shade.version>3.4.1</maven.shade.version>
     <maven.surefire.version>3.0.0-M5</maven.surefire.version>
     <maven.source.version>3.2.1</maven.source.version>

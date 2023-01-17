@@ -27,7 +27,7 @@ function deploy() {
   while [ $TRY -lt 3 ]; do
     CMD="mvn -s /tmp/settings.xml deploy -DskipTests -Prelease-snapshot -Pallow-snapshots"
     if [ ! -z "${RESUME}" ]; then
-      CMD="${CMD} $(echo $RESUME | sed "s/.\+\(-rf .\+\)/\1/")"
+      CMD="${CMD} $(echo "${RESUME}" | sed "s/.\+\(-rf .\+\)/\1/")"
     fi
     echo "Starting to deploy step $((TRY + 1)) with command ${CMD}"
     touch output${TRY}.log
@@ -59,14 +59,14 @@ function verify_jdk() {
 set -eu
 
 VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | grep SNAPSHOT | grep -v INFO)
-JDK8_VERSION=$(echo $VERSION | sed "s/\(.\+\)-SNAPSHOT/\1-jdk8-SNAPSHOT/")
+JDK8_VERSION=$(echo "${VERSION}" | sed "s/\(.\+\)-SNAPSHOT/\1-jdk8-SNAPSHOT/")
 
 if [ -z "${VERSION}" ]; then
   echo "Failed to retrieve version from repository"
   exit 1
 fi
 
-TARGET_JDK=$([ $# -gt 0 ] && echo $1 || echo "")
+TARGET_JDK=$([ $# -gt 0 ] && echo "${1}" || echo "")
 
 if [ -z "${TARGET_JDK}" ] || [ "${TARGET_JDK}" != "8" -a "${TARGET_JDK}" != "11" ]; then
   echo "Missing target JDK argument, must be either 8 or 11"
@@ -74,13 +74,13 @@ if [ -z "${TARGET_JDK}" ] || [ "${TARGET_JDK}" != "8" -a "${TARGET_JDK}" != "11"
 fi
 
 
-echo ${MAVEN_SETTINGS} > /tmp/settings.xml
-echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
+echo "${MAVEN_SETTINGS}" > /tmp/settings.xml
+echo "${GOOGLE_CREDENTIALS}" > /tmp/google-credentials.json
 
 export GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-credentials.json
 
 RESUME=""
-if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | grep O2-Czech-Republic >/dev/null; then
+if echo "${VERSION}" | grep SNAPSHOT >/dev/null && echo "${GITHUB_REPOSITORY}" | grep O2-Czech-Republic >/dev/null; then
 
   case "${TARGET_JDK}" in
 

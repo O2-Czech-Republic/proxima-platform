@@ -18,6 +18,12 @@
 
 set -e
 
+if [[ $1 == "8" ]]; then
+  VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | grep SNAPSHOT | grep -v INFO)
+  JDK8_VERSION=$(echo "${VERSION}" | sed "s/\(.\+\)-SNAPSHOT/\1-jdk8-SNAPSHOT/")
+  mvn versions:set -DnewVersion="${JDK8_VERSION}"
+fi
+
 IS_PR=$([[ ! -z $GITHUB_HEAD_REF ]] && echo ${GITHUB_HEAD_REF} || echo false)
 BRANCH=${GITHUB_REF##*/}
 
@@ -25,6 +31,7 @@ MVN_OPTS=$(.github/mvn-build-changed-modules.sh ${BRANCH} ${IS_PR})
 echo "${BRANCH} ${IS_PR} ${MVN_OPTS}"
 
 mvn spotless:check -B -V && mvn install -B -V -Pallow-snapshots,with-coverage,ci -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.shade=error -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 ${MVN_OPTS}  || (sleep 5; exit 1)
+
 
 if [[ $1 != "8" ]]; then
   if [ "${IS_PR}" != "false" ] || [ "${BRANCH}" == "master" ]; then

@@ -315,7 +315,7 @@ public class TransactionResourceManager
   private final Map<DirectAttributeFamilyDescriptor, HandleWithAssignment> clientObservedFamilies =
       new ConcurrentHashMap<>();
   private final Map<DirectAttributeFamilyDescriptor, CachedView> stateViews =
-      new ConcurrentHashMap<>();
+      Collections.synchronizedMap(new HashMap<>());
   private final Map<String, BiConsumer<String, Response>> transactionResponseConsumers =
       new ConcurrentHashMap<>();
   @Getter private final TransactionConfig cfg = new TransactionConfig();
@@ -326,10 +326,10 @@ public class TransactionResourceManager
   private long transactionTimeoutMs;
 
   @Getter(AccessLevel.PRIVATE)
-  private long cleanupIntervalMs;
+  private final long cleanupIntervalMs;
 
   @Getter(AccessLevel.PACKAGE)
-  private InitialSequenceIdPolicy initialSequenceIdPolicy;
+  private final InitialSequenceIdPolicy initialSequenceIdPolicy;
 
   @VisibleForTesting
   public TransactionResourceManager(DirectDataOperator direct, Map<String, Object> cfg) {
@@ -457,13 +457,14 @@ public class TransactionResourceManager
                   consumerName);
               CommitLogReader reader = Optionals.get(requestFamily.getCommitLogReader());
 
-              CachedView view = stateViews.get(stateFamily);
-              if (view == null) {
-                view = Optionals.get(stateFamily.getCachedView());
-                Duration ttl = Duration.ofMillis(cleanupIntervalMs);
-                stateViews.put(stateFamily, view);
-                view.assign(view.getPartitions(), updateConsumer, ttl);
-              }
+              stateViews.computeIfAbsent(
+                  stateFamily,
+                  k -> {
+                    CachedView view = Optionals.get(stateFamily.getCachedView());
+                    Duration ttl = Duration.ofMillis(cleanupIntervalMs);
+                    view.assign(view.getPartitions(), updateConsumer, ttl);
+                    return view;
+                  });
               initializedLatch.countDown();
 
               serverObservedFamilies.put(
@@ -537,7 +538,7 @@ public class TransactionResourceManager
       public void onRepartition(OnRepartitionContext context) {
         Preconditions.checkArgument(
             context.partitions().isEmpty() || context.partitions().size() == numPartitions,
-            "At least all or none partitions need to be assigned to the consumer. Got %s partitions from %s",
+            "All or zero partitions must be assigned to the consumer. Got %s partitions from %s",
             context.partitions().size(),
             numPartitions);
         if (!context.partitions().isEmpty()) {

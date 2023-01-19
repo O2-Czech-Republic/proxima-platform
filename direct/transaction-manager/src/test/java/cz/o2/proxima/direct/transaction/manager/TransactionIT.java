@@ -38,6 +38,7 @@ import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Response;
@@ -63,6 +64,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.After;
 import org.junit.Before;
@@ -83,6 +85,7 @@ public class TransactionIT {
   private CachedView view;
   private ClientTransactionManager client;
   private ObserveHandle transformationHandle;
+  private volatile @Nullable CountDownLatch replicatedLatch;
 
   @Before
   public void setUp() {
@@ -95,12 +98,19 @@ public class TransactionIT {
     view = Optionals.get(direct.getCachedView(amount));
     view.assign(view.getPartitions());
     observer.run("transaction-observer");
+    EntityDescriptor transaction = repo.getEntity("_transaction");
+    Regular<Commit> commit = Regular.of(transaction, transaction.getAttribute("commit"));
     transformationHandle =
         TransformationRunner.runTransformation(
             direct,
             "_transaction-commit",
             repo.getTransformations().get("_transaction-commit"),
-            ign -> {});
+            elem -> {
+              Commit value = Optionals.get(commit.valueOf(elem));
+              if (value.getSeqId() > 0) {
+                Optional.ofNullable(replicatedLatch).ifPresent(CountDownLatch::countDown);
+              }
+            });
   }
 
   @After
@@ -113,14 +123,13 @@ public class TransactionIT {
   @Test(timeout = 100_000)
   public void testAtomicAmountTransfer() throws InterruptedException {
     // we begin with all amounts equal to zero
-    // we randomly reshuffle random amounts between users and then we verify, that the sum is zero
-
+    // we randomly reshuffle random amounts between users, and then we verify that the sum is zero
     int numThreads = 20;
     int numSwaps = 500;
     int numUsers = 20;
-    CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
     AtomicReference<Throwable> err = new AtomicReference<>();
+    replicatedLatch = new CountDownLatch(numSwaps);
 
     for (int i = 0; i < numThreads; i++) {
       service.submit(
@@ -135,10 +144,9 @@ public class TransactionIT {
               log.error("Failed to run the transaction", ex);
               err.set(ex);
             }
-            latch.countDown();
           });
     }
-    latch.await();
+    replicatedLatch.await();
     if (err.get() != null) {
       throw new RuntimeException(err.get());
     }

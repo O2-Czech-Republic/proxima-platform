@@ -531,10 +531,13 @@
             <exclude>**/license-header.txt</exclude>
             <exclude>**/license-header-spotless.txt</exclude>
             <exclude>**/.idea/**</exclude>
-            <exclude>**/README</exclude>
+            <exclude>**/README.md</exclude>
+            <exclude>**/*_pb2.py</exclude>
             <exclude>**/LICENSE</exclude>
             <exclude>**/src/test/resources/**</exclude>
             <exclude>**/src/main/resources/**</exclude>
+            <exclude>**/build/**</exclude>
+            <exclude>**/nbproject/**</exclude>
             <exclude>install-jdk.sh</exclude>
             <exclude>**/*.odg</exclude>
             <exclude>docs/**</exclude>

@@ -131,6 +131,10 @@
           <artifactId>slf4j-log4j12</artifactId>
         </exclusion>
         <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-reload4j</artifactId>
+        </exclusion>
+        <exclusion>
           <groupId>log4j</groupId>
           <artifactId>log4j</artifactId>
         </exclusion>
@@ -176,7 +180,6 @@
       <version>${log4j-over-slf4j.version}</version>
       <scope>provided</scope>
     </dependency>
-
 
   </dependencies>
 

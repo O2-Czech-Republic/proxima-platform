@@ -33,6 +33,8 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Response.Flags;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -47,6 +49,40 @@ public class TransformationObserverTest {
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final Regular<byte[]> armed = Regular.of(gateway, gateway.getAttribute("armed"));
+
+  @Test
+  public void testContextualTransformCallsOnReplicated() {
+    AtomicInteger failedCnt = new AtomicInteger();
+    DirectElementWiseTransform transform =
+        new DirectElementWiseTransform() {
+          @Override
+          public void setup(
+              Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {}
+
+          @Override
+          public void transform(StreamElement input, CommitCallback commit) {
+            commit.commit(true, null);
+          }
+
+          @Override
+          public void close() {}
+        };
+
+    List<StreamElement> replicated = new ArrayList<>();
+    Contextual observer =
+        new Contextual(direct, "name", transform, false, new PassthroughFilter()) {
+          @Override
+          protected void onReplicated(StreamElement element) {
+            replicated.add(element);
+          }
+        };
+    observer.doTransform(
+        armed.upsert("key", System.currentTimeMillis(), new byte[] {}),
+        (succ, exc) -> {
+          assertTrue(succ);
+        });
+    assertEquals(1, replicated.size());
+  }
 
   @Test
   public void testTransactionRejectedExceptionHandling() {

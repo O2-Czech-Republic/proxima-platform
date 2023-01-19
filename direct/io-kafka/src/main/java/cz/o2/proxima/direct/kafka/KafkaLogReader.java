@@ -528,7 +528,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           } catch (Throwable err) {
             completedLatch.countDown();
             log.error("Error processing consumer {}", name, err);
-            if (consumer.onError(err)) {
+            if (consumer.onError(err) && !shutdown.get()) {
               try {
                 submitConsumerWithObserver(
                     name, offsets, position, stopAtCurrent, preWrite, consumer, executor, handle);

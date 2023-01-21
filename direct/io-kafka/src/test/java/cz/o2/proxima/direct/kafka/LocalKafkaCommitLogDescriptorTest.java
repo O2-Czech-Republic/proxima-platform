@@ -68,7 +68,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -1135,7 +1134,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(numObservers);
-    Set<CommitLogObserver> movedConsumers = Collections.synchronizedSet(new HashSet<>());
     Map<CommitLogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
     AtomicInteger readyObservers = new AtomicInteger();
     for (int i = 0; i < numObservers; i++) {
@@ -1165,8 +1163,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                             Math.max(
                                 MoreObjects.firstNonNull(v, Long.MIN_VALUE),
                                 context.getWatermark()));
-                    if ((!expectMoved || observerWatermarks.get(this) > 0)
-                        && movedConsumers.add(this)) {
+                    if ((!expectMoved || observerWatermarks.get(this) > 0)) {
                       latch.countDown();
                     }
                   }
@@ -1176,7 +1173,11 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       readyObservers.incrementAndGet();
     }
 
-    assertTrue(latch.await(10, TimeUnit.SECONDS));
+    assertTrue(
+        String.format(
+            "Timeout, readyObservers = %d, observerWatermarks == %s, numObservers = %d",
+            readyObservers.get(), observerWatermarks, numObservers),
+        latch.await(10, TimeUnit.SECONDS));
 
     assertEquals(numObservers, observerWatermarks.size());
     long watermark = observerWatermarks.values().stream().min(Long::compare).orElse(Long.MIN_VALUE);

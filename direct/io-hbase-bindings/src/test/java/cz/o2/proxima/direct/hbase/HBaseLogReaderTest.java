@@ -56,7 +56,7 @@ import org.junit.Test;
 public class HBaseLogReaderTest {
 
   private static final TableName tableName = TableName.valueOf("test");
-  private static final HBaseTestingUtility util = HBaseTestingUtility.createLocalHTU();
+  private static final HBaseTestingUtility util = new HBaseTestingUtility();
 
   private static MiniHBaseCluster cluster;
 

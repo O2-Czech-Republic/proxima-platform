@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.bigtable;
 
 import com.google.auto.service.AutoService;
-import com.google.cloud.bigtable.hbase1_x.BigtableConnection;
+import com.google.cloud.bigtable.hbase2_x.BigtableConnection;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;

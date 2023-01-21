@@ -32,7 +32,6 @@ import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellScanner;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
@@ -51,18 +50,12 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
   private final Map<String, Object> cfg;
   private final InternalSerializer serializer;
 
-  private boolean flushCommits;
-
   HBaseWriter(URI uri, Configuration conf, Map<String, Object> cfg) {
     super(uri, conf);
     batchSize =
         Optional.ofNullable(cfg.get(DEL_BATCH_SIZE_CONF))
             .map(o -> Integer.valueOf(o.toString()))
             .orElse(1000);
-    flushCommits =
-        Optional.ofNullable(cfg.get(FLUSH_COMMITS_CFG))
-            .map(o -> Boolean.valueOf(o.toString()))
-            .orElse(true);
     serializer = HBaseDataAccessor.instantiateSerializer(uri);
     this.cfg = cfg;
   }
@@ -88,9 +81,6 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
       } else {
         Put put = serializer.toPut(family, key, data);
         this.client.put(put);
-      }
-      if (flushCommits) {
-        ((HTable) this.client).flushCommits();
       }
       statusCallback.commit(true, null);
     } catch (Exception ex) {
@@ -146,14 +136,6 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
           new String(key, StandardCharsets.UTF_8),
           new String(family, StandardCharsets.UTF_8),
           stamp);
-    }
-  }
-
-  @Override
-  void ensureClient() {
-    super.ensureClient();
-    if (!(client instanceof HTable)) {
-      flushCommits = false;
     }
   }
 }

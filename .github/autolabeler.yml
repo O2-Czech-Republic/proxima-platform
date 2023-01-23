@@ -19,7 +19,7 @@ legal: ["license-*", "**/license-*"]
 scheme: ["scheme/*"]
 tools: ["tools/*"]
 example: ["example/*"]
-documentaion: ["docs/*"]
+documentation: ["docs/*"]
 maven: ["maven/*"]
 
 core: ["core/*"]

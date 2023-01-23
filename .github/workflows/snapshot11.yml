@@ -30,6 +30,10 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 11
+    - name: Setup Hugo
+      uses: peaceiris/actions-hugo@v2
+      with:
+        hugo-version: 'latest'
     - name: Deploy with Maven
       env:
         MAVEN_SETTINGS: ${{ secrets.MAVEN_SETTINGS }}

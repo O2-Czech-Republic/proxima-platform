@@ -17,7 +17,13 @@
 
 function deploy() {
 
+  set -eu
   VERSION=$1
+  git submodule update
+  echo "${MAVEN_SETTINGS}" > /tmp/settings.xml
+  echo "${GOOGLE_CREDENTIALS}" > /tmp/google-credentials.json
+
+  export GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-credentials.json
   TRY=0
 
   echo "Going to deploy version ${VERSION}"
@@ -25,7 +31,7 @@ function deploy() {
   mvn versions:set -DnewVersion=${VERSION}
 
   while [ $TRY -lt 3 ]; do
-    CMD="mvn -s /tmp/settings.xml deploy -DskipTests -Prelease-snapshot -Pallow-snapshots"
+    CMD="mvn -s /tmp/settings.xml deploy -DskipTests -Prelease-snapshot -Pallow-snapshots -Pwith-doc"
     if [ ! -z "${RESUME}" ]; then
       CMD="${CMD} $(echo "${RESUME}" | sed "s/.\+\(-rf .\+\)/\1/")"
     fi

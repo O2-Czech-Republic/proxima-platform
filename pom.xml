@@ -515,7 +515,8 @@
             <exclude>**/nbproject/**</exclude>
             <exclude>install-jdk.sh</exclude>
             <exclude>**/*.odg</exclude>
-            <exclude>docs/**</exclude>
+            <exclude>**/src/themes/</exclude>
+            <exclude>**/build/**</exclude>
           </excludes>
         </configuration>
         <executions>
@@ -523,6 +524,7 @@
             <goals>
               <goal>check</goal>
             </goals>
+            <phase>compile</phase>
           </execution>
         </executions>
         <dependencies>
@@ -738,6 +740,7 @@
 
   <modules>
     <module>beam</module>
+    <module>docs</module>
     <module>flink</module>
     <module>core</module>
     <module>direct</module>

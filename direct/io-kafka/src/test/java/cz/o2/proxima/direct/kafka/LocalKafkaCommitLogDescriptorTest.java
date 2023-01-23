@@ -1157,13 +1157,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 @Override
                 public void onIdle(OnIdleContext context) {
                   if (readyObservers.get() == numObservers) {
-                    observerWatermarks.compute(
-                        this,
-                        (k, v) ->
-                            Math.max(
-                                MoreObjects.firstNonNull(v, Long.MIN_VALUE),
-                                context.getWatermark()));
-                    if ((!expectMoved || observerWatermarks.get(this) > 0)) {
+                    Long oldWatermark = observerWatermarks.put(this, context.getWatermark());
+                    boolean hasWatermark =
+                        MoreObjects.firstNonNull(oldWatermark, Long.MIN_VALUE) > 0;
+                    if ((!expectMoved || !hasWatermark && context.getWatermark() > 0)) {
                       latch.countDown();
                     }
                   }

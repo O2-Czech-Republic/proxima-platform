@@ -25,6 +25,7 @@ defaults:
     shell: bash
 
 jobs:
+  if: github.repository == "datadrivencz/proxima-platform"
   # Build job
   build:
     runs-on: ubuntu-latest

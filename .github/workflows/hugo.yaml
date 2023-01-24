@@ -27,6 +27,7 @@ defaults:
 jobs:
   # Build job
   build:
+    if: github.repository == "datadrivencz/proxima-platform"
     runs-on: ubuntu-latest
     env:
       HUGO_VERSION: 0.110.0

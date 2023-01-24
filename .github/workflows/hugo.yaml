@@ -25,7 +25,6 @@ defaults:
     shell: bash
 
 jobs:
-  if: github.repository == "datadrivencz/proxima-platform"
   # Build job
   build:
     if: github.repository == "datadrivencz/proxima-platform"

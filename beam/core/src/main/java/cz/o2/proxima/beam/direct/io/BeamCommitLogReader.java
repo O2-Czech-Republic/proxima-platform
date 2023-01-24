@@ -139,9 +139,6 @@ class BeamCommitLogReader {
     @Override
     public byte[] getCurrentRecordId() throws NoSuchElementException {
       StreamElement el = getCurrent();
-      if (el == null) {
-        throw new NoSuchElementException();
-      }
       if (getCurrentSource().requiresDeduping()) {
         return el.getUuid().getBytes(StandardCharsets.US_ASCII);
       }

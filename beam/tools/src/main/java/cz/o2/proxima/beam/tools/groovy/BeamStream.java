@@ -1133,8 +1133,7 @@ class BeamStream<T> implements Stream<T> {
     WindowingStrategy<Object, ?> strategy =
         (WindowingStrategy)
             WindowingStrategy.of(window)
-                .withMode(WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES)
-                .fixDefaults();
+                .withMode(WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES);
 
     return new BeamWindowedStream<X>(
         config,
@@ -1668,8 +1667,8 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  private <T> DoFn<T, Void> asDoFn(
-      PipelineOptions opts, boolean allowStable, Consumer<T> consumer) {
+  private <InputT> DoFn<InputT, Void> asDoFn(
+      PipelineOptions opts, boolean allowStable, Consumer<InputT> consumer) {
 
     if (allowStable && supportsStableInput(opts)) {
       return new StableConsumeFn<>(consumer);
@@ -1734,7 +1733,7 @@ class BeamStream<T> implements Stream<T> {
     return closure.dehydrate();
   }
 
-  <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
+  <InputT> Coder<InputT> coderOf(Pipeline pipeline, Closure<InputT> closure) {
     return getCoder(pipeline, TypeDescriptor.of(Types.returnClass(closure)));
   }
 
@@ -1760,15 +1759,11 @@ class BeamStream<T> implements Stream<T> {
   static class BulkWriteDoFn extends DoFn<KV<Integer, StreamElement>, Void> {
 
     private static final String TIMER_NAME = "flushTimer";
-    private static final String KEY_NAME = "flushTimerKey";
     private static final Instant END_OF_TIME =
         BoundedWindow.TIMESTAMP_MAX_VALUE.minus(Duration.standardDays(100));
 
     @TimerId(TIMER_NAME)
     private final TimerSpec finishTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
-
-    @StateId(KEY_NAME)
-    private final StateSpec<ValueState<Integer>> keyStateSpec = StateSpecs.value();
 
     private final BulkWriterFactory factory;
     private final AtomicReference<Throwable> error = new AtomicReference<>();
@@ -1780,16 +1775,10 @@ class BeamStream<T> implements Stream<T> {
     @RequiresTimeSortedInput
     @ProcessElement
     public void process(
-        @Element KV<Integer, StreamElement> element,
-        @TimerId(TIMER_NAME) Timer timer,
-        @StateId(KEY_NAME) ValueState<Integer> keyState) {
+        @Element KV<Integer, StreamElement> element, @TimerId(TIMER_NAME) Timer timer) {
 
       throwOnError();
-      if (keyState.read() == null) {
-        timer.set(END_OF_TIME);
-        keyState.write(element.getKey());
-      }
-
+      timer.set(END_OF_TIME);
       factory.checkAllowed(element.getValue().getAttributeDescriptor());
       BulkAttributeWriter writer = factory.getWriter(element.getKey());
       writer.write(
@@ -1803,8 +1792,7 @@ class BeamStream<T> implements Stream<T> {
     }
 
     @OnTimer(TIMER_NAME)
-    public void flush(@StateId(KEY_NAME) ValueState<Integer> keyState) {
-      int key = keyState.read();
+    public void flush(@Key Integer key) {
       throwOnError();
       BulkAttributeWriter writer = factory.getWriter(key);
       writer.updateWatermark(BoundedWindow.TIMESTAMP_MAX_VALUE.getMillis());

@@ -27,7 +27,7 @@ defaults:
 jobs:
   # Build job
   production-deploy:
-    if: github.repository == "datadrivencz/proxima-platform"
+    if: github.repository == 'datadrivencz/proxima-platform'
     runs-on: ubuntu-latest
     env:
       HUGO_VERSION: 0.110.0

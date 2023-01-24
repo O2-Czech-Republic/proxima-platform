@@ -26,7 +26,7 @@ defaults:
 
 jobs:
   # Build job
-  build:
+  production-deploy:
     if: github.repository == "datadrivencz/proxima-platform"
     runs-on: ubuntu-latest
     env:

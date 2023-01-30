@@ -35,7 +35,7 @@
     <plugins>
       <plugin>
         <groupId>cz.o2.proxima</groupId>
-        <artifactId>compiler-maven-plugin</artifactId>
+        <artifactId>proxima-compiler-java-maven-plugin</artifactId>
         <version>${project.version}</version>
         <executions>
           <execution>

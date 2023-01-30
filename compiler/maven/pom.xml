@@ -22,11 +22,11 @@
 
   <parent>
     <groupId>cz.o2.proxima</groupId>
-    <artifactId>platform-parent</artifactId>
+    <artifactId>proxima-compiler-java</artifactId>
     <version>0.11-SNAPSHOT</version>
   </parent>
 
-  <artifactId>compiler-maven-plugin</artifactId>
+  <artifactId>proxima-compiler-java-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -92,7 +92,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-core</artifactId>
+      <artifactId>proxima-compiler-java-lib</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -128,38 +128,6 @@
       <artifactId>maven-plugin-annotations</artifactId>
       <version>3.6.0</version>
       <scope>provided</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>commons-io</groupId>
-      <artifactId>commons-io</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.freemarker</groupId>
-      <artifactId>freemarker</artifactId>
-      <version>2.3.23</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>${guava.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-core</artifactId>
-      <version>${project.version}</version>
-      <classifier>tests</classifier>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-direct-compiler-plugin</artifactId>
-      <version>${project.version}</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>

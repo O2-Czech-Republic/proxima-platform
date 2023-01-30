@@ -52,6 +52,18 @@ import org.apache.commons.io.IOUtils;
 @Slf4j
 public class ModelGenerator {
 
+  /**
+   * Generate the model from command-line interface.
+   *
+   * @param args command-line arguments
+   * @throws Exception on error
+   */
+  public static void main(String[] args) throws Exception {
+    ModelGenerator generator = ModelGeneratorInvoker.of(args);
+    Preconditions.checkState(generator != null, "Failed to create ModelGenerator");
+    generator.generate();
+  }
+
   /** Java package the model classes are going to be generated in. */
   private final String javaPackage;
 
@@ -106,8 +118,12 @@ public class ModelGenerator {
     }
 
     try (FileOutputStream out = new FileOutputStream(outputFile)) {
-      generate(ConfigFactory.parseFile(configPath).resolve(), new OutputStreamWriter(out));
+      generate(new OutputStreamWriter(out));
     }
+  }
+
+  public void generate(Writer writer) throws TemplateException, IOException {
+    generate(ConfigFactory.parseFile(configPath).resolve(), writer);
   }
 
   @VisibleForTesting

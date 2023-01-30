@@ -71,7 +71,7 @@ public interface StorageFilter extends Serializable {
   }
 
   /**
-   * When returns {@code false} the input element is not stored in the storage and is throws away.
+   * When returns {@code false} the input element is not stored in the storage and is discarded.
    *
    * @param ingest the input data
    * @return {@code false} to throw the element away

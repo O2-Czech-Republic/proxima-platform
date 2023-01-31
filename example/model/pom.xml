@@ -37,7 +37,7 @@
       <!-- compile the reference.conf to access classes. -->
       <plugin>
         <groupId>cz.o2.proxima</groupId>
-        <artifactId>compiler-maven-plugin</artifactId>
+        <artifactId>proxima-compiler-java-maven-plugin</artifactId>
         <version>${project.version}</version>
         <configuration>
          <outputDir>generated-sources/model</outputDir>

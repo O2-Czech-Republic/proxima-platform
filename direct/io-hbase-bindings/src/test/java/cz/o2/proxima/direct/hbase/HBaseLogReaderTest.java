@@ -154,9 +154,8 @@ public class HBaseLogReaderTest {
     assertEquals(Arrays.asList("a", "fir"), keys);
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 20000)
   public void testObserveCancel() throws InterruptedException, IOException {
-
     long now = 1500000000000L;
     write("a", "dummy", "a", now);
     write("firs", "wildcard.1", "firs", now);

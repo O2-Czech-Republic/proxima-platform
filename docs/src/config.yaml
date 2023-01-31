@@ -19,6 +19,7 @@ languageCode: en-us
 title: Proxima platform
 theme: book
 
+
 #googleAnalytics = "UA-XXXXXXXXX-X"
 
 # Needed for mermaid/katex shortcodes
@@ -41,20 +42,22 @@ menu:
         - name: "Github"
           url: "https://github.com/datadrivencz/proxima-platform/"
           weight: 10
-        - name: "Hugo Themes"
-          url: "https://themes.gohugo.io/hugo-book/"
-          weight: 20
+        #- name: "Hugo Themes"
+        #  url: "https://themes.gohugo.io/hugo-book/"
+        #  weight: 20
 
 
 enableGitInfo: true
 params:
-    BookTheme: light
-    BookMenuBundle: /menu
-    BookRepo: https://github.com/datadrivencz/proxima-platform/
-    BookEditPath: edit/master/docs/src/content
-#    BookComments: false
-    BookPortableLinks: true
-    BookServiceWorker: true
+  BookTheme: light
+  BookMenuBundle: /menu
+  BookRepo: https://github.com/datadrivencz/proxima-platform/
+  BookEditPath: edit/master/docs/src/content
+#  BookComments: false
+  BookPortableLinks: true
+  BookServiceWorker: true
+  proxima:
+    version: 0.11-SNAPSHOT
 
 deployment:
   order: [".jpg$", ".gif$", ".png$"]

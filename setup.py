@@ -21,7 +21,7 @@ import grpc_tools.protoc as protoc
 from setuptools import setup
 
 def get_version():
-  return "0.10.0" 
+  return "0.11.0"
 
 def build_ingest_rpc(name):
   

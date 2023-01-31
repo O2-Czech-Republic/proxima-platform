@@ -57,7 +57,7 @@ class ModelGeneratorInvoker {
           packageName, className, new File(file), new File(targetDirectory).getAbsoluteFile());
     } catch (ParseException ex) {
       System.err.println(ex.getMessage());
-      new HelpFormatter().printHelp("Usage:", opts);
+      new HelpFormatter().printHelp(getClass().getSimpleName(), opts);
       return null;
     }
   }

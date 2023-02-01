@@ -22,6 +22,7 @@ import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Sets;
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.Streams;
+import cz.o2.proxima.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -59,6 +60,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -68,8 +70,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Internal
-// @ThreadSafe
-// @DeclaredThreadSafe
+@ThreadSafe
+@DeclaredThreadSafe
 public class TransactionLogObserver implements CommitLogObserver {
 
   @Value
@@ -328,8 +330,8 @@ public class TransactionLogObserver implements CommitLogObserver {
       handleRequest(
           ingest.getKey(),
           requestDesc.extractSuffix(ingest.getAttribute()),
-          requestDesc.valueOf(ingest),
-          context);
+          context,
+          requestDesc.valueOf(ingest).orElse(null));
     } else {
       // unknown attribute, probably own response or state update, can be safely ignored
       log.debug("Unknown attribute {}. Ignored.", ingest.getAttributeDescriptor());
@@ -353,11 +355,11 @@ public class TransactionLogObserver implements CommitLogObserver {
   private void handleRequest(
       String transactionId,
       String requestId,
-      Optional<Request> maybeRequest,
-      OnNextContext context) {
+      OnNextContext context,
+      @Nullable Request maybeRequest) {
 
-    if (maybeRequest.isPresent()) {
-      processTransactionRequest(transactionId, requestId, maybeRequest.get(), context);
+    if (maybeRequest != null) {
+      processTransactionRequest(transactionId, requestId, maybeRequest, context);
     } else {
       log.error("Unable to parse request at offset {}", context.getOffset());
       context.confirm();
@@ -424,7 +426,9 @@ public class TransactionLogObserver implements CommitLogObserver {
   private Response getResponseForNewState(Request request, State oldState, State state) {
     switch (state.getFlags()) {
       case OPEN:
-        return oldState.getFlags() == State.Flags.UNKNOWN
+        return (oldState.getFlags() == State.Flags.UNKNOWN
+                || oldState.getFlags() == State.Flags.OPEN
+                    && request.getFlags() == Request.Flags.OPEN)
             ? Response.forRequest(request).open(state.getSequentialId(), state.getStamp())
             : Response.forRequest(request).updated();
       case COMMITTED:
@@ -440,18 +444,17 @@ public class TransactionLogObserver implements CommitLogObserver {
   State transitionState(String transactionId, State currentState, Request request) {
     switch (currentState.getFlags()) {
       case UNKNOWN:
-        if (request.getFlags() == Request.Flags.OPEN) {
-          return transitionToOpen(transactionId, request);
-        }
-        break;
       case OPEN:
-        if (request.getFlags() == Request.Flags.COMMIT) {
-          return transitionToCommitted(transactionId, currentState, request);
-        } else if (request.getFlags() == Request.Flags.UPDATE) {
-          return transitionToUpdated(currentState, request);
-        } else if (request.getFlags() == Request.Flags.ROLLBACK) {
-          abortTransaction(transactionId, currentState);
-          return currentState.aborted();
+        switch (request.getFlags()) {
+          case OPEN:
+            return transitionToOpen(transactionId, request);
+          case COMMIT:
+            return transitionToCommitted(transactionId, currentState, request);
+          case UPDATE:
+            return transitionToUpdated(currentState, request);
+          case ROLLBACK:
+            abortTransaction(transactionId, currentState);
+            return currentState.aborted();
         }
         break;
       case COMMITTED:

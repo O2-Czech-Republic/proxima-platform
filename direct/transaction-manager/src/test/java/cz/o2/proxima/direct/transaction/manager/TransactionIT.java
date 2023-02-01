@@ -558,10 +558,11 @@ public class TransactionIT {
     double swap = random.nextDouble() * 1000;
     TransactionalOnlineAttributeWriter writer =
         Optionals.get(direct.getWriter(amount)).transactional();
+    String transactionId = UUID.randomUUID().toString();
     do {
       Optional<KeyValue<Double>> firstAmount = view.get(userFirst, amount);
       Optional<KeyValue<Double>> secondAmount = view.get(userSecond, amount);
-      try (Transaction t = writer.begin()) {
+      try (Transaction t = writer.begin(transactionId)) {
         t.update(
             Arrays.asList(
                 KeyAttributes.ofAttributeDescriptor(
@@ -583,6 +584,11 @@ public class TransactionIT {
         latch.await();
         break;
       } catch (TransactionRejectedException e) {
+        if (e.getResponseFlags() == Flags.DUPLICATE) {
+          return;
+        } else if (e.getResponseFlags() == Flags.ABORTED) {
+          transactionId = UUID.randomUUID().toString();
+        }
         // repeat
       }
     } while (true);

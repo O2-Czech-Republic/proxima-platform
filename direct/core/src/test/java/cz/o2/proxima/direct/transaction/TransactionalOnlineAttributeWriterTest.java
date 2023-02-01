@@ -33,6 +33,7 @@ import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
+import cz.o2.proxima.transaction.Response.Flags;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.TransformationRunner;
@@ -336,6 +337,20 @@ public class TransactionalOnlineAttributeWriterTest {
       assertTrue(res.get().hasSequentialId());
       assertEquals(1L, res.get().getSequentialId());
       assertEquals(stamp, res.get().getStamp());
+    }
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionReopen() {
+    TransactionalOnlineAttributeWriter writer = direct.getGlobalTransactionWriter();
+    assertTrue(user.isTransactional());
+    toReturn.add(Response.forRequest(anyRequest()).duplicate(1L));
+    String transactionId = UUID.randomUUID().toString();
+    try (Transaction t = writer.begin(transactionId)) {
+      t.beginGlobal();
+      fail("Should have thrown exception");
+    } catch (TransactionRejectedException ex) {
+      assertEquals(Flags.DUPLICATE, ex.getResponseFlags());
     }
   }
 

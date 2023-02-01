@@ -38,6 +38,7 @@ import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Response;
@@ -63,6 +64,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.After;
 import org.junit.Before;
@@ -83,6 +85,7 @@ public class TransactionIT_Large {
   private CachedView view;
   private ClientTransactionManager client;
   private ObserveHandle transformationHandle;
+  private volatile @Nullable CountDownLatch replicatedLatch;
 
   @Before
   public void setUp() {
@@ -95,12 +98,19 @@ public class TransactionIT_Large {
     view = Optionals.get(direct.getCachedView(amount));
     view.assign(view.getPartitions());
     observer.run("transaction-observer");
+    EntityDescriptor transaction = repo.getEntity("_transaction");
+    Regular<Commit> commit = Regular.of(transaction, transaction.getAttribute("commit"));
     transformationHandle =
         TransformationRunner.runTransformation(
             direct,
             "_transaction-commit",
             repo.getTransformations().get("_transaction-commit"),
-            ign -> {});
+            elem -> {
+              Commit value = Optionals.get(commit.valueOf(elem));
+              if (value.getSeqId() > 0) {
+                Optional.ofNullable(replicatedLatch).ifPresent(CountDownLatch::countDown);
+              }
+            });
   }
 
   @After
@@ -116,11 +126,11 @@ public class TransactionIT_Large {
     // we randomly reshuffle random amounts between users and then we verify, that the sum is zero
 
     int numThreads = 50;
-    int numSwaps = 10000;
+    int numSwaps = 100000;
     int numUsers = 100;
-    CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
     AtomicReference<Throwable> err = new AtomicReference<>();
+    replicatedLatch = new CountDownLatch(numSwaps);
 
     for (int i = 0; i < numThreads; i++) {
       service.submit(
@@ -135,10 +145,9 @@ public class TransactionIT_Large {
               log.error("Failed to run the transaction", ex);
               err.set(ex);
             }
-            latch.countDown();
           });
     }
-    latch.await();
+    replicatedLatch.await();
     if (err.get() != null) {
       throw new RuntimeException(err.get());
     }
@@ -550,10 +559,11 @@ public class TransactionIT_Large {
     double swap = random.nextDouble() * 1000;
     TransactionalOnlineAttributeWriter writer =
         Optionals.get(direct.getWriter(amount)).transactional();
+    String transactionId = UUID.randomUUID().toString();
     do {
       Optional<KeyValue<Double>> firstAmount = view.get(userFirst, amount);
       Optional<KeyValue<Double>> secondAmount = view.get(userSecond, amount);
-      try (Transaction t = writer.begin()) {
+      try (Transaction t = writer.begin(transactionId)) {
         t.update(
             Arrays.asList(
                 KeyAttributes.ofAttributeDescriptor(
@@ -575,6 +585,11 @@ public class TransactionIT_Large {
         latch.await();
         break;
       } catch (TransactionRejectedException e) {
+        if (e.getResponseFlags() == Response.Flags.DUPLICATE) {
+          return;
+        } else if (e.getResponseFlags() == Flags.ABORTED) {
+          transactionId = UUID.randomUUID().toString();
+        }
         // repeat
       }
     } while (true);

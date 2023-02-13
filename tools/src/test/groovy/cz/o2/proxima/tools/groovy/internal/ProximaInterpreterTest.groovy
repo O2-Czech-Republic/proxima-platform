@@ -28,11 +28,11 @@ class ProximaInterpreterTest {
         new Binding(),
         ClassloaderUtils.createConfiguration())
     def result = interpreter.evaluate(["def closure = { 1 }", "closure"])
-    assert result.class.name == 'groovysh_evaluate1$_run_closure1'
+    assert result.class.name == 'proxima_groovysh1$_run_closure1'
     result = interpreter.evaluate(["def closure = { 1 }", "closure"])
-    assert result.class.name == 'groovysh_evaluate2$_run_closure1'
+    assert result.class.name == 'proxima_groovysh2$_run_closure1'
     result = interpreter.evaluate([" def closure1 = { 1 }", "def closure2 = { it }", "closure2"])
-    assert result.class.name == 'groovysh_evaluate3$_run_closure2'
+    assert result.class.name == 'proxima_groovysh3$_run_closure2'
   }
 
 }

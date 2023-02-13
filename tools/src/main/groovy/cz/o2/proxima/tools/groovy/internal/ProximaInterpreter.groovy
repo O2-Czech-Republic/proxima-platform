@@ -30,6 +30,8 @@ import org.codehaus.groovy.runtime.MethodClosure
 @groovy.transform.CompileStatic
 public class ProximaInterpreter extends Interpreter {
 
+  private static final String SCRIPT_FILENAME = "proxima_groovysh"
+
   private final AtomicInteger scriptNo = new AtomicInteger()
 
   ProximaInterpreter(
@@ -67,8 +69,9 @@ public class ProximaInterpreter extends Interpreter {
     return result
   }
 
+  @groovy.transform.CompileStatic
   def private String generateNewName() {
-    SCRIPT_FILENAME + scriptNo.incrementAndGet()
+    return SCRIPT_FILENAME + scriptNo.incrementAndGet()
   }
 
 }

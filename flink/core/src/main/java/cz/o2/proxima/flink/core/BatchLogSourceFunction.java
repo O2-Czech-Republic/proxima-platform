@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.flink.core;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -29,7 +30,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.flink.shaded.guava18.com.google.common.annotations.VisibleForTesting;
 
 @Experimental(value = "API can be changed.")
 @Slf4j

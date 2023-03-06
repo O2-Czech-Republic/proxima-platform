@@ -35,9 +35,9 @@
   <description>Proxima platform's Apache Flink module.</description>
 
   <properties>
-    <scala.version>2.11</scala.version>
+    <scala.version>2.12</scala.version>
     <jackson.version>2.10.2</jackson.version>
-    <flink.version>1.13.6</flink.version>
+    <flink.version>1.15.3</flink.version>
   </properties>
 
   <dependencyManagement>

@@ -44,7 +44,7 @@
           <outputDir>${project.build.directory}/generated-sources/model</outputDir>
           <javaPackage>cz.o2.proxima.testing.model</javaPackage>
           <className>Model</className>
-          <config>${basedir}/src/main/resources/test-readme.conf</config>
+          <config>${basedir}/../../core/src/test/resources/test-readme.conf</config>
         </configuration>
         <executions>
           <execution>

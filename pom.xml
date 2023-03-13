@@ -83,7 +83,7 @@
     <maven.ext.os.version>1.6.2</maven.ext.os.version>
     <maven.protobuf.version>0.6.1</maven.protobuf.version>
     <maven.compiler.plugin>3.8.1</maven.compiler.plugin>
-    <groovy.version>4.0.8</groovy.version>
+    <groovy.version>4.0.10</groovy.version>
     <hadoop.version>3.2.4</hadoop.version>
     <hbase.version>2.5.2-hadoop3</hbase.version>
     <junit.jupiter.version>5.7.2</junit.jupiter.version>

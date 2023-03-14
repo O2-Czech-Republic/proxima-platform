@@ -212,17 +212,18 @@
       <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
+
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-scheme-proto</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
+
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-scheme-proto</artifactId>
+      <artifactId>proxima-scheme-proto-testing</artifactId>
       <version>${project.version}</version>
-      <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
 

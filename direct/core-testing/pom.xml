@@ -84,9 +84,8 @@
           </dependency>
           <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>proxima-scheme-proto</artifactId>
+            <artifactId>proxima-scheme-proto-testing</artifactId>
             <version>${project.version}</version>
-            <classifier>tests</classifier>
           </dependency>
         </dependencies>
       </plugin>
@@ -124,9 +123,8 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>proxima-scheme-proto</artifactId>
+      <artifactId>proxima-scheme-proto-testing</artifactId>
       <version>${project.version}</version>
-      <classifier>tests</classifier>
     </dependency>
 
     <dependency>

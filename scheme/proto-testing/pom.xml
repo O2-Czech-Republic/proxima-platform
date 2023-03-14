@@ -22,62 +22,57 @@
 
   <parent>
     <groupId>cz.o2.proxima</groupId>
-    <artifactId>platform-parent</artifactId>
+    <artifactId>proxima-scheme</artifactId>
     <version>0.11-SNAPSHOT</version>
   </parent>
 
-  <artifactId>proxima-scheme</artifactId>
-  <packaging>pom</packaging>
+  <artifactId>proxima-scheme-proto-testing</artifactId>
+  <packaging>jar</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
 
-  <modules>
-    <module>proto</module>
-    <module>proto-testing</module>
-    <module>avro</module>
-    <module>confluent</module>
-  </modules>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>${maven.shade.version}</version>
+        <configuration>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+              </excludes>
+            </filter>
+          </filters>
+          <artifactSet>
+            <includes>
+              <include>cz.o2.proxima:proxima-scheme-proto</include>
+            </includes>
+          </artifactSet>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
   <dependencies>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-core</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>${guava.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-core</artifactId>
+      <artifactId>proxima-scheme-proto</artifactId>
       <version>${project.version}</version>
       <classifier>tests</classifier>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-slf4j-impl</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
     </dependency>
 
   </dependencies>

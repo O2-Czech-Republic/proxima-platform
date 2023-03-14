@@ -239,6 +239,7 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto</artifactId>
+            <!-- FIXME: replace with proto-testing in 0.11 -->
             <version>0.10.0</version>
             <classifier>tests</classifier>
           </dependency>

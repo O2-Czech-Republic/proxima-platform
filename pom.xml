@@ -496,10 +496,6 @@
           <doclint>none</doclint>
           <detectJavaApiLink>false</detectJavaApiLink>
           <excludePackageNames>cz.o2.proxima.testing.*</excludePackageNames>
-          <sourceFileExcludes>
-            <sourceFileExclude>**/generated-sources/**/*.*</sourceFileExclude>
-            <sourceFileExclude>**/ReadMe.java</sourceFileExclude>
-          </sourceFileExcludes>
         </configuration>
       </plugin>
 

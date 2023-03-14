@@ -38,7 +38,6 @@ import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Response;
@@ -96,21 +95,20 @@ public class TransactionIT {
             : Collections.emptyMap();
     client = new TransactionResourceManager(direct, cfg);
     view = Optionals.get(direct.getCachedView(amount));
-    view.assign(view.getPartitions());
+    view.assign(
+        view.getPartitions(),
+        (elem, updated) -> {
+          if (elem.getSequentialId() > 0) {
+            Optional.ofNullable(replicatedLatch).ifPresent(CountDownLatch::countDown);
+          }
+        });
     observer.run("transaction-observer");
-    EntityDescriptor transaction = repo.getEntity("_transaction");
-    Regular<Commit> commit = Regular.of(transaction, transaction.getAttribute("commit"));
     transformationHandle =
         TransformationRunner.runTransformation(
             direct,
             "_transaction-commit",
             repo.getTransformations().get("_transaction-commit"),
-            elem -> {
-              Commit value = Optionals.get(commit.valueOf(elem));
-              if (value.getSeqId() > 0) {
-                Optional.ofNullable(replicatedLatch).ifPresent(CountDownLatch::countDown);
-              }
-            });
+            elem -> {});
   }
 
   @After
@@ -129,7 +127,7 @@ public class TransactionIT {
     int numUsers = 20;
     ExecutorService service = direct.getContext().getExecutorService();
     AtomicReference<Throwable> err = new AtomicReference<>();
-    replicatedLatch = new CountDownLatch(numSwaps);
+    replicatedLatch = new CountDownLatch(2 * numSwaps);
 
     for (int i = 0; i < numThreads; i++) {
       service.submit(

@@ -287,48 +287,6 @@
     </profile>
 
     <profile>
-      <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
-      <id>jdk8</id>
-      <activation>
-        <jdk>1.8</jdk>
-      </activation>
-      <properties>
-        <javac.version>9+181-r4173-1</javac.version>
-        <javac.source>1.8</javac.source>
-        <javac.target>1.8</javac.target>
-      </properties>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <version>${maven.compiler.plugin}</version>
-            <configuration>
-              <fork>true</fork>
-              <source>8</source>
-              <target>8</target>
-              <compilerArgs>
-                <arg>-Xlint:all</arg>
-              </compilerArgs>
-              <annotationProcessorPaths>
-                <path>
-                  <groupId>org.projectlombok</groupId>
-                  <artifactId>lombok</artifactId>
-                  <version>${lombok.version}</version>
-                </path>
-                <path>
-                  <groupId>com.google.auto.service</groupId>
-                  <artifactId>auto-service</artifactId> 
-                  <version>${autoservice.version}</version>
-                </path>
-              </annotationProcessorPaths>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-    <profile>
       <id>jdk11</id>
       <activation>
         <jdk>11</jdk>

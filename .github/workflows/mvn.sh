@@ -18,6 +18,12 @@
 
 set -e
 
+# FIXME; remove this after fix to maven.java.net certificate.
+# auto disable after 2023/04/30
+if [[ $(date +%Y-%m-%d) < "2023-05-01" ]]; then
+  mvn install -Pallow-snaphots -DskipTests -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.resolver.transport=wagon -pl :proxima-direct-io-hbase-bindings -am
+fi
+
 IS_PR=$([[ ! -z $GITHUB_HEAD_REF ]] && echo ${GITHUB_HEAD_REF} || echo false)
 BRANCH=${GITHUB_REF##*/}
 

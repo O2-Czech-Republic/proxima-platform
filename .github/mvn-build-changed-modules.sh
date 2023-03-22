@@ -47,6 +47,10 @@ if git log HEAD~1..HEAD | grep rebuild 1> /dev/null 2> /dev/null; then
   exit 0;
 fi
 
+if git log HEAD~1..HEAD --name-status | grep ".github" 1> /dev/null 2> /dev/null; then
+  exit 0;
+fi
+
 ALLOWED_PROJECTS=$(mvn -Dexec.executable='echo' -Dexec.args='${project.groupId}:${project.artifactId}' exec:exec -q -Pallow-snapshots)
 
 for pom in $(git log --name-only origin/master..HEAD | sed "s/src\/.\+/pom.xml/" | grep pom.xml | sort | uniq); do

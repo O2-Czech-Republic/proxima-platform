@@ -74,6 +74,17 @@
     </site>
   </distributionManagement>
 
+  <repositories>
+    <repository>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>central</id>
+      <name>Central Repository</name>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </repository>
+  </repositories>
+
   <properties>
     <maven.shade.version>3.4.1</maven.shade.version>
     <maven.surefire.version>3.0.0-M5</maven.surefire.version>
@@ -85,7 +96,7 @@
     <maven.compiler.plugin>3.8.1</maven.compiler.plugin>
     <groovy.version>4.0.10</groovy.version>
     <hadoop.version>3.2.4</hadoop.version>
-    <hbase.version>2.5.2-hadoop3</hbase.version>
+    <hbase.version>2.5.3-hadoop3</hbase.version>
     <junit.jupiter.version>5.7.2</junit.jupiter.version>
     <kafka.version>2.8.1</kafka.version>
     <proto.version>3.21.12</proto.version>

@@ -12,6 +12,9 @@ High level can be described by following scheme:
 ## Design document
 High level design document can be found [here](https://docs.google.com/document/d/1s6UFrEaFldjuGhLX9IosTnfNcMhMpvGjCWfI_5Lqqp4/edit?usp=sharing).
 
+## Incomplete (under construction) documentation
+Not yet complete documentation can be found [here](https://datadrivencz.github.io/proxima-platform/book/). The documentation should grow over over time to cover all the aspects of the platform. PRs welcome!
+
 ## Scheme definition
 First, let's introduce some glossary:
  * _entity_: a named dictionary consisting of string **key** and one or more _attributes_

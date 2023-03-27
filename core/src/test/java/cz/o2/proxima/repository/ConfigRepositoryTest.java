@@ -614,8 +614,7 @@ public class ConfigRepositoryTest {
     assertFalse(user.isSystemEntity());
     assertFalse(user.getAllAttributes().isEmpty());
     assertTrue(
-        user.getAllAttributes()
-            .stream()
+        user.getAllAttributes().stream()
             .allMatch(a -> a.getTransactionMode() == TransactionMode.ALL));
     assertEquals(3, user.getAllAttributes().get(0).getTransactionalManagerFamilies().size());
 

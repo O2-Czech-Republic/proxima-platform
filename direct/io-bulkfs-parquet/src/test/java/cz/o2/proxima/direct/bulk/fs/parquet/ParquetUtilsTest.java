@@ -77,8 +77,7 @@ public class ParquetUtilsTest {
   @Test
   public void testCreateParquetSchemaForAttributeFamily() {
     AttributeFamilyDescriptor family =
-        repo.getFamiliesForAttribute(gateway.getAttribute("armed"))
-            .stream()
+        repo.getFamiliesForAttribute(gateway.getAttribute("armed")).stream()
             .filter(f -> f.getAccess().canReadBatchSnapshot())
             .findFirst()
             .orElseThrow(() -> new IllegalStateException("Unable to find attribute family."));
@@ -222,8 +221,7 @@ public class ParquetUtilsTest {
   }
 
   private List<String> parquetFieldAsString(List<Type> fields) {
-    return fields
-        .stream()
+    return fields.stream()
         .map(f -> f.toString().replaceAll("\n(\\s)*", ""))
         .collect(Collectors.toList());
   }

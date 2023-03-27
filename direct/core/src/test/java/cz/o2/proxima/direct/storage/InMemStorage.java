@@ -543,8 +543,7 @@ public class InMemStorage implements DataAccessorFactory {
                   () ->
                       handleFlushDataBaseOnPosition(
                           position,
-                          initialOffsets
-                              .stream()
+                          initialOffsets.stream()
                               .map(ConsumedOffset::getPartition)
                               .collect(Collectors.toSet()),
                           consumerId,
@@ -571,9 +570,7 @@ public class InMemStorage implements DataAccessorFactory {
               partitionedOffsets.get(partitionId).add(consumedOffset);
             });
         final long watermark = partitionedWatermarkEstimator.getWatermark();
-        return partitionedOffsets
-            .entrySet()
-            .stream()
+        return partitionedOffsets.entrySet().stream()
             .map(
                 item -> new ConsumedOffset(Partition.of(item.getKey()), item.getValue(), watermark))
             .collect(Collectors.toList());
@@ -652,9 +649,7 @@ public class InMemStorage implements DataAccessorFactory {
           latch.countDown();
           String prefix = toStoragePrefix(getUri());
           int prefixLength = prefix.length();
-          getData()
-              .entrySet()
-              .stream()
+          getData().entrySet().stream()
               .filter(e -> e.getKey().startsWith(prefix))
               .sorted(
                   (a, b) ->
@@ -743,8 +738,7 @@ public class InMemStorage implements DataAccessorFactory {
     public Map<Partition, Offset> fetchOffsets(Position position, List<Partition> partitions) {
       Preconditions.checkArgument(position == Position.OLDEST || position == Position.NEWEST);
       if (position == Position.OLDEST) {
-        return partitions
-            .stream()
+        return partitions.stream()
             .collect(
                 Collectors.toMap(
                     Function.identity(),
@@ -755,9 +749,7 @@ public class InMemStorage implements DataAccessorFactory {
       // we filter out the element with highest timestamp, so that observeOffsets(endOffsets) will
       // retrieve the last element
       Map<Integer, AtomicLong> maxStamps =
-          getData()
-              .entrySet()
-              .stream()
+          getData().entrySet().stream()
               .filter(e -> e.getKey().startsWith(prefix))
               .map(Map.Entry::getValue)
               .collect(
@@ -770,9 +762,7 @@ public class InMemStorage implements DataAccessorFactory {
                               AtomicLong::new,
                               (a, b) -> (a.longValue() < b.longValue()) ? b : a))));
 
-      return getData()
-          .entrySet()
-          .stream()
+      return getData().entrySet().stream()
           .filter(e -> e.getKey().startsWith(prefix))
           .map(
               e -> {

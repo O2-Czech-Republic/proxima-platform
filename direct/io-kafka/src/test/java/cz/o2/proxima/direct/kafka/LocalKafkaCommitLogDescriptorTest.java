@@ -790,9 +790,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.await();
     assertEquals(3, handle.getCommittedOffsets().size());
     long sum =
-        handle
-            .getCommittedOffsets()
-            .stream()
+        handle.getCommittedOffsets().stream()
             .mapToLong(
                 o -> {
                   TopicOffset tpo = (TopicOffset) o;
@@ -1260,9 +1258,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         100,
         consumer
             .committed(
-                handle
-                    .getCommittedOffsets()
-                    .stream()
+                handle.getCommittedOffsets().stream()
                     .map(o -> new TopicPartition(topic, o.getPartition().getId()))
                     .collect(Collectors.toSet()))
             .values()
@@ -1405,9 +1401,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(1, restarts.get());
     assertEquals(3, handle.getCommittedOffsets().size());
     List<Long> startedOffsets =
-        handle
-            .getCurrentOffsets()
-            .stream()
+        handle.getCurrentOffsets().stream()
             .map(o -> ((TopicOffset) o).getOffset())
             .filter(o -> o >= 0)
             .collect(Collectors.toList());
@@ -1469,9 +1463,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(1, restarts.get());
     assertEquals(3, handle.getCommittedOffsets().size());
     List<Long> startedOffsets =
-        handle
-            .getCurrentOffsets()
-            .stream()
+        handle.getCurrentOffsets().stream()
             .map(o -> ((TopicOffset) o).getOffset())
             .filter(o -> o >= 0)
             .collect(Collectors.toList());
@@ -1599,9 +1591,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         1L,
         (long)
             (Long)
-                handle
-                    .getCommittedOffsets()
-                    .stream()
+                handle.getCommittedOffsets().stream()
                     .mapToLong(o -> ((TopicOffset) o).getOffset())
                     .sum());
   }
@@ -1724,9 +1714,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         1L,
         (long)
             (Long)
-                handle
-                    .getCommittedOffsets()
-                    .stream()
+                handle.getCommittedOffsets().stream()
                     .mapToLong(o -> ((TopicOffset) o).getOffset())
                     .sum());
   }
@@ -1788,9 +1776,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.get().await();
     latch.set(new CountDownLatch(1));
     handle.resetOffsets(
-        reader
-            .getPartitions()
-            .stream()
+        reader.getPartitions().stream()
             .map(p -> (PartitionWithTopic) p)
             .map(
                 p ->
@@ -1804,9 +1790,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         1L,
         (long)
             (Long)
-                handle
-                    .getCommittedOffsets()
-                    .stream()
+                handle.getCommittedOffsets().stream()
                     .mapToLong(o -> ((TopicOffset) o).getOffset())
                     .sum());
   }
@@ -2009,9 +1993,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(3, handle.getCurrentOffsets().size());
     assertEquals(
         0,
-        handle
-            .getCurrentOffsets()
-            .stream()
+        handle.getCurrentOffsets().stream()
             .mapToLong(o -> ((TopicOffset) o).getOffset())
             .filter(o -> o >= 0)
             .sum());
@@ -2128,9 +2110,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   private long getMinWatermark(ObserveHandle handle) {
-    return handle
-        .getCurrentOffsets()
-        .stream()
+    return handle.getCurrentOffsets().stream()
         .map(Offset::getWatermark)
         .min(Comparator.naturalOrder())
         .orElse(Watermarks.MIN_WATERMARK);
@@ -2858,16 +2838,11 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     latch.await();
     assertEquals(
-        handle
-            .getCommittedOffsets()
-            .stream()
+        handle.getCommittedOffsets().stream()
             .map(TopicOffset.class::cast)
             .sorted(Comparator.comparing(tp -> tp.getPartition().getId()))
             .collect(Collectors.toList()),
-        reader
-            .fetchOffsets(Position.NEWEST, reader.getPartitions())
-            .values()
-            .stream()
+        reader.fetchOffsets(Position.NEWEST, reader.getPartitions()).values().stream()
             .map(TopicOffset.class::cast)
             .sorted(Comparator.comparing(tp -> tp.getPartition().getId()))
             .collect(Collectors.toList()));
@@ -3126,8 +3101,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 doAnswer(
                         invocationOnMock -> {
                           Set<TopicPartition> parts = invocationOnMock.getArgument(0);
-                          return parts
-                              .stream()
+                          return parts.stream()
                               .map(tp -> Pair.of(tp, committed.get(tp)))
                               .filter(p -> p.getSecond() != null)
                               .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));

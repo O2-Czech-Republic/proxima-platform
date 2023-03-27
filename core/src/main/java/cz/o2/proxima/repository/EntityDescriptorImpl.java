@@ -56,8 +56,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
         attrs.stream().filter(a -> !a.isWildcard()).collect(Collectors.toList());
 
     attributesByPattern =
-        attrs
-            .stream()
+        attrs.stream()
             .filter(AttributeDescriptor::isWildcard)
             .map(p -> Pair.of(new NamePattern(p.getName()), p))
             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
@@ -75,9 +74,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
     AttributeDescriptor<T> found = (AttributeDescriptor<T>) attributesByName.get(name);
     if (found == null) {
       found =
-          attributesByPattern
-              .entrySet()
-              .stream()
+          attributesByPattern.entrySet().stream()
               .filter(e -> e.getKey().matches(name))
               .findFirst()
               .map(Map.Entry::getValue)

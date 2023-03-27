@@ -56,9 +56,7 @@ public class ProtoUtils {
       Map<String, SchemaTypeDescriptor<?>> structCache,
       Set<Descriptor> seenMessages) {
     final Map<String, SchemaTypeDescriptor<?>> fields =
-        proto
-            .getFields()
-            .stream()
+        proto.getFields().stream()
             .collect(
                 Collectors.toMap(
                     FieldDescriptor::getName,
@@ -113,10 +111,7 @@ public class ProtoUtils {
         descriptor =
             (SchemaTypeDescriptor<T>)
                 SchemaDescriptors.enums(
-                    proto
-                        .getEnumType()
-                        .getValues()
-                        .stream()
+                    proto.getEnumType().getValues().stream()
                         .map(EnumValueDescriptor::getName)
                         .collect(Collectors.toList()));
         break;

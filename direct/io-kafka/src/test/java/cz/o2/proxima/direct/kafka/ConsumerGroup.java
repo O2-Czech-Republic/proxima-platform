@@ -76,8 +76,7 @@ public class ConsumerGroup implements Serializable {
     /** Drop all partitions. */
     void drop() {
       listener.onPartitionsRevoked(
-          partitions
-              .stream()
+          partitions.stream()
               .map(p -> new TopicPartition(topic, p.getId()))
               .collect(Collectors.toList()));
       partitions.clear();
@@ -89,8 +88,7 @@ public class ConsumerGroup implements Serializable {
       partitions.clear();
       partitions.addAll(assign);
       List<TopicPartition> tps =
-          partitions
-              .stream()
+          partitions.stream()
               .map(p -> new TopicPartition(topic, p.getId()))
               .collect(Collectors.toList());
       listener.onPartitionsAssigned(tps);

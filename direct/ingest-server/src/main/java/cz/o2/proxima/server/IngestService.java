@@ -232,14 +232,12 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
     private void handleTransactionalWrites(String transactionId, List<Rpc.Ingest> writes) {
       List<Pair<Ingest, StreamElement>> outputs =
-          writes
-              .stream()
+          writes.stream()
               .map(r -> Pair.of(r, validateAndConvertToStreamElement(r, createRpcConsumer(r))))
               .collect(Collectors.toList());
       if (outputs.stream().anyMatch(p -> p.getSecond() == null)) {
         // when we have a single fail in the transaction we need to discard the complete outputs
-        outputs
-            .stream()
+        outputs.stream()
             .filter(p -> p.getSecond() != null)
             .forEach(
                 p ->

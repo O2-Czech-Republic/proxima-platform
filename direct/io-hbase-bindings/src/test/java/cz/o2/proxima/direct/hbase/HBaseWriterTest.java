@@ -245,9 +245,7 @@ public class HBaseWriterTest {
     NavigableMap<byte[], byte[]> familyMap = res.getFamilyMap(bytes("u"));
     assertEquals(
         "Expected single key in "
-            + familyMap
-                .keySet()
-                .stream()
+            + familyMap.keySet().stream()
                 .map(b -> new String(b, StandardCharsets.UTF_8))
                 .collect(Collectors.toList()),
         1,

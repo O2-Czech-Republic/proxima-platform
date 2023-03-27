@@ -79,20 +79,16 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
 
       this.familyName = proxy.getName();
       this.attrs =
-          proxy
-              .getAttributes()
-              .stream()
+          proxy.getAttributes().stream()
               .map(AttributeDescriptor::asProxy)
               .collect(Collectors.toList());
 
       proxyNameToDesc =
-          attrs
-              .stream()
+          attrs.stream()
               .collect(Collectors.toMap(AttributeDescriptor::getName, Function.identity()));
       readNameToDesc =
           (Map)
-              attrs
-                  .stream()
+              attrs.stream()
                   .map(a -> Pair.of(a.getReadTarget().getName(), a))
                   .collect(
                       Collectors.groupingBy(
@@ -224,9 +220,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
         try {
-          return lookup
-              .lookupRead(ingest.getAttributeDescriptor().getName())
-              .stream()
+          return lookup.lookupRead(ingest.getAttributeDescriptor().getName()).stream()
               .map(attr -> observer.onNext(transformToProxy(ingest, attr), context))
               .filter(c -> !c)
               .findFirst()
@@ -273,9 +267,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
       public boolean onNext(StreamElement ingest, OnNextContext context) {
 
         try {
-          return lookup
-              .lookupRead(ingest.getAttributeDescriptor().getName())
-              .stream()
+          return lookup.lookupRead(ingest.getAttributeDescriptor().getName()).stream()
               .map(attr -> observer.onNext(transformToProxy(ingest, attr), context))
               .filter(c -> !c)
               .findFirst()
@@ -653,8 +645,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
 
       return reader.observe(
           partitions,
-          attributes
-              .stream()
+          attributes.stream()
               .map(a -> lookup.lookupProxy(a.getName()))
               .collect(Collectors.toList()),
           wrapTransformed(lookup, observer));

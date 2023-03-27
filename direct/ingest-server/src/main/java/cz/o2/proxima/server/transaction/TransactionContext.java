@@ -104,9 +104,7 @@ public class TransactionContext implements AutoCloseable {
 
   @VisibleForTesting
   void clearAnyStaleTransactions() {
-    openTransactions
-        .values()
-        .stream()
+    openTransactions.values().stream()
         .filter(t -> !t.isActive())
         .collect(Collectors.toList())
         .forEach(Transaction::close);

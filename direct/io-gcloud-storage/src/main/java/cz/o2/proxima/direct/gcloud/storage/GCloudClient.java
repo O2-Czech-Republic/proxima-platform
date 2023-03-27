@@ -87,8 +87,7 @@ class GCloudClient implements Serializable {
   Storage client() {
     if (client == null) {
       client =
-          StorageOptions.getDefaultInstance()
-              .toBuilder()
+          StorageOptions.getDefaultInstance().toBuilder()
               .setRetrySettings(ServiceOptions.getDefaultRetrySettings())
               .build()
               .getService();

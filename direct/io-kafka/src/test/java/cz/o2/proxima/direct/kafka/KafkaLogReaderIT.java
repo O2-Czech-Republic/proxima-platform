@@ -344,9 +344,7 @@ public class KafkaLogReaderIT {
   // --------------------------------------------------------------------------
 
   private long numCommittedElements(ObserveHandle handle) {
-    return handle
-        .getCommittedOffsets()
-        .stream()
+    return handle.getCommittedOffsets().stream()
         .mapToLong(offset -> ((TopicOffset) offset).getOffset())
         .sum();
   }

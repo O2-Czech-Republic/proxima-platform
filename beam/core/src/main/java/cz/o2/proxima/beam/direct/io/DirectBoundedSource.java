@@ -79,8 +79,7 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
     List<Partition> partitions = reader().getPartitions();
     int numPartitions = partitions.size();
     List<BoundedSource<StreamElement>> ret =
-        partitions
-            .stream()
+        partitions.stream()
             .map(
                 p ->
                     new DirectBoundedSource(

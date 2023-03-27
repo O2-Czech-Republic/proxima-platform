@@ -174,8 +174,7 @@ class DirectUnboundedSource
     int splitDesired =
         splittable > 0 ? Math.max(0, (int) ((desiredNumSplits - nonSplittable) / splittable)) : 0;
     int resulting = (int) (partitions.size() - splittable + splittable * splitDesired);
-    return partitions
-        .stream()
+    return partitions.stream()
         .flatMap(
             p ->
                 p.isSplittable() && splitDesired > 0

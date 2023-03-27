@@ -75,8 +75,7 @@ public class BatchRestrictionTracker extends RestrictionTracker<PartitionList, P
 
     private PartitionList(List<Partition> partition, long totalLimit) {
       this.partitions =
-          partition
-              .stream()
+          partition.stream()
               .sorted(Comparator.comparing(Partition::getMinTimestamp))
               .collect(Collectors.toList());
       this.totalLimit = totalLimit;

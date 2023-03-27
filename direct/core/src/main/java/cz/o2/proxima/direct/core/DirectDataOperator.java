@@ -149,8 +149,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       // prevent infinite cycles
       List<AttributeFamilyDescriptor> remove = new ArrayList<>();
       List<AttributeFamilyDescriptor> add = new ArrayList<>();
-      toResolve
-          .stream()
+      toResolve.stream()
           .filter(af -> !available.contains(af))
           .forEachOrdered(
               af -> {
@@ -176,13 +175,11 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       if (add.isEmpty() && remove.isEmpty()) {
         throw new IllegalStateException(
             "Cannot make progress in resolving families "
-                + toResolve
-                    .stream()
+                + toResolve.stream()
                     .map(AttributeFamilyDescriptor::getName)
                     .collect(Collectors.toList())
                 + ", currently resolved "
-                + available
-                    .stream()
+                + available.stream()
                     .map(AttributeFamilyDescriptor::getName)
                     .collect(Collectors.toList()));
       }
@@ -284,8 +281,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
               .map(af -> getFamilyByName(af.getName()))
               .forEach(this::cacheOrRetrieveWriterFor);
         } else {
-          repo.getFamiliesForAttribute(attr)
-              .stream()
+          repo.getFamiliesForAttribute(attr).stream()
               .filter(af -> af.getType() == StorageType.PRIMARY)
               .filter(af -> !af.getAccess().isReadonly())
               .findAny()
@@ -320,8 +316,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     if (maybeWriter.isPresent()) {
       @Nullable OnlineAttributeWriter maybeTransactionalWriter = null;
       OnlineAttributeWriter familyWriter = maybeWriter.get().online();
-      if (af.getAttributes()
-          .stream()
+      if (af.getAttributes().stream()
           .anyMatch(a -> a.getTransactionMode() != TransactionMode.NONE)) {
 
         maybeTransactionalWriter = wrapTransactionalWriterAround(familyWriter);
@@ -442,8 +437,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       Collection<AttributeDescriptor<?>> attrs,
       UnaryFunction<DirectAttributeFamilyDescriptor, Boolean> mask) {
 
-    return attrs
-        .stream()
+    return attrs.stream()
         .map(
             a ->
                 getFamiliesForAttribute(a).stream().filter(mask::apply).collect(Collectors.toSet()))
@@ -468,8 +462,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return the set of all direct attribute representations
    */
   public Set<DirectAttributeFamilyDescriptor> getFamiliesForAttribute(AttributeDescriptor<?> desc) {
-    return repo.getFamiliesForAttribute(desc)
-        .stream()
+    return repo.getFamiliesForAttribute(desc).stream()
         .map(this::resolveRequired)
         .collect(Collectors.toSet());
   }
@@ -589,8 +582,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       @Nullable
       private ThroughputLimiter configureLimiter(Map<String, Object> cfg) {
         Map<String, Object> prefixed =
-            cfg.entrySet()
-                .stream()
+            cfg.entrySet().stream()
                 .filter(e -> e.getKey().startsWith(THROUGHPUT_LIMITER_PREFIX))
                 .map(
                     e ->

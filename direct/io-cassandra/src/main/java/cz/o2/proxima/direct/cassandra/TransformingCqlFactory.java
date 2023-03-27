@@ -116,8 +116,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
     T parsed = parser.apply(element);
     if (Boolean.TRUE.equals(filter.apply(parsed))) {
       List<Object> values =
-          extractors
-              .stream()
+          extractors.stream()
               .map(f -> f.apply(Pair.of(element.getKey(), parsed)))
               .collect(Collectors.toList());
       if (values.stream().anyMatch(Objects::isNull)) {

@@ -155,9 +155,7 @@ public final class ConfigRepository extends Repository {
 
     private int getDefaultValidationFlags(Config config) {
       if (config.hasPath(VALIDATIONS)) {
-        return config
-            .getStringList(VALIDATIONS)
-            .stream()
+        return config.getStringList(VALIDATIONS).stream()
             .map(Validate::valueOf)
             .reduce(0, (flag, v) -> flag | v.getFlag(), (a, b) -> a | b);
       }
@@ -580,9 +578,7 @@ public final class ConfigRepository extends Repository {
             .map(Boolean::valueOf)
             .orElse(false);
     boolean readLocalDefault = getReadNonReplicated(replications, "GLOBAL", false);
-    replications
-        .entrySet()
-        .stream()
+    replications.entrySet().stream()
         .forEach(
             e -> {
               Map<String, Object> replConf = toMap(e.getKey(), e.getValue().unwrapped(), false);
@@ -639,18 +635,15 @@ public final class ConfigRepository extends Repository {
         Optional.ofNullable(replConf.get(ATTRIBUTES))
             .map(
                 o ->
-                    toList(o)
-                        .stream()
+                    toList(o).stream()
                         .flatMap(a -> searchAttributesMatching(a, entity, false, true).stream())
                         .collect(Collectors.toSet()))
             .orElse(Collections.emptySet());
     Set<AttributeFamilyDescriptor> families =
-        attrs
-            .stream()
+        attrs.stream()
             .flatMap(
                 a ->
-                    getFamiliesForAttribute(a)
-                        .stream()
+                    getFamiliesForAttribute(a).stream()
                         .filter(af -> af.getType() == StorageType.PRIMARY))
             .collect(Collectors.toSet());
 
@@ -702,8 +695,7 @@ public final class ConfigRepository extends Repository {
       EntityDescriptorImpl entity = repl.getEntity();
       Collection<String> attrNames = repl.getAttrs();
       List<AttributeDescriptorBase<?>> attrs =
-          attrNames
-              .stream()
+          attrNames.stream()
               .map(a -> findAttributeRequired(entity, a))
               .collect(Collectors.toList());
       Collection<String> targets = repl.getTargets().keySet();
@@ -764,13 +756,11 @@ public final class ConfigRepository extends Repository {
     if (replaced.isPresent()) {
       // the attribute has changed
       // change existing families appropriately
-      getFamiliesForAttribute(replaced.get(), false)
-          .stream()
+      getFamiliesForAttribute(replaced.get(), false).stream()
           .map(
               af -> {
                 AttributeFamilyDescriptor.Builder builder = af.toBuilder().clearAttributes();
-                af.getAttributes()
-                    .stream()
+                af.getAttributes().stream()
                     .map(a -> a.equals(attr) ? attr : a)
                     .forEach(builder::addAttribute);
                 return Pair.of(af, builder.build());
@@ -783,9 +773,7 @@ public final class ConfigRepository extends Repository {
               });
 
       // and change transformations
-      getTransformations()
-          .entrySet()
-          .stream()
+      getTransformations().entrySet().stream()
           .filter(e -> e.getValue().getAttributes().contains(attr))
           .collect(Collectors.toList())
           .forEach(e -> e.getValue().replaceAttribute(attr));
@@ -1355,8 +1343,7 @@ public final class ConfigRepository extends Repository {
       EntityDescriptorImpl entity = repl.getEntity();
       Collection<String> attrNames = repl.getAttrs();
       List<AttributeDescriptorBase<?>> attrs =
-          attrNames
-              .stream()
+          attrNames.stream()
               .map(a -> findAttributeRequired(entity, a))
               .collect(Collectors.toList());
       AttributeFamilyDescriptor sourceFamily = repl.getFamily();
@@ -1433,8 +1420,7 @@ public final class ConfigRepository extends Repository {
                 attr,
                 (tmp, current) -> {
                   Set<AttributeFamilyDescriptor> updated =
-                      current
-                          .stream()
+                      current.stream()
                           .filter(af -> !af.getName().equals(sourceFamily.getName()) || readOnly)
                           .collect(Collectors.toSet());
                   return updated.isEmpty() ? null : updated;
@@ -1463,12 +1449,10 @@ public final class ConfigRepository extends Repository {
         resolvedRead = sourceFamily;
       }
       AttributeFamilyDescriptor.Builder builder =
-          resolvedRead
-              .toBuilder()
+          resolvedRead.toBuilder()
               .setName(String.format("replication_%s_replicated", name))
               .clearAttributes();
-      attrList
-          .stream()
+      attrList.stream()
           .map(
               a ->
                   findAttributeRequired(
@@ -1487,8 +1471,7 @@ public final class ConfigRepository extends Repository {
         cfg.put(ACCESS, "write-only");
         cfg.put(
             ATTRIBUTES,
-            attrList
-                .stream()
+            attrList.stream()
                 .map(a -> toReplicationTargetName(name, tgt.getKey(), a))
                 .collect(Collectors.toList()));
         loadSingleFamily(String.format("replication_target_%s_%s", name, tgt.getKey()), true, cfg);
@@ -1513,8 +1496,7 @@ public final class ConfigRepository extends Repository {
     cfg.putAll(via);
     cfg.put(
         ATTRIBUTES,
-        attrList
-            .stream()
+        attrList.stream()
             .map(
                 a ->
                     toReplicationWriteName(
@@ -1613,8 +1595,7 @@ public final class ConfigRepository extends Repository {
     Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceToOrig = new HashMap<>();
 
     // store targets using original non-proxied name
-    attrs
-        .stream()
+    attrs.stream()
         .map(a -> findAttributeRequired(entity, a.getName()).toProxy())
         .forEach(
             a -> {
@@ -1701,8 +1682,7 @@ public final class ConfigRepository extends Repository {
       String mappedPrefix,
       boolean read) {
 
-    return attrs
-        .stream()
+    return attrs.stream()
         .map(
             a -> {
               AttributeDescriptorBase<?> base = (AttributeDescriptorBase<?>) a;
@@ -1783,14 +1763,12 @@ public final class ConfigRepository extends Repository {
     List<AttributeDescriptor<?>> attrs =
         attrNames.stream().map(a -> findAttributeRequired(entity, a)).collect(Collectors.toList());
 
-    attrs
-        .stream()
+    attrs.stream()
         .filter(a -> !((AttributeDescriptorBase<?>) a).isProxy())
         .forEach(a -> bindSingleReplicationProxy(name, entity, a, readNonReplicatedOnly, readOnly));
 
     buildProxyOrdering(
-            attrs
-                .stream()
+            attrs.stream()
                 .flatMap(
                     a ->
                         entity
@@ -1878,9 +1856,7 @@ public final class ConfigRepository extends Repository {
     if (attr.equals("*")) {
       // this means all attributes of entity
       attrDescs =
-          entDesc
-              .getAllAttributes(includeProtected)
-              .stream()
+          entDesc.getAllAttributes(includeProtected).stream()
               .filter(a -> !((AttributeDescriptorBase<?>) a).isReplica() || allowReplicated)
               .filter(a -> !a.isProxy() || allowProxies)
               .collect(Collectors.toList());
@@ -1928,16 +1904,14 @@ public final class ConfigRepository extends Repository {
     // reads of such attributes)
     readWriteToAttr =
         (Map)
-            dependencyOrdered
-                .stream()
+            dependencyOrdered.stream()
                 .flatMap(
                     p -> {
                       AttributeDescriptor<?> writeTarget = p.getWriteTarget();
                       AttributeDescriptor<?> readTarget = p.getReadTarget();
                       // find write family
                       AttributeFamilyDescriptor writeFamily =
-                          getFamiliesForAttribute(writeTarget)
-                              .stream()
+                          getFamiliesForAttribute(writeTarget).stream()
                               .filter(af -> af.getType() == StorageType.PRIMARY)
                               .findFirst()
                               .orElseThrow(
@@ -1946,8 +1920,7 @@ public final class ConfigRepository extends Repository {
                                           String.format(
                                               "Missing primary storage for %s. Found families %s",
                                               writeTarget, getFamiliesForAttribute(writeTarget))));
-                      return getFamiliesForAttribute(readTarget)
-                          .stream()
+                      return getFamiliesForAttribute(readTarget).stream()
                           .map(af -> Pair.of(p, Pair.of(af, writeFamily)));
                     })
                 .collect(
@@ -1958,9 +1931,7 @@ public final class ConfigRepository extends Repository {
       // prevent ConcurrentModificationException
       List<AttributeFamilyDescriptor> createdFamilies = new ArrayList<>();
 
-      readWriteToAttr
-          .entrySet()
-          .stream()
+      readWriteToAttr.entrySet().stream()
           .filter(e -> e.getValue().contains(attr))
           .forEach(
               e -> {
@@ -1988,15 +1959,13 @@ public final class ConfigRepository extends Repository {
     LinkedHashSet<AttributeProxyDescriptor<?>> dependencyOrdered;
     dependencyOrdered = new LinkedHashSet<>();
     List<AttributeProxyDescriptor<?>> proxies =
-        attributes
-            .stream()
+        attributes.stream()
             .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
             .collect(Collectors.toList());
 
     while (dependencyOrdered.size() != proxies.size()) {
       boolean modified =
-          proxies
-              .stream()
+          proxies.stream()
               .filter(
                   p ->
                       (!p.getReadTarget().isProxy()
@@ -2058,8 +2027,7 @@ public final class ConfigRepository extends Repository {
               Classpath.newInstance(readStr("using", transformation, name), Transformation.class);
 
           List<AttributeDescriptor<?>> attrs =
-              readList(ATTRIBUTES, transformation, name)
-                  .stream()
+              readList(ATTRIBUTES, transformation, name).stream()
                   .flatMap(a -> searchAttributesMatching(a, entity, true, true).stream())
                   .collect(Collectors.toList());
 
@@ -2241,19 +2209,16 @@ public final class ConfigRepository extends Repository {
         .filter(EntityDescriptor::isTransactional)
         .flatMap(
             e ->
-                e.getAllAttributes()
-                    .stream()
+                e.getAllAttributes().stream()
                     .filter(attr -> attr.getTransactionMode() != TransactionMode.NONE))
         .forEach(
             a -> {
               Map<AttributeDescriptor<?>, Integer> transactionAttributes =
-                  a.getTransactionalManagerFamilies()
-                      .stream()
+                  a.getTransactionalManagerFamilies().stream()
                       .map(this::getFamilyByName)
                       .flatMap(
                           af ->
-                              af.getAttributes()
-                                  .stream()
+                              af.getAttributes().stream()
                                   .filter(attr -> !attr.getName().equals(COMMIT_ATTRIBUTE)))
                       .collect(
                           Collectors.toMap(
@@ -2283,9 +2248,7 @@ public final class ConfigRepository extends Repository {
     AttributeDescriptor<Object> commit =
         getEntity(TRANSACTION_ENTITY).getAttribute(COMMIT_ATTRIBUTE);
     Set<AttributeFamilyDescriptor> commitFamilies =
-        allCreatedFamilies
-            .values()
-            .stream()
+        allCreatedFamilies.values().stream()
             .filter(af -> af.getAttributes().contains(commit))
             .collect(Collectors.toSet());
     Preconditions.checkArgument(
@@ -2326,8 +2289,7 @@ public final class ConfigRepository extends Repository {
   }
 
   public AttributeFamilyDescriptor getPrimaryFamilyFor(AttributeDescriptor<?> attr) {
-    return getFamiliesForAttribute(attr)
-        .stream()
+    return getFamiliesForAttribute(attr).stream()
         .filter(af -> af.getType() == StorageType.PRIMARY)
         .findAny()
         .orElseThrow(

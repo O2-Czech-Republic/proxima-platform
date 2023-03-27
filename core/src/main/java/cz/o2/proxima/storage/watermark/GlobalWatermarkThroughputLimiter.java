@@ -103,8 +103,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
                                   TRACKER_CFG_PREFIX, KW_CLASS)));
         }
         singletonTracker.setup(
-            cfg.entrySet()
-                .stream()
+            cfg.entrySet().stream()
                 .filter(e -> e.getKey().startsWith(TRACKER_CFG_PREFIX))
                 .map(e -> Pair.of(e.getKey().substring(TRACKER_CFG_PREFIX.length()), e.getValue()))
                 .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));

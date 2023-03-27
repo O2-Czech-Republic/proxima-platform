@@ -100,8 +100,7 @@ public class BatchLogReaders {
         BatchLogObserver observer) {
 
       long minWatermark =
-          partitions
-              .stream()
+          partitions.stream()
               .map(Partition::getMinTimestamp)
               .min(Comparator.naturalOrder())
               .orElse(Watermarks.MAX_WATERMARK);

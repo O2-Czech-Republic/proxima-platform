@@ -341,8 +341,7 @@ public class TransactionsTest {
     ingestBulk.onNext(
         IngestBulk.newBuilder()
             .addAllIngest(
-                updates
-                    .stream()
+                updates.stream()
                     .map(
                         el ->
                             Ingest.newBuilder()

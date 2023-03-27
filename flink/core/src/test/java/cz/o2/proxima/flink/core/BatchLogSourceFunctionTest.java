@@ -205,9 +205,7 @@ class BatchLogSourceFunctionTest {
               numSubtasks,
               subtaskIndex,
               numExpectedElements,
-              partitionElements
-                  .entrySet()
-                  .stream()
+              partitionElements.entrySet().stream()
                   .sorted(Comparator.comparingInt(Map.Entry::getKey))
                   .map(Map.Entry::getValue)
                   .collect(Collectors.toList())));
@@ -229,9 +227,7 @@ class BatchLogSourceFunctionTest {
           numRestoredSubtasks,
           subtaskIndex,
           -1,
-          partitionElements
-              .entrySet()
-              .stream()
+          partitionElements.entrySet().stream()
               .sorted(Comparator.comparingInt(Map.Entry::getKey))
               .map(Map.Entry::getValue)
               .collect(Collectors.toList()));

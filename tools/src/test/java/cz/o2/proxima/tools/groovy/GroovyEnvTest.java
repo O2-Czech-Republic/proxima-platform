@@ -240,9 +240,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     Script compiled = compile("def a = { it }");
     compiled.run();
     List<String> closures =
-        loader
-            .getDefinedClasses()
-            .stream()
+        loader.getDefinedClasses().stream()
             .filter(n -> n.contains(("_run_closure")))
             .collect(Collectors.toList());
     List<byte[]> codes =
@@ -258,9 +256,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + "class Parser { groovy.json.JsonSlurper slurper = new groovy.json.JsonSlurper() }");
     compiled.run();
     assertTrue(
-        loader
-            .getAddedURLs()
-            .stream()
+        loader.getAddedURLs().stream()
             .anyMatch(u -> new File(u.getPath()).getName().startsWith("groovy-json")));
   }
 
@@ -479,8 +475,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     List<Tuple> result = (List) compiled.run();
     Map<String, String> resultMap =
-        result
-            .stream()
+        result.stream()
             .map(t -> Pair.of(t.get(0).toString(), t.get(1).toString()))
             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
     assertEquals(3, resultMap.size());
@@ -528,8 +523,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<StreamElement, StreamElement>> result = (List) compiled.run();
     Map<String, String> resultMap =
-        result
-            .stream()
+        result.stream()
             .filter(p -> p.getSecond() != null)
             .collect(Collectors.toMap(p -> p.getFirst().getKey(), p -> p.getSecond().getKey()));
     assertEquals(2, resultMap.size());
@@ -621,8 +615,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<Object, Object>> result = (List) compiled.run();
     Map<Object, List<Object>> resultMap =
-        result
-            .stream()
+        result.stream()
             .collect(
                 Collectors.groupingBy(
                     Pair::getFirst, Collectors.mapping(Pair::getSecond, Collectors.toList())));
@@ -674,8 +667,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<Object, Object>> result = (List) compiled.run();
     Map<Object, List<Object>> resultMap =
-        result
-            .stream()
+        result.stream()
             .collect(
                 Collectors.groupingBy(
                     Pair::getFirst, Collectors.mapping(Pair::getSecond, Collectors.toList())));
@@ -727,8 +719,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<String, Integer>> result = (List) compiled.run();
     Map<String, List<Integer>> resultMap =
-        result
-            .stream()
+        result.stream()
             .collect(
                 Collectors.groupingBy(
                     Pair::getFirst, Collectors.mapping(Pair::getSecond, Collectors.toList())));
@@ -811,9 +802,9 @@ public abstract class GroovyEnvTest extends GroovyTest {
         (List)
             ((List) compiled.run())
                 .stream()
-                .sorted(Comparator.comparing(p -> ((Pair<Object, Comparable>) p).getSecond()))
-                .map(e -> ((Pair<Object, Object>) e).getFirst())
-                .collect(Collectors.toList());
+                    .sorted(Comparator.comparing(p -> ((Pair<Object, Comparable>) p).getSecond()))
+                    .map(e -> ((Pair<Object, Object>) e).getFirst())
+                    .collect(Collectors.toList());
     assertEquals(Arrays.asList(1, 0, 1, 2, 2), result);
   }
 
@@ -948,10 +939,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     @SuppressWarnings("unchecked")
     List<Integer> result =
         ((List<Long>) compiled.run())
-            .stream()
-            .sorted()
-            .map(e -> (int) (long) e)
-            .collect(Collectors.toList());
+            .stream().sorted().map(e -> (int) (long) e).collect(Collectors.toList());
     assertEquals(Arrays.asList(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2), result);
   }
 
@@ -1115,8 +1103,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   }
 
   private <T> Map<T, Integer> getCounts(List<T> expected) {
-    return expected
-        .stream()
+    return expected.stream()
         .collect(
             Collectors.groupingBy(
                 Function.identity(),

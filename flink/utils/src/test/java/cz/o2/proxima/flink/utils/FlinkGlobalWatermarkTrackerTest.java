@@ -102,8 +102,7 @@ public class FlinkGlobalWatermarkTrackerTest {
             fromMap(
                 urlToContent,
                 watermarksForIds(
-                    names
-                        .stream()
+                    names.stream()
                         .map(n -> Pair.of(n, now + 5 + names.indexOf(n)))
                         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)))));
     assertEquals(1234567890005L, tracker.getWatermark());

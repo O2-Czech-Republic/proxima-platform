@@ -94,9 +94,7 @@ public class TimeAveragingMetric extends ScalarMetric {
       NavigableMap<Long, Double> headMap = checkpoints.headMap(toRemove, true);
       if (!headMap.isEmpty()) {
         Map.Entry<Long, Double> lastEntry = headMap.lastEntry();
-        headMap
-            .entrySet()
-            .stream()
+        headMap.entrySet().stream()
             .collect(Collectors.toList())
             .forEach(
                 e -> {

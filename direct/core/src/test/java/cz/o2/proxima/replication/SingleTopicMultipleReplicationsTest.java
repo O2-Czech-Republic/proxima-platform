@@ -134,8 +134,7 @@ public class SingleTopicMultipleReplicationsTest {
   @Test(timeout = 5000)
   public void testProxyReadWildcardReplicated() throws InterruptedException {
     Optional<AttributeFamilyDescriptor> wildcardPrimary =
-        repo.getFamiliesForAttribute(wildcard)
-            .stream()
+        repo.getFamiliesForAttribute(wildcard).stream()
             .filter(af -> af.getType() == StorageType.PRIMARY)
             .findFirst();
     assertTrue(wildcardPrimary.isPresent());
@@ -187,8 +186,7 @@ public class SingleTopicMultipleReplicationsTest {
   public void testProxyObserveBulkPartitionsWildcardReplicated() throws InterruptedException {
 
     Optional<AttributeFamilyDescriptor> wildcardPrimary =
-        repo.getFamiliesForAttribute(wildcard)
-            .stream()
+        repo.getFamiliesForAttribute(wildcard).stream()
             .filter(af -> af.getType() == StorageType.PRIMARY)
             .findFirst();
     assertTrue(wildcardPrimary.isPresent());

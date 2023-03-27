@@ -200,9 +200,7 @@ public class BeamDataOperatorTest {
     validatePCollectionWindowedRead(
         () ->
             beam.getAccessorFor(
-                    beam.getRepository()
-                        .getFamiliesForAttribute(armed)
-                        .stream()
+                    beam.getRepository().getFamiliesForAttribute(armed).stream()
                         .filter(af -> af.getAccess().canReadBatchSnapshot())
                         .findFirst()
                         .orElseThrow(

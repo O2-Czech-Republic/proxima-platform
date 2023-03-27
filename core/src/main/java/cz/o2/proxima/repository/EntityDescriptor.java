@@ -116,8 +116,7 @@ public interface EntityDescriptor extends Serializable {
 
   /** @return {@code true} if the entity contains any attribute that has transactions enabled. */
   default boolean isTransactional() {
-    return getAllAttributes()
-        .stream()
+    return getAllAttributes().stream()
         .anyMatch(attr -> attr.getTransactionMode() != TransactionMode.NONE);
   }
 

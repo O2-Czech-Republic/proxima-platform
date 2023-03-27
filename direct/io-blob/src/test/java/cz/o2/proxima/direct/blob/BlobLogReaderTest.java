@@ -265,8 +265,7 @@ public class BlobLogReaderTest {
   private void writePartitions(List<Long> stamps) throws InterruptedException {
     CountDownLatch latch = new CountDownLatch(1);
     BlobWriter writer = accessor.new BlobWriter(context);
-    stamps
-        .stream()
+    stamps.stream()
         .map(
             stamp ->
                 StreamElement.upsert(

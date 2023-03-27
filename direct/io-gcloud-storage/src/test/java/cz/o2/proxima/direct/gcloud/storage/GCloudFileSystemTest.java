@@ -68,9 +68,7 @@ public class GCloudFileSystemTest {
               int valueIndex = tmp.indexOf("value=");
               String prefix = valueIndex > 0 ? tmp.substring(valueIndex + 6, tmp.length() - 1) : "";
               return asPage(
-                  blobs
-                      .entrySet()
-                      .stream()
+                  blobs.entrySet().stream()
                       .filter(entry -> entry.getKey().startsWith(prefix))
                       .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
             })

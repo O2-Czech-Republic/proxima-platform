@@ -50,14 +50,11 @@ public class GStringSerializerTest {
                       this,
                       (window, values) ->
                           ((List<Pair<Integer, GString>>) values)
-                              .stream()
-                              .map(Pair::getSecond)
-                              .collect(Collectors.toList())))
+                              .stream().map(Pair::getSecond).collect(Collectors.toList())))
               .collect();
       assertEquals(
           Collections.singletonList(Pair.of(1, "str")),
-          result
-              .stream()
+          result.stream()
               .map(pair -> Pair.of(pair.getFirst(), pair.getSecond().toString()))
               .collect(Collectors.toList()));
     } catch (Exception ex) {

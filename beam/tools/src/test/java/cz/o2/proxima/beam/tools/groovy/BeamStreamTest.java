@@ -522,8 +522,7 @@ public class BeamStreamTest extends StreamTest {
             .collect();
     assertEquals(
         Lists.newArrayList(1L, 1L, 1L, 1L, 2L, 2L, 1L, 1L),
-        result
-            .stream()
+        result.stream()
             .sorted(Comparator.comparing(Pair::getSecond))
             .map(Pair::getFirst)
             .collect(Collectors.toList()));
@@ -564,9 +563,7 @@ public class BeamStreamTest extends StreamTest {
     sparkRunner.run(p).waitUntilFinish();
 
     List<Long> stamps =
-        collected
-            .get()
-            .stream()
+        collected.get().stream()
             .filter(pair -> pair.getSecond() != null)
             .map(Pair::getSecond)
             .map(StreamElement::getStamp)

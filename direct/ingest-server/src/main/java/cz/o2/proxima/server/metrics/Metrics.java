@@ -185,9 +185,7 @@ public class Metrics {
   public static List<String> consumerWatermarkLags() {
     long now = System.currentTimeMillis();
     synchronized (consumerMetrics) {
-      return consumerMetrics
-          .entrySet()
-          .stream()
+      return consumerMetrics.entrySet().stream()
           .map(
               e ->
                   String.format(

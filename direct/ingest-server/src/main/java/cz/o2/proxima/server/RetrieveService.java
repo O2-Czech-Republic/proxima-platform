@@ -351,9 +351,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       RandomAccessReader reader = readerMap.get(attr);
       if (reader == null) {
         DirectAttributeFamilyDescriptor family =
-            direct
-                .getFamiliesForAttribute(attr)
-                .stream()
+            direct.getFamiliesForAttribute(attr).stream()
                 .filter(af -> af.getDesc().getAccess().canRandomRead())
                 .findAny()
                 .orElseThrow(

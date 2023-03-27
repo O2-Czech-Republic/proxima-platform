@@ -69,9 +69,7 @@ class TopicOffset implements Offset {
   }
 
   static List<TopicOffset> fromMap(Map<TopicPartition, Long> offsetMap, long watermark) {
-    return offsetMap
-        .entrySet()
-        .stream()
+    return offsetMap.entrySet().stream()
         .map(
             e ->
                 new TopicOffset(

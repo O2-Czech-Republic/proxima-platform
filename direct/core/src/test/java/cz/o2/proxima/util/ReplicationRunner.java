@@ -60,8 +60,7 @@ public class ReplicationRunner {
               final AttributeWriterBase writer = Optionals.get(af.getWriter());
               final CommitLogReader primaryCommitLogReader =
                   Optionals.get(
-                      attributes
-                          .stream()
+                      attributes.stream()
                           .flatMap(a -> direct.getFamiliesForAttribute(a).stream())
                           .filter(f -> f.getDesc().getType() == StorageType.PRIMARY)
                           .distinct()

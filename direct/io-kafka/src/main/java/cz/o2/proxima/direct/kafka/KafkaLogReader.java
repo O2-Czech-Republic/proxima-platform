@@ -158,9 +158,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           String.format("Partitions of URI %s are unstable and should not be used.", getUri()));
     }
     try (KafkaConsumer<Object, Object> consumer = createConsumer()) {
-      return consumer
-          .partitionsFor(accessor.getTopic())
-          .stream()
+      return consumer.partitionsFor(accessor.getTopic()).stream()
           .map(pi -> new PartitionWithTopic(pi.topic(), pi.partition()))
           .collect(Collectors.toList());
     }
@@ -173,8 +171,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         "Position %s does not have well defined offsets.",
         position);
     List<TopicPartition> topicPartitions =
-        partitions
-            .stream()
+        partitions.stream()
             .map(PartitionWithTopic.class::cast)
             .map(p -> new TopicPartition(p.getTopic(), p.getPartition()))
             .collect(Collectors.toList());
@@ -186,8 +183,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         res = consumer.endOffsets(topicPartitions);
       }
     }
-    return res.entrySet()
-        .stream()
+    return res.entrySet().stream()
         .collect(
             Collectors.toMap(
                 e -> new PartitionWithTopic(e.getKey().topic(), e.getKey().partition()),
@@ -568,9 +564,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         Utils.seekToOffsets(toSeek, kafka);
         consumer.onAssign(
             kafka,
-            kafka
-                .assignment()
-                .stream()
+            kafka.assignment().stream()
                 .map(
                     tp ->
                         new TopicOffset(
@@ -665,9 +659,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     // we have to poll at least number of assigned partitions-times and still have empty poll
     // on that partition to be sure that it is actually empty
     int numEmptyPolls = emptyPollCount.size();
-    emptyPollCount
-        .entrySet()
-        .stream()
+    emptyPollCount.entrySet().stream()
         .filter(e -> e.getValue() >= numEmptyPolls)
         .forEach(e -> watermarkEstimator.get().idle(topicPartitionToId.get(e.getKey())));
   }
@@ -715,10 +707,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private Map<TopicPartition, Long> findNonEmptyEndOffsets(final KafkaConsumer<?, ?> kafka) {
     Set<TopicPartition> assignment = kafka.assignment();
     Map<TopicPartition, Long> beginning = kafka.beginningOffsets(assignment);
-    return kafka
-        .endOffsets(assignment)
-        .entrySet()
-        .stream()
+    return kafka.endOffsets(assignment).entrySet().stream()
         .filter(entry -> beginning.get(entry.getKey()) < entry.getValue())
         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
@@ -779,8 +768,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         }
       } else {
         List<TopicPartition> tps =
-            offsets
-                .stream()
+            offsets.stream()
                 .map(TopicOffset.class::cast)
                 .map(p -> new TopicPartition(p.getPartition().getTopic(), p.getPartition().getId()))
                 .collect(Collectors.toList());
@@ -827,8 +815,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
   private static Collection<Offset> createDefaultOffsets(Collection<Partition> partitions) {
     if (partitions != null) {
-      return partitions
-          .stream()
+      return partitions.stream()
           .map(p -> new TopicOffset((PartitionWithTopic) p, -1, Long.MIN_VALUE))
           .collect(Collectors.toList());
     }
@@ -906,8 +893,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         } else {
           watermarkEstimator.set(
               new MinimalPartitionWatermarkEstimator(
-                  currentlyAssigned
-                      .stream()
+                  currentlyAssigned.stream()
                       .collect(
                           toMap(topicPartitionToId::get, item -> createWatermarkEstimator()))));
         }
@@ -924,8 +910,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
       List<TopicOffset> getCurrentTopicOffsets(
           Collection<TopicPartition> parts, KafkaConsumer<Object, Object> c) {
-        return parts
-            .stream()
+        return parts.stream()
             .map(
                 tp ->
                     new TopicOffset(
@@ -943,9 +928,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         for (TopicPartition tp : parts) {
           committed.putIfAbsent(tp, null);
         }
-        return committed
-            .entrySet()
-            .stream()
+        return committed.entrySet().stream()
             .map(
                 entry -> {
                   final long offset = entry.getValue() == null ? 0L : entry.getValue().offset();

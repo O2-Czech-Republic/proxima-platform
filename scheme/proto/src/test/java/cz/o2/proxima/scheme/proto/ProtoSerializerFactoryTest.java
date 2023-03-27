@@ -128,10 +128,6 @@ public class ProtoSerializerFactoryTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testTransactionSchemeProvider() {
-    Repository.ofTest(
-        ConfigFactory.load("test-transactions-proto.conf")
-            .withFallback(ConfigFactory.load("test-transactions.conf"))
-            .resolve());
     Repository repo =
         Repository.ofTest(
             ConfigFactory.load("test-transactions-proto.conf")

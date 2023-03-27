@@ -305,9 +305,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
     }
     synchronized (writers) {
       Set<Bulk> ret =
-          writers
-              .values()
-              .stream()
+          writers.values().stream()
               .filter(bulk -> bulk.getMaxTs() + allowedLatenessMs < watermark)
               .collect(Collectors.toSet());
 
@@ -343,8 +341,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
 
   private <K, B extends Bulk> List<Map.Entry<K, B>> getAdditionalBulks(
       Collection<Map.Entry<K, B>> bulks, long maxWriteSeqNo) {
-    return bulks
-        .stream()
+    return bulks.stream()
         .filter(e -> e.getValue().getFirstWriteSeqNo() < maxWriteSeqNo)
         .collect(Collectors.toList());
   }

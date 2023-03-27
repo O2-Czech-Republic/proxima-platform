@@ -113,9 +113,7 @@ public class TestBlobStorageAccessor extends BlobStorageAccessor {
 
     @Override
     public Stream<Path> list(long minTs, long maxTs) {
-      return outputStreams
-          .keySet()
-          .stream()
+      return outputStreams.keySet().stream()
           .filter(
               byteArrayOutputStream ->
                   TestBlobStorageAccessor.this
@@ -222,9 +220,7 @@ public class TestBlobStorageAccessor extends BlobStorageAccessor {
   }
 
   List<StreamElement> getWrittenFor(long ts) {
-    return outputStreams
-        .keySet()
-        .stream()
+    return outputStreams.keySet().stream()
         .filter(n -> getNamingConvention().isInRange(n, ts, ts + 1))
         .findAny()
         .map(n -> new TestBlobPath(fs, new TestBlob(n)))

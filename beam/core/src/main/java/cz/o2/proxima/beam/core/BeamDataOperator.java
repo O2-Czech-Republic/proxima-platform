@@ -351,17 +351,13 @@ public class BeamDataOperator implements DataOperator {
     boolean unresolved = resolvedAttrs.stream().anyMatch(p -> !p.getSecond().isPresent());
 
     if (!unresolved) {
-      return resolvedAttrs
-          .stream()
+      return resolvedAttrs.stream()
           // take all attributes from the same family
           // it will be filtered away then, this is needed to enable fusion of multiple reads from
           // the same family
           .flatMap(
               p ->
-                  p.getSecond()
-                      .get()
-                      .getAttributes()
-                      .stream()
+                  p.getSecond().get().getAttributes().stream()
                       .map(a -> Pair.of(a, p.getSecond().get())))
           .map(Pair::getSecond)
           .distinct()
@@ -430,8 +426,7 @@ public class BeamDataOperator implements DataOperator {
             desc ->
                 Pair.of(
                     desc,
-                    repo.getFamiliesForAttribute(desc)
-                        .stream()
+                    repo.getFamiliesForAttribute(desc).stream()
                         .filter(predicate)
                         // primary families have precedence
                         .min(Comparator.comparingInt(a -> a.getType().ordinal()))));

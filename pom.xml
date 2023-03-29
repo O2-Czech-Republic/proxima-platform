@@ -416,6 +416,7 @@
             <yaml>SCRIPT_STYLE</yaml>
             <conf>SLASHSTAR_STYLE</conf>
             <cql>SLASHSTAR_STYLE</cql>
+            <gradle>SLASHSTAR_STYLE</gradle>
           </mapping>
 
           <excludes>

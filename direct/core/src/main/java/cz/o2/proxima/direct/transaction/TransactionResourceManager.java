@@ -651,7 +651,6 @@ public class TransactionResourceManager
    * @param transactionId ID of transaction
    * @param responseConsumer consumer of responses related to the transaction
    * @param attributes attributes affected by this transaction (both input and output)
-   * @return current state of the transaction
    */
   @Override
   public void begin(
@@ -670,7 +669,6 @@ public class TransactionResourceManager
    *
    * @param transactionId ID of transaction
    * @param newAttributes attributes to be added to the transaction
-   * @return
    */
   @Override
   public void updateTransaction(String transactionId, List<KeyAttribute> newAttributes) {

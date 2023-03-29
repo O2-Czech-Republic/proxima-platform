@@ -29,7 +29,6 @@ public interface ClientTransactionManager extends AutoCloseable, TransactionMana
    * @param transactionId ID of the transaction
    * @param responseConsumer consumer of responses related to the transaction
    * @param attributes attributes affected by this transaction (both input and output)
-   * @return current state of the transaction
    */
   void begin(
       String transactionId,
@@ -41,7 +40,6 @@ public interface ClientTransactionManager extends AutoCloseable, TransactionMana
    *
    * @param transactionId ID of the transaction
    * @param newAttributes attributes to be added to the transaction
-   * @return
    */
   void updateTransaction(String transactionId, List<KeyAttribute> newAttributes);
 

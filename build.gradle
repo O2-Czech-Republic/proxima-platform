@@ -13,9 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 buildscript {
   repositories {
     mavenCentral()
+  }
+}
+
+plugins {
+  id "com.github.hierynomus.license" version "0.16.1"
+}
+
+subprojects {
+  apply plugin: "com.github.hierynomus.license"
+  license {
+    header project.file("license-header.txt")
+    mapping("java", "SLASHSTAR_STYLE")
   }
 }
 

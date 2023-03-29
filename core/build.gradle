@@ -40,6 +40,7 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-core'
 
+
 tasks.register('testsJar', Jar) {
   archiveClassifier = 'tests'
   from(sourceSets.test.output)

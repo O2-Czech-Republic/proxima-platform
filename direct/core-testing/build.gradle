@@ -63,4 +63,8 @@ tasks.named("compileJava") {
   dependsOn generateReadmeModel, generateCoreModel
 }
 
+tasks.named("sourcesJar") {
+  dependsOn compileJava
+}
+
 sourceSets.main.java.srcDirs += ["${project.buildDir}/generated/sources/"]

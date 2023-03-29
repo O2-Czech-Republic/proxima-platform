@@ -47,3 +47,9 @@ configurations.create("testsJar") {
 spotlessJava.dependsOn generateTestAvroJava
 
 publishing.publications.maven.artifact(testsJar)
+
+spotless {
+  java {
+    targetExclude('**/generated*/**')
+  }
+}

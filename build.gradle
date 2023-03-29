@@ -40,7 +40,6 @@ subprojects {
     mapping("conf", "SLASHSTAR_STYLE")
     mapping("cql", "SLASHSTAR_STYLE")
   }
-
   
   jar {
     enabled = false
@@ -61,5 +60,34 @@ subprojects {
     }
   }
 
+  if (project.hasProperty("publish")) {
+    java {
+      withJavadocJar()
+      withSourcesJar()
+    }
+    javadoc {
+      dependsOn compileJava, compileTestJava
+      if (JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+      }
+    }
+    tasks.named("sourcesJar") {
+      dependsOn compileJava, compileTestJava
+    }
+
+    tasks.named("javadoc") {
+      dependsOn compileJava, compileTestJava
+    }
+    project.publishing.publications.maven.artifact(shadowJar)
+    project.publishing.publications.maven.artifact(sourcesJar)
+    project.publishing.publications.maven.artifact(javadocJar)
+    if (project.hasProperty("release")) {
+      apply plugin: "signing"
+      signing {
+        useGpgCmd()
+        publishing.publications.each { signing.sign(it) }
+      }
+    }
+  }
 }
 

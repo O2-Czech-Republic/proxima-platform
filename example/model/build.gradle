@@ -51,6 +51,10 @@ tasks.named("compileJava") {
   dependsOn generateModel
 }
 
+tasks.named("sourcesJar") {
+  dependsOn compileJava
+}
+
 sourceSets.main.java.srcDirs += ["${project.buildDir}/generated/sources/"]
 
 spotless {

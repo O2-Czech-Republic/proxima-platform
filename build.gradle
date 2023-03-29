@@ -60,7 +60,7 @@ subprojects {
     }
   }
 
-  if (project.hasProperty("publish")) {
+  if (project.hasProperty("publish") || project.hasProperty("release")) {
     java {
       withJavadocJar()
       withSourcesJar()

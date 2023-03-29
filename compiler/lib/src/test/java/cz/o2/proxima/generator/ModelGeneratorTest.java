@@ -23,6 +23,7 @@ import java.io.FileOutputStream;
 import java.io.StringWriter;
 import java.util.UUID;
 import org.apache.commons.io.IOUtils;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -30,7 +31,14 @@ import org.junit.rules.TemporaryFolder;
 /** Briefly test {@link ModelGenerator}. */
 public class ModelGeneratorTest {
 
-  @Rule public TemporaryFolder folder = new TemporaryFolder(new File("./target/"));
+  @Rule public TemporaryFolder folder = new TemporaryFolder(new File("./build"));
+
+  @Before
+  public void setUp() {
+    if (!folder.getRoot().exists()) {
+      folder.getRoot().mkdir();
+    }
+  }
 
   @Test
   public void testModelGeneration() throws Exception {

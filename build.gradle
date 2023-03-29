@@ -22,13 +22,44 @@ buildscript {
 
 plugins {
   id "com.github.hierynomus.license" version "0.16.1"
+  id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 subprojects {
-  apply plugin: "com.github.hierynomus.license"
+  apply plugin: 'cz.o2.proxima.java-conventions'
+  apply plugin: 'com.github.johnrengelman.shadow'
+
   license {
     header project.file("license-header.txt")
     mapping("java", "SLASHSTAR_STYLE")
+    mapping("gradle", "SLASHSTAR_STYLE")
+    mapping("txt", "SCRIPT_STYLE")
+    mapping("proto", "SLASHSTAR_STYLE")
+    mapping("avsc", "JAVADOC_STYLE")
+    mapping("yaml", "SCRIPT_STYLE")
+    mapping("conf", "SLASHSTAR_STYLE")
+    mapping("cql", "SLASHSTAR_STYLE")
   }
+
+  
+  jar {
+    enabled = false
+    dependsOn shadowJar
+  }
+
+  shadowJar {
+    archiveClassifier = null
+    dependencies {
+      include(project(project.path))
+    }
+    relocate "com.google.common", "${coreShade}.com.google.common"
+  }
+
+  configurations.create("shadowJar") {
+    outgoing {
+      artifact(shadowJar)
+    }
+  }
+
 }
 

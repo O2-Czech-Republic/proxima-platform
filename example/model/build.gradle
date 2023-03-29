@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-plugins {
-  id 'cz.o2.proxima.java-conventions'
-}
-
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
   api project(':proxima-scheme-proto')

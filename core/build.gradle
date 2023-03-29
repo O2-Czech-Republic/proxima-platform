@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-plugins {
-  id 'cz.o2.proxima.java-conventions'
-  alias libs.plugins.shadow
-}
-
 dependencies {
   api 'org.slf4j:slf4j-api:1.7.30'
   api 'com.typesafe:config:1.3.1'
@@ -40,6 +35,15 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-core'
 
+shadowJar {
+  dependencies {
+    include(project(project.path))
+    include(dependency("com.google.guava:guava:.*"))
+    include(dependency("com.typesafe:config:.*"))
+    include(dependency("com.tdunning:t-digest"))
+  }
+  relocate "com.google.common", "${coreShade}.com.google.common"
+}
 
 tasks.register('testsJar', Jar) {
   archiveClassifier = 'tests'
@@ -48,27 +52,6 @@ tasks.register('testsJar', Jar) {
 
 test {
   forkEvery 1
-}
-
-jar {
-  enabled = false
-  dependsOn(shadowJar { archiveClassifier = null })
-}
-
-shadowJar {
-  dependencies {
-    include(project(':proxima-core'))
-    include(dependency("com.google.guava:guava:.*"))
-    include(dependency("com.typesafe:config:.*"))
-    include(dependency("com.tdunning:t-digest"))
-  }
-  relocate "com.google.common", "${coreShade}.com.google.common"
-}
-
-configurations.create("shadowJar") {
-  outgoing {
-    artifact(shadowJar)
-  }
 }
 
 configurations.create("testsJar") {

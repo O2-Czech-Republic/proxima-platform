@@ -16,7 +16,6 @@
 
 plugins {
   id 'cz.o2.proxima.java-conventions'
-  alias libs.plugins.shadow
 }
 
 dependencies {
@@ -39,18 +38,3 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-beam-io-pubsub'
-
-jar {
-  enabled = false
-  dependsOn(shadowJar { archiveClassifier = null })
-}
-
-shadowJar {
-  relocate "com.google.common", "${coreShade}.com.google.common"
-}
-
-configurations.create("shadowJar") {
-  outgoing {
-    artifact(shadowJar)
-  }
-}

@@ -15,8 +15,6 @@
  */
 
 plugins {
-  id 'cz.o2.proxima.java-conventions'
-  alias libs.plugins.shadow
   alias libs.plugins.protobuf
 }
 
@@ -32,18 +30,11 @@ protobuf {
   protoc { artifact = libraries.protoc }
 }
 
-jar {
-  enabled = false
-  dependsOn(shadowJar { archiveClassifier = null })
-}
-
 shadowJar {
-  relocate "com.google.common", "${coreShade}.com.google.common"
-  relocate "com.google.protobuf", "${serializationShade}.com.google.protobuf"
-}
-
-configurations.create("shadowJar") {
-  outgoing {
-    artifact(shadowJar)
+  dependencies {
+    include(project(project.path))
+    include(dependency(".*:.*"))
   }
+  relocate "com.google.common", "${coreShade}.com.google.common"
+  relocate "com.google", "${serializationShade}.com.google"
 }

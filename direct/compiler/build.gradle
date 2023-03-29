@@ -16,7 +16,6 @@
 
 plugins {
   id 'cz.o2.proxima.java-conventions'
-  alias libs.plugins.shadow
 }
 
 dependencies {
@@ -34,14 +33,3 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-direct-compiler-plugin'
-
-jar {
-  enabled = false
-  dependsOn(shadowJar { archiveClassifier = null })
-}
-
-configurations.create("shadowJar") {
-  outgoing {
-    artifact(shadowJar)
-  }
-}

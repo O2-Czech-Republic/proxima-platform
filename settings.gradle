@@ -124,7 +124,6 @@ dependencyResolutionManagement {
   versionCatalogs {
     libs {
       plugin "protobuf", "com.google.protobuf" version "0.9.2"
-      plugin "shadow", 'com.github.johnrengelman.shadow' version '7.1.2'
     }
   }
 }

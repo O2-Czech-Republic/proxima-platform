@@ -47,4 +47,4 @@ jobs:
     - name: Build with Gradle
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: ./gradlew build
+      run: ./.github/workflows/gradle.sh ${{ matrix.java-version }}

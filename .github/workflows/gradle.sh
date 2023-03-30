@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright 2017-2023 O2 Czech Republic, a.s.
 #
@@ -14,12 +15,19 @@
 # limitations under the License.
 #
 
-org.gradle.jvmargs=-Xmx4096m
-org.gradle.parallel=true
+
+set -e
+
+IS_PR=$([[ ! -z $GITHUB_HEAD_REF ]] && echo ${GITHUB_HEAD_REF} || echo false)
+BRANCH=${GITHUB_REF##*/}
 
 
-# sonarcloud
-systemProp.sonar.host.url=https://sonarcloud.io
-systemProp.sonar.organization=datadriven
-systemProp.sonar.projectKey=cz.o2.proxima:platform-parent
-systemProp.sonar.login=21787938b088389dc6edfdf1cf4008e91b81e70b
+if [[ $1 == "11" ]]; then
+  if [[ "${IS_PR}" != "false" ]] || [[ "${BRANCH}" == "master" ]]; then
+    ./gradlew build -x test && ./gradlew test sonar -Pwith-coverage --no-parallel
+    exit $?
+  fi
+fi
+
+./gradlew build
+

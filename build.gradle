@@ -23,6 +23,7 @@ buildscript {
 plugins {
   id "com.github.hierynomus.license" version "0.16.1"
   id 'com.github.johnrengelman.shadow' version '7.1.2'
+  id "org.sonarqube" version "4.0.0.2929"
 }
 
 subprojects {
@@ -88,6 +89,28 @@ subprojects {
         useGpgCmd()
         publishing.publications.each { signing.sign(it) }
       }
+    }
+  }
+
+}
+
+sonar {
+  properties {
+    property "sonar.sourceEncoding", "UTF-8"
+    property 'sonar.coverage.jacoco.xmlReportPaths', "${projectDir.path}/build/reports/jacoco/test/jacocoTestReport.xml"
+  }
+}
+
+if (project.hasProperty("with-coverage")) {
+  subprojects {
+    apply plugin: 'jacoco'
+    jacocoTestReport {
+      reports {
+        xml.required = true
+      }
+    }
+    test {
+      finalizedBy jacocoTestReport
     }
   }
 }

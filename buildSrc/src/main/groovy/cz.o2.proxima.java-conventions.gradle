@@ -38,6 +38,7 @@ java.sourceCompatibility = JavaVersion.VERSION_11
 def auto_service_version = "1.0.1"
 def grpc_version = "1.52.1"
 def guava_version = "31.1-jre"
+def groovy_version = "4.0.11"
 def lombok_version = "1.18.16"
 def protobuf_version = "3.21.12"
 
@@ -48,6 +49,8 @@ ext.libraries = [
   protobuf_java_util: "com.google.protobuf:protobuf-java-util:${protobuf_version}",
   protoc: "com.google.protobuf:protoc:${protobuf_version}",
   gen_grpc: "io.grpc:protoc-gen-grpc-java:${grpc_version}",
+  groovy: "org.apache.groovy:groovy:${groovy_version}",
+  groovysh: "org.apache.groovy:groovy-groovysh:${groovy_version}",
   grpc_core: "io.grpc:grpc-core:${grpc_version}",
   grpc_api: "io.grpc:grpc-api:${grpc_version}",
   grpc_netty: "io.grpc:grpc-netty:${grpc_version}",

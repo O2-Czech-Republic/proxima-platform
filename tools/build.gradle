@@ -25,8 +25,8 @@ sourceSets.all { it.java.srcDirs = []; it.groovy.srcDirs += ["src/${it.name}/jav
 
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
-  api 'org.apache.groovy:groovy:4.0.10'
-  api 'org.apache.groovy:groovy-groovysh:4.0.10'
+  api libraries.groovy
+  api libraries.groovysh
   api 'jline:jline:2.14.6'
   api libraries.grpc_core
   api 'org.freemarker:freemarker:2.3.30'

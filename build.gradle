@@ -41,7 +41,7 @@ subprojects {
     mapping("conf", "SLASHSTAR_STYLE")
     mapping("cql", "SLASHSTAR_STYLE")
   }
-  
+
   jar {
     enabled = false
     dependsOn shadowJar

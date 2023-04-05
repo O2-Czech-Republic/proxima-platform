@@ -47,17 +47,70 @@ subprojects {
     dependsOn shadowJar
   }
 
+  configurations {
+    intoShadow
+    api.extendsFrom intoShadow
+  }
+
   shadowJar {
     archiveClassifier = null
     dependencies {
-      include(project(project.path))
+      exclude "META-INF/maven/**"
     }
     relocate "com.google.common", "${coreShade}.com.google.common"
+
+    mergeServiceFiles()
+  }
+
+  tasks.register("configureShadow") {
+    doLast {
+      shadowJar.configurations = [ project.configurations.intoShadow ]
+    }
+  }
+
+  tasks.named("shadowJar") {
+    dependsOn "configureShadow"
   }
 
   configurations.create("shadowJar") {
     outgoing {
       artifact(shadowJar)
+    }
+  }
+
+  publishing {
+    publications {
+      maven(MavenPublication) { publication ->
+        project.shadow.component(publication)
+
+        pom.withXml {
+          //def dependenciesNode = asNode().appendNode('dependencies')
+          def dependenciesNode = asNode().getAt('dependencies')[0]
+
+          configurations.api.allDependencies
+              .findAll {!configurations.intoShadow.dependencies.contains(it) }
+              .each {
+
+            def dependencyNode = dependenciesNode.appendNode('dependency')
+            dependencyNode.appendNode('groupId', it.group)
+            dependencyNode.appendNode('artifactId', it.name)
+            dependencyNode.appendNode('version', it.version)
+            dependencyNode.appendNode('scope', 'compile')
+          }
+
+          configurations.implementation.allDependencies
+              .findAll {!configurations.intoShadow.dependencies.contains(it) }
+              .findAll {!configurations.api.dependencies.contains(it) }
+              .each {
+
+            def dependencyNode = dependenciesNode.appendNode('dependency')
+            dependencyNode.appendNode('groupId', it.group)
+            dependencyNode.appendNode('artifactId', it.name)
+            dependencyNode.appendNode('version', it.version)
+            dependencyNode.appendNode('scope', 'runtime')
+          }
+        }
+      }
     }
   }
 
@@ -80,7 +133,7 @@ subprojects {
     tasks.named("javadoc") {
       dependsOn compileJava, compileTestJava
     }
-    project.publishing.publications.maven.artifact(shadowJar)
+    //project.publishing.publications.maven.artifact(shadowJar)
     project.publishing.publications.maven.artifact(sourcesJar)
     project.publishing.publications.maven.artifact(javadocJar)
     if (project.hasProperty("release")) {
@@ -113,5 +166,64 @@ if (project.hasProperty("with-coverage")) {
       finalizedBy jacocoTestReport
     }
   }
+}
+
+
+import com.github.jengelman.gradle.plugins.shadow.transformers.Transformer
+import com.github.jengelman.gradle.plugins.shadow.transformers.TransformerContext
+import shadow.org.apache.tools.zip.ZipEntry
+import shadow.org.apache.tools.zip.ZipOutputStream
+import org.gradle.api.file.FileTreeElement
+import org.codehaus.plexus.util.IOUtil
+
+@groovy.transform.CompileStatic
+class RenamingTransformer implements Transformer {
+
+  private Closure<String> renameClosure = { null }
+
+  private final Map<String, String> transformedPaths = [:]
+  private final Map<String, byte[]> contents = [:]
+
+  @Override
+  boolean canTransformResource(FileTreeElement element) {
+    renameClosure(element.relativePath.pathString) != null
+  }
+
+  @Override
+  void transform(TransformerContext context) {
+    def path = context.path
+    def outputPath = renameClosure(path)
+    if (outputPath != null) {
+      transformedPaths[path] = outputPath
+      contents[path] = getBytes(context.is)
+    }  
+  }
+
+  @Override
+  boolean hasTransformedResource() { !transformedPaths.isEmpty() }
+
+  @Override
+  void modifyOutputStream(ZipOutputStream os, boolean preserveFileTimestamps) {
+    def zipWriter = new OutputStreamWriter(os, "UTF-8")
+    transformedPaths.each { path, renamedPath ->
+      ZipEntry entry = new ZipEntry(renamedPath)
+      entry.time = TransformerContext.getEntryTimestamp(preserveFileTimestamps, entry.time)
+      os.putNextEntry(entry)
+      IOUtil.copy(new ByteArrayInputStream(contents[path]), zipWriter)
+      zipWriter.flush()
+      os.closeEntry()
+    }
+  }
+
+  private byte[] getBytes(InputStream in) {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream()
+    IOUtil.copy(in, baos)
+    baos.toByteArray()
+  }
+}
+
+@groovy.transform.CompileStatic
+def renamingTransformer() {
+  RenamingTransformer.class
 }
 

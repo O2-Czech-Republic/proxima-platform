@@ -19,8 +19,8 @@ plugins {
 }
 
 dependencies {
-  api libraries.protobuf_java
-  api libraries.protobuf_java_util
+  intoShadow libraries.protobuf_java
+  intoShadow libraries.protobuf_java_util
   compileOnly libraries.guava
 }
 
@@ -31,10 +31,6 @@ protobuf {
 }
 
 shadowJar {
-  dependencies {
-    include(project(project.path))
-    include(dependency(".*:.*"))
-  }
   relocate "com.google.common", "${coreShade}.com.google.common"
   relocate "com.google", "${serializationShade}.com.google"
 }

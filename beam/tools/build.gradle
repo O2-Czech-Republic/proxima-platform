@@ -28,10 +28,10 @@ dependencies {
   api 'org.apache.beam:beam-sdks-java-core:2.46.0'
   api 'org.apache.beam:beam-sdks-java-extensions-join-library:2.46.0'
   api 'org.apache.beam:beam-sdks-java-extensions-kryo:2.46.0'
-  api libraries.grpc_core
-  api libraries.grpc_protobuf
-  api libraries.grpc_stub
-  api libraries.grpc_netty_shaded
+  intoShadow libraries.grpc_core
+  intoShadow libraries.grpc_protobuf
+  intoShadow libraries.grpc_stub
+  intoShadow libraries.grpc_netty_shaded
   api 'org.slf4j:slf4j-api:1.7.30'
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -93,4 +93,18 @@ protobuf {
   generateProtoTasks {
     all()*.plugins { grpc {} }
   }
+}
+
+shadowJar {
+  transform(renamingTransformer()) {
+    renameClosure = {
+      if (it.startsWith("META-INF/native/libio_grpc_netty_shaded_")) {
+        return "META-INF/native/libcz_o2_proxima_beam_tools_shaded_${it.substring(19)}"
+      }
+      if (it.startsWith("META-INF/native/io_grpc_netty_shaded_")) {
+        return "META-INF/native/cz_o2_proxima_beam_tools_shaded_${it.substring(16)}"
+      }
+    }
+  }
+  relocate "io.grpc", "cz.o2.proxima.beam.tools.shaded.io.grpc"
 }

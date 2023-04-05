@@ -153,11 +153,5 @@ spotless {
   }
 }
 
-publishing {
-  publications {
-    maven(MavenPublication) {
-    }
-  }
-}
 
 

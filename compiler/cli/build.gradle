@@ -19,15 +19,8 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-compiler-java-lib')
+  intoShadow project(':proxima-compiler-java-lib')
   api 'org.slf4j:slf4j-simple:1.7.30'
 }
 
 description = 'cz.o2.proxima:proxima-compiler-java-cli'
-
-shadowJar {
-  dependencies {
-    include(project(":proxima-compiler-java-lib"))
-    include(dependency(".*:.*"))
-  }
-}

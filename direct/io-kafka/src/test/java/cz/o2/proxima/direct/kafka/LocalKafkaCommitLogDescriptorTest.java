@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.*;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
@@ -641,12 +642,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     // commit already processed offsets
     c1.commitSync(
-        new HashMap<TopicPartition, OffsetAndMetadata>() {
-          {
-            put(new TopicPartition("topic", 0), new OffsetAndMetadata(1));
-            put(new TopicPartition("topic", 1), new OffsetAndMetadata(1));
-          }
-        });
+        ImmutableMap.of(
+            new TopicPartition("topic", 0), new OffsetAndMetadata(1),
+            new TopicPartition("topic", 1), new OffsetAndMetadata(1)));
 
     // create another consumer
     KafkaConsumer<Object, Object> c2 = accessor.createConsumerFactory().create(name);
@@ -709,12 +707,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(1, poll.count());
 
     // commit already processed offsets
-    c1.commitSync(
-        new HashMap<TopicPartition, OffsetAndMetadata>() {
-          {
-            put(new TopicPartition("topic", 0), new OffsetAndMetadata(2));
-          }
-        });
+    c1.commitSync(ImmutableMap.of(new TopicPartition("topic", 0), new OffsetAndMetadata(2)));
 
     // create another consumer
     KafkaConsumer<Object, Object> c2 = accessor.createConsumerFactory().create(name);

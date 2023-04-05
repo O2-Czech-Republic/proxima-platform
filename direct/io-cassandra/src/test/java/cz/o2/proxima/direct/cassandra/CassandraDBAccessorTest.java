@@ -110,7 +110,7 @@ public class CassandraDBAccessorTest {
     }
   }
 
-  static final class TestCqlFactory extends DefaultCqlFactory {
+  public static final class TestCqlFactory extends DefaultCqlFactory {
 
     @Override
     public Optional<BoundStatement> getWriteStatement(StreamElement ingest, Session session) {

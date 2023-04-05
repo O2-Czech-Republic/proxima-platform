@@ -17,6 +17,7 @@ package cz.o2.proxima.scheme.proto;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
@@ -47,7 +48,6 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -115,12 +115,11 @@ public class ProtoSerializerFactoryTest {
     Event created =
         accessor.createFrom(
             StructureValue.of(
-                new HashMap<String, Object>() {
-                  {
-                    put("gatewayId", "gatewayId value");
-                    put("payload", "payload value".getBytes(StandardCharsets.UTF_8));
-                  }
-                }));
+                ImmutableMap.of(
+                    "gatewayId",
+                    "gatewayId value",
+                    "payload",
+                    "payload value".getBytes(StandardCharsets.UTF_8))));
     assertEquals("gatewayId value", created.getGatewayId());
     assertEquals("payload value", created.getPayload().toStringUtf8());
   }

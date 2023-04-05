@@ -33,6 +33,7 @@ dependencies {
   testCompileOnly libraries.lombok
   testCompileOnly 'com.google.guava:guava:31.1-jre'
   testCompileOnly libraries.auto_service
+  testCompileOnly libraries.guava
   annotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
   testAnnotationProcessor libraries.lombok

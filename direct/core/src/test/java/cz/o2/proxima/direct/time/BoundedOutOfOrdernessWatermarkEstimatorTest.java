@@ -25,6 +25,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
@@ -34,7 +35,6 @@ import cz.o2.proxima.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -156,11 +156,7 @@ public class BoundedOutOfOrdernessWatermarkEstimatorTest {
   @Test
   public void testFactory() {
     Map<String, Object> cfg =
-        new HashMap<String, Object>() {
-          {
-            put(prefixedKey(MAX_OUT_OF_ORDERNESS_MS), OUT_OF_ORDERNESS);
-          }
-        };
+        ImmutableMap.of(prefixedKey(MAX_OUT_OF_ORDERNESS_MS), OUT_OF_ORDERNESS);
 
     WatermarkIdlePolicyFactory idlePolicyFactory = mock(WatermarkIdlePolicyFactory.class);
     when(idlePolicyFactory.create(cfg)).thenReturn(mock(WatermarkIdlePolicy.class));

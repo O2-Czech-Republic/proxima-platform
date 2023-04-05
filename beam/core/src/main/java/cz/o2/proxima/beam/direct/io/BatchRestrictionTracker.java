@@ -110,8 +110,7 @@ public class BatchRestrictionTracker extends RestrictionTracker<PartitionList, P
         return false;
       }
       PartitionList that = (PartitionList) o;
-      return Objects.equals(partitions, that.partitions)
-          && Objects.equals(totalLimit, that.totalLimit);
+      return Objects.equals(partitions, that.partitions) && totalLimit == that.totalLimit;
     }
 
     @Override

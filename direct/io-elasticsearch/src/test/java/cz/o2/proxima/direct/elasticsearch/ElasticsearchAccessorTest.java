@@ -21,13 +21,13 @@ import static cz.o2.proxima.direct.elasticsearch.ElasticsearchAccessor.DEFAULT_S
 import static cz.o2.proxima.direct.elasticsearch.ElasticsearchAccessor.parseIndexName;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -91,19 +91,17 @@ class ElasticsearchAccessorTest {
   @Test
   void testConfiguration() {
     Map<String, Object> cfg =
-        new HashMap<String, Object>() {
-          {
-            put("elasticsearch.scheme", "https");
-            put("elasticsearch.connect-timeout-ms", 10);
-            put("elasticsearch.connection-request-timeout-ms", 20);
-            put("elasticsearch.socket-timeout-ms", 30);
-            put("elasticsearch.keystore-type", "JKS");
-            put("elasticsearch.keystore-path", "/opt/k1");
-            put("elasticsearch.keystore-password", "secret");
-            put("elasticsearch.truststore-path", "/opt/k2");
-            put("elasticsearch.truststore-password", "secret2");
-          }
-        };
+        ImmutableMap.<String, Object>builder()
+            .put("elasticsearch.scheme", "https")
+            .put("elasticsearch.connect-timeout-ms", 10)
+            .put("elasticsearch.connection-request-timeout-ms", 20)
+            .put("elasticsearch.socket-timeout-ms", 30)
+            .put("elasticsearch.keystore-type", "JKS")
+            .put("elasticsearch.keystore-path", "/opt/k1")
+            .put("elasticsearch.keystore-password", "secret")
+            .put("elasticsearch.truststore-path", "/opt/k2")
+            .put("elasticsearch.truststore-password", "secret2")
+            .build();
 
     ElasticsearchAccessor accessor =
         new ElasticsearchAccessor(

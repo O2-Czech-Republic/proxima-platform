@@ -18,11 +18,11 @@
 
 set -e
 
-IS_PR=$([[ ! -z $GITHUB_HEAD_REF ]] && echo ${GITHUB_HEAD_REF} || echo false)
+IS_PR=$([[ -n "${GITHUB_HEAD_REF}" ]] && echo "${GITHUB_HEAD_REF}" || echo false)
 BRANCH=${GITHUB_REF##*/}
 
 
-if [[ $1 == "11" ]]; then
+if [[ "${1}" == "11" ]]; then
   if [[ "${IS_PR}" != "false" ]] || [[ "${BRANCH}" == "master" ]]; then
     ./gradlew build -x test && ./gradlew test sonar -Pwith-coverage --no-parallel
     exit $?

@@ -222,7 +222,7 @@ class SchemaRegistryValueSerializer<M extends GenericContainer> implements Value
 
   private String getSchemaRegistrySubject(URI uri) {
     List<String> paths = UriUtil.parsePath(uri);
-    Preconditions.checkArgument(!paths.isEmpty(), "Subject cannot be empty! Uri: {}!", uri);
+    Preconditions.checkArgument(!paths.isEmpty(), "Subject cannot be empty! Uri: %s!", uri);
     return paths.get(paths.size() - 1);
   }
 }

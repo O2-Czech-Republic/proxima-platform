@@ -118,7 +118,7 @@ public class ModelGenerator {
     }
 
     try (FileOutputStream out = new FileOutputStream(outputFile)) {
-      generate(new OutputStreamWriter(out));
+      generate(new OutputStreamWriter(out, StandardCharsets.UTF_8));
     }
   }
 

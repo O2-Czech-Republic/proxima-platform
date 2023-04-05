@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.http;
 
 import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -26,7 +27,6 @@ import cz.o2.proxima.util.TestUtils;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Collections;
-import java.util.HashMap;
 import org.junit.Test;
 
 /** Verify that all accessors are serializable. */
@@ -58,12 +58,7 @@ public class SerializableTest implements Serializable {
         new WebsocketReader(
             entity,
             new URI("ws://test"),
-            new HashMap<String, Object>() {
-              {
-                put("hello", "hi");
-                put("attributes", Lists.newArrayList("*"));
-              }
-            });
+            ImmutableMap.of("hello", "hi", "attributes", Lists.newArrayList("*")));
     WebsocketReader.Factory<?> deserialized =
         TestUtils.deserializeObject(TestUtils.serializeObject(reader.asFactory()));
     assertEquals(reader, deserialized.apply(repo));

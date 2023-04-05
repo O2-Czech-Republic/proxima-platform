@@ -36,6 +36,7 @@ version = '0.12-SNAPSHOT'
 java.sourceCompatibility = JavaVersion.VERSION_11
 
 def auto_service_version = "1.0.1"
+def errorprone_version = "2.18.0"
 def grpc_version = "1.52.1"
 def guava_version = "31.1-jre"
 def groovy_version = "4.0.11"
@@ -72,6 +73,68 @@ tasks.withType(JavaCompile) {
   dependsOn "spotlessApply"
   options.encoding = 'UTF-8'
 }
+
+// Enable errorprone static analysis
+project.apply plugin: 'net.ltgt.errorprone'
+
+project.dependencies {
+  errorprone("com.google.errorprone:error_prone_core:$errorprone_version")
+  errorprone("jp.skypencil.errorprone.slf4j:errorprone-slf4j:0.1.2")
+  // At least JDk 9 compiler is required, however JDK 8 still can be used but with additional errorproneJavac
+  // configuration. For more details please see https://github.com/tbroyer/gradle-errorprone-plugin#jdk-8-support
+  //errorproneJavac("com.google.errorprone:javac:9+181-r4173-1")
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.errorprone.excludedPaths = ".+/generated/.+"
+  options.errorprone.disableAllWarnings = true
+  options.errorprone.errorproneArgs.add("-Xep:AutoValueImmutableFields:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:AutoValueSubclassLeaked:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:BadImport:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:BadInstanceof:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:BigDecimalEquals:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:ComparableType:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:DoNotMockAutoValue:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EmptyBlockTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EmptyCatch:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EqualsGetClass:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EqualsUnsafeCast:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EscapedEntity:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:ExtendsAutoValue:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InlineFormatString:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InlineMeSuggester:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidBlockTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidInlineTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidLink:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidParam:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidThrows:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:JavaTimeDefaultTimeZone:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:JavaUtilDate:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:JodaConstructors:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:MalformedInlineTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:MissingSummary:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:MixedMutabilityReturnType:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:PreferJavaTimeOverload:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:MutablePublicArray:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:NonCanonicalType:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:ProtectedMembersInFinalClass:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:Slf4jFormatShouldBeConst:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:Slf4jSignOnlyFormat:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:StaticAssignmentInConstructor:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:ThreadPriorityCheck:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:TimeUnitConversionChecker:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UndefinedEquals:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnescapedEntity:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnnecessaryLambda:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnnecessaryMethodReference:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnnecessaryParentheses:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnrecognisedJavadocTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnsafeReflectiveConstructionCast:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UseCorrectAssertInTests:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:Slf4jLoggerShouldBeNonStatic:OFF")
+}
+
+
 
 spotless {
   format 'misc', {

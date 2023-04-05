@@ -43,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
  * Implementation of {@link StructureValueAccessor} for ProtoBufs
  *
  * <p>Wrapper types are mapped to scalar equivalents as we can manage null values. See {@link
- * PrimitiveValueAccessor##createFieldAccessor(FieldDescriptor, Builder)} for details.
+ * ProtoMessageValueAccessor#createFieldAccessor(FieldDescriptor, Builder)} for details.
  *
  * @param <T> Protobuf message type
  */

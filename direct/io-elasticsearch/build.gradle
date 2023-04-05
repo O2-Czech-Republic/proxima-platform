@@ -32,6 +32,7 @@ dependencies {
   compileOnly libraries.lombok
   annotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
+  testCompileOnly libraries.guava
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-elasticsearch'

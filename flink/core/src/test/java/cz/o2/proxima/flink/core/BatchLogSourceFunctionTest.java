@@ -179,7 +179,7 @@ class BatchLogSourceFunctionTest {
       final int partitionId =
           Partitioners.getTruncatedPartitionId(partitioner, element, numCommitLogPartitions);
       final int subtaskId = partitionId % numSubtasks;
-      partitionElements.computeIfAbsent(partitionId, ArrayList::new).add(element);
+      partitionElements.computeIfAbsent(partitionId, p -> new ArrayList<>()).add(element);
       expectedElements.merge(subtaskId, 1, Integer::sum);
     }
 

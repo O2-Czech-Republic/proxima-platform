@@ -19,8 +19,8 @@ import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.direct.io.BatchRestrictionTracker.PartitionList;
+import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.BatchLogReader.Factory;
 import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -240,9 +240,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
           : ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
     }
 
-    private ObserveHandle startObserve(
-        Partition partition, cz.o2.proxima.direct.batch.BatchLogObserver observer) {
-
+    private ObserveHandle startObserve(Partition partition, BatchLogObserver observer) {
       BatchLogReader reader = readerFactory.apply(repositoryFactory.apply());
       return reader.observe(Collections.singletonList(partition), attributes, observer);
     }
@@ -310,7 +308,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   private final List<AttributeDescriptor<?>> attributes;
   private final long limit;
   private final RepositoryFactory repoFactory;
-  private final Factory<?> readerFactory;
+  private final BatchLogReader.Factory<?> readerFactory;
   private final long startStamp;
   private final long endStamp;
   private final int maxInitialSplits;

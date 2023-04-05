@@ -20,6 +20,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
@@ -83,8 +84,7 @@ abstract class BlockingQueueLogObserver<
   }
 
   @Internal
-  interface UnifiedContext
-      extends cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter, WatermarkSupplier {
+  interface UnifiedContext extends OffsetCommitter, WatermarkSupplier {
 
     boolean isBounded();
 

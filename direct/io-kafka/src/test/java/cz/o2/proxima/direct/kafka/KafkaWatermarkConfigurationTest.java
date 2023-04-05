@@ -17,11 +17,11 @@ package cz.o2.proxima.direct.kafka;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.direct.time.BoundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.direct.time.SkewedProcessingTimeIdlePolicy;
 import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.time.Watermarks;
-import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
 
@@ -30,12 +30,7 @@ public class KafkaWatermarkConfigurationTest {
   @Test
   public void testConfigureDefault() {
     // Check backward compatibility with legacy behaviour
-    Map<String, Object> cfg =
-        new HashMap<String, Object>() {
-          {
-            put("timestamp-skew", 10L);
-          }
-        };
+    Map<String, Object> cfg = ImmutableMap.of("timestamp-skew", 10L);
     KafkaWatermarkConfiguration configuration = new KafkaWatermarkConfiguration(cfg);
     WatermarkIdlePolicyFactory policyFactory = configuration.getWatermarkIdlePolicyFactory();
     BoundedOutOfOrdernessWatermarkEstimator estimator =

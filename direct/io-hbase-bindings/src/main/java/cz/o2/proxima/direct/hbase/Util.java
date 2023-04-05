@@ -44,7 +44,7 @@ class Util {
 
   static String getTable(URI uri) {
     List<String> paths = UriUtil.parsePath(uri);
-    Preconditions.checkArgument(!paths.isEmpty(), "Table cannot be empty in uri: {}!", uri);
+    Preconditions.checkArgument(!paths.isEmpty(), "Table cannot be empty in uri: %s!", uri);
     return paths.get(paths.size() - 1);
   }
 

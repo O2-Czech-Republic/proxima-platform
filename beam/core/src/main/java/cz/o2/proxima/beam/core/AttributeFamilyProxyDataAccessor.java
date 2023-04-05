@@ -173,7 +173,7 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
               .collect(Collectors.toList());
       Preconditions.checkArgument(
           transforms.size() == 1,
-          "When using {} only single attribute on input is allowed, got [%s] in [%s]",
+          "When using %s only single attribute on input is allowed, got [%s] in [%s]",
           BeamProxyTransform.class.getName(),
           proxies,
           attrs);

@@ -149,9 +149,8 @@ public class DirectBatchUnboundedSource
       int length = dis.readInt();
       byte[] bytes = new byte[length];
       dis.readFully(bytes);
-      GZIPInputStream gzin = new GZIPInputStream(new ByteArrayInputStream(bytes));
-      ObjectInputStream ois = new ObjectInputStream(gzin);
-      try {
+      try (GZIPInputStream gzin = new GZIPInputStream(new ByteArrayInputStream(bytes));
+          ObjectInputStream ois = new ObjectInputStream(gzin)) {
         return (Checkpoint) ois.readObject();
       } catch (ClassNotFoundException ex) {
         throw new CoderException(ex);

@@ -20,7 +20,7 @@ plugins {
 
 dependencies {
   api project(':proxima-direct-io-bulkfs')
-  api 'org.apache.parquet:parquet-hadoop:1.12.2'
+  intoShadow 'org.apache.parquet:parquet-hadoop:1.12.2'
   testImplementation project(path: ':proxima-direct-io-bulkfs', configuration: 'testsJar')
   testImplementation project(':proxima-scheme-proto')
   testImplementation project(':proxima-scheme-proto-testing')
@@ -41,3 +41,9 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-bulkfs-parquet'
+
+shadowJar {
+  ["com.google.gson", "org.apache.commons"].each {
+    relocate it, "cz.o2.proxima.direct.io.parquet.shaded.${it}"
+  }
+}

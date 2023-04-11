@@ -21,15 +21,24 @@ plugins {
 dependencies {
   api project(':proxima-direct-core')
   api project(path: ':proxima-io-serialization', configuration: 'shadowJar')
-  api 'org.apache.hadoop:hadoop-common:3.2.4'
-  api 'org.apache.hadoop:hadoop-auth:3.2.4'
-  api libraries.protobuf_java
+  api('org.apache.hadoop:hadoop-common:3.2.4') {
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+  }
+  api('org.apache.hadoop:hadoop-auth:3.2.4') {
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+  }
+  // use protobuf 2.5.0
+  intoShadow "com.google.protobuf:protobuf-java:2.5.0"
   api 'org.slf4j:slf4j-api:1.7.30'
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation 'org.apache.hadoop:hadoop-common:3.2.4'
   testImplementation 'org.apache.hbase:hbase-testing-util:2.5.3-hadoop3'
   testImplementation 'org.apache.hadoop:hadoop-hdfs:3.2.4'
-  testImplementation 'org.apache.hadoop:hadoop-hdfs:3.2.4'
+  testImplementation 'org.apache.hadoop:hadoop-hdfs:3.2.4:tests'
   testImplementation 'junit:junit:4.13.1'
   testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
   testImplementation 'org.mockito:mockito-core:3.10.0'

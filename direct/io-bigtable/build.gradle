@@ -15,20 +15,41 @@
  */
 
 plugins {
-    id 'cz.o2.proxima.java-conventions'
+  id 'cz.o2.proxima.java-conventions'
 }
 
 dependencies {
-    api project(':proxima-direct-core')
-    api project(':proxima-direct-io-hbase-bindings')
-    api 'com.google.cloud.bigtable:bigtable-hbase-2.x:1.12.0'
-    api 'com.google.cloud.bigtable:bigtable-client-core:1.12.0'
-    api 'xerces:xercesImpl:2.12.2'
-    testImplementation 'junit:junit:4.13.1'
-    testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-    testImplementation 'org.mockito:mockito-core:3.10.0'
-    compileOnly 'com.google.auto.service:auto-service:1.0'
-    compileOnly 'org.slf4j:log4j-over-slf4j:1.7.33'
+  api project(':proxima-direct-core')
+  intoShadow project(':proxima-direct-io-hbase-bindings')
+  intoShadow 'com.google.cloud.bigtable:bigtable-hbase-2.x:1.12.0'
+  intoShadow 'com.google.cloud.bigtable:bigtable-client-core:1.12.0'
+  intoShadow 'xerces:xercesImpl:2.12.2'
+  testImplementation 'junit:junit:4.13.1'
+  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
+  testImplementation 'org.mockito:mockito-core:3.10.0'
+  testRuntimeOnly 'org.slf4j:log4j-over-slf4j:1.7.33'
+  compileOnly libraries.auto_service
+  annotationProcessor libraries.auto_service
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-bigtable'
+
+shadowJar {
+  transform(renamingTransformer()) {
+    renameClosure = {
+      if (it.startsWith("META-INF/native/libio_grpc_netty_shaded_")) {
+        return "META-INF/native/libcz_o2_proxima_bigtable_shaded_${it.substring(19)}"
+      }
+      if (it.startsWith("META-INF/native/io_grpc_netty_shaded_")) {
+        return "META-INF/native/cz_o2_proxima_bigtable_shaded_${it.substring(16)}"
+      }
+    }
+  }
+
+  ["io.grpc", "io.opencensus", "com.google.api", "com.google.protobuf", "com.google.bigtable",
+   "com.google.cloud", "com.google.auth", "com.google.gson", "com.fasterxml", "org.apache.avro",
+   "org.apache.commons", "javax.xml", "org.apache.xerces"].each {
+
+    relocate it, "cz.o2.proxima.bigtable.shaded.${it}"
+  }
+}

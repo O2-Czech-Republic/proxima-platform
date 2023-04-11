@@ -19,9 +19,11 @@ plugins {
 }
 
 dependencies {
+  api project(path: ":proxima-core", configuration: "shadowJar")
+  api project(":proxima-direct-core")
   api project(':proxima-direct-io-hadoop')
-  api 'org.apache.hadoop:hadoop-common:3.2.4'
-  api 'org.apache.hadoop:hadoop-hdfs:3.2.4'
+  intoShadow 'org.apache.hadoop:hadoop-common:3.2.4'
+  intoShadow 'org.apache.hadoop:hadoop-hdfs:3.2.4'
   testImplementation 'junit:junit:4.13.1'
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -32,3 +34,11 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-hdfs'
+
+shadowJar {
+  ["io.netty", "javax.servlet", "javax.ws", "org.mortbay.jetty", "org.mortbay.servlet",
+   "com.google", "org.apache.commons", "org.objectweb", "org.codehaus", "com.fasterxml"].each {
+
+    relocate it, "cz.o2.proxima.hdfs.shaded.${it}"
+  }
+}

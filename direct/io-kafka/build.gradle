@@ -20,8 +20,14 @@ plugins {
 
 dependencies {
   api project(':proxima-direct-core')
-  api 'org.apache.kafka:kafka-clients:2.8.1'
-  api 'com.fasterxml.jackson.core:jackson-databind:2.12.6.1'
+  intoShadow('org.apache.kafka:kafka-clients:2.8.1') {
+    exclude group: "org.apache.kafka", module: "kafka-metadata"
+    exclude group: "org.apache.kafka", module: "kafka_2.13"
+    exclude group: "org.apache.kafka", module: "kafka-streams"
+    exclude group: "org.apache.kafka", module: "kafka-streams-test-utils"
+    exclude group: "org.springframework.kafka", module: "spring-kafka-test"
+  }
+  intoShadow 'com.fasterxml.jackson.core:jackson-databind:2.12.6.1'
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
@@ -60,3 +66,12 @@ configurations.create("testsJar") {
 }
 
 publishing.publications.maven.artifact(testsJar)
+
+shadowJar {
+  ["org.apache.kafka", "net.sf", "com.yammer", "scala", "com.101tec",
+   "org.apache.zookeeper", "com.google.protobuf", "com.fasterxml"].each {
+
+    relocate it, "cz.o2.proxima.kafka.shaded.${it}"
+  }
+
+}

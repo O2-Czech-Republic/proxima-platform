@@ -21,7 +21,7 @@ plugins {
 dependencies {
   api project(':proxima-direct-core')
   api project(':proxima-direct-io-blob')
-  api 'com.amazonaws:aws-java-sdk-s3:1.12.261'
+  intoShadow 'com.amazonaws:aws-java-sdk-s3:1.12.261'
   testImplementation 'junit:junit:4.13.1'
   testImplementation 'org.mockito:mockito-core:3.10.0'
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
@@ -38,3 +38,9 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-s3'
+
+shadowJar {
+  ["com.amazonaws", "com.fasterxml", "org.joda.time", "org.apache.http", "org.apache.commons"].each {
+    relocate it, "cz.o2.proxima.s3.shaded.${it}"
+  }
+}

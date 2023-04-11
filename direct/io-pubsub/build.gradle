@@ -21,9 +21,9 @@ plugins {
 dependencies {
   api project(':proxima-io-pubsub')
   api project(':proxima-direct-core')
-  api 'com.google.cloud:google-cloud-pubsub:1.101.0'
-  api 'com.google.protobuf:protobuf-java:3.21.12'
   api 'org.slf4j:slf4j-api:1.7.30'
+  intoShadow 'com.google.cloud:google-cloud-pubsub:1.101.0'
+  intoShadow 'com.google.protobuf:protobuf-java:3.21.12'
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
   testImplementation 'junit:junit:4.13.1'
@@ -44,3 +44,22 @@ tasks.register('testsJar', Jar) {
 }
 
 publishing.publications.maven.artifact(testsJar)
+
+shadowJar {
+  transform(renamingTransformer()) {
+    renameClosure = {
+      if (it.startsWith("META-INF/native/libio_grpc_netty_shaded_")) {
+        return "META-INF/native/libcz_o2_proxima_pubsub_shaded_${it.substring(19)}"
+      }
+      if (it.startsWith("META-INF/native/io_grpc_netty_shaded_")) {
+        return "META-INF/native/cz_o2_proxima_pubsub_shaded_${it.substring(16)}"
+      }
+    }
+  }
+
+  ["io.grpc", "io.opencensus", "com.google.api", "com.google.pubsub", "com.google.cloud", "com.google.auth",
+   "com.google.iam", "com.google.protobuf", "com.google.gson", "com.fasterxml", "org.apache.commons"].each {
+
+    relocate it, "cz.o2.proxima.pubsub.shaded.${it}"
+  }
+}

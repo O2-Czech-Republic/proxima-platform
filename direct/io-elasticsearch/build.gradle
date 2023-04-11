@@ -20,8 +20,8 @@ plugins {
 
 dependencies {
   api project(':proxima-direct-core')
-  api 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.17.2'
-  api 'com.google.code.gson:gson:2.8.9'
+  intoShadow 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.17.2'
+  intoShadow 'com.google.code.gson:gson:2.8.9'
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
@@ -36,3 +36,11 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-elasticsearch'
+
+shadowJar {
+  ["com.google.gson", "org.apache.commons", "org.apache.http", "org.elasticsearch",
+   "com.fasterxml", "org.joda.time"].each {
+
+    relocate it, "cz.o2.proxima.elasticsearch.shaded.${it}"
+  }
+}

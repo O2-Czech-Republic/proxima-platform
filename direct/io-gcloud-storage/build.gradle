@@ -28,7 +28,7 @@ dependencies {
   testImplementation 'org.mockito:mockito-core:3.10.0'
   testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
   compileOnly libraries.guava
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   annotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
@@ -41,7 +41,7 @@ description = 'cz.o2.proxima:proxima-direct-io-gcloud-storage'
 shadowJar {
   ["io.netty", "io.grpc", "io.opencensus", "com.google.api", "com.google.iam",
    "com.google.auth", "com.google.cloud", "org.codehaus.jackson", "com.google.protobuf",
-   "com.google.gson", "com.fasterxml", "org.apache.commons"].each {
+   "com.google.gson", "com.fasterxml", "org.apache.commons", "org.codehaus"].each {
 
     relocate it, "cz.o2.proxima.gcloud.storage.shaded.${it}"
   }

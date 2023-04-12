@@ -31,7 +31,10 @@ dependencies {
 description = 'cz.o2.proxima:proxima-direct-io-hbase'
 
 shadowJar {
-  ["io.netty", "com.google.protobuf", "org.codehaus", "com.fasterxml", "org.apache.commons"].each {
+  relocators.clear()
+  ["io.netty", "com.google.protobuf", "com.google.common", "org.codehaus",
+   "com.fasterxml", "org.apache.commons"].each {
+
     relocate it, "cz.o2.proxima.hbase.shaded.${it}"
   }
 }

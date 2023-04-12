@@ -36,15 +36,4 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-io-bulkfs'
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
-}
-
-configurations.create("testsJar") {
-  outgoing {
-    artifact(testsJar)
-  }
-}
-
-publishing.publications.maven.artifact(testsJar)
+registerTestsJar(project)

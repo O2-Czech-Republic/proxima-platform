@@ -19,12 +19,14 @@ plugins {
 }
 
 dependencies {
+  api project(path: ':proxima-core', configuration: 'shadowJar')
   api project(':proxima-scheme-avro')
   api 'io.confluent:kafka-schema-registry-client:5.1.0'
+  compileOnly libraries.guava
   testImplementation project(path: ':proxima-scheme-avro', configuration: 'testsJar')
   testImplementation 'junit:junit:4.13.1'
   testImplementation libraries.guava
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   annotationProcessor libraries.auto_service
   annotationProcessor libraries.lombok

@@ -20,7 +20,7 @@ plugins {
 
 dependencies {
   intoShadow project(':proxima-compiler-java-lib')
-  api 'org.slf4j:slf4j-simple:1.7.30'
+  intoShadow 'org.slf4j:slf4j-simple:1.7.30'
 }
 
 description = 'cz.o2.proxima:proxima-compiler-java-cli'

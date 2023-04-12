@@ -29,7 +29,7 @@ dependencies {
   testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
   testImplementation libraries.guava
   compileOnly libraries.guava
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   annotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service

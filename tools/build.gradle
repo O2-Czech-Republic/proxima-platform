@@ -42,7 +42,7 @@ dependencies {
   testImplementation libraries.guava
   compileOnly project(':proxima-direct-core')
   compileOnly libraries.guava
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   testCompileOnly libraries.auto_service
   testCompileOnly libraries.lombok
@@ -54,15 +54,4 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-tools'
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
-}
-
-configurations.create("testsJar") {
-  outgoing {
-    artifact(testsJar)
-  }
-}
-
-publishing.publications.maven.artifact(testsJar)
+registerTestsJar(project)

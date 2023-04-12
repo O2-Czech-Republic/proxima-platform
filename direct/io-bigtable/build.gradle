@@ -28,7 +28,7 @@ dependencies {
   testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
   testImplementation 'org.mockito:mockito-core:3.10.0'
   testRuntimeOnly 'org.slf4j:log4j-over-slf4j:1.7.33'
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   annotationProcessor libraries.auto_service
 }
 
@@ -48,7 +48,7 @@ shadowJar {
 
   ["io.grpc", "io.opencensus", "com.google.api", "com.google.protobuf", "com.google.bigtable",
    "com.google.cloud", "com.google.auth", "com.google.gson", "com.fasterxml", "org.apache.avro",
-   "org.apache.commons", "javax.xml", "org.apache.xerces"].each {
+   "org.apache.commons", "javax.xml", "org.apache.xerces", "org.codehaus"].each {
 
     relocate it, "cz.o2.proxima.bigtable.shaded.${it}"
   }

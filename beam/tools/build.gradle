@@ -61,7 +61,7 @@ dependencies {
   compileOnly 'org.apache.beam:beam-runners-flink-1.13:2.46.0'
   compileOnly 'org.apache.beam:beam-runners-spark-3:2.46.0'
   compileOnly 'org.apache.flink:flink-clients_2.12:1.13.5'
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   annotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
@@ -70,6 +70,8 @@ dependencies {
   testAnnotationProcessor libraries.lombok
   testAnnotationProcessor libraries.auto_service
 }
+
+description = 'cz.o2.proxima:proxima-beam-tools'
 
 configurations.all {
   resolutionStrategy {
@@ -82,8 +84,6 @@ configurations.all {
     force "com.fasterxml.jackson.module:jackson-module-scala_${scala_version}:${jackson_version}"
   }
 }
-
-description = 'cz.o2.proxima:proxima-beam-tools'
 
 protobuf {
   protoc { artifact = libraries.protoc }
@@ -106,5 +106,7 @@ shadowJar {
       }
     }
   }
-  relocate "io.grpc", "cz.o2.proxima.beam.tools.shaded.io.grpc"
+  ["io.grpc", "com.google.protobuf"].each {
+    relocate it, "cz.o2.proxima.beam.tools.shaded.${it}"
+  }
 }

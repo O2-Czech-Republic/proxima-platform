@@ -65,6 +65,12 @@ subprojects {
   tasks.register("configureShadow") {
     doLast {
       shadowJar.configurations = [ project.configurations.intoShadow ]
+      if (tasks.findByPath("testsJar")) {
+        // apply all relocations from shadowJar to testsJar
+        shadowJar.relocators.each {
+          testsJar.relocate it
+        }
+      }
     }
   }
 
@@ -91,11 +97,7 @@ subprojects {
               .findAll {!configurations.intoShadow.dependencies.contains(it) }
               .each {
 
-            def dependencyNode = dependenciesNode.appendNode('dependency')
-            dependencyNode.appendNode('groupId', it.group)
-            dependencyNode.appendNode('artifactId', it.name)
-            dependencyNode.appendNode('version', it.version)
-            dependencyNode.appendNode('scope', 'compile')
+            processDependency(dependenciesNode, it, "compile")
           }
 
           configurations.implementation.allDependencies
@@ -103,11 +105,15 @@ subprojects {
               .findAll {!configurations.api.dependencies.contains(it) }
               .each {
 
-            def dependencyNode = dependenciesNode.appendNode('dependency')
-            dependencyNode.appendNode('groupId', it.group)
-            dependencyNode.appendNode('artifactId', it.name)
-            dependencyNode.appendNode('version', it.version)
-            dependencyNode.appendNode('scope', 'runtime')
+            processDependency(dependenciesNode, it, "runtime")
+          }
+
+          configurations.testImplementation.allDependencies
+              .findAll {!configurations.intoShadow.dependencies.contains(it) }
+              .findAll {!configurations.api.dependencies.contains(it) }
+              .each {
+
+            processDependency(dependenciesNode, it, "test")
           }
         }
       }
@@ -133,7 +139,6 @@ subprojects {
     tasks.named("javadoc") {
       dependsOn compileJava, compileTestJava
     }
-    //project.publishing.publications.maven.artifact(shadowJar)
     project.publishing.publications.maven.artifact(sourcesJar)
     project.publishing.publications.maven.artifact(javadocJar)
     if (project.hasProperty("release")) {
@@ -227,3 +232,39 @@ def renamingTransformer() {
   RenamingTransformer.class
 }
 
+def registerTestsJar(Project project) {
+  registerTestsJar(project, {})
+}
+
+def registerTestsJar(Project project, Closure configureClosure) {
+  def tasks = project.tasks
+  //def configurations = project.configurations
+  //def sourceSets = project.sourceSets
+  tasks.register('testsJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    dependsOn project.tasks["configureShadow"]
+    archiveClassifier = 'tests'
+    from project.sourceSets.test.output
+    configurations = [project.configurations.testRuntimeClasspath]
+  }
+  def testsJar = project.tasks["testsJar"]
+  project.publishing.publications.maven.artifact(testsJar)
+  project.configurations.create("testsJar") {
+    outgoing {
+      artifact(testsJar)
+    }
+  }
+  testsJar.exclude "*.jar"
+  configureClosure.delegate = testsJar
+  configureClosure()
+}
+
+def processDependency(def dependenciesNode, def it, def scope) {
+  def dependencyNode = dependenciesNode.appendNode('dependency')
+  dependencyNode.appendNode('groupId', it.group)
+  dependencyNode.appendNode('artifactId', it.name)
+  dependencyNode.appendNode('version', it.version)
+  dependencyNode.appendNode('scope', scope)
+  if (it.artifacts.find { a -> a.classifier }) {
+    dependencyNode.appendNode("classifier", it.artifacts.find { a -> a.classifier }?.classifier)
+  }
+}

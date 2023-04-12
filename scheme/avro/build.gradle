@@ -22,7 +22,7 @@ plugins {
 dependencies {
   api project(path: ":proxima-core", configuration: "shadowJar")
   api 'org.apache.avro:avro:1.11.0'
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   testImplementation 'junit:junit:4.13.1'
   annotationProcessor libraries.auto_service
@@ -33,23 +33,16 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-scheme-avro'
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
-}
-
-configurations.create("testsJar") {
-  outgoing {
-    artifact(testsJar)
-  }
-}
-
 spotlessJava.dependsOn generateTestAvroJava
-
-publishing.publications.maven.artifact(testsJar)
 
 spotless {
   java {
     targetExclude('**/generated*/**')
   }
 }
+
+shadowJar {
+  relocate "com.fasterxml", "cz.o2.proxima.scheme.avro.shaded.com.fasterxml"
+}
+
+registerTestsJar(project)

@@ -46,6 +46,7 @@ def log4j_version = "2.19.0"
 
 ext.libraries = [
   auto_service: "com.google.auto.service:auto-service:${auto_service_version}",
+  auto_service_annotations: "com.google.auto.service:auto-service-annotations:${auto_service_version}",
   lombok: "org.projectlombok:lombok:${lombok_version}",
   protobuf_java: "com.google.protobuf:protobuf-java:${protobuf_version}",
   protobuf_java_util: "com.google.protobuf:protobuf-java-util:${protobuf_version}",

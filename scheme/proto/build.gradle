@@ -24,7 +24,7 @@ dependencies {
   api libraries.protobuf_java
   api libraries.protobuf_java_util
   api 'org.slf4j:slf4j-api:1.7.30'
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   testImplementation project(path: ":proxima-core", configuration: "testsJar")
   testImplementation 'junit:junit:4.13.1'
@@ -40,16 +40,4 @@ protobuf {
   protoc { artifact = libraries.protoc }
 }
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
-}
-
-configurations.create("testsJar") {
-  outgoing {
-    artifact(testsJar)
-  }
-}
-
-
-publishing.publications.maven.artifact(testsJar)
+registerTestsJar(project)

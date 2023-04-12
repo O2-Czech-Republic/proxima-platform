@@ -41,7 +41,7 @@ dependencies {
   testImplementation 'org.apache.kafka:kafka-streams:2.8.1'
   testImplementation 'org.apache.kafka:kafka-streams-test-utils:2.8.1'
   testImplementation libraries.guava
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.guava
   compileOnly libraries.lombok
   testCompileOnly libraries.auto_service
@@ -54,24 +54,12 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-io-kafka'
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
-}
-
-configurations.create("testsJar") {
-  outgoing {
-    artifact(testsJar)
-  }
-}
-
-publishing.publications.maven.artifact(testsJar)
-
 shadowJar {
   ["org.apache.kafka", "net.sf", "com.yammer", "scala", "com.101tec",
    "org.apache.zookeeper", "com.google.protobuf", "com.fasterxml"].each {
 
     relocate it, "cz.o2.proxima.kafka.shaded.${it}"
   }
-
 }
+
+registerTestsJar(project)

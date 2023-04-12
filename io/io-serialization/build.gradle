@@ -31,6 +31,5 @@ protobuf {
 }
 
 shadowJar {
-  relocate "com.google.common", "${coreShade}.com.google.common"
   relocate "com.google", "${serializationShade}.com.google"
 }

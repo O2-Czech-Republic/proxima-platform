@@ -23,7 +23,7 @@ dependencies {
   testImplementation 'junit:junit:4.13.1'
   testImplementation 'org.mockito:mockito-core:3.10.0'
   testImplementation 'pl.pragmatists:JUnitParams:1.1.1'
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   annotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
@@ -36,23 +36,11 @@ dependencies {
 description = 'cz.o2.proxima:proxima-core'
 
 shadowJar {
-  relocate "com.google", "${coreShade}.com.google"
   relocate "com.tdunning", "${coreShade}.com.tdunning"
 }
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
-}
+registerTestsJar(project)
 
 test {
   forkEvery 1
 }
-
-configurations.create("testsJar") {
-  outgoing {
-    artifact(testsJar)
-  }
-}
-
-publishing.publications.maven.artifact(testsJar)

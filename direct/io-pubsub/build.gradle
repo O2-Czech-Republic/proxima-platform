@@ -28,7 +28,7 @@ dependencies {
   testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
   testImplementation 'junit:junit:4.13.1'
   testImplementation 'org.mockito:mockito-core:3.10.0'
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.lombok
   annotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
@@ -38,14 +38,8 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-io-pubsub'
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
-}
-
-publishing.publications.maven.artifact(testsJar)
-
 shadowJar {
+  relocators.clear()
   transform(renamingTransformer()) {
     renameClosure = {
       if (it.startsWith("META-INF/native/libio_grpc_netty_shaded_")) {
@@ -57,9 +51,12 @@ shadowJar {
     }
   }
 
-  ["io.grpc", "io.opencensus", "com.google.api", "com.google.pubsub", "com.google.cloud", "com.google.auth",
-   "com.google.iam", "com.google.protobuf", "com.google.gson", "com.fasterxml", "org.apache.commons"].each {
+  ["io.grpc", "io.opencensus", "com.google.api", "com.google.pubsub", "com.google.cloud",
+   "com.google.common", "com.google.auth", "com.google.iam", "com.google.protobuf",
+    "com.google.gson", "com.fasterxml", "org.apache.commons", "org.codehaus"].each {
 
     relocate it, "cz.o2.proxima.pubsub.shaded.${it}"
   }
 }
+
+registerTestsJar(project)

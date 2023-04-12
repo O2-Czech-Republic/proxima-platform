@@ -28,7 +28,7 @@ dependencies {
   testImplementation libraries.guava
   testImplementation 'org.apache.hadoop:hadoop-common:3.2.4'
   compileOnly 'org.apache.hadoop:hadoop-common:3.2.4'
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.guava
   compileOnly libraries.lombok
   annotationProcessor libraries.auto_service

@@ -27,7 +27,7 @@ dependencies {
   testImplementation 'org.mockito:mockito-core:3.10.0'
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.12.6.1'
   testImplementation libraries.guava
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly libraries.guava
   compileOnly libraries.lombok
   testCompileOnly libraries.lombok
@@ -42,19 +42,15 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-core'
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
-}
-
-configurations.create("testsJar") {
-  outgoing {
-    artifact(testsJar)
-  }
+registerTestsJar(project) {
+  excludes.clear()
+  include "META-INF/services/**"
+  include "**/*.class"
+  include { it.path.startsWith("jackson") }
+  relocate "com.fasterxml", "cz.o2.proxima.direct.core.test.shaded.com.fasterxml"
+  mergeServiceFiles()
 }
 
 test {
   forkEvery 1
 }
-
-publishing.publications.maven.artifact(testsJar)

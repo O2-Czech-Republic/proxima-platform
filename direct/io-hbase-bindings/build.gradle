@@ -42,7 +42,7 @@ dependencies {
   testImplementation 'junit:junit:4.13.1'
   testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
   testImplementation 'org.mockito:mockito-core:3.10.0'
-  compileOnly libraries.auto_service
+  compileOnly libraries.auto_service_annotations
   compileOnly 'org.apache.hbase:hbase-client:2.5.3-hadoop3'
   compileOnly libraries.lombok
   annotationProcessor libraries.lombok
@@ -51,9 +51,6 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-io-hbase-bindings'
 
-tasks.register('testsJar', Jar) {
-  archiveClassifier = 'tests'
-  from(sourceSets.test.output)
+shadowJar {
+  relocate "com.google.protobuf", "cz.o2.proxima.direct.hbase.bindings.com.google.protobuf"
 }
-
-publishing.publications.maven.artifact(testsJar)

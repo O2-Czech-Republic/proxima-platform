@@ -20,17 +20,6 @@ plugins {
   id "com.diffplug.spotless"
 }
 
-repositories {
-  mavenLocal()
-  maven {
-    url = uri('https://repo.maven.apache.org/maven2/')
-  }
-
-  maven {
-    url = uri('https://packages.confluent.io/maven/')
-  }
-}
-
 group = 'cz.o2.proxima'
 version = '0.12-SNAPSHOT'
 java.sourceCompatibility = JavaVersion.VERSION_11

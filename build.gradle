@@ -24,18 +24,25 @@ plugins {
   id "com.github.hierynomus.license" version "0.16.1"
   id 'com.github.johnrengelman.shadow' version '7.1.2'
   id "org.sonarqube" version "4.0.0.2929"
-  id "io.freefair.aggregate-javadoc" version "8.0.1"
 }
 
-dependencies {
-  rootProject.subprojects { subproject ->
-    subproject.plugins.withId("java") {
-      javadoc subproject
-    }
+repositories {
+  mavenLocal()
+  mavenCentral()
+  maven {
+    url = uri('https://packages.confluent.io/maven/')
   }
 }
 
 subprojects {
+
+  repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+      url = uri('https://packages.confluent.io/maven/')
+    }
+  }
 
   apply plugin: 'cz.o2.proxima.java-conventions'
   apply plugin: 'com.github.johnrengelman.shadow'
@@ -97,15 +104,15 @@ subprojects {
     }
   }
 
-  tasks.named("shadowJar") {
-    dependsOn "configureShadow"
-  }
+  shadowJar.dependsOn configureShadow
 
   configurations.create("shadowJar") {
     outgoing {
       artifact(shadowJar)
     }
   }
+
+
 
   publishing {
     publications {
@@ -196,6 +203,17 @@ if (project.hasProperty("with-coverage")) {
   }
 }
 
+
+task javadocAggregate(type: Javadoc) {
+  group = "Documentation"
+  description = "Generate aggregated javadoc"
+  subprojects.each {
+    dependsOn it.compileJava, it.compileTestJava
+  }
+  source subprojects.collect { it.sourceSets.main.java }
+  classpath = files(subprojects.collect { it.sourceSets.main.compileClasspath })
+  destinationDir = file("${buildDir}/docs/javadoc")
+}
 
 
 import com.github.jengelman.gradle.plugins.shadow.transformers.Transformer

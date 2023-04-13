@@ -25,9 +25,7 @@ dependencies {
   provided libraries.guava
   testImplementation project(path: ':proxima-scheme-avro', configuration: 'testsJar')
   testImplementation libraries.junit4
-
   compileOnly libraries.auto_service_annotations
-
   annotationProcessor libraries.auto_service
   compileAnnotationProcessor libraries.lombok
 }

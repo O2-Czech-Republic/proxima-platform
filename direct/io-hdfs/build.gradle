@@ -22,15 +22,15 @@ dependencies {
   api project(path: ":proxima-core", configuration: "shadowJar")
   api project(":proxima-direct-core")
   api project(':proxima-direct-io-hadoop')
-  intoShadow 'org.apache.hadoop:hadoop-common:3.2.4'
-  intoShadow 'org.apache.hadoop:hadoop-hdfs:3.2.4'
-  testImplementation 'junit:junit:4.13.1'
+  intoShadow libraries.hadoop_common
+  intoShadow libraries.hadoop_hdfs
+  testImplementation libraries.junit4
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  compileOnly 'org.slf4j:log4j-over-slf4j:1.7.33'
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+  testImplementation libraries.slf4j_log4j
+  compileOnly libraries.log4j_over_slf4j
+
+  compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-hdfs'

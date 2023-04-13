@@ -21,11 +21,10 @@ plugins {
 dependencies {
   api project(':proxima-direct-core')
   intoShadow project(':proxima-direct-io-hbase-bindings')
-  intoShadow 'org.apache.hadoop:hadoop-common:3.2.4'
-  intoShadow 'org.apache.hbase:hbase-client:2.5.3-hadoop3'
-  intoShadow 'org.apache.hbase:hbase-common:2.5.3-hadoop3'
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+  intoShadow libraries.hadoop_common
+  intoShadow libraries.hbase_client
+  intoShadow libraries.hbase_common
+  compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-hbase'

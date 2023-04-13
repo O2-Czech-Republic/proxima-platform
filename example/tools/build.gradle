@@ -23,17 +23,17 @@ dependencies {
   api project(':proxima-scheme-proto')
   api project(':proxima-tools')
   api project(':proxima-beam-tools')
-  api 'org.apache.beam:beam-runners-direct-java:2.46.0'
+  api libraries.beam_runners_direct
   api project(':proxima-direct-io-cassandra')
   api project(':proxima-direct-io-kafka')
   api project(':proxima-direct-io-hadoop')
   api project(':example-model')
   api 'jline:jline:2.14.6'
-  api 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  testImplementation 'junit:junit:4.13.1'
-  testImplementation 'org.mockito:mockito-core:3.10.0'
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+  api libraries.slf4j_log4j
+  testImplementation libraries.junit4
+  testImplementation libraries.mockito_core
+
+  compileAnnotationProcessor libraries.lombok
 }
 
 group = 'cz.o2.proxima.example'

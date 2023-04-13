@@ -21,7 +21,7 @@ plugins {
 dependencies {
   intoShadow libraries.protobuf_java
   intoShadow libraries.protobuf_java_util
-  compileOnly libraries.guava
+  provided libraries.guava
 }
 
 description = 'cz.o2.proxima:proxima-io-serialization'

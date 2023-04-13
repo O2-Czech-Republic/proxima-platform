@@ -20,22 +20,22 @@ plugins {
 
 dependencies {
   api project(':proxima-direct-core')
-  api 'org.slf4j:slf4j-api:1.7.30'
+  api libraries.slf4j_api
   testImplementation project(':proxima-scheme-proto')
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation project(':proxima-direct-io-kafka')
   testImplementation project(path: ':proxima-direct-io-kafka', configuration: 'testsJar')
   testImplementation project(':proxima-scheme-proto')
-  testImplementation 'org.mockito:mockito-core:3.10.0'
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  testImplementation 'junit:junit:4.13.1'
-  testImplementation libraries.guava
-  compileOnly libraries.guava
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
-  testCompileOnly libraries.lombok
-  testAnnotationProcessor libraries.lombok
+  testImplementation libraries.mockito_core
+  testImplementation libraries.slf4j_log4j
+  testImplementation libraries.junit4
+
+  provided libraries.guava
+
+  compileAnnotationProcessor libraries.lombok
+
+
 }
 
 description = 'cz.o2.proxima:proxima-transaction-manager'

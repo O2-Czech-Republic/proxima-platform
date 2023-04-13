@@ -18,16 +18,17 @@ plugins {
   id 'cz.o2.proxima.java-conventions'
 }
 
+def maven_version = "3.6.1"
+
 dependencies {
   api project(':proxima-compiler-java-lib')
-  api 'org.apache.maven:maven-project:2.2.1'
-  api 'org.apache.maven:maven-plugin-api:3.6.1'
-  testImplementation 'junit:junit:4.13.1'
-  testImplementation 'org.mockito:mockito-core:3.10.0'
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  compileOnly 'org.apache.maven.plugin-tools:maven-plugin-annotations:3.6.0'
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+  api "org.apache.maven:maven-project:2.2.1"
+  api "org.apache.maven:maven-plugin-api:${maven_version}"
+  testImplementation libraries.junit4
+  testImplementation libraries.mockito_core
+  testImplementation libraries.slf4j_log4j
+  compileOnly "org.apache.maven.plugin-tools:maven-plugin-annotations:${maven_version}"
+  compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-compiler-java-maven-plugin'

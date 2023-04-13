@@ -20,16 +20,16 @@ plugins {
 
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
-  api 'org.slf4j:slf4j-api:1.7.30'
+  api libraries.slf4j_api
   intoShadow 'com.google.code.gson:gson:2.8.9'
-  compileOnly libraries.guava
+  provided libraries.guava
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  testImplementation 'junit:junit:4.13.1'
-  testImplementation 'org.mockito:mockito-core:3.10.0'
-  testImplementation libraries.guava
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+  testImplementation libraries.slf4j_log4j
+  testImplementation libraries.junit4
+  testImplementation libraries.mockito_core
+
+
+  compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-flink-utils'

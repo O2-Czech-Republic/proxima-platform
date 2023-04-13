@@ -25,16 +25,13 @@ dependencies {
   intoShadow 'com.datastax.cassandra:cassandra-driver-core:3.11.0'
   intoShadow 'io.netty:netty-handler:4.1.42.Final'
   intoShadow 'commons-codec:commons-codec:1.10'
-  testImplementation 'junit:junit:4.13.1'
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
+  testImplementation libraries.junit4
+  testImplementation libraries.slf4j_log4j
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
-  testImplementation 'org.mockito:mockito-core:3.10.0'
+  testImplementation libraries.mockito_core
   compileOnly libraries.auto_service_annotations
-  compileOnly libraries.lombok
-  testCompileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+  compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
-  testAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-cassandra'

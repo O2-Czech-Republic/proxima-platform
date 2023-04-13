@@ -23,12 +23,12 @@ dependencies {
   api project(path: ":proxima-core", configuration: "shadowJar")
   api 'org.apache.avro:avro:1.11.0'
   compileOnly libraries.auto_service_annotations
-  compileOnly libraries.lombok
-  testImplementation 'junit:junit:4.13.1'
+
+  testImplementation libraries.junit4
   annotationProcessor libraries.auto_service
-  annotationProcessor libraries.lombok
-  testCompileOnly libraries.lombok
-  testAnnotationProcessor libraries.lombok
+  compileAnnotationProcessor libraries.lombok
+
+
 }
 
 description = 'cz.o2.proxima:proxima-scheme-avro'

@@ -24,16 +24,16 @@ dependencies {
   intoShadow 'com.google.cloud:google-cloud-storage:1.101.0'
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
-  testImplementation 'junit:junit:4.13.1'
-  testImplementation 'org.mockito:mockito-core:3.10.0'
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  compileOnly libraries.guava
+  testImplementation libraries.junit4
+  testImplementation libraries.mockito_core
+  testImplementation libraries.slf4j_log4j
+  provided libraries.guava
   compileOnly libraries.auto_service_annotations
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+
+  compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
-  testCompileOnly libraries.lombok
-  testAnnotationProcessor libraries.lombok
+
+
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-gcloud-storage'

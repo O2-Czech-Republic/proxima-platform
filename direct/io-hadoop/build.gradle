@@ -21,20 +21,16 @@ plugins {
 dependencies {
   api project(':proxima-direct-core')
   api project(':proxima-direct-io-bulkfs')
-  testImplementation 'junit:junit:4.13.1'
+  testImplementation libraries.junit4
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  testImplementation libraries.guava
-  testImplementation 'org.apache.hadoop:hadoop-common:3.2.4'
-  compileOnly 'org.apache.hadoop:hadoop-common:3.2.4'
+  testImplementation libraries.slf4j_log4j
+  provided libraries.hadoop_common
+  compileOnly libraries.hadoop_common
   compileOnly libraries.auto_service_annotations
-  compileOnly libraries.guava
-  compileOnly libraries.lombok
+  provided libraries.guava
   annotationProcessor libraries.auto_service
-  annotationProcessor libraries.lombok
-  testCompileOnly libraries.lombok
-  testAnnotationProcessor libraries.lombok
+  compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-hadoop'

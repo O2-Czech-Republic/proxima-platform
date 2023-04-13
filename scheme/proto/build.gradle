@@ -23,15 +23,13 @@ dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
   api libraries.protobuf_java
   api libraries.protobuf_java_util
-  api 'org.slf4j:slf4j-api:1.7.30'
+  api libraries.slf4j_api
   compileOnly libraries.auto_service_annotations
-  compileOnly libraries.lombok
+
   testImplementation project(path: ":proxima-core", configuration: "testsJar")
-  testImplementation 'junit:junit:4.13.1'
-  testCompileOnly libraries.lombok
+  testImplementation libraries.junit4
   annotationProcessor libraries.auto_service
-  annotationProcessor libraries.lombok
-  testAnnotationProcessor libraries.lombok
+  compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-scheme-proto'

@@ -23,15 +23,15 @@ dependencies {
   api project(':proxima-direct-io-cassandra')
   api project(':proxima-direct-io-hbase')
   api project(':proxima-direct-io-hdfs')
-  api 'org.slf4j:slf4j-api:1.7.30'
+  api libraries.slf4j_api
   compileOnly project(path: ':proxima-compiler-java-cli', configuration: 'shadowJar')
   compileOnly project(path: ':proxima-direct-compiler-plugin', configuration: 'shadowJar')
   testImplementation project(path: ':proxima-direct-core')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  testImplementation 'junit:junit:4.13.1'
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+  testImplementation libraries.slf4j_log4j
+  testImplementation libraries.junit4
+
+  compileAnnotationProcessor libraries.lombok
 }
 
 group = 'cz.o2.proxima.example'

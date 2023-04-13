@@ -22,14 +22,14 @@ dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
   api project(':proxima-scheme-avro')
   api 'io.confluent:kafka-schema-registry-client:5.1.0'
-  compileOnly libraries.guava
+  provided libraries.guava
   testImplementation project(path: ':proxima-scheme-avro', configuration: 'testsJar')
-  testImplementation 'junit:junit:4.13.1'
-  testImplementation libraries.guava
+  testImplementation libraries.junit4
+
   compileOnly libraries.auto_service_annotations
-  compileOnly libraries.lombok
+
   annotationProcessor libraries.auto_service
-  annotationProcessor libraries.lombok
+  compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-scheme-confluent'

@@ -27,6 +27,7 @@ plugins {
 }
 
 subprojects {
+
   apply plugin: 'cz.o2.proxima.java-conventions'
   apply plugin: 'com.github.johnrengelman.shadow'
 
@@ -48,6 +49,19 @@ subprojects {
   }
 
   configurations {
+
+    // generic rules
+    compileAnnotationProcessor
+    provided
+
+    compileClasspath.extendsFrom compileAnnotationProcessor
+    annotationProcessor.extendsFrom compileAnnotationProcessor
+    testAnnotationProcessor.extendsFrom annotationProcessor
+    testCompileOnly.extendsFrom testAnnotationProcessor
+    compileOnly.extendsFrom provided
+    testImplementation.extendsFrom provided
+
+    // for shadow
     intoShadow
     api.extendsFrom intoShadow
   }

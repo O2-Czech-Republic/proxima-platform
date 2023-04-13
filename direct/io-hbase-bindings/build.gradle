@@ -21,31 +21,30 @@ plugins {
 dependencies {
   api project(':proxima-direct-core')
   api project(path: ':proxima-io-serialization', configuration: 'shadowJar')
-  api('org.apache.hadoop:hadoop-common:3.2.4') {
+  api(libraries.hadoop_common) {
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
   }
-  api('org.apache.hadoop:hadoop-auth:3.2.4') {
+  api(libraries.hadoop_auth) {
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
   }
   // use protobuf 2.5.0
   intoShadow "com.google.protobuf:protobuf-java:2.5.0"
-  api 'org.slf4j:slf4j-api:1.7.30'
+  api libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
-  testImplementation 'org.apache.hadoop:hadoop-common:3.2.4'
-  testImplementation 'org.apache.hbase:hbase-testing-util:2.5.3-hadoop3'
-  testImplementation 'org.apache.hadoop:hadoop-hdfs:3.2.4'
-  testImplementation 'org.apache.hadoop:hadoop-hdfs:3.2.4:tests'
-  testImplementation 'junit:junit:4.13.1'
-  testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.19.0'
-  testImplementation 'org.mockito:mockito-core:3.10.0'
+  testImplementation libraries.hadoop_common
+  testImplementation libraries.hbase_testing_util
+  testImplementation libraries.hadoop_hdfs
+  testImplementation libraries.hadoop_hdfs_tests
+  testImplementation libraries.junit4
+  testImplementation libraries.slf4j_log4j
+  testImplementation libraries.mockito_core
   compileOnly libraries.auto_service_annotations
-  compileOnly 'org.apache.hbase:hbase-client:2.5.3-hadoop3'
-  compileOnly libraries.lombok
-  annotationProcessor libraries.lombok
+  compileOnly libraries.hbase_client
+  compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
 }
 

@@ -39,4 +39,4 @@ jobs:
       env:
         MAVEN_SETTINGS: ${{ secrets.MAVEN_SETTINGS }}
         GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-      run: ./.github/workflows/deploy-snapshot.sh 11
+      run: ./.github/workflows/deploy-snapshot.sh

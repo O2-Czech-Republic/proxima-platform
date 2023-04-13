@@ -19,9 +19,9 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-io-pubsub')
   api project(':proxima-direct-core')
   api libraries.slf4j_api
+  intoShadow project(':proxima-io-pubsub')
   intoShadow 'com.google.cloud:google-cloud-pubsub:1.101.0'
   intoShadow 'com.google.protobuf:protobuf-java:3.21.12'
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
@@ -29,11 +29,8 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   compileOnly libraries.auto_service_annotations
-
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
-
-
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-pubsub'

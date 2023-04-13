@@ -34,7 +34,13 @@ repositories {
   }
 }
 
+version = '0.12-SNAPSHOT'
+group = 'cz.o2.proxima'
+
 subprojects {
+
+  version = rootProject.version
+  group = rootProject.group
 
   repositories {
     mavenLocal()
@@ -112,35 +118,48 @@ subprojects {
     }
   }
 
-
-
   publishing {
     publications {
       maven(MavenPublication) { publication ->
         project.shadow.component(publication)
 
-        pom.withXml {
-          //def dependenciesNode = asNode().appendNode('dependencies')
-          def dependenciesNode = asNode().getAt('dependencies')[0]
+        pom {
+          name = "Proxima platform's module ${project.name}"
+          scm {
+            connection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
+            developerConnection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
+            url = "https://github.com/O2-Czech-Republic/proxima-platform.git"
+          }
+          licenses {
+            license {
+              name = 'The Apache License, Version 2.0'
+              url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+            }
+          }
+        }
 
-          configurations.api.allDependencies
+        pom.withXml {
+          def dependenciesNode = asNode()['dependencies'][0]
+
+          configurations.compileClasspath.allDependencies
               .findAll {!configurations.intoShadow.dependencies.contains(it) }
               .each {
 
             processDependency(dependenciesNode, it, "compile")
           }
 
-          configurations.implementation.allDependencies
-              .findAll {!configurations.intoShadow.dependencies.contains(it) }
-              .findAll {!configurations.api.dependencies.contains(it) }
+          configurations.runtimeClasspath.allDependencies
+              .findAll {!configurations.intoShadow.allDependencies.contains(it) }
+              .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
               .each {
 
             processDependency(dependenciesNode, it, "runtime")
           }
 
-          configurations.testImplementation.allDependencies
-              .findAll {!configurations.intoShadow.dependencies.contains(it) }
-              .findAll {!configurations.api.dependencies.contains(it) }
+          configurations.testRuntimeClasspath.allDependencies
+              .findAll {!configurations.intoShadow.allDependencies.contains(it) }
+              .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
+              .findAll {!configurations.runtimeClasspath.allDependencies.contains(it) }
               .each {
 
             processDependency(dependenciesNode, it, "test")
@@ -148,7 +167,32 @@ subprojects {
         }
       }
     }
+
+    repositories {
+      def configureCredentials = {
+        if (project.hasProperty("sonatypeUsername")) {
+          username sonatypeUsername
+          password sonatypePassword
+        }
+      }
+      if (project.version.endsWith("-SNAPSHOT")) {
+        maven {
+          name = "sonatype"
+          url = "https://oss.sonatype.org/content/repositories/snapshots"
+          configureCredentials.delegate = credentials
+          configureCredentials()
+        }
+      } else {
+        maven {
+          name = "sonatype"
+          url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+          configureCredentials.delegate = credentials
+          configureCredentials()
+        }
+      }
+    }
   }
+
 
   if (project.hasProperty("publish") || project.hasProperty("release")) {
     java {
@@ -179,7 +223,6 @@ subprojects {
       }
     }
   }
-
 }
 
 sonar {

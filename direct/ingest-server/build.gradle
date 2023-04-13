@@ -35,11 +35,7 @@ dependencies {
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
-
-
   compileAnnotationProcessor libraries.lombok
-
-
 }
 
 description = 'cz.o2.proxima:proxima-ingest-server-grpc'

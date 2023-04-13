@@ -18,29 +18,14 @@
 function deploy() {
 
   set -eu
-  VERSION=$1
   git submodule update
-  echo "${MAVEN_SETTINGS}" > /tmp/settings.xml
-  echo "${GOOGLE_CREDENTIALS}" > /tmp/google-credentials.json
 
-  export GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-credentials.json
   TRY=0
 
-  echo "Going to deploy version ${VERSION}"
-
-  mvn versions:set -DnewVersion=${VERSION}
-
   while [ $TRY -lt 3 ]; do
-    CMD="mvn -s /tmp/settings.xml deploy -DskipTests -Prelease-snapshot -Pallow-snapshots -Pwith-doc"
-    if [ ! -z "${RESUME}" ]; then
-      CMD="${CMD} $(echo "${RESUME}" | sed "s/.\+\(-rf .\+\)/\1/")"
-    fi
-    echo "Starting to deploy step $((TRY + 1)) with command ${CMD}"
-    touch output${TRY}.log
-    tail -f output${TRY}.log &
-    RESUME=$(${CMD} | tee output${TRY}.log | grep -A1 "After correcting the problems, you can resume the build with the command" | tail -1)
-    if [ -z "${RESUME}" ]; then
-      break
+    echo "Starting to deploy step $((TRY + 1))"
+    if ./gradlew publish -Ppublish; then
+      break;
     fi
     TRY="$((TRY+1))"
   done
@@ -53,55 +38,16 @@ function deploy() {
 
 }
 
-function verify_jdk() {
-  JDK=$1
-
-  if ! mvn -version | grep "Java version: ${JDK}"; then
-    echo "Failed to verify required JDK version ${JDK}"
-    return 1
-  fi
-}
+source $(dirname $0)/functions.sh
 
 set -eu
 
-VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | grep SNAPSHOT | grep -v INFO)
-JDK8_VERSION=$(echo "${VERSION}" | sed "s/\(.\+\)-SNAPSHOT/\1-jdk8-SNAPSHOT/")
+export GRADLE_USER_HOME=/tmp
+echo "${GRADLE_PROPERTIES}" > /tmp/gradle.properties
+VERSION=$(proxima_version)
 
-if [ -z "${VERSION}" ]; then
-  echo "Failed to retrieve version from repository"
-  exit 1
-fi
-
-TARGET_JDK=$([ $# -gt 0 ] && echo "${1}" || echo "")
-
-if [ -z "${TARGET_JDK}" ] || [ "${TARGET_JDK}" != "8" -a "${TARGET_JDK}" != "11" ]; then
-  echo "Missing target JDK argument, must be either 8 or 11"
-  exit 1
-fi
-
-
-echo "${MAVEN_SETTINGS}" > /tmp/settings.xml
-echo "${GOOGLE_CREDENTIALS}" > /tmp/google-credentials.json
-
-export GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-credentials.json
-
-RESUME=""
 if echo "${VERSION}" | grep SNAPSHOT >/dev/null && echo "${GITHUB_REPOSITORY}" | grep O2-Czech-Republic >/dev/null; then
-
-  case "${TARGET_JDK}" in
-
-    "8")
-      verify_jdk "1\.8"
-      deploy ${JDK8_VERSION}
-      ;;
-
-    "11")
-      verify_jdk "11"
-      deploy ${VERSION}
-      ;;
-
-  esac
-
+  deploy
 fi
 
 

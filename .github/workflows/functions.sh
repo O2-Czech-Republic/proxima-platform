@@ -17,17 +17,7 @@
 
 
 proxima_version() {
-  oldPwd=$(pwd)
-  cd "${oldPwd}/$(dirname $BASH_SOURCE)/../../"
-  mvn help:evaluate -Dexpression=project.version -q -Doutput=/tmp/VERSION
-  local version=$(cat /tmp/VERSION)
-  cd $oldPwd
-  if [ -z "${version}" ]; then
-    messageFail "Unable to get version"
-    RET=1
-  else
-    echo $version
-  fi
+  ./gradlew properties | grep "version: " | cut -c10-
 }
 
 is_snapshot_version() {

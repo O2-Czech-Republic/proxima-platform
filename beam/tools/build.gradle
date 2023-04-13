@@ -43,10 +43,10 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.hamcrest
   testImplementation(libraries.beam_runners_flink) {
-    exclude group: "org.apache.flink", module: "flink-clients_2.11"
-    exclude group: "org.apache.flink", module: "flink-runtime_2.11"
-    exclude group: "org.apache.flink", module: "flink-streaming-java_2.11"
-    exclude group: "org.apache.flink", module: "flink-optimizer_2.11"
+    exclude group: "org.apache.flink", module: "flink-clients"
+    exclude group: "org.apache.flink", module: "flink-runtime"
+    exclude group: "org.apache.flink", module: "flink-streaming-java"
+    exclude group: "org.apache.flink", module: "flink-optimizer"
   }
   testImplementation libraries.beam_runners_spark
   testImplementation(libraries.spark_core) {

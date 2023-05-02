@@ -183,6 +183,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private State.Flags state;
     private long sequenceId = -1L;
     private long stamp = Long.MIN_VALUE;
+    private boolean canOpen = true;
 
     private Transaction(String transactionId) {
       this.transactionId = transactionId;

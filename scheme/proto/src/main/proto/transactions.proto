@@ -50,6 +50,7 @@ message ProtoRequest {
   repeated KeyAttribute outputAttribute = 2;
   Flags flags = 3;
   int32 responsePartitionId = 4;
+  bool autoOpen = 5
 }
 
 message ProtoResponse {

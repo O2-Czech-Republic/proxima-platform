@@ -41,7 +41,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -343,28 +342,13 @@ public abstract class BeamStreamProvider implements StreamProvider {
   @VisibleForTesting
   static void injectJarIntoContextClassLoader(Collection<File> paths) {
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    if (loader instanceof URLClassLoader) {
-      // this is fallback
-      paths.forEach(path -> injectUrlIntoClassloader((URLClassLoader) loader, path));
-    } else {
-      URL[] urls =
-          paths
-              .stream()
-              .map(p -> ExceptionUtils.uncheckedFactory(() -> p.toURI().toURL()))
-              .collect(Collectors.toList())
-              .toArray(new URL[] {});
-      Thread.currentThread().setContextClassLoader(new URLClassLoader(urls, loader));
-    }
-  }
-
-  private static void injectUrlIntoClassloader(URLClassLoader loader, File path) {
-    try {
-      Method addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
-      addUrl.setAccessible(true);
-      addUrl.invoke(loader, new URL("file://" + path.getAbsolutePath()));
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
+    URL[] urls =
+        paths
+            .stream()
+            .map(p -> ExceptionUtils.uncheckedFactory(() -> p.toURI().toURL()))
+            .collect(Collectors.toList())
+            .toArray(new URL[] {});
+    Thread.currentThread().setContextClassLoader(new URLClassLoader(urls, loader));
   }
 
   private @Nullable ToolsClassLoader getToolsClassLoader() {

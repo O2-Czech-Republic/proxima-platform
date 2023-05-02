@@ -82,17 +82,9 @@ public class BeamStreamProviderTest {
   @Test
   public void testInjectPathToClassloader() throws IOException {
     File f = File.createTempFile("dummy", ".tmp");
+    BeamStreamProvider.injectJarIntoContextClassLoader(Collections.singletonList(f));
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    boolean isURLClassLoader = loader instanceof URLClassLoader;
-    BeamStreamProvider.injectJarIntoContextClassLoader(Collections.singletonList(f));
-    if (isURLClassLoader) {
-      assertSame(loader, Thread.currentThread().getContextClassLoader());
-    } else {
-      loader = Thread.currentThread().getContextClassLoader();
-      assertTrue(loader instanceof URLClassLoader);
-    }
-    BeamStreamProvider.injectJarIntoContextClassLoader(Collections.singletonList(f));
-    assertSame(loader, Thread.currentThread().getContextClassLoader());
+    assertTrue(loader instanceof URLClassLoader);
   }
 
   @Test

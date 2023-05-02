@@ -279,8 +279,8 @@ public class TransactionLogObserverTest {
             KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
     Pair<String, Response> response = responseQueue.take();
     assertTrue(response.getFirst().startsWith("open."));
-    assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
-    assertEquals(firstResponse.getSecond().getSeqId() + 1, response.getSecond().getSeqId());
+    assertEquals(Response.Flags.DUPLICATE, response.getSecond().getFlags());
+    assertEquals(firstResponse.getSecond().getSeqId(), response.getSecond().getSeqId());
   }
 
   @Test(timeout = 10000)

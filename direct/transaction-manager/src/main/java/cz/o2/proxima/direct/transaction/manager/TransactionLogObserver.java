@@ -37,6 +37,7 @@ import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
+import cz.o2.proxima.transaction.Request.Flags;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Optionals;
@@ -444,10 +445,12 @@ public class TransactionLogObserver implements CommitLogObserver {
   State transitionState(String transactionId, State currentState, Request request) {
     switch (currentState.getFlags()) {
       case UNKNOWN:
+        if (request.getFlags() == Flags.OPEN) {
+          return transitionToOpen(transactionId, request);
+        }
+        break;
       case OPEN:
         switch (request.getFlags()) {
-          case OPEN:
-            return transitionToOpen(transactionId, request);
           case COMMIT:
             return transitionToCommitted(transactionId, currentState, request);
           case UPDATE:

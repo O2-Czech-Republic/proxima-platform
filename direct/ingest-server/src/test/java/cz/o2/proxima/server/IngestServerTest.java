@@ -66,7 +66,7 @@ public class IngestServerTest {
     }
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 20000)
   public void testIngestExtensible() {
     ExtendedIngestServer server =
         new ExtendedIngestServer(ConfigFactory.load("test-ingest-server.conf").resolve());

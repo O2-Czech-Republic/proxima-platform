@@ -217,9 +217,6 @@ public class ProtoSerializerFactoryTest {
             Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.UPDATE), request),
             Pair.of(newRequest(wildcardQuery, Request.Flags.OPEN), request),
             Pair.of(newRequest(Request.Flags.ROLLBACK), request),
-            Pair.of(
-                newRequest(Collections.singletonList(keyAttribute), Request.Flags.OPEN, true),
-                request),
             Pair.of(Response.forRequest(someRequest).open(1L, now), response),
             Pair.of(Response.forRequest(someRequest).updated(), response),
             Pair.of(Response.forRequest(someRequest).committed(), response),
@@ -319,16 +316,10 @@ public class ProtoSerializerFactoryTest {
   }
 
   private Request newRequest(List<KeyAttribute> keyAttributes, Request.Flags flags) {
-    return newRequest(keyAttributes, flags, false);
-  }
-
-  private Request newRequest(
-      List<KeyAttribute> keyAttributes, Request.Flags flags, boolean autoOpen) {
     return Request.builder()
         .inputAttributes(keyAttributes)
         .outputAttributes(keyAttributes)
         .responsePartitionId(1)
-        .autoOpen(autoOpen)
         .flags(flags)
         .build();
   }

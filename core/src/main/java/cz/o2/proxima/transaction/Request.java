@@ -43,27 +43,24 @@ public class Request implements Serializable {
   @Getter private final List<KeyAttribute> outputAttributes;
   @Getter private final Flags flags;
   @Getter private final int responsePartitionId;
-  @Getter private final boolean autoOpen;
 
   public Request() {
-    this(null, null, Flags.NONE, -1, true);
+    this(null, null, Flags.NONE, -1);
   }
 
   public Request(
       List<KeyAttribute> inputAttributes,
       List<KeyAttribute> outputAttributes,
       Flags flags,
-      int responsePartitionId,
-      boolean autoOpen) {
+      int responsePartitionId) {
 
     this.inputAttributes = inputAttributes == null ? Collections.emptyList() : inputAttributes;
     this.outputAttributes = outputAttributes == null ? Collections.emptyList() : outputAttributes;
     this.flags = flags;
     this.responsePartitionId = responsePartitionId;
-    this.autoOpen = autoOpen;
   }
 
   public Request withResponsePartitionId(int responsePartitionId) {
-    return new Request(inputAttributes, outputAttributes, flags, responsePartitionId, autoOpen);
+    return new Request(inputAttributes, outputAttributes, flags, responsePartitionId);
   }
 }

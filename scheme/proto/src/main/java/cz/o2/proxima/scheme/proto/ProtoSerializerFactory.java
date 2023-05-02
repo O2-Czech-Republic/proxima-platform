@@ -472,7 +472,6 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           .addAllOutputAttribute(asProtoKeyAttributes(request.getOutputAttributes()))
           .setFlags(asFlags(request.getFlags()))
           .setResponsePartitionId(request.getResponsePartitionId())
-          .setAutoOpen(request.isAutoOpen())
           .build();
     }
 
@@ -484,7 +483,6 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
               getKeyAttributesFromProto(repository, protoRequest.getOutputAttributeList()))
           .flags(asFlags(protoRequest.getFlags()))
           .responsePartitionId(protoRequest.getResponsePartitionId())
-          .autoOpen(protoRequest.getAutoOpen())
           .build();
     }
 

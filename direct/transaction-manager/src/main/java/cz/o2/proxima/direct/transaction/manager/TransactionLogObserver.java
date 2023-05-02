@@ -444,9 +444,6 @@ public class TransactionLogObserver implements CommitLogObserver {
   State transitionState(String transactionId, State currentState, Request request) {
     switch (currentState.getFlags()) {
       case UNKNOWN:
-        if (!request.isAutoOpen()) {
-          return transitionToAborted(transactionId, currentState);
-        }
       case OPEN:
         switch (request.getFlags()) {
           case OPEN:

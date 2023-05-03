@@ -21,13 +21,16 @@ set -e
 IS_PR=$([[ -n "${GITHUB_HEAD_REF}" ]] && echo "${GITHUB_HEAD_REF}" || echo false)
 BRANCH=${GITHUB_REF##*/}
 
+if [[ ! -z $GOOGLE_CREDENTIALS ]]; then
+  echo "${GOOGLE_CREDENTIALS}" >> /tmp/google-credentials.json
+fi
 
 if [[ "${1}" == "11" ]]; then
   if [[ "${IS_PR}" != "false" ]] || [[ "${BRANCH}" == "master" ]]; then
-    ./gradlew build -x test && ./gradlew test sonar -Pwith-coverage --no-parallel
+    ./gradlew build -x test --build-cache && ./gradlew test sonar -Pwith-coverage --no-parallel --build-cache
     exit $?
   fi
 fi
 
-./gradlew build
+./gradlew build --build-cache
 

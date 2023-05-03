@@ -128,3 +128,32 @@ dependencyResolutionManagement {
   }
 }
 
+buildscript {
+  repositories {
+    maven {
+      url 'https://plugins.gradle.org/m2/'
+    }
+  }
+  dependencies {
+    classpath 'net.idlestate:gradle-gcs-build-cache:1.2.2'
+  }
+}
+
+apply plugin: 'net.idlestate.gradle-gcs-build-cache'
+
+buildCache {
+  local {
+    enabled = false
+  }
+
+  remote(net.idlestate.gradle.caching.GCSBuildCache.class) {
+    if (file("/tmp/google-credentials.json").exists()) {
+      credentials = "/tmp/google-credentials.json"
+    }
+    bucket = 'pexeso-build-cache'
+    writeThreshold = 8 * 1024 * 1024 // 8 MiB
+    enabled = true
+    push = true
+  }
+}
+

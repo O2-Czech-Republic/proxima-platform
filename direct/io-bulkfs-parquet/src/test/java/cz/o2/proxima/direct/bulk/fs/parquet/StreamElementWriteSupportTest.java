@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.bulk.fs.parquet;
 
 import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.bulk.fs.parquet.StreamElementWriteSupport.Writer;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -34,7 +35,6 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import lombok.Getter;
@@ -156,12 +156,9 @@ public class StreamElementWriteSupportTest {
         SchemaDescriptors.arrays(
             SchemaDescriptors.structures(
                 "structure",
-                new HashMap<String, SchemaTypeDescriptor<?>>() {
-                  {
-                    put("field1", SchemaDescriptors.strings());
-                    put("field2", SchemaDescriptors.longs());
-                  }
-                }));
+                ImmutableMap.of(
+                    "field1", SchemaDescriptors.strings(),
+                    "field2", SchemaDescriptors.longs())));
     @SuppressWarnings("unchecked")
     Writer<List<Object>> writer =
         (Writer<List<Object>>)
@@ -173,18 +170,8 @@ public class StreamElementWriteSupportTest {
 
     writer.write(
         Arrays.asList(
-            new HashMap<String, Object>() {
-              {
-                put("field1", "1-field1");
-                put("field2", 8L);
-              }
-            },
-            new HashMap<String, Object>() {
-              {
-                put("field1", "2-field1");
-                put("field2", 88L);
-              }
-            }));
+            ImmutableMap.of("field1", "1-field1", "field2", 8L),
+            ImmutableMap.of("field1", "2-field1", "field2", 88L)));
     assertEquals(
         "<array[0]>"
             + "<group><list[0]><group>"
@@ -200,12 +187,9 @@ public class StreamElementWriteSupportTest {
     final StructureTypeDescriptor<Object> descriptor =
         SchemaDescriptors.structures(
             "structure",
-            new HashMap<String, SchemaTypeDescriptor<?>>() {
-              {
-                put("field1", SchemaDescriptors.strings());
-                put("field2", SchemaDescriptors.longs());
-              }
-            });
+            ImmutableMap.of(
+                "field1", SchemaDescriptors.strings(),
+                "field2", SchemaDescriptors.longs()));
     final GroupType schema =
         new GroupType(
             Repetition.OPTIONAL,
@@ -216,13 +200,7 @@ public class StreamElementWriteSupportTest {
     Writer<Object> writer =
         (Writer<Object>) writeSupport.createWriter(descriptor, descriptor.getName(), schema);
 
-    writer.write(
-        new HashMap<String, Object>() {
-          {
-            put("field1", "value of field1");
-            put("field2", 8L);
-          }
-        });
+    writer.write(ImmutableMap.of("field1", "value of field1", "field2", 8L));
 
     assertEquals(
         "<structure[0]>"
@@ -238,12 +216,7 @@ public class StreamElementWriteSupportTest {
 
     // missing fields should be skipped
     recordConsumer.clear();
-    writer.write(
-        new HashMap<String, Object>() {
-          {
-            put("field1", "value of field1");
-          }
-        });
+    writer.write(ImmutableMap.of("field1", "value of field1"));
 
     assertEquals(
         "<structure[0]><group><field1[0]>value of field1</field1[0]></group></structure[0]>",

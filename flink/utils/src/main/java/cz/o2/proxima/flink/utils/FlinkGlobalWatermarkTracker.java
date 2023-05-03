@@ -190,8 +190,7 @@ public class FlinkGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   @VisibleForTesting
   long getMinWatermarkFrom(List<String> vertices) {
-    return vertices
-        .stream()
+    return vertices.stream()
         .map(v -> getApiUrl("jobs/" + jobId() + "/vertices/" + v + "/watermarks"))
         .map(url -> ExceptionUtils.uncheckedFactory(() -> getJsonForURL(url)))
         .map(JsonElement::getAsJsonArray)

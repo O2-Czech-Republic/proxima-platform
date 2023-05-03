@@ -54,9 +54,7 @@ public class GroovyEnv {
               Map<String, Object> entity = new HashMap<>();
 
               List<Map<String, Object>> attributes =
-                  entityDesc
-                      .getAllAttributes()
-                      .stream()
+                  entityDesc.getAllAttributes().stream()
                       .map(
                           a -> {
                             ValueSerializerFactory serializerFactory =

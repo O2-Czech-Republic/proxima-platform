@@ -25,6 +25,7 @@ import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.HttpResponseException;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.StorageException;
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogReader.Factory;
 import cz.o2.proxima.direct.blob.BlobLogReader.ThrowingRunnable;
@@ -35,7 +36,6 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -51,12 +51,9 @@ public class GCloudLogReaderTest {
           TestUtils.createTestFamily(gateway, URI.create("gs://bucket/path"), cfg()));
 
   private static Map<String, Object> cfg() {
-    return new HashMap<String, Object>() {
-      {
-        put("initial-retry-delay-ms", 10);
-        put("max-retry-delay-ms", 50);
-      }
-    };
+    return ImmutableMap.of(
+        "initial-retry-delay-ms", 10,
+        "max-retry-delay-ms", 50);
   }
 
   final GCloudLogReader reader = new GCloudLogReader(accessor, direct.getContext());

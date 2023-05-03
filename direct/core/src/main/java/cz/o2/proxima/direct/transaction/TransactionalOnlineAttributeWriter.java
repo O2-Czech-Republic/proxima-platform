@@ -293,8 +293,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
             List<TransformationDescriptor> applicableTransforms =
                 attributeTransforms.get(el.getAttributeDescriptor());
             if (applicableTransforms != null) {
-              applicableTransforms
-                  .stream()
+              applicableTransforms.stream()
                   .filter(t -> !(t.getTransformation() instanceof TransactionValidator))
                   .filter(t -> t.getFilter().apply(el))
                   .forEach(td -> applyTransform(newElements, el, td));
@@ -312,8 +311,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         List<TransformationDescriptor> applicableTransforms =
             attributeTransforms.get(el.getAttributeDescriptor());
         if (applicableTransforms != null) {
-          applicableTransforms
-              .stream()
+          applicableTransforms.stream()
               .filter(t -> t.getTransformation() instanceof TransactionValidator)
               .filter(t -> t.getFilter().apply(el))
               .forEach(td -> applyTransform(Collections.emptyList(), el, td));
@@ -402,11 +400,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     // to be fixed in https://github.com/O2-Czech-Republic/proxima-platform/issues/216
     this.globalKeyAttributes = getAttributesWithGlobalTransactionMode(direct);
     attributeTransforms =
-        direct
-            .getRepository()
-            .getTransformations()
-            .values()
-            .stream()
+        direct.getRepository().getTransformations().values().stream()
             .filter(d -> d.getInputTransactionMode() == InputTransactionMode.TRANSACTIONAL)
             .flatMap(t -> t.getAttributes().stream().map(a -> Pair.of(a, t)))
             .collect(
@@ -421,8 +415,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         .filter(EntityDescriptor::isTransactional)
         .flatMap(
             e ->
-                e.getAllAttributes()
-                    .stream()
+                e.getAllAttributes().stream()
                     .filter(a -> a.getTransactionMode() == TransactionMode.ALL)
                     .map(a -> Pair.of(e, a)))
         .map(

@@ -71,20 +71,15 @@ public class S3FileSystem extends S3Client implements FileSystem {
 
   private List<S3BlobPath> getBlobsInRange(long startStamp, long endStamp) {
     final Collection<String> prefixes =
-        namingConvention
-            .prefixesOf(startStamp, endStamp)
-            .stream()
+        namingConvention.prefixesOf(startStamp, endStamp).stream()
             .map(e -> normalizePath(getUri().getPath() + e))
             .collect(Collectors.toList());
     final List<S3BlobPath> ret =
-        prefixes
-            .stream()
+        prefixes.stream()
             .flatMap(
                 prefix -> {
                   ObjectListing listing = client().listObjects(getBucket(), prefix);
-                  return listing
-                      .getObjectSummaries()
-                      .stream()
+                  return listing.getObjectSummaries().stream()
                       .filter(
                           summary ->
                               namingConvention.isInRange(summary.getKey(), startStamp, endStamp))

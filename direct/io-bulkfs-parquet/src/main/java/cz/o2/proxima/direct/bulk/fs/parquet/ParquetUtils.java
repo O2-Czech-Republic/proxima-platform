@@ -52,9 +52,7 @@ class ParquetUtils {
   static MessageType createParquetSchema(AttributeFamilyDescriptor family) {
 
     return ParquetUtils.createMessageWithFields(
-        family
-            .getAttributes()
-            .stream()
+        family.getAttributes().stream()
             .map(
                 attribute ->
                     createParquetSchema(
@@ -90,11 +88,7 @@ class ParquetUtils {
           Types.optionalGroup()
               .named(attributeName)
               .withNewFields(
-                  schema
-                      .asStructureTypeDescriptor()
-                      .getFields()
-                      .entrySet()
-                      .stream()
+                  schema.asStructureTypeDescriptor().getFields().entrySet().stream()
                       .map(e -> mapSchemaTypeToParquet(e.getValue(), e.getKey()))
                       .collect(Collectors.toList()));
     } else {

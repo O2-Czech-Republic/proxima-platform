@@ -61,16 +61,12 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
     this.readAccessor = readAccessor;
     this.writeAccessor = writeAccessor;
     this.lookupTarget =
-        proxy
-            .getAttributes()
-            .stream()
+        proxy.getAttributes().stream()
             .map(AttributeDescriptor::asProxy)
             .collect(
                 Collectors.toMap(AttributeProxyDescriptor::getReadTarget, Function.identity()));
     this.lookupProxy =
-        proxy
-            .getAttributes()
-            .stream()
+        proxy.getAttributes().stream()
             .map(AttributeDescriptor::asProxy)
             .collect(
                 Collectors.toMap(Function.identity(), AttributeProxyDescriptor::getReadTarget));
@@ -132,8 +128,7 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
   }
 
   List<AttributeDescriptor<?>> transformAttrs(List<AttributeDescriptor<?>> attrs) {
-    return attrs
-        .stream()
+    return attrs.stream()
         .map(
             attr ->
                 Objects.requireNonNull(
@@ -172,14 +167,13 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
         attrs.stream().map(AttributeDescriptor::asProxy).collect(Collectors.toSet());
     if (proxies.stream().allMatch(p -> p.getReadTransform().isContextual())) {
       List<ProxyTransform> transforms =
-          proxies
-              .stream()
+          proxies.stream()
               .map(AttributeProxyDescriptor::getReadTransform)
               .distinct()
               .collect(Collectors.toList());
       Preconditions.checkArgument(
           transforms.size() == 1,
-          "When using {} only single attribute on input is allowed, got [%s] in [%s]",
+          "When using %s only single attribute on input is allowed, got [%s] in [%s]",
           BeamProxyTransform.class.getName(),
           proxies,
           attrs);

@@ -84,9 +84,7 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
     if (split != null) {
       return Collections.singletonList(this);
     }
-    return reader()
-        .getPartitions(startStamp, endStamp)
-        .stream()
+    return reader().getPartitions(startStamp, endStamp).stream()
         .map(p -> new DirectBatchSource(this, p))
         .collect(Collectors.toList());
   }

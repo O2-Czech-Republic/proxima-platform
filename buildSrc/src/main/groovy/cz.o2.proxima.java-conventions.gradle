@@ -1,0 +1,202 @@
+/*
+ * Copyright 2017-2023 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+  id 'java-library'
+  id 'maven-publish'
+  id "com.diffplug.spotless"
+}
+
+java.sourceCompatibility = JavaVersion.VERSION_11
+
+def auto_service_version = "1.0.1"
+def beam_version = "2.46.0"
+def errorprone_version = "2.18.0"
+def flink_version = "1.15.4"
+def grpc_version = "1.52.1"
+def groovy_version = "4.0.11"
+def guava_version = "31.1-jre"
+def hadoop_version = "3.2.4"
+def hbase_version = "2.5.3-hadoop3"
+def hamcrest_version = "1.3"
+def junit_jupiter_version = "5.9.2"
+def junit4_version = "4.13.2"
+def lombok_version = "1.18.16"
+def log4j_version = "2.19.0"
+def mockito_version = "5.3.0"
+def protobuf_version = "3.21.12"
+def scala_version = "2.12"
+def spark_version = "3.1.2"
+def slf4j_version = "2.0.7"
+
+ext.libraries = [
+  auto_service: "com.google.auto.service:auto-service:${auto_service_version}",
+  auto_service_annotations: "com.google.auto.service:auto-service-annotations:${auto_service_version}",
+  beam_core: "org.apache.beam:beam-sdks-java-core:${beam_version}",
+  beam_extensions_join_library: "org.apache.beam:beam-sdks-java-extensions-join-library:${beam_version}",
+  beam_extensions_kryo: "org.apache.beam:beam-sdks-java-extensions-kryo:${beam_version}",
+  beam_io_google_cloud: "org.apache.beam:beam-sdks-java-io-google-cloud-platform:${beam_version}",
+  beam_runners_direct: "org.apache.beam:beam-runners-direct-java:${beam_version}",
+  beam_runners_flink: "org.apache.beam:beam-runners-flink-1.15:${beam_version}",
+  beam_runners_spark: "org.apache.beam:beam-runners-spark-3:${beam_version}",
+  flink_clients: "org.apache.flink:flink-clients:${flink_version}",
+  flink_runtime: "org.apache.flink:flink-runtime:${flink_version}",
+  flink_streaming: "org.apache.flink:flink-streaming-java:${flink_version}",
+  flink_streaming_tests: "org.apache.flink:flink-streaming-java:${flink_version}:tests",
+  flink_table_api_bridge: "org.apache.flink:flink-table-api-java-bridge:${flink_version}",
+  flink_table_planner: "org.apache.flink:flink-table-planner_${scala_version}:${flink_version}",
+  flink_test_util: "org.apache.flink:flink-test-utils:${flink_version}",
+  gen_grpc: "io.grpc:protoc-gen-grpc-java:${grpc_version}",
+  groovy: "org.apache.groovy:groovy:${groovy_version}",
+  groovysh: "org.apache.groovy:groovy-groovysh:${groovy_version}",
+  grpc_all: "io.grpc:grpc-all:${grpc_version}",
+  grpc_api: "io.grpc:grpc-api:${grpc_version}",
+  grpc_core: "io.grpc:grpc-core:${grpc_version}",
+  grpc_netty: "io.grpc:grpc-netty:${grpc_version}",
+  grpc_netty_shaded: "io.grpc:grpc-netty-shaded:${grpc_version}",
+  grpc_protobuf: "io.grpc:grpc-protobuf:${grpc_version}",
+  grpc_stub: "io.grpc:grpc-stub:${grpc_version}",
+  guava: "com.google.guava:guava:${guava_version}",
+  hadoop_common: "org.apache.hadoop:hadoop-common:${hadoop_version}",
+  hadoop_auth: "org.apache.hadoop:hadoop-auth:${hadoop_version}",
+  hadoop_hdfs: "org.apache.hadoop:hadoop-hdfs:${hadoop_version}",
+  hadoop_hdfs_tests: "org.apache.hadoop:hadoop-hdfs:${hadoop_version}:tests",
+  hadoop_mapreduce_client: "org.apache.hadoop:hadoop-mapreduce-client-core:${hadoop_version}",
+  hbase_testing_util: "org.apache.hbase:hbase-testing-util:${hbase_version}",
+  hbase_client: "org.apache.hbase:hbase-client:${hbase_version}",
+  hbase_common: "org.apache.hbase:hbase-common:${hbase_version}",
+  lombok: "org.projectlombok:lombok:${lombok_version}",
+  protobuf_java: "com.google.protobuf:protobuf-java:${protobuf_version}",
+  protobuf_java_util: "com.google.protobuf:protobuf-java-util:${protobuf_version}",
+  protoc: "com.google.protobuf:protoc:${protobuf_version}",
+  slf4j_api: "org.slf4j:slf4j-api:${slf4j_version}",
+  slf4j_simple: "org.slf4j:slf4j-simple:${slf4j_version}",
+  spark_core: "org.apache.spark:spark-core_${scala_version}:${spark_version}",
+  spark_streaming: "org.apache.spark:spark-streaming_${scala_version}:${spark_version}",
+
+  // test dependencies
+  hamcrest: "org.hamcrest:hamcrest-all:${hamcrest_version}",
+  junit4: "junit:junit:${junit4_version}",
+  junit_jupiter_engine: "org.junit.jupiter:junit-jupiter-engine:${junit_jupiter_version}",
+  junit_jupiter_api: "org.junit.jupiter:junit-jupiter-api:${junit_jupiter_version}",
+  log4j_over_slf4j: "org.slf4j:log4j-over-slf4j:${slf4j_version}",
+  mockito_core: "org.mockito:mockito-core:${mockito_version}",
+  mockito_jupiter: "org.mockito:mockito-junit-jupiter:${mockito_version}",
+  slf4j_log4j: "org.apache.logging.log4j:log4j-slf4j-impl:${log4j_version}",
+
+  scala_version: "${scala_version}",
+]
+
+ext.coreShade = "cz.o2.proxima.internal.shaded"
+ext.serializationShade = "cz.o2.proxima.io.serialization.shaded"
+
+tasks.withType(Javadoc) {
+  options.encoding = 'UTF-8'
+}
+
+tasks.withType(JavaCompile) {
+  dependsOn "spotlessApply"
+  options.encoding = 'UTF-8'
+}
+
+// Enable errorprone static analysis
+project.apply plugin: 'net.ltgt.errorprone'
+
+project.dependencies {
+  errorprone("com.google.errorprone:error_prone_core:$errorprone_version")
+  errorprone("jp.skypencil.errorprone.slf4j:errorprone-slf4j:0.1.2")
+  // At least JDk 9 compiler is required, however JDK 8 still can be used but with additional errorproneJavac
+  // configuration. For more details please see https://github.com/tbroyer/gradle-errorprone-plugin#jdk-8-support
+  //errorproneJavac("com.google.errorprone:javac:9+181-r4173-1")
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.errorprone.excludedPaths = ".+/generated/.+"
+  options.errorprone.disableAllWarnings = true
+  options.errorprone.errorproneArgs.add("-Xep:AutoValueImmutableFields:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:AutoValueSubclassLeaked:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:BadImport:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:BadInstanceof:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:BigDecimalEquals:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:ComparableType:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:DoNotMockAutoValue:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EmptyBlockTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EmptyCatch:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EqualsGetClass:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EqualsUnsafeCast:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:EscapedEntity:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:ExtendsAutoValue:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InlineFormatString:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InlineMeSuggester:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidBlockTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidInlineTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidLink:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidParam:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:InvalidThrows:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:JavaTimeDefaultTimeZone:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:JavaUtilDate:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:JodaConstructors:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:MalformedInlineTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:MissingSummary:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:MixedMutabilityReturnType:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:PreferJavaTimeOverload:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:MutablePublicArray:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:NonCanonicalType:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:ProtectedMembersInFinalClass:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:Slf4jFormatShouldBeConst:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:Slf4jSignOnlyFormat:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:StaticAssignmentInConstructor:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:ThreadPriorityCheck:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:TimeUnitConversionChecker:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UndefinedEquals:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnescapedEntity:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnnecessaryLambda:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnnecessaryMethodReference:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnnecessaryParentheses:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnrecognisedJavadocTag:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UnsafeReflectiveConstructionCast:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:UseCorrectAssertInTests:OFF")
+  options.errorprone.errorproneArgs.add("-Xep:Slf4jLoggerShouldBeNonStatic:OFF")
+}
+
+configurations.all {
+  resolutionStrategy {
+    //failOnVersionConflict()
+    force "org.apache.logging.log4j:log4j-core:${log4j_version}"
+    force "org.apache.logging.log4j:log4j-api:${log4j_version}"
+  }
+}
+
+
+spotless {
+  format 'misc', {
+    // define the files to apply `misc` to
+    target '*.gradle', '*.md', '.gitignore'
+
+    // define the steps to apply to those files
+    trimTrailingWhitespace()
+    indentWithSpaces(2)
+    endWithNewline()
+  }
+  java {
+    // apply a specific flavor of google-java-format
+    googleJavaFormat('1.8')
+    removeUnusedImports()
+  }
+}
+
+
+

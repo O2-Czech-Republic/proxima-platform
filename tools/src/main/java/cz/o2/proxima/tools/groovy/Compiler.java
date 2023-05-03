@@ -64,9 +64,7 @@ public class Compiler {
     File outputFile = new File(output);
     Preconditions.checkArgument(!outputFile.isDirectory());
     configs =
-        parsed
-            .getArgList()
-            .stream()
+        parsed.getArgList().stream()
             .map(
                 c -> {
                   File file = new File(c.trim());
@@ -91,8 +89,7 @@ public class Compiler {
 
   public void run() throws Exception {
     Config config =
-        configs
-            .stream()
+        configs.stream()
             .map(f -> ConfigFactory.parseFile(new File(f)))
             .reduce(ConfigFactory.empty(), Config::withFallback)
             .resolve();

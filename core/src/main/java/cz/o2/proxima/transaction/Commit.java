@@ -106,8 +106,7 @@ public class Commit implements Serializable {
   private static List<StreamElement> fixSeqIdAndStamp(
       long seqId, long stamp, Collection<StreamElement> updates) {
 
-    return updates
-        .stream()
+    return updates.stream()
         .map(
             s -> {
               Preconditions.checkArgument(

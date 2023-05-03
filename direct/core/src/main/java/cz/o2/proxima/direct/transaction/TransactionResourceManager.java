@@ -167,8 +167,7 @@ public class TransactionResourceManager
       this.transactionId = transactionId;
       this.attributeToFamily.putAll(
           findFamilyForTransactionalAttribute(
-              attributes
-                  .stream()
+              attributes.stream()
                   .map(KeyAttribute::getAttributeDescriptor)
                   .collect(Collectors.toList())));
       this.responseConsumer = responseConsumer;
@@ -394,9 +393,7 @@ public class TransactionResourceManager
   public void houseKeeping() {
     long now = System.currentTimeMillis();
     long releaseTime = now - cleanupIntervalMs;
-    openTransactionMap
-        .entrySet()
-        .stream()
+    openTransactionMap.entrySet().stream()
         .filter(e -> e.getValue().getCreated() < releaseTime)
         .map(Map.Entry::getKey)
         .collect(Collectors.toList())
@@ -441,8 +438,7 @@ public class TransactionResourceManager
 
     CountDownLatch initializedLatch = new CountDownLatch(families.size());
 
-    families
-        .stream()
+    families.stream()
         .map(this::toRequestStatePair)
         .forEach(
             p -> {
@@ -496,8 +492,7 @@ public class TransactionResourceManager
       Collection<String> families) {
 
     List<DirectAttributeFamilyDescriptor> candidates =
-        families
-            .stream()
+        families.stream()
             .map(direct::getFamilyByName)
             .filter(
                 af ->
@@ -656,7 +651,6 @@ public class TransactionResourceManager
    * @param transactionId ID of transaction
    * @param responseConsumer consumer of responses related to the transaction
    * @param attributes attributes affected by this transaction (both input and output)
-   * @return current state of the transaction
    */
   @Override
   public void begin(
@@ -675,7 +669,6 @@ public class TransactionResourceManager
    *
    * @param transactionId ID of transaction
    * @param newAttributes attributes to be added to the transaction
-   * @return
    */
   @Override
   public void updateTransaction(String transactionId, List<KeyAttribute> newAttributes) {
@@ -804,8 +797,7 @@ public class TransactionResourceManager
         attributes);
 
     List<DirectAttributeFamilyDescriptor> candidates =
-        attributes
-            .stream()
+        attributes.stream()
             .flatMap(a -> a.getTransactionalManagerFamilies().stream())
             .distinct()
             .map(direct::findFamilyByName)
@@ -814,8 +806,7 @@ public class TransactionResourceManager
             .collect(Collectors.toList());
 
     List<AttributeDescriptor<?>> requestResponseState =
-        candidates
-            .stream()
+        candidates.stream()
             .flatMap(f -> f.getAttributes().stream().filter(a -> !a.equals(commitDesc)))
             .sorted(Comparator.comparing(AttributeDescriptor::getName))
             .collect(Collectors.toList());
@@ -829,8 +820,7 @@ public class TransactionResourceManager
         mode);
 
     Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> res =
-        candidates
-            .stream()
+        candidates.stream()
             .flatMap(f -> f.getAttributes().stream().map(a -> Pair.of(a, f)))
             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 

@@ -31,10 +31,6 @@ public interface CommitCallback {
    *   <li>{@code numCommits} successful commits as successful, or
    *   <li>after first error as failed
    * </ul>
-   *
-   * @param numCommits
-   * @param delegate
-   * @return
    */
   static CommitCallback afterNumCommits(int numCommits, CommitCallback delegate) {
     Preconditions.checkState(numCommits > 0, "numCommits must be positive, got %s", numCommits);

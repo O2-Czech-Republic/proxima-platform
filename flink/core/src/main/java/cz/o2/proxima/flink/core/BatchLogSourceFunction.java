@@ -95,8 +95,7 @@ public class BatchLogSourceFunction<OutputT>
   @Override
   Set<Partition> getSkipFirstElementFromPartitions(List<Offset> offsets) {
     // We only want to skip first element from partitions we've already touched.
-    return offsets
-        .stream()
+    return offsets.stream()
         .filter(offset -> offset.getElementIndex() >= 0)
         .map(Offset::getPartition)
         .collect(Collectors.toSet());
@@ -124,9 +123,7 @@ public class BatchLogSourceFunction<OutputT>
       @Override
       public List<Offset> getConsumedOffsets() {
         // Filter out finished partitions, as we don't need them for restoring the state.
-        return delegate
-            .getCurrentOffsets()
-            .stream()
+        return delegate.getCurrentOffsets().stream()
             .filter(offset -> !offset.isLast())
             .collect(Collectors.toList());
       }
@@ -155,9 +152,7 @@ public class BatchLogSourceFunction<OutputT>
       @Override
       public List<Offset> getConsumedOffsets() {
         // Filter out finished partitions, as we don't need them for restoring the state.
-        return offsetTrackingHandle
-            .getCurrentOffsets()
-            .stream()
+        return offsetTrackingHandle.getCurrentOffsets().stream()
             .filter(offset -> !offset.isLast())
             .collect(Collectors.toList());
       }

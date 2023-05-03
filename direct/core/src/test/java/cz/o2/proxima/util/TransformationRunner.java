@@ -45,9 +45,7 @@ public class TransformationRunner {
    * @param direct the operator to run transformations with
    */
   public static void runTransformations(Repository repo, DirectDataOperator direct) {
-    repo.getTransformations()
-        .entrySet()
-        .stream()
+    repo.getTransformations().entrySet().stream()
         .filter(e -> e.getValue().getInputTransactionMode() != InputTransactionMode.TRANSACTIONAL)
         .forEach(e -> runTransformation(direct, e.getKey(), e.getValue(), i -> {}));
   }
@@ -62,9 +60,7 @@ public class TransformationRunner {
   public static void runTransformations(
       Repository repo, DirectDataOperator direct, Consumer<StreamElement> onReplicated) {
 
-    repo.getTransformations()
-        .entrySet()
-        .stream()
+    repo.getTransformations().entrySet().stream()
         .filter(e -> e.getValue().getInputTransactionMode() != InputTransactionMode.TRANSACTIONAL)
         .map(
             entry ->
@@ -125,8 +121,7 @@ public class TransformationRunner {
     }
 
     CommitLogReader reader =
-        desc.getAttributes()
-            .stream()
+        desc.getAttributes().stream()
             .flatMap(attr -> findFamilyDescriptorForAttribute(direct, attr))
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
@@ -151,9 +146,7 @@ public class TransformationRunner {
           .filter(af -> af.getType() == StorageType.PRIMARY)
           .map(af -> direct.getFamilyByName(af.getName()));
     }
-    return direct
-        .getFamiliesForAttribute(attr)
-        .stream()
+    return direct.getFamiliesForAttribute(attr).stream()
         .filter(af -> af.getDesc().getAccess().canReadCommitLog());
   }
 

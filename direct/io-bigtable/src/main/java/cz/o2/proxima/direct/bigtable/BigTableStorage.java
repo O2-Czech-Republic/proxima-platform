@@ -22,6 +22,7 @@ import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.hbase.HBaseDataAccessor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Connection;
@@ -42,7 +43,7 @@ import org.apache.hadoop.hbase.client.Connection;
  * </ol>
  *
  * The <pre>v=2</pre> serialization format is required to support transactions on top of BigTable,
- * because the metadata preserves sequentialId (stored in {@link cz.o2.proxima.storage.StreamElement#getSequentialId()}).
+ * because the metadata preserves sequentialId (stored in {@link StreamElement#getSequentialId()}).
  **/
 @AutoService(DataAccessorFactory.class)
 public class BigTableStorage implements DataAccessorFactory {

@@ -182,7 +182,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       return startOffset == endOffsetInclusive && endOffsetInclusive == null;
     }
 
-    void terminate() {
+    private void terminate() {
       this.extensible = false;
       this.finished = true;
     }

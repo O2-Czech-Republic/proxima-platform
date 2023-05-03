@@ -1,0 +1,55 @@
+/*
+ * Copyright 2017-2023 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+  id 'cz.o2.proxima.java-conventions'
+}
+
+dependencies {
+  api project(':proxima-direct-core')
+  intoShadow project(':proxima-direct-io-hbase-bindings')
+  intoShadow 'com.google.cloud.bigtable:bigtable-hbase-2.x:1.12.0'
+  intoShadow 'com.google.cloud.bigtable:bigtable-client-core:1.12.0'
+  intoShadow 'xerces:xercesImpl:2.12.2'
+  testImplementation libraries.junit4
+  testImplementation libraries.slf4j_log4j
+  testImplementation libraries.mockito_core
+  testRuntimeOnly libraries.log4j_over_slf4j
+  compileOnly libraries.auto_service_annotations
+  annotationProcessor libraries.auto_service
+}
+
+description = 'cz.o2.proxima:proxima-direct-io-bigtable'
+
+shadowJar {
+  transform(renamingTransformer()) {
+    renameClosure = {
+      if (it.startsWith("META-INF/native/libio_grpc_netty_shaded_")) {
+        return "META-INF/native/libcz_o2_proxima_bigtable_shaded_${it.substring(19)}"
+      }
+      if (it.startsWith("META-INF/native/io_grpc_netty_shaded_")) {
+        return "META-INF/native/cz_o2_proxima_bigtable_shaded_${it.substring(16)}"
+      }
+    }
+  }
+
+  ["io.grpc", "io.opencensus", "com.google.api", "com.google.protobuf", "com.google.bigtable",
+   "com.google.cloud", "com.google.auth", "com.google.gson", "com.fasterxml", "org.apache.avro",
+   "org.apache.commons", "javax.xml", "org.apache.xerces", "org.codehaus"].each {
+
+    relocate it, "cz.o2.proxima.bigtable.shaded.${it}"
+  }
+}

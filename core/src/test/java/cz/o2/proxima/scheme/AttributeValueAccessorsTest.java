@@ -17,6 +17,7 @@ package cz.o2.proxima.scheme;
 
 import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.scheme.AttributeValueAccessor.Type;
 import cz.o2.proxima.scheme.AttributeValueAccessors.ArrayValueAccessor;
@@ -28,7 +29,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -80,13 +80,7 @@ public class AttributeValueAccessorsTest {
 
     assertEquals(Type.ARRAY, accessor.getType());
     assertEquals(Type.STRUCTURE, accessor.getValueAccessor().getType());
-    final Map<String, Object> expected =
-        new HashMap<String, Object>() {
-          {
-            put("field1", "value of field1");
-            put("field2", 8);
-          }
-        };
+    final Map<String, Object> expected = ImmutableMap.of("field1", "value of field1", "field2", 8);
 
     assertEquals(
         Collections.singletonList(expected), accessor.valueOf(Collections.singletonList(expected)));

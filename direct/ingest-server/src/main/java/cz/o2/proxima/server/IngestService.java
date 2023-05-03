@@ -156,55 +156,51 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     static final long MAX_SLEEP_MILLIS = 100;
     static final int MAX_QUEUED_STATUSES = 500;
 
-    final Runnable flushTask = createFlushTask();
-
     // schedule the flush periodically
     final ScheduledFuture<?> flushFuture =
         scheduler.scheduleAtFixedRate(
-            flushTask, MAX_SLEEP_MILLIS, MAX_SLEEP_MILLIS, TimeUnit.MILLISECONDS);
+            this::flush, MAX_SLEEP_MILLIS, MAX_SLEEP_MILLIS, TimeUnit.MILLISECONDS);
 
     IngestBulkObserver(StreamObserver<Rpc.StatusBulk> responseObserver) {
       this.responseObserver = responseObserver;
     }
 
-    private Runnable createFlushTask() {
-      return () -> {
-        try {
-          synchronized (builder) {
-            while (statusQueue.size() > MAX_QUEUED_STATUSES) {
+    private void flush() {
+      try {
+        synchronized (builder) {
+          while (statusQueue.size() > MAX_QUEUED_STATUSES) {
+            peekQueueToBuilderAndFlush();
+          }
+          long now = System.currentTimeMillis();
+          if (now - lastFlushMs.get() >= MAX_SLEEP_MILLIS) {
+            while (!statusQueue.isEmpty()) {
               peekQueueToBuilderAndFlush();
             }
-            long now = System.currentTimeMillis();
-            if (now - lastFlushMs.get() >= MAX_SLEEP_MILLIS) {
-              while (!statusQueue.isEmpty()) {
-                peekQueueToBuilderAndFlush();
-              }
-            }
-            if (builder.getStatusCount() > 0) {
-              responseObserver.onNext(builder.build());
-              builder.clear();
-            }
-            if (completed.get() && inflightRequests.get() == 0 && statusQueue.isEmpty()) {
-              responseObserver.onCompleted();
-            }
           }
-        } catch (Throwable ex) {
-          log.error("Failed to send bulk status", ex);
+          if (builder.getStatusCount() > 0) {
+            responseObserver.onNext(builder.build());
+            builder.clear();
+          }
+          if (completed.get() && inflightRequests.get() == 0 && statusQueue.isEmpty()) {
+            responseObserver.onCompleted();
+          }
         }
-      };
+      } catch (Throwable ex) {
+        log.error("Failed to send bulk status", ex);
+      }
     }
 
     private void peekQueueToBuilderAndFlush() {
       synchronized (builder) {
         builder.addStatus(statusQueue.poll());
         if (builder.getStatusCount() >= 1000) {
-          flush();
+          flushBuilder();
         }
       }
     }
 
     /** Flush response(s) to the observer. */
-    private void flush() {
+    private void flushBuilder() {
       synchronized (builder) {
         lastFlushMs.set(System.currentTimeMillis());
         Rpc.StatusBulk bulk = builder.build();
@@ -232,14 +228,12 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
     private void handleTransactionalWrites(String transactionId, List<Rpc.Ingest> writes) {
       List<Pair<Ingest, StreamElement>> outputs =
-          writes
-              .stream()
+          writes.stream()
               .map(r -> Pair.of(r, validateAndConvertToStreamElement(r, createRpcConsumer(r))))
               .collect(Collectors.toList());
       if (outputs.stream().anyMatch(p -> p.getSecond() == null)) {
         // when we have a single fail in the transaction we need to discard the complete outputs
-        outputs
-            .stream()
+        outputs.stream()
             .filter(p -> p.getSecond() != null)
             .forEach(
                 p ->
@@ -284,7 +278,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
         if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
           // enqueue flush
           lastFlushMs.set(0L);
-          scheduler.execute(flushTask);
+          scheduler.execute(this::flush);
         }
         if (inflightRequests.decrementAndGet() == 0) {
           // there is no more inflight requests
@@ -322,7 +316,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       while (!statusQueue.isEmpty()) {
         peekQueueToBuilderAndFlush();
       }
-      flush();
+      flushBuilder();
       responseObserver.onCompleted();
     }
   }

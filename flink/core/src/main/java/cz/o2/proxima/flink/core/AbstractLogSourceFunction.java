@@ -233,8 +233,7 @@ abstract class AbstractLogSourceFunction<
   public void run(SourceContext<OutputT> sourceContext) throws Exception {
     final ReaderT reader = createLogReader(attributeDescriptors);
     final List<Partition> partitions =
-        getPartitions(reader)
-            .stream()
+        getPartitions(reader).stream()
             .filter(
                 partition ->
                     getSubtaskIndex(partition, getRuntimeContext().getNumberOfParallelSubtasks())
@@ -244,8 +243,7 @@ abstract class AbstractLogSourceFunction<
       final ObserverT observer;
       if (restoredOffsets != null) {
         final List<OffsetT> filteredOffsets =
-            restoredOffsets
-                .stream()
+            restoredOffsets.stream()
                 .filter(
                     offset ->
                         getSubtaskIndex(

@@ -198,15 +198,9 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
     this.cqlFactory =
         ThreadLocal.withInitial(
             () -> {
-              try {
-                final CqlFactory cqlFactory =
-                    Classpath.findClass(cqlFactoryName, CqlFactory.class).newInstance();
-                cqlFactory.setup(getEntityDescriptor(), getUri(), converter);
-                return cqlFactory;
-              } catch (InstantiationException | IllegalAccessException ex) {
-                throw new IllegalArgumentException(
-                    "Cannot instantiate class " + cqlFactoryName, ex);
-              }
+              CqlFactory factory = Classpath.newInstance(cqlFactoryName, CqlFactory.class);
+              factory.setup(getEntityDescriptor(), getUri(), converter);
+              return factory;
             });
   }
 

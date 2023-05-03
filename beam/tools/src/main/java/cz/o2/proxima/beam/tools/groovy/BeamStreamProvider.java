@@ -343,8 +343,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
   static void injectJarIntoContextClassLoader(Collection<File> paths) {
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
     URL[] urls =
-        paths
-            .stream()
+        paths.stream()
             .map(p -> ExceptionUtils.uncheckedFactory(() -> p.toURI().toURL()))
             .collect(Collectors.toList())
             .toArray(new URL[] {});

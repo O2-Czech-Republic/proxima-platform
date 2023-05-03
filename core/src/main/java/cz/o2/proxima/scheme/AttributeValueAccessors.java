@@ -90,8 +90,7 @@ public class AttributeValueAccessors {
 
     @Override
     default List<V> valueOf(List<T> object) {
-      return object
-          .stream()
+      return object.stream()
           .map(
               v -> {
                 if (getValueAccessor().getType().equals(Type.STRUCTURE)) {
@@ -108,8 +107,7 @@ public class AttributeValueAccessors {
 
     @Override
     default List<T> createFrom(List<V> object) {
-      return object
-          .stream()
+      return object.stream()
           .map(
               v -> {
                 if (getValueAccessor().getType().equals(Type.STRUCTURE)) {

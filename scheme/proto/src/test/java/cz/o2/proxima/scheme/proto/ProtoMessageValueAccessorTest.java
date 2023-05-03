@@ -21,6 +21,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.BoolValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
@@ -75,12 +76,11 @@ public class ProtoMessageValueAccessorTest {
     assertArrayEquals("payload byte value".getBytes(StandardCharsets.UTF_8), value.get("payload"));
 
     Map<String, Object> createFrom =
-        new HashMap<String, Object>() {
-          {
-            put("gatewayId", "gatewayId value");
-            put("payload", "payload byte value".getBytes(StandardCharsets.UTF_8));
-          }
-        };
+        ImmutableMap.of(
+            "gatewayId",
+            "gatewayId value",
+            "payload",
+            "payload byte value".getBytes(StandardCharsets.UTF_8));
 
     final Event created = accessor.createFrom(StructureValue.of(createFrom));
     assertEquals(event, created);
@@ -140,68 +140,47 @@ public class ProtoMessageValueAccessorTest {
             .build();
 
     final Map<String, Object> value =
-        new HashMap<String, Object>() {
-          {
-            put(
-                "repeated_string",
-                Arrays.asList("top level repeated string 1", "top level repeated string 2"));
-            put(
-                "repeated_inner_message",
-                Arrays.asList(
-                    new HashMap<String, Object>() {
-                      {
-                        put(
+        new HashMap<>(
+            ImmutableMap.<String, Object>builder()
+                .put(
+                    "repeated_string",
+                    Arrays.asList("top level repeated string 1", "top level repeated string 2"))
+                .put(
+                    "repeated_inner_message",
+                    Arrays.asList(
+                        ImmutableMap.of(
                             "repeated_inner_string",
                             Arrays.asList(
                                 "repeated_inner_message_1_repeated_inner_string_1",
-                                "repeated_inner_message_1_repeated_inner_string_2"));
-                        put("inner_enum", "LEFT");
-                        put("inner_double_type", 8.0);
-                        put(
+                                "repeated_inner_message_1_repeated_inner_string_2"),
+                            "inner_enum",
+                            "LEFT",
+                            "inner_double_type",
+                            8.0,
                             "inner_inner_message",
-                            new HashMap<String, Object>() {
-                              {
-                                put("inner_float_type", 3.0F);
-                              }
-                            });
-                      }
-                    },
-                    new HashMap<String, Object>() {
-                      {
-                        put(
+                            ImmutableMap.of("inner_float_type", 3.0F)),
+                        ImmutableMap.of(
                             "repeated_inner_string",
                             Arrays.asList(
                                 "repeated_inner_message_2_repeated_inner_string_1",
-                                "repeated_inner_message_2_repeated_inner_string_2"));
-                        put("inner_enum", "RIGHT");
-                        put("inner_double_type", 88.0);
-                        put(
+                                "repeated_inner_message_2_repeated_inner_string_2"),
+                            "inner_enum",
+                            "RIGHT",
+                            "inner_double_type",
+                            88.0,
                             "inner_inner_message",
-                            new HashMap<String, Object>() {
-                              {
-                                put("inner_float_type", 33.0F);
-                              }
-                            });
-                      }
-                    }));
-            put(
-                "inner_message",
-                new HashMap<String, Object>() {
-                  {
-                    put("inner_enum", "RIGHT");
-                  }
-                });
-            put("string_type", "top level string");
-            put("boolean_type", true);
-            put("long_type", 20L);
-            put("int_type", 69);
-            put(
-                "repeated_bytes",
-                Arrays.asList(
-                    "first".getBytes(StandardCharsets.UTF_8),
-                    "second".getBytes(StandardCharsets.UTF_8)));
-          }
-        };
+                            ImmutableMap.of("inner_float_type", 33.0F))))
+                .put("inner_message", ImmutableMap.of("inner_enum", "RIGHT"))
+                .put("string_type", "top level string")
+                .put("boolean_type", true)
+                .put("long_type", 20L)
+                .put("int_type", 69)
+                .put(
+                    "repeated_bytes",
+                    Arrays.asList(
+                        "first".getBytes(StandardCharsets.UTF_8),
+                        "second".getBytes(StandardCharsets.UTF_8)))
+                .build());
 
     final StructureValue valueOf = accessor.valueOf(message);
     ValueSchemeMessage created = accessor.createFrom(StructureValue.of(value));
@@ -344,19 +323,18 @@ public class ProtoMessageValueAccessorTest {
     final StructureValueAccessor<MessageWithWrappers> accessor =
         new ProtoMessageValueAccessor<>(MessageWithWrappers::getDefaultInstance);
     Map<String, Object> data =
-        new HashMap<String, Object>() {
-          {
-            put("bool", true);
-            put("bytes", "bytes".getBytes(StandardCharsets.UTF_8));
-            put("double", 20);
-            put("float", 23.5F);
-            put("int32", 32);
-            put("int64", 64L);
-            put("string", "hello world");
-            put("uint32", 332);
-            put("uint64", 364L);
-          }
-        };
+        ImmutableMap.<String, Object>builder()
+            .put("bool", true)
+            .put("bytes", "bytes".getBytes(StandardCharsets.UTF_8))
+            .put("double", 20)
+            .put("float", 23.5F)
+            .put("int32", 32)
+            .put("int64", 64L)
+            .put("string", "hello world")
+            .put("uint32", 332)
+            .put("uint64", 364L)
+            .build();
+
     MessageWithWrappers message = accessor.createFrom(StructureValue.of(data));
     log.debug("Message {}", message);
     assertTrue(message.getBool().getValue());

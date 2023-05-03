@@ -1,0 +1,69 @@
+/*
+ * Copyright 2017-2023 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+  id 'cz.o2.proxima.java-conventions'
+}
+
+dependencies {
+  api project(':proxima-direct-core')
+  api project(':proxima-scheme-proto')
+  api project(path: ':proxima-core', configuration: 'shadowJar')
+  api project(':proxima-scheme-proto-testing')
+  provided libraries.guava
+  compileOnly project(path: ":proxima-core")
+  compileOnly project(path: ':proxima-direct-core')
+  compileOnly project(path: ":proxima-core", configuration: 'testsJar')
+  compileOnly project(path: ':proxima-direct-core', configuration: 'testsJar')
+  compileOnly project(path: ":proxima-compiler-java-cli", configuration: 'shadowJar')
+  testImplementation libraries.junit4
+  testImplementation project(path: ":proxima-core", configuration: 'testsJar')
+  testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
+  compileAnnotationProcessor libraries.lombok
+}
+
+description = 'cz.o2.proxima:proxima-direct-core-testing'
+
+
+task generateReadmeModel(type: JavaExec) {
+  group = "Build"
+  description = "Build the Proxima Model from test-readme.conf"
+  //inputs.files "${project.rootDir}/core/src/test/resources/test-readme.conf"
+  //outputs.dirs "generated/sources/cz/o2/proxima/testing/model"
+  classpath = configurations.getAt("compileClasspath")
+  main = "cz.o2.proxima.generator.ModelGenerator"
+  args "-t", "${project.buildDir}/generated/sources/", "-p", "cz.o2.proxima.testing.model", "-f", "${project.rootDir}/core/src/test/resources/test-readme.conf"
+}
+
+task generateCoreModel(type: JavaExec) {
+  group = "Build"
+  description = "Build the Proxima Model from test-reference.conf"
+  //inputs.files "${project.rootDir}/core/src/test/resources/test-reference.conf"
+  //outputs.dirs "generated/sources/cz/o2/proxima/testing/model"
+  classpath = configurations.getAt("compileClasspath")
+  main = "cz.o2.proxima.generator.ModelGenerator"
+  args "-t", "${project.buildDir}/generated/sources/", "-p", "cz.o2.proxima.testing.model", "-f", "${project.rootDir}/core/src/test/resources/test-reference.conf", "-c", "CoreModel"
+}
+
+tasks.named("compileJava") {
+  dependsOn generateReadmeModel, generateCoreModel
+}
+
+tasks.named("sourcesJar") {
+  dependsOn compileJava
+}
+
+sourceSets.main.java.srcDirs += ["${project.buildDir}/generated/sources/"]

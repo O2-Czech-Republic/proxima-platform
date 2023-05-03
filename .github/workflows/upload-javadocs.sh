@@ -23,10 +23,9 @@ source $(dirname $0)/functions.sh
 if [ "$(is_datadriven_repo ${GITHUB_REPOSITORY})" == "1" ]; then
   VERSION=$(proxima_version)
 
-  mvn -Pallow-snapshots -DskipTests install javadoc:aggregate
-
+  ./gradlew javadocAggregate -x test
   echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
   gcloud auth activate-service-account --key-file /tmp/google-credentials.json
 
-  gsutil -m cp -r target/site/apidocs gs://${PROXIMA_DOC_GC_STORAGE}/${VERSION}/
+  gsutil -m cp -r build/docs/javadoc gs://${PROXIMA_DOC_GC_STORAGE}/${VERSION}/
 fi

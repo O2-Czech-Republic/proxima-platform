@@ -305,9 +305,7 @@ public class ReplicationController {
             // take pair of attribute to associated commit log
             .flatMap(
                 primaryFamily ->
-                    primaryFamily
-                        .getAttributes()
-                        .stream()
+                    primaryFamily.getAttributes().stream()
                         .map(attribute -> Pair.of(attribute, primaryFamily)))
             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
@@ -333,9 +331,7 @@ public class ReplicationController {
               }
               return Pair.of(
                   replicaFamily,
-                  replicaFamily
-                      .getAttributes()
-                      .stream()
+                  replicaFamily.getAttributes().stream()
                       .map(
                           attr -> {
                             final DirectAttributeFamilyDescriptor primaryFamily =
@@ -364,9 +360,7 @@ public class ReplicationController {
       return;
     }
     DirectAttributeFamilyDescriptor family =
-        transform
-            .getAttributes()
-            .stream()
+        transform.getAttributes().stream()
             .map(
                 attr ->
                     getAttributeDescriptorStreamFor(dataOperator, attr).collect(Collectors.toSet()))
@@ -482,9 +476,7 @@ public class ReplicationController {
           .filter(af -> af.getType() == StorageType.PRIMARY)
           .map(af -> direct.getFamilyByName(af.getName()));
     }
-    return direct
-        .getFamiliesForAttribute(attr)
-        .stream()
+    return direct.getFamiliesForAttribute(attr).stream()
         .filter(af -> af.getDesc().getAccess().canReadCommitLog());
   }
 

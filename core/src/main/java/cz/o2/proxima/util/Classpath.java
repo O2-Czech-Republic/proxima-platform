@@ -33,7 +33,6 @@ public class Classpath {
    * @param superClass class or interface the found class should extend
    * @return class object of the found class
    */
-  @SuppressWarnings({"unchecked", "rawtypes"})
   public static <T> Class<? extends T> findClass(String name, Class<T> superClass) {
 
     Class<T> clz;
@@ -62,7 +61,7 @@ public class Classpath {
     throw new RuntimeException("Cannot find class " + name);
   }
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
+  @SuppressWarnings("unchecked")
   private static <T> Class<T> findClass(String name) {
     try {
       return (Class<T>) Thread.currentThread().getContextClassLoader().loadClass(name);
@@ -89,7 +88,7 @@ public class Classpath {
         | IllegalArgumentException
         | InvocationTargetException ex) {
 
-      throw new RuntimeException(ex);
+      throw new IllegalStateException("Failed to instantiate " + cls.getName(), ex);
     }
   }
 

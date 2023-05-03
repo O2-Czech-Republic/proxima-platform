@@ -131,9 +131,7 @@ public class MultiAccessBuilder implements Serializable {
               "Please use specific attribute family to scan entities.");
         }
         Map<RandomAccessReader, RandomOffset> offsets =
-            attrMapToReader
-                .values()
-                .stream()
+            attrMapToReader.values().stream()
                 .distinct()
                 .map(ra -> Pair.of(ra, ra.fetchOffset(type, key)))
                 .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
@@ -255,9 +253,7 @@ public class MultiAccessBuilder implements Serializable {
   }
 
   private Map<AttributeDescriptor<?>, RandomAccessReader> materializeReaders(Repository repo) {
-    return attrMapToFactory
-        .entrySet()
-        .stream()
+    return attrMapToFactory.entrySet().stream()
         .map(e -> Pair.of(e.getKey(), e.getValue().apply(repo)))
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
@@ -266,9 +262,7 @@ public class MultiAccessBuilder implements Serializable {
       Map<AttributeDescriptor<?>, RandomAccessReader> attrMap) {
 
     Set<EntityDescriptor> entities =
-        attrMap
-            .values()
-            .stream()
+        attrMap.values().stream()
             .map(RandomAccessReader::getEntityDescriptor)
             .collect(Collectors.toSet());
     if (entities.size() == 1) {

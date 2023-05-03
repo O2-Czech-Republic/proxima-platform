@@ -431,9 +431,7 @@ public class CommitLogObservers {
     @Override
     boolean onNextDrainQueue(OnNextContext context) {
       // drain all queues, because of possible global watermark move
-      return queueMap
-          .entrySet()
-          .stream()
+      return queueMap.entrySet().stream()
           .map(
               entry ->
                   drainQueue(
@@ -444,9 +442,7 @@ public class CommitLogObservers {
 
     @Override
     void onIdleDrainQueue(OnIdleContext context) {
-      queueMap
-          .values()
-          .stream()
+      queueMap.values().stream()
           .forEach(queue -> drainQueue(queue, context.getWatermark() - allowedLatenessMs));
     }
 

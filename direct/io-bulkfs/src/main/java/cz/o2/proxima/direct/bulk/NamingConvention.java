@@ -59,9 +59,7 @@ public interface NamingConvention extends Serializable {
 
       @Override
       public Collection<String> prefixesOf(long minTs, long maxTs) {
-        return parent
-            .prefixesOf(minTs, maxTs)
-            .stream()
+        return parent.prefixesOf(minTs, maxTs).stream()
             .map(p -> prefix + p)
             .collect(Collectors.toList());
       }

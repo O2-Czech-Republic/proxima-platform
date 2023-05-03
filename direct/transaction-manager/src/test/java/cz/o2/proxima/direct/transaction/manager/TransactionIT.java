@@ -367,7 +367,8 @@ public class TransactionIT {
           fetched);
 
       Response response = responses.take();
-      if (response.getFlags() != Flags.OPEN) {;
+      if (response.getFlags() != Flags.OPEN) {
+        ;
         TimeUnit.MILLISECONDS.sleep(Math.min(8, retrySleep *= 2));
         continue;
       }

@@ -4,6 +4,7 @@
 *.iml
 *.swp
 .idea/
+**/.gradle/
 server/log/
 dependency-reduced-pom.xml
 /ingest-core/target/

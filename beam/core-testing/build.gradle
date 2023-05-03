@@ -1,0 +1,54 @@
+/*
+ * Copyright 2017-2023 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+  id 'cz.o2.proxima.java-conventions'
+}
+
+dependencies {
+  api project(':proxima-beam-core')
+  api project(':proxima-scheme-proto')
+  api project(path: ':proxima-core', configuration: 'shadowJar')
+  api project(':proxima-scheme-proto-testing')
+  provided libraries.guava
+  testImplementation libraries.beam_runners_direct
+  testImplementation libraries.junit4
+  testImplementation libraries.hamcrest
+  testImplementation libraries.slf4j_log4j
+  testImplementation project(path: ':proxima-core', configuration: 'testsJar')
+  compileOnly project(path: ':proxima-compiler-java-cli', configuration: 'shadowJar')
+  compileOnly libraries.auto_service_annotations
+  compileAnnotationProcessor libraries.lombok
+  annotationProcessor libraries.auto_service
+}
+
+description = 'cz.o2.proxima:proxima-beam-core-testing'
+
+task generateModel(type: JavaExec) {
+  group = "Build"
+  description = "Build the Proxima Model"
+  //inputs.files "${project.rootDir}/core/src/test/resources/test-readme.conf"
+  //outputs.dirs "generated/sources/cz/o2/proxima/testing/model"
+  classpath = configurations.getAt("compileClasspath")
+  main = "cz.o2.proxima.generator.ModelGenerator"
+  args "-t", "${project.buildDir}/generated/sources/", "-p", "cz.o2.proxima.testing.model", "-f", "${project.rootDir}/core/src/test/resources/test-readme.conf"
+}
+
+tasks.named("compileJava") {
+  dependsOn generateModel
+}
+
+sourceSets.main.java.srcDirs += ["${project.buildDir}/generated/sources/"]

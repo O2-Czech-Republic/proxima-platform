@@ -1,0 +1,353 @@
+/*
+ * Copyright 2017-2023 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+}
+
+plugins {
+  id "com.github.hierynomus.license" version "0.16.1"
+  id 'com.github.johnrengelman.shadow' version '7.1.2'
+  id "org.sonarqube" version "4.0.0.2929"
+}
+
+repositories {
+  mavenLocal()
+  mavenCentral()
+  maven {
+    url = uri('https://packages.confluent.io/maven/')
+  }
+}
+
+version = '0.12-SNAPSHOT'
+group = 'cz.o2.proxima'
+
+subprojects {
+
+  version = rootProject.version
+  group = rootProject.group
+
+  repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+      url = uri('https://packages.confluent.io/maven/')
+    }
+  }
+
+  apply plugin: 'cz.o2.proxima.java-conventions'
+  apply plugin: 'com.github.johnrengelman.shadow'
+
+  license {
+    header project.file("license-header.txt")
+    mapping("java", "SLASHSTAR_STYLE")
+    mapping("gradle", "SLASHSTAR_STYLE")
+    mapping("txt", "SCRIPT_STYLE")
+    mapping("proto", "SLASHSTAR_STYLE")
+    mapping("avsc", "JAVADOC_STYLE")
+    mapping("yaml", "SCRIPT_STYLE")
+    mapping("conf", "SLASHSTAR_STYLE")
+    mapping("cql", "SLASHSTAR_STYLE")
+  }
+
+  jar {
+    enabled = false
+    dependsOn shadowJar
+  }
+
+  configurations {
+
+    // generic rules
+    compileAnnotationProcessor
+    provided
+
+    compileClasspath.extendsFrom compileAnnotationProcessor
+    annotationProcessor.extendsFrom compileAnnotationProcessor
+    testAnnotationProcessor.extendsFrom annotationProcessor
+    testCompileOnly.extendsFrom testAnnotationProcessor
+    compileOnly.extendsFrom provided
+    testImplementation.extendsFrom provided
+
+    // for shadow
+    intoShadow
+    api.extendsFrom intoShadow
+  }
+
+  shadowJar {
+    archiveClassifier = null
+    dependencies {
+      exclude "META-INF/maven/**"
+    }
+    relocate "com.google.common", "${coreShade}.com.google.common"
+
+    mergeServiceFiles()
+  }
+
+  tasks.register("configureShadow") {
+    doLast {
+      shadowJar.configurations = [ project.configurations.intoShadow ]
+      if (tasks.findByPath("testsJar")) {
+        // apply all relocations from shadowJar to testsJar
+        shadowJar.relocators.each {
+          testsJar.relocate it
+        }
+      }
+    }
+  }
+
+  shadowJar.dependsOn configureShadow
+
+  configurations.create("shadowJar") {
+    outgoing {
+      artifact(shadowJar)
+    }
+  }
+
+  publishing {
+    publications {
+      maven(MavenPublication) { publication ->
+        project.shadow.component(publication)
+
+        pom {
+          name = "Proxima platform's module ${project.name}"
+          scm {
+            connection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
+            developerConnection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
+            url = "https://github.com/O2-Czech-Republic/proxima-platform.git"
+          }
+          licenses {
+            license {
+              name = 'The Apache License, Version 2.0'
+              url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+            }
+          }
+        }
+
+        pom.withXml {
+          def dependenciesNode = asNode()['dependencies'][0]
+
+          configurations.compileClasspath.allDependencies
+              .findAll {!configurations.intoShadow.dependencies.contains(it) }
+              .each {
+
+            processDependency(dependenciesNode, it, "compile")
+          }
+
+          configurations.runtimeClasspath.allDependencies
+              .findAll {!configurations.intoShadow.allDependencies.contains(it) }
+              .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
+              .each {
+
+            processDependency(dependenciesNode, it, "runtime")
+          }
+
+          configurations.testRuntimeClasspath.allDependencies
+              .findAll {!configurations.intoShadow.allDependencies.contains(it) }
+              .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
+              .findAll {!configurations.runtimeClasspath.allDependencies.contains(it) }
+              .each {
+
+            processDependency(dependenciesNode, it, "test")
+          }
+        }
+      }
+    }
+
+    repositories {
+      def configureCredentials = {
+        if (project.hasProperty("sonatypeUsername")) {
+          username sonatypeUsername
+          password sonatypePassword
+        }
+      }
+      if (project.version.endsWith("-SNAPSHOT")) {
+        maven {
+          name = "sonatype"
+          url = "https://oss.sonatype.org/content/repositories/snapshots"
+          configureCredentials.delegate = credentials
+          configureCredentials()
+        }
+      } else {
+        maven {
+          name = "sonatype"
+          url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+          configureCredentials.delegate = credentials
+          configureCredentials()
+        }
+      }
+    }
+  }
+
+
+  if (project.hasProperty("publish") || project.hasProperty("release")) {
+    java {
+      withJavadocJar()
+      withSourcesJar()
+    }
+    javadoc {
+      dependsOn compileJava, compileTestJava
+      failOnError = false
+      if (JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+      }
+    }
+    tasks.named("sourcesJar") {
+      dependsOn compileJava, compileTestJava
+    }
+
+    tasks.named("javadoc") {
+      dependsOn compileJava, compileTestJava
+    }
+    project.publishing.publications.maven.artifact(sourcesJar)
+    project.publishing.publications.maven.artifact(javadocJar)
+    if (project.hasProperty("release")) {
+      apply plugin: "signing"
+      signing {
+        useGpgCmd()
+        publishing.publications.each { signing.sign(it) }
+      }
+    }
+  }
+}
+
+sonar {
+  properties {
+    property "sonar.sourceEncoding", "UTF-8"
+    property 'sonar.coverage.jacoco.xmlReportPaths', "${projectDir.path}/build/reports/jacoco/test/jacocoTestReport.xml"
+  }
+}
+
+if (project.hasProperty("with-coverage")) {
+  subprojects {
+    apply plugin: 'jacoco'
+    jacocoTestReport {
+      reports {
+        xml.required = true
+      }
+    }
+    test {
+      finalizedBy jacocoTestReport
+    }
+  }
+}
+
+
+task javadocAggregate(type: Javadoc) {
+  group = "Documentation"
+  description = "Generate aggregated javadoc"
+  subprojects.each {
+    dependsOn it.compileJava, it.compileTestJava
+  }
+  source subprojects.collect { it.sourceSets.main.java }
+  classpath = files(subprojects.collect { it.sourceSets.main.compileClasspath })
+  destinationDir = file("${buildDir}/docs/javadoc")
+}
+
+
+import com.github.jengelman.gradle.plugins.shadow.transformers.Transformer
+import com.github.jengelman.gradle.plugins.shadow.transformers.TransformerContext
+import shadow.org.apache.tools.zip.ZipEntry
+import shadow.org.apache.tools.zip.ZipOutputStream
+import org.gradle.api.file.FileTreeElement
+import org.codehaus.plexus.util.IOUtil
+
+@groovy.transform.CompileStatic
+class RenamingTransformer implements Transformer {
+
+  private Closure<String> renameClosure = { null }
+
+  private final Map<String, String> transformedPaths = [:]
+  private final Map<String, byte[]> contents = [:]
+
+  @Override
+  boolean canTransformResource(FileTreeElement element) {
+    renameClosure(element.relativePath.pathString) != null
+  }
+
+  @Override
+  void transform(TransformerContext context) {
+    def path = context.path
+    def outputPath = renameClosure(path)
+    if (outputPath != null) {
+      transformedPaths[path] = outputPath
+      contents[path] = getBytes(context.is)
+    }  
+  }
+
+  @Override
+  boolean hasTransformedResource() { !transformedPaths.isEmpty() }
+
+  @Override
+  void modifyOutputStream(ZipOutputStream os, boolean preserveFileTimestamps) {
+    def zipWriter = new OutputStreamWriter(os, "UTF-8")
+    transformedPaths.each { path, renamedPath ->
+      ZipEntry entry = new ZipEntry(renamedPath)
+      entry.time = TransformerContext.getEntryTimestamp(preserveFileTimestamps, entry.time)
+      os.putNextEntry(entry)
+      IOUtil.copy(new ByteArrayInputStream(contents[path]), zipWriter)
+      zipWriter.flush()
+      os.closeEntry()
+    }
+  }
+
+  private byte[] getBytes(InputStream in) {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream()
+    IOUtil.copy(in, baos)
+    baos.toByteArray()
+  }
+}
+
+@groovy.transform.CompileStatic
+def renamingTransformer() {
+  RenamingTransformer.class
+}
+
+def registerTestsJar(Project project) {
+  registerTestsJar(project, {})
+}
+
+def registerTestsJar(Project project, Closure configureClosure) {
+  def tasks = project.tasks
+  tasks.register('testsJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    dependsOn project.tasks["configureShadow"]
+    archiveClassifier = 'tests'
+    from project.sourceSets.test.output
+    configurations = [project.configurations.testRuntimeClasspath]
+  }
+  def testsJar = project.tasks["testsJar"]
+  project.publishing.publications.maven.artifact(testsJar)
+  project.configurations.create("testsJar") {
+    outgoing {
+      artifact(testsJar)
+    }
+  }
+  testsJar.exclude "*.jar"
+  configureClosure.delegate = testsJar
+  configureClosure()
+}
+
+def processDependency(def dependenciesNode, def it, def scope) {
+  def dependencyNode = dependenciesNode.appendNode('dependency')
+  dependencyNode.appendNode('groupId', it.group)
+  dependencyNode.appendNode('artifactId', it.name)
+  dependencyNode.appendNode('version', it.version)
+  dependencyNode.appendNode('scope', scope)
+  if (it.artifacts.find { a -> a.classifier }) {
+    dependencyNode.appendNode("classifier", it.artifacts.find { a -> a.classifier }?.classifier)
+  }
+}

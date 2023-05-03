@@ -71,9 +71,7 @@ public class GCloudFileSystem extends GCloudClient implements FileSystem {
     List<Blob> ret = new ArrayList<>();
     int pathPrefixLength = normalizePath((getUri().getPath())).length();
     Collection<String> prefixes =
-        namingConvention
-            .prefixesOf(startStamp, endStamp)
-            .stream()
+        namingConvention.prefixesOf(startStamp, endStamp).stream()
             .map(e -> normalizePath(getUri().getPath() + e))
             .collect(Collectors.toList());
     prefixes.forEach(

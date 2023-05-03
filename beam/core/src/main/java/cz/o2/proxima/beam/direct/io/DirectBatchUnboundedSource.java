@@ -149,9 +149,8 @@ public class DirectBatchUnboundedSource
       int length = dis.readInt();
       byte[] bytes = new byte[length];
       dis.readFully(bytes);
-      GZIPInputStream gzin = new GZIPInputStream(new ByteArrayInputStream(bytes));
-      ObjectInputStream ois = new ObjectInputStream(gzin);
-      try {
+      try (GZIPInputStream gzin = new GZIPInputStream(new ByteArrayInputStream(bytes));
+          ObjectInputStream ois = new ObjectInputStream(gzin)) {
         return (Checkpoint) ois.readObject();
       } catch (ClassNotFoundException ex) {
         throw new CoderException(ex);
@@ -238,9 +237,7 @@ public class DirectBatchUnboundedSource
     if (partitions.isEmpty()) {
       // round robin
       List<Partition> parts =
-          reader()
-              .getPartitions(startStamp, endStamp)
-              .stream()
+          reader().getPartitions(startStamp, endStamp).stream()
               .sorted()
               .collect(Collectors.toList());
       List<List<Partition>> splits = new ArrayList<>();
@@ -252,8 +249,7 @@ public class DirectBatchUnboundedSource
         splits.get(current).add(p);
         current = (current + 1) % desiredNumSplits;
       }
-      return splits
-          .stream()
+      return splits.stream()
           .map(s -> new DirectBatchUnboundedSource(this, s, startStamp, endStamp))
           .collect(Collectors.toList());
     }
@@ -286,8 +282,7 @@ public class DirectBatchUnboundedSource
           "Checkpoint partitions are already processed. "
               + "This is unsupported for now, please use older checkpoint, if possible, or disable %s",
           CFG_ENABLE_CHECKPOINT_PARTITION_MERGE);
-      fromCheckpoint
-          .stream()
+      fromCheckpoint.stream()
           .max(Comparator.naturalOrder())
           .ifPresent(
               partition ->

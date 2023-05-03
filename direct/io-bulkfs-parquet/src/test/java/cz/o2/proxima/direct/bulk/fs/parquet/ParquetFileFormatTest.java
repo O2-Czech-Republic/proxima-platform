@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.bulk.AbstractFileFormatTest;
@@ -92,12 +93,7 @@ public class ParquetFileFormatTest extends AbstractFileFormatTest {
   }
 
   private Map<String, Object> getCfg() {
-    Map<String, Object> cfg =
-        new HashMap<String, Object>() {
-          {
-            put("gzip", parquetTestParams.gzip);
-          }
-        };
+    Map<String, Object> cfg = new HashMap<>(ImmutableMap.of("gzip", parquetTestParams.gzip));
     if (parquetTestParams.getBlockSize() > 0) {
       cfg.put(
           ParquetFileFormat.PARQUET_CONFIG_PAGE_SIZE_KEY_NAME, parquetTestParams.getBlockSize());

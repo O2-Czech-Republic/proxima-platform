@@ -25,6 +25,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.UploadPartResult;
+import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.direct.s3.S3Client.AmazonS3Factory;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -146,17 +147,15 @@ public class S3ClientTest {
   }
 
   private Map<String, Object> cfg() {
-    return new HashMap<String, Object>() {
-      {
-        put("access-key", "access-key");
-        put("secret-key", "secret-key");
-        put("path-style-access", "true");
-        put("endpoint", "http://endpoint321:123");
-        put("signing-region", "signing-region");
-        put("ssl-enable", "false");
-        put("max-connections", 100);
-        put("connection-timeout-ms", 1000);
-      }
-    };
+    return ImmutableMap.<String, Object>builder()
+        .put("access-key", "access-key")
+        .put("secret-key", "secret-key")
+        .put("path-style-access", "true")
+        .put("endpoint", "http://endpoint321:123")
+        .put("signing-region", "signing-region")
+        .put("ssl-enable", "false")
+        .put("max-connections", 100)
+        .put("connection-timeout-ms", 1000)
+        .build();
   }
 }

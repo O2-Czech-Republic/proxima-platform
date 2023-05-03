@@ -316,7 +316,7 @@ public interface CommitLogReader {
    * JSON).
    *
    * @return {@link OffsetExternalizer} when externalizable offsets are supported by this reader,
-   *     check it by {@see hasExternalizableOffsets}.
+   *     check it by {@link #hasExternalizableOffsets}.
    */
   default OffsetExternalizer getOffsetExternalizer() {
     if (hasExternalizableOffsets()) {
@@ -338,9 +338,8 @@ public interface CommitLogReader {
   /**
    * Fetch offsets at given position from given partitions.
    *
-   * @param position
-   * @param partitions
-   * @return
+   * @param position position of the offsets
+   * @param partitions partitions for which to fetch the offsets
    * @throws UnsupportedOperationException if {@link CommitLogReader} does not have externalizable
    *     offsets
    */

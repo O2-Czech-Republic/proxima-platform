@@ -25,10 +25,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
@@ -124,13 +124,10 @@ public class UnboundedOutOfOrdernessWatermarkEstimatorTest {
     long allowedTimestampSkew = 200L;
 
     Map<String, Object> cfg =
-        new HashMap<String, Object>() {
-          {
-            put(prefixedKey(ESTIMATE_DURATION_MS), estimateDurationMs);
-            put(prefixedKey(STEP_MS), stepMs);
-            put(prefixedKey(ALLOWED_TIMESTAMP_SKEW), allowedTimestampSkew);
-          }
-        };
+        ImmutableMap.of(
+            prefixedKey(ESTIMATE_DURATION_MS), estimateDurationMs,
+            prefixedKey(STEP_MS), stepMs,
+            prefixedKey(ALLOWED_TIMESTAMP_SKEW), allowedTimestampSkew);
 
     WatermarkIdlePolicyFactory idlePolicyFactory = mock(WatermarkIdlePolicyFactory.class);
     when(idlePolicyFactory.create(cfg)).thenReturn(mock(WatermarkIdlePolicy.class));

@@ -264,9 +264,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     private static Commit commitFromProto(Repository repository, ProtoCommit protoCommit) {
       if (protoCommit.getUpdatesCount() == 0) {
         return Commit.of(
-            protoCommit
-                .getTransactionUpdatesList()
-                .stream()
+            protoCommit.getTransactionUpdatesList().stream()
                 .map(
                     u ->
                         new TransactionUpdate(
@@ -278,9 +276,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       return Commit.of(
           protoCommit.getSeqId() == 0 ? 1 : protoCommit.getSeqId(),
           protoCommit.getStamp(),
-          protoCommit
-              .getUpdatesList()
-              .stream()
+          protoCommit.getUpdatesList().stream()
               .map(
                   p ->
                       asStreamElement(
@@ -292,9 +288,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       if (commit.getUpdates().isEmpty()) {
         return ProtoCommit.newBuilder()
             .addAllTransactionUpdates(
-                commit
-                    .getTransactionUpdates()
-                    .stream()
+                commit.getTransactionUpdates().stream()
                     .map(
                         u ->
                             Transactions.TransactionUpdate.newBuilder()
@@ -308,9 +302,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           .setSeqId(commit.getSeqId())
           .setStamp(commit.getStamp())
           .addAllUpdates(
-              commit
-                  .getUpdates()
-                  .stream()
+              commit.getUpdates().stream()
                   .map(TransactionProtoSerializer::asProtoStreamElement)
                   .collect(Collectors.toList()))
           .build();
@@ -557,8 +549,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     private static List<KeyAttribute> getKeyAttributesFromProto(
         Repository repo, List<Transactions.KeyAttribute> attrList) {
 
-      return attrList
-          .stream()
+      return attrList.stream()
           .map(
               a -> {
                 EntityDescriptor entity = repo.getEntity(a.getEntity());

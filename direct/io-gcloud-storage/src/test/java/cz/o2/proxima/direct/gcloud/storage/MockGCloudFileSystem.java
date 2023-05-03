@@ -103,9 +103,7 @@ public class MockGCloudFileSystem implements FileSystem {
 
   @Override
   public Stream<Path> list(long minTs, long maxTs) {
-    return paths
-        .values()
-        .stream()
+    return paths.values().stream()
         .filter(p -> namingConvention.isInRange(p.getName(), minTs, maxTs))
         .map(Function.identity());
   }

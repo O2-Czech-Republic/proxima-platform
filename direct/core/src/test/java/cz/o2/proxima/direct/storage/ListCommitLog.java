@@ -377,8 +377,7 @@ public class ListCommitLog implements CommitLogReader {
         contextCommitter =
             (succ, exc) -> {
               synchronized (Consumer.this) {
-                toCommit
-                    .stream()
+                toCommit.stream()
                     .filter(consumerFedOffsets::contains)
                     .map(offsetToContext::remove)
                     .filter(Objects::nonNull)
@@ -499,15 +498,13 @@ public class ListCommitLog implements CommitLogReader {
   public Map<Partition, Offset> fetchOffsets(Position position, List<Partition> partitions) {
     Preconditions.checkArgument(position == Position.NEWEST || position == Position.OLDEST);
     if (position == Position.OLDEST) {
-      return partitions
-          .stream()
+      return partitions.stream()
           .collect(
               Collectors.toMap(
                   Function.identity(),
                   p -> new ListOffset(UUID.randomUUID().toString(), 0, Watermarks.MIN_WATERMARK)));
     }
-    return partitions
-        .stream()
+    return partitions.stream()
         .collect(
             Collectors.toMap(
                 Function.identity(),

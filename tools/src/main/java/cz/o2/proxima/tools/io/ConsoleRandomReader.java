@@ -129,9 +129,7 @@ public class ConsoleRandomReader implements AutoCloseable {
   }
 
   private RandomAccessReader getRandomAccessForListKeys(EntityDescriptor entityDesc) {
-    return entityDesc
-        .getAllAttributes(true)
-        .stream()
+    return entityDesc.getAllAttributes(true).stream()
         .flatMap(a -> direct.getFamiliesForAttribute(a).stream())
         .filter(af -> af.getDesc().getAccess().isListPrimaryKey())
         .flatMap(af -> af.getAttributes().stream())
@@ -155,9 +153,7 @@ public class ConsoleRandomReader implements AutoCloseable {
       return res;
     }
     Pair<List<AttributeDescriptor<?>>, RandomAccessReader> randomAccessForAttributes =
-        direct
-            .getFamiliesForAttribute(desc)
-            .stream()
+        direct.getFamiliesForAttribute(desc).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .map(af -> Pair.of(af.getAttributes(), Optionals.get(af.getRandomAccessReader())))

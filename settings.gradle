@@ -1,0 +1,130 @@
+/*
+ * Copyright 2017-2023 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+rootProject.name = 'platform-parent'
+include(':proxima-direct-io-cassandra')
+include(':proxima-compiler-java')
+include(':example-tools')
+include(':proxima-ingest-server-grpc')
+include(':proxima-beam-core')
+include(':proxima-core')
+include(':proxima-scheme-proto')
+include(':proxima-io-pubsub')
+include(':proxima-direct-io-elasticsearch')
+include(':proxima-direct-core-testing')
+include(':proxima-direct-io-hbase-bindings')
+include(':proxima-direct-io-gcloud-storage')
+include(':proxima-direct-compiler-plugin')
+include(':example-ingest-server')
+include(':proxima-direct-io-bigtable')
+include(':proxima-server-rpc-proto')
+include(':proxima-flink')
+include(':proxima-beam')
+include(':proxima-flink-core')
+include(':proxima-compiler-java-cli')
+include(':proxima-direct-io-kafka')
+include(':proxima-beam-io-pubsub')
+include(':proxima-scheme-proto-testing')
+include(':proxima-tools')
+include(':proxima-direct-io-hdfs')
+include(':proxima-direct-io-hadoop')
+include(':proxima-direct-io-blob')
+include(':example-proto')
+include(':proxima-docs')
+include(':proxima-direct-io-pubsub')
+include(':proxima-direct')
+include(':proxima-io')
+include(':proxima-utils-zookeeper')
+include(':proxima-direct-io-bulkfs')
+include(':proxima-direct-io-http')
+include(':proxima-scheme')
+include(':proxima-beam-core-testing')
+include(':example-model')
+include(':proxima-direct-io-s3')
+include(':example-parent')
+include(':proxima-beam-tools')
+include(':proxima-direct-io-hbase')
+include(':proxima-direct-io-bulkfs-parquet')
+include(':proxima-scheme-avro')
+include(':proxima-ingest-client')
+include(':proxima-transaction-manager')
+include(':proxima-scheme-confluent')
+include(':proxima-compiler-java-maven-plugin')
+include(':proxima-direct-core')
+include(':proxima-flink-utils')
+include(':proxima-compiler-java-lib')
+include(':proxima-io-serialization')
+project(":proxima-direct-io-cassandra").projectDir = file('direct/io-cassandra')
+project(":proxima-compiler-java").projectDir = file('compiler')
+project(":example-tools").projectDir = file('example/tools')
+project(":proxima-ingest-server-grpc").projectDir = file('direct/ingest-server')
+project(":proxima-beam-core").projectDir = file('beam/core')
+project(":proxima-core").projectDir = file('core')
+project(":proxima-scheme-proto").projectDir = file('scheme/proto')
+project(":proxima-io-pubsub").projectDir = file('io/io-pubsub')
+project(":proxima-direct-io-elasticsearch").projectDir = file('direct/io-elasticsearch')
+project(":proxima-direct-core-testing").projectDir = file('direct/core-testing')
+project(":proxima-direct-io-hbase-bindings").projectDir = file('direct/io-hbase-bindings')
+project(":proxima-direct-io-gcloud-storage").projectDir = file('direct/io-gcloud-storage')
+project(":proxima-direct-compiler-plugin").projectDir = file('direct/compiler')
+project(":example-ingest-server").projectDir = file('example/server')
+project(":proxima-direct-io-bigtable").projectDir = file('direct/io-bigtable')
+project(":proxima-server-rpc-proto").projectDir = file('direct/rpc')
+project(":proxima-flink").projectDir = file('flink')
+project(":proxima-beam").projectDir = file('beam')
+project(":proxima-flink-core").projectDir = file('flink/core')
+project(":proxima-compiler-java-cli").projectDir = file('compiler/cli')
+project(":proxima-direct-io-kafka").projectDir = file('direct/io-kafka')
+project(":proxima-beam-io-pubsub").projectDir = file('beam/io-pubsub')
+project(":proxima-scheme-proto-testing").projectDir = file('scheme/proto-testing')
+project(":proxima-tools").projectDir = file('tools')
+project(":proxima-direct-io-hdfs").projectDir = file('direct/io-hdfs')
+project(":proxima-direct-io-hadoop").projectDir = file('direct/io-hadoop')
+project(":proxima-direct-io-blob").projectDir = file('direct/io-blob')
+project(":example-proto").projectDir = file('example/proto')
+project(":proxima-docs").projectDir = file('docs')
+project(":proxima-direct-io-pubsub").projectDir = file('direct/io-pubsub')
+project(":proxima-direct").projectDir = file('direct')
+project(":proxima-io").projectDir = file('io')
+project(":proxima-utils-zookeeper").projectDir = file('utils-zookeeper')
+project(":proxima-direct-io-bulkfs").projectDir = file('direct/io-bulkfs')
+project(":proxima-direct-io-http").projectDir = file('direct/io-http')
+project(":proxima-scheme").projectDir = file('scheme')
+project(":proxima-beam-core-testing").projectDir = file('beam/core-testing')
+project(":example-model").projectDir = file('example/model')
+project(":proxima-direct-io-s3").projectDir = file('direct/io-s3')
+project(":example-parent").projectDir = file('example')
+project(":proxima-beam-tools").projectDir = file('beam/tools')
+project(":proxima-direct-io-hbase").projectDir = file('direct/io-hbase')
+project(":proxima-direct-io-bulkfs-parquet").projectDir = file('direct/io-bulkfs-parquet')
+project(":proxima-scheme-avro").projectDir = file('scheme/avro')
+project(":proxima-ingest-client").projectDir = file('direct/ingest-client')
+project(":proxima-transaction-manager").projectDir = file('direct/transaction-manager')
+project(":proxima-scheme-confluent").projectDir = file('scheme/confluent')
+project(":proxima-compiler-java-maven-plugin").projectDir = file('compiler/maven')
+project(":proxima-direct-core").projectDir = file('direct/core')
+project(":proxima-flink-utils").projectDir = file('flink/utils')
+project(":proxima-compiler-java-lib").projectDir = file('compiler/lib')
+project(":proxima-io-serialization").projectDir = file('io/io-serialization')
+
+dependencyResolutionManagement {
+  versionCatalogs {
+    libs {
+      plugin "protobuf", "com.google.protobuf" version "0.9.2"
+    }
+  }
+}
+

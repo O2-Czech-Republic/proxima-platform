@@ -137,7 +137,7 @@ public class Metrics {
             toJmxCompatibleConsumerName(consumer) + "_watermark",
             name -> GaugeMetric.of(GROUP, name));
     consumerMetrics.putIfAbsent(consumer, Pair.of(bulk, metric));
-    metric.increment(watermark);
+    metric.increment((double) watermark);
   }
 
   private static void consumerWatermarkLag(String consumer, long watermark) {
@@ -147,7 +147,7 @@ public class Metrics {
             name ->
                 ApproxPercentileMetric.of(
                     GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()))
-        .increment(lag);
+        .increment((double) lag);
   }
 
   private static void consumerWatermarkDiff(
@@ -158,7 +158,7 @@ public class Metrics {
             name ->
                 ApproxPercentileMetric.of(
                     GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()))
-        .increment(diff);
+        .increment((double) diff);
   }
 
   private static String toJmxCompatibleConsumerName(String consumer) {
@@ -185,9 +185,7 @@ public class Metrics {
   public static List<String> consumerWatermarkLags() {
     long now = System.currentTimeMillis();
     synchronized (consumerMetrics) {
-      return consumerMetrics
-          .entrySet()
-          .stream()
+      return consumerMetrics.entrySet().stream()
           .map(
               e ->
                   String.format(

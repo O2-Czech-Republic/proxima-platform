@@ -43,11 +43,7 @@ public class ConfigUtils {
       UnaryFunction<String, URI> storageReplacement) {
 
     final Map<String, String> overrides = new HashMap<>();
-    config
-        .getObject(ConfigConstants.ATTRIBUTE_FAMILIES)
-        .unwrapped()
-        .entrySet()
-        .stream()
+    config.getObject(ConfigConstants.ATTRIBUTE_FAMILIES).unwrapped().entrySet().stream()
         .filter(e -> familyFilter.apply(e.getKey()))
         .forEach(
             e -> {

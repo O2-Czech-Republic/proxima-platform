@@ -22,13 +22,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkEstimator;
-import java.util.HashMap;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,12 +53,9 @@ public class MinimalPartitionWatermarkEstimatorTest {
     estimator2 = mock(WatermarkEstimator.class);
     minimalPartitionWatermarkEstimator =
         new MinimalPartitionWatermarkEstimator(
-            new HashMap<Integer, WatermarkEstimator>() {
-              {
-                put(1, estimator1);
-                put(2, estimator2);
-              }
-            });
+            ImmutableMap.of(
+                1, estimator1,
+                2, estimator2));
   }
 
   @Test

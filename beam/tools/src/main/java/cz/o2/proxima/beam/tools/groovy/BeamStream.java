@@ -646,9 +646,7 @@ class BeamStream<T> implements Stream<T> {
     SerializableScopedValue<Integer, AttributeWriterBase> writer =
         new SerializableScopedValue<>(() -> writerFactory.apply(repositoryFactory.apply()));
     Set<String> allowedAttributes =
-        familyDescriptor
-            .getAttributes()
-            .stream()
+        familyDescriptor.getAttributes().stream()
             .map(AttributeDescriptor::getName)
             .collect(Collectors.toSet());
     switch (rawWriter.getType()) {

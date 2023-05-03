@@ -132,8 +132,7 @@ public class KafkaConsumerFactory<K, V> {
     updateAutoOffsetReset(position, cloned, true);
     KafkaConsumer<K, V> ret = new KafkaConsumer<>(cloned);
     List<TopicPartition> topicPartitions =
-        partitions
-            .stream()
+        partitions.stream()
             .map(p -> new TopicPartition(topic, p.getId()))
             .collect(Collectors.toList());
 
@@ -157,8 +156,7 @@ public class KafkaConsumerFactory<K, V> {
     KafkaConsumer<K, V> ret = new KafkaConsumer<>(cloned);
 
     List<TopicPartition> partitions =
-        ret.partitionsFor(topic)
-            .stream()
+        ret.partitionsFor(topic).stream()
             .map(p -> new TopicPartition(topic, p.partition()))
             .collect(Collectors.toList());
 

@@ -67,7 +67,8 @@ public class HadoopStorageTest {
   private final Repository repository =
       ConfigRepository.Builder.ofTest(ConfigFactory.load("test-reference.conf").resolve()).build();
   private final DirectDataOperator direct =
-      repository.getOrCreateOperator(DirectDataOperator.class);;
+      repository.getOrCreateOperator(DirectDataOperator.class);
+  ;
   private final EntityDescriptor entity = repository.getEntity("gateway");
   private final AttributeDescriptor<byte[]> attribute = entity.getAttribute("armed");
 

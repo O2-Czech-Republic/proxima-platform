@@ -157,8 +157,7 @@ public class DirectDataOperatorTest {
     Set<DirectAttributeFamilyDescriptor> proxiedFamilies = direct.getFamiliesForAttribute(source);
 
     assertEquals(
-        families
-            .stream()
+        families.stream()
             .map(a -> "proxy::" + a.getDesc().getName() + "::" + a.getDesc().getName())
             .collect(Collectors.toList()),
         proxiedFamilies.stream().map(a -> a.getDesc().getName()).collect(Collectors.toList()));
@@ -389,17 +388,13 @@ public class DirectDataOperatorTest {
     AttributeDescriptor<?> target = proxied.getAttribute("_e.*", true);
     AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     CachedView view =
-        direct
-            .getFamiliesForAttribute(source)
-            .stream()
+        direct.getFamiliesForAttribute(source).stream()
             .filter(af -> af.getDesc().getAccess().canCreateCachedView())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getCachedView)
             .orElseThrow(() -> new IllegalStateException("Missing cached view for " + source));
     RandomAccessReader reader =
-        direct
-            .getFamiliesForAttribute(target)
-            .stream()
+        direct.getFamiliesForAttribute(target).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
@@ -440,9 +435,7 @@ public class DirectDataOperatorTest {
     EntityDescriptor proxied = repo.getEntity("proxied");
     AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     CommitLogReader reader =
-        direct
-            .getFamiliesForAttribute(source)
-            .stream()
+        direct.getFamiliesForAttribute(source).stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
@@ -517,9 +510,7 @@ public class DirectDataOperatorTest {
     EntityDescriptor proxied = repo.getEntity("proxied");
     AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     CommitLogReader reader =
-        direct
-            .getFamiliesForAttribute(source)
-            .stream()
+        direct.getFamiliesForAttribute(source).stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
@@ -761,9 +752,7 @@ public class DirectDataOperatorTest {
 
     TimeUnit.MILLISECONDS.sleep(300);
     CommitLogReader reader =
-        direct
-            .getFamiliesForAttribute(armed)
-            .stream()
+        direct.getFamiliesForAttribute(armed).stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
@@ -940,9 +929,7 @@ public class DirectDataOperatorTest {
     latch.await();
 
     Optional<RandomAccessReader> reader =
-        direct
-            .getFamiliesForAttribute(data)
-            .stream()
+        direct.getFamiliesForAttribute(data).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -982,9 +969,7 @@ public class DirectDataOperatorTest {
     latch.await();
 
     Optional<RandomAccessReader> reader =
-        direct
-            .getFamiliesForAttribute(event)
-            .stream()
+        direct.getFamiliesForAttribute(event).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -992,9 +977,7 @@ public class DirectDataOperatorTest {
     assertTrue(reader.get().get("gw", event.toAttributePrefix() + "1", event).isPresent());
 
     reader =
-        direct
-            .getFamiliesForAttribute(raw)
-            .stream()
+        direct.getFamiliesForAttribute(raw).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -1037,9 +1020,7 @@ public class DirectDataOperatorTest {
     latch.await();
 
     Optional<RandomAccessReader> reader =
-        direct
-            .getFamiliesForAttribute(event)
-            .stream()
+        direct.getFamiliesForAttribute(event).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -1047,9 +1028,7 @@ public class DirectDataOperatorTest {
     assertTrue(reader.get().get("gw", event.toAttributePrefix() + "1", event).isPresent());
 
     reader =
-        direct
-            .getFamiliesForAttribute(raw)
-            .stream()
+        direct.getFamiliesForAttribute(raw).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -1089,9 +1068,7 @@ public class DirectDataOperatorTest {
     latch.await();
 
     Optional<RandomAccessReader> reader =
-        direct
-            .getFamiliesForAttribute(event)
-            .stream()
+        direct.getFamiliesForAttribute(event).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -1099,9 +1076,7 @@ public class DirectDataOperatorTest {
     assertTrue(reader.get().get("gw", event.toAttributePrefix() + "1", event).isPresent());
 
     reader =
-        direct
-            .getFamiliesForAttribute(raw)
-            .stream()
+        direct.getFamiliesForAttribute(raw).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -1140,9 +1115,7 @@ public class DirectDataOperatorTest {
     latch.await();
 
     Optional<RandomAccessReader> reader =
-        direct
-            .getFamiliesForAttribute(raw)
-            .stream()
+        direct.getFamiliesForAttribute(raw).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -1190,9 +1163,7 @@ public class DirectDataOperatorTest {
             (succ, exc) -> assertTrue(succ));
 
     Optional<RandomAccessReader> reader =
-        direct
-            .getFamiliesForAttribute(wildcardSecond)
-            .stream()
+        direct.getFamiliesForAttribute(wildcardSecond).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -1215,9 +1186,7 @@ public class DirectDataOperatorTest {
             (succ, exc) -> {});
 
     reader =
-        direct
-            .getFamiliesForAttribute(wildcardFirst)
-            .stream()
+        direct.getFamiliesForAttribute(wildcardFirst).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
@@ -1284,9 +1253,7 @@ public class DirectDataOperatorTest {
         });
     latch.await();
     assertFalse(
-        direct
-            .getFamiliesForAttribute(dataWrite)
-            .stream()
+        direct.getFamiliesForAttribute(dataWrite).stream()
             .filter(af -> af.getDesc().getType() == StorageType.PRIMARY)
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
@@ -1495,9 +1462,7 @@ public class DirectDataOperatorTest {
         });
     latch.await();
     RandomAccessReader localReader =
-        direct
-            .getFamiliesForAttribute(statusWrite)
-            .stream()
+        direct.getFamiliesForAttribute(statusWrite).stream()
             .filter(af -> af.getDesc().getType() == StorageType.PRIMARY)
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
@@ -1579,9 +1544,7 @@ public class DirectDataOperatorTest {
             (succ, exc) -> {});
     latch.await();
     RandomAccessReader reader =
-        direct
-            .getFamiliesForAttribute(event)
-            .stream()
+        direct.getFamiliesForAttribute(event).stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
@@ -1689,9 +1652,7 @@ public class DirectDataOperatorTest {
 
     // observe stream
     CommitLogReader reader =
-        direct
-            .getFamiliesForAttribute(armed)
-            .stream()
+        direct.getFamiliesForAttribute(armed).stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
             .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)

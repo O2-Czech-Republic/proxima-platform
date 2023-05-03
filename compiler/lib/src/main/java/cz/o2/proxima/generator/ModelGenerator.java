@@ -118,7 +118,7 @@ public class ModelGenerator {
     }
 
     try (FileOutputStream out = new FileOutputStream(outputFile)) {
-      generate(new OutputStreamWriter(out));
+      generate(new OutputStreamWriter(out, StandardCharsets.UTF_8));
     }
   }
 
@@ -145,8 +145,7 @@ public class ModelGenerator {
     List<OperatorGenerator> operatorGenerators = getOperatorGenerators(repo);
 
     final Set<String> operatorImports =
-        operatorGenerators
-            .stream()
+        operatorGenerators.stream()
             .map(OperatorGenerator::imports)
             .reduce(Sets.newHashSet(), Sets::union);
 
@@ -194,8 +193,7 @@ public class ModelGenerator {
     ret.put("nameCamel", CamelCase.apply(e.getName()));
 
     List<Map<String, Object>> attributes =
-        e.getAllAttributes()
-            .stream()
+        e.getAllAttributes().stream()
             .map(
                 attr -> {
                   ValueSerializerFactory serializerFactory =
@@ -231,8 +229,7 @@ public class ModelGenerator {
 
   private String readFileToString(File path) {
     try (FileInputStream in = new FileInputStream(path)) {
-      return IOUtils.readLines(in, StandardCharsets.UTF_8)
-          .stream()
+      return IOUtils.readLines(in, StandardCharsets.UTF_8).stream()
           .map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
           .collect(Collectors.joining("\n + "));
     } catch (IOException ex) {

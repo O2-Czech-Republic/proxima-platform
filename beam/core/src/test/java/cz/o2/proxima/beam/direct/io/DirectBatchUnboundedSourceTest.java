@@ -211,8 +211,7 @@ public class DirectBatchUnboundedSourceTest {
         Lists.newArrayList(Partition.of(3), Partition.of(2), Partition.of(0), Partition.of(1));
     List<Partition> fromCheckpoint = Collections.singletonList(Partition.of(1));
     List<Integer> merged =
-        DirectBatchUnboundedSource.merge(true, own, fromCheckpoint)
-            .stream()
+        DirectBatchUnboundedSource.merge(true, own, fromCheckpoint).stream()
             .map(Partition::getId)
             .collect(Collectors.toList());
     assertEquals(Lists.newArrayList(1, 2, 3), merged);

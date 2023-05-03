@@ -70,8 +70,7 @@ class ElementConsumers {
     public void onAssign(KafkaConsumer<K, V> consumer, Collection<TopicOffset> offsets) {
       committed.clear();
       committed.putAll(
-          offsets
-              .stream()
+          offsets.stream()
               .collect(
                   Collectors.toMap(
                       o ->

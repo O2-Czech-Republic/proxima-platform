@@ -1,0 +1,55 @@
+/*
+ * Copyright 2017-2023 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+  id 'cz.o2.proxima.java-conventions'
+}
+
+dependencies {
+  api project(':proxima-direct-core')
+  api project(path: ':proxima-io-serialization', configuration: 'shadowJar')
+  api(libraries.hadoop_common) {
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+  }
+  api(libraries.hadoop_auth) {
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+  }
+  // use protobuf 2.5.0
+  intoShadow "com.google.protobuf:protobuf-java:2.5.0"
+  api libraries.slf4j_api
+  testImplementation project(path: ':proxima-core', configuration: 'testsJar')
+  testImplementation libraries.hadoop_common
+  testImplementation libraries.hbase_testing_util
+  testImplementation libraries.hadoop_hdfs
+  testImplementation libraries.hadoop_hdfs_tests
+  testImplementation libraries.junit4
+  testImplementation libraries.slf4j_log4j
+  testImplementation libraries.mockito_core
+  compileOnly libraries.auto_service_annotations
+  compileOnly libraries.hbase_client
+  compileAnnotationProcessor libraries.lombok
+  annotationProcessor libraries.auto_service
+}
+
+description = 'cz.o2.proxima:proxima-direct-io-hbase-bindings'
+
+shadowJar {
+  relocate "com.google.protobuf", "cz.o2.proxima.direct.hbase.bindings.com.google.protobuf"
+}

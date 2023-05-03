@@ -49,8 +49,7 @@ public class AttributeFamilyDescriptorTest {
     this.entity = repo.getEntity("event");
     this.attribute = entity.getAttribute("data");
     descriptorWithSuffix =
-        repo.getFamiliesForAttribute(attribute)
-            .stream()
+        repo.getFamiliesForAttribute(attribute).stream()
             .filter(
                 f ->
                     f.getCfg()
@@ -65,8 +64,7 @@ public class AttributeFamilyDescriptorTest {
                             attribute.getName(),
                             DefaultConsumerNameFactory.CFG_REPLICATION_CONSUMER_NAME_SUFFIX)));
     descriptorWithoutSuffix =
-        repo.getFamiliesForAttribute(attribute)
-            .stream()
+        repo.getFamiliesForAttribute(attribute).stream()
             .filter(
                 f ->
                     !f.getCfg()

@@ -278,9 +278,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                   int cleaned;
                   try (Locker l = Locker.of(lock.writeLock())) {
                     List<Map.Entry<KeyWithAttribute, SeqIdWithTombstone>> toCleanUp =
-                        lastUpdateSeqId
-                            .entries()
-                            .stream()
+                        lastUpdateSeqId.entries().stream()
                             .filter(e -> e.getValue().getTimestamp() < cleanup)
                             .collect(Collectors.toList());
                     cleaned = toCleanUp.size();
@@ -406,9 +404,7 @@ public class TransactionLogObserver implements CommitLogObserver {
     long seqId = state.getSequentialId();
     // we need to rollback all updates to lastUpdateSeqId with the same seqId
     try (Locker lock = Locker.of(this.lock.writeLock())) {
-      state
-          .getCommittedAttributes()
-          .stream()
+      state.getCommittedAttributes().stream()
           .map(KeyWithAttribute::ofWildcard)
           .map(updatesToWildcard::get)
           .filter(Objects::nonNull)
@@ -416,9 +412,7 @@ public class TransactionLogObserver implements CommitLogObserver {
               map ->
                   Iterators.removeIf(
                       map.entrySet().iterator(), e -> e.getValue().getSeqId() == seqId));
-      state
-          .getCommittedAttributes()
-          .stream()
+      state.getCommittedAttributes().stream()
           .map(KeyWithAttribute::of)
           .forEach(kwa -> lastUpdateSeqId.get(kwa).removeIf(s -> s.getSeqId() == seqId));
     }
@@ -506,8 +500,7 @@ public class TransactionLogObserver implements CommitLogObserver {
       Collection<KeyAttribute> inputAttributes, Collection<KeyAttribute> outputAttributes) {
 
     Map<KeyWithAttribute, KeyAttribute> mapOfInputs =
-        inputAttributes
-            .stream()
+        inputAttributes.stream()
             .collect(
                 Collectors.toMap(
                     KeyWithAttribute::of,

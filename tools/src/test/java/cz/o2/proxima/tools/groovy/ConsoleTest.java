@@ -50,9 +50,7 @@ public class ConsoleTest {
       toolsLoader = console.getToolsClassLoader();
     }
     List<String> definedClosures =
-        toolsLoader
-            .getDefinedClasses()
-            .stream()
+        toolsLoader.getDefinedClasses().stream()
             .filter(c -> c.endsWith("_run_closure1"))
             .collect(Collectors.toList());
     assertEquals(1, definedClosures.size());

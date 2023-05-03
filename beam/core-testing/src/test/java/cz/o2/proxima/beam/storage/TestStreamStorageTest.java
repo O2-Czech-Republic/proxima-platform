@@ -56,15 +56,13 @@ public class TestStreamStorageTest {
 
   private final AttributeFamilyDescriptor commitLogFamily =
       Optionals.get(
-          repo.getFamiliesForAttribute(status)
-              .stream()
+          repo.getFamiliesForAttribute(status).stream()
               .filter(af -> af.getAccess().canReadCommitLog())
               .findFirst());
 
   private final AttributeFamilyDescriptor batchFamily =
       Optionals.get(
-          repo.getFamiliesForAttribute(status)
-              .stream()
+          repo.getFamiliesForAttribute(status).stream()
               .filter(af -> af.getAccess().canReadBatchSnapshot())
               .findFirst());
 

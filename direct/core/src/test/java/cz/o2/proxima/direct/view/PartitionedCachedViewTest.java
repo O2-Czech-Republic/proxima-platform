@@ -82,9 +82,7 @@ public class PartitionedCachedViewTest {
             .getWriter(status)
             .orElseThrow(() -> new IllegalStateException("Missing writer for status"));
     DirectAttributeFamilyDescriptor cachedFamily =
-        direct
-            .getFamiliesForAttribute(status)
-            .stream()
+        direct.getFamiliesForAttribute(status).stream()
             .filter(af -> af.getDesc().getAccess().canCreateCachedView())
             .findAny()
             .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
@@ -133,9 +131,7 @@ public class PartitionedCachedViewTest {
             .orElseThrow(() -> new IllegalStateException("Missing writer for status"));
 
     DirectAttributeFamilyDescriptor cachedFamily =
-        direct
-            .getFamiliesForAttribute(status)
-            .stream()
+        direct.getFamiliesForAttribute(status).stream()
             .filter(af -> af.getDesc().getAccess().canCreateCachedView())
             .findAny()
             .orElseThrow(() -> new IllegalStateException("Status has no cached view"));

@@ -41,9 +41,7 @@ public class MinimalPartitionWatermarkEstimator implements PartitionedWatermarkE
 
   @Override
   public long getWatermark() {
-    return estimators
-        .values()
-        .stream()
+    return estimators.values().stream()
         .map(WatermarkEstimator::getWatermark)
         .min(Long::compare)
         .orElseThrow(IllegalStateException::new);

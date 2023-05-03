@@ -386,8 +386,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
     List<String> names =
-        offsets
-            .stream()
+        offsets.stream()
             .map(o -> ((PubSubOffset) o).getConsumerName())
             .distinct()
             .collect(Collectors.toList());
@@ -395,8 +394,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         names.size() == 1, "Offsets should be reading same consumer, got %s", names);
     String name = Iterables.getOnlyElement(names);
     long watermark =
-        offsets
-            .stream()
+        offsets.stream()
             .mapToLong(o -> ((PubSubOffset) o).getWatermark())
             .min()
             .orElse(Long.MIN_VALUE);
@@ -670,8 +668,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       return name;
     }
     Set<String> names =
-        partitions
-            .stream()
+        partitions.stream()
             .map(p -> ((PubSubPartition) p).getConsumerName())
             .collect(Collectors.toSet());
     Preconditions.checkArgument(

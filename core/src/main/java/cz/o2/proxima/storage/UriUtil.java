@@ -40,8 +40,7 @@ public class UriUtil {
     if (query == null) {
       return Collections.emptyMap();
     }
-    return Arrays.asList(query.split("&"))
-        .stream()
+    return Arrays.asList(query.split("&")).stream()
         .map(s -> Arrays.copyOf(s.split("="), 2))
         .collect(Collectors.toMap(s -> decode(s[0]), s -> decode(s[1])));
   }

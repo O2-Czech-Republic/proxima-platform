@@ -43,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
  * Implementation of {@link StructureValueAccessor} for ProtoBufs
  *
  * <p>Wrapper types are mapped to scalar equivalents as we can manage null values. See {@link
- * PrimitiveValueAccessor##createFieldAccessor(FieldDescriptor, Builder)} for details.
+ * ProtoMessageValueAccessor#createFieldAccessor(FieldDescriptor, Builder)} for details.
  *
  * @param <T> Protobuf message type
  */
@@ -58,10 +58,7 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
     this.defaultValueFactory = defaultValueFactory;
     Builder builder = getDefaultValue().toBuilder();
     this.fieldAccessors =
-        getDefaultValue()
-            .getDescriptorForType()
-            .getFields()
-            .stream()
+        getDefaultValue().getDescriptorForType().getFields().stream()
             .collect(
                 Collectors.toMap(
                     FieldDescriptor::getName,
@@ -82,10 +79,7 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
      non-repeated fields, repeated fields just when count > 0 and messages just when was set.
     */
     return StructureValue.of(
-        object
-            .getDescriptorForType()
-            .getFields()
-            .stream()
+        object.getDescriptorForType().getFields().stream()
             .filter(
                 f ->
                     (!f.isRepeated()
@@ -145,9 +139,7 @@ public class ProtoMessageValueAccessor<T extends Message> implements StructureVa
     if (accessor.getType().equals(Type.ARRAY)) {
       if (List.class.isAssignableFrom(object.getClass())) {
         return ((List<Object>) object)
-            .stream()
-            .map(v -> mapValue(accessor, v))
-            .collect(Collectors.toList());
+            .stream().map(v -> mapValue(accessor, v)).collect(Collectors.toList());
       } else {
         // Create new list in case when originally scalar field changed to repeated
         return Collections.singletonList(mapValue(accessor, object));

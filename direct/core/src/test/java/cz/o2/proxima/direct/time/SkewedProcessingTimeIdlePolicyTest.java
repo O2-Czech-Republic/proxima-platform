@@ -23,10 +23,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import java.time.Instant;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import org.junit.Before;
@@ -85,11 +85,7 @@ public class SkewedProcessingTimeIdlePolicyTest {
   @Test
   public void testFactoryConfig() {
     Map<String, Object> cfg =
-        new HashMap<String, Object>() {
-          {
-            put(prefixedKey(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW), TIMESTAMP_SKEW);
-          }
-        };
+        ImmutableMap.of(prefixedKey(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW), TIMESTAMP_SKEW);
 
     WatermarkIdlePolicyFactory factory = new SkewedProcessingTimeIdlePolicy.Factory();
     SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create(cfg);
@@ -99,11 +95,7 @@ public class SkewedProcessingTimeIdlePolicyTest {
   @Test
   public void testFactoryLegacyConfig() {
     Map<String, Object> cfg =
-        new HashMap<String, Object>() {
-          {
-            put(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW, TIMESTAMP_SKEW);
-          }
-        };
+        ImmutableMap.of(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW, TIMESTAMP_SKEW);
 
     WatermarkIdlePolicyFactory factory = new SkewedProcessingTimeIdlePolicy.Factory();
     SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create(cfg);
@@ -116,12 +108,11 @@ public class SkewedProcessingTimeIdlePolicyTest {
     long legacyTimestampSkew = 10L;
 
     Map<String, Object> cfg =
-        new HashMap<String, Object>() {
-          {
-            put(prefixedKey(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW), newTimestampSkew);
-            put(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW, legacyTimestampSkew);
-          }
-        };
+        ImmutableMap.of(
+            prefixedKey(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW),
+            newTimestampSkew,
+            SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW,
+            legacyTimestampSkew);
 
     WatermarkIdlePolicyFactory factory = new SkewedProcessingTimeIdlePolicy.Factory();
     SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create(cfg);

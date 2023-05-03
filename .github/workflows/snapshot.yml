@@ -37,6 +37,6 @@ jobs:
         hugo-version: 'latest'
     - name: Deploy with Maven
       env:
-        MAVEN_SETTINGS: ${{ secrets.MAVEN_SETTINGS }}
+        GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
         GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       run: ./.github/workflows/deploy-snapshot.sh

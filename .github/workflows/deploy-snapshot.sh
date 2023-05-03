@@ -43,7 +43,9 @@ source $(dirname $0)/functions.sh
 set -eu
 
 export GRADLE_USER_HOME=/tmp
-echo "${GRADLE_PROPERTIES}" > /tmp/gradle.properties
+if [[ ! -z $GRADLE_PROPERTIES ]]; then
+  echo "${GRADLE_PROPERTIES}" > /tmp/gradle.properties
+fi
 VERSION=$(proxima_version)
 
 if echo "${VERSION}" | grep SNAPSHOT >/dev/null && echo "${GITHUB_REPOSITORY}" | grep O2-Czech-Republic >/dev/null; then

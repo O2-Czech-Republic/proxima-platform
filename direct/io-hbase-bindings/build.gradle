@@ -31,8 +31,6 @@ dependencies {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
   }
-  // use protobuf 2.5.0
-  intoShadow "com.google.protobuf:protobuf-java:2.5.0"
   api libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.hadoop_common
@@ -49,7 +47,3 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-hbase-bindings'
-
-shadowJar {
-  relocate "com.google.protobuf", "cz.o2.proxima.direct.hbase.bindings.com.google.protobuf"
-}

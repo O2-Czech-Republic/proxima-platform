@@ -20,7 +20,7 @@ plugins {
 
 dependencies {
   api project(':proxima-direct-core')
-  api libraries.slf4j_api
+  implementation libraries.slf4j_api
   testImplementation project(':proxima-scheme-proto')
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')

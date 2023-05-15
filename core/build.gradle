@@ -15,7 +15,7 @@
  */
 
 dependencies {
-  api libraries.slf4j_api
+  implementation libraries.slf4j_api
   intoShadow 'com.typesafe:config:1.4.2'
   intoShadow 'com.tdunning:t-digest:3.3'
   intoShadow libraries.guava

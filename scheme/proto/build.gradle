@@ -22,10 +22,9 @@ plugins {
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
   api libraries.protobuf_java
-  api libraries.protobuf_java_util
-  api libraries.slf4j_api
+  implementation libraries.protobuf_java_util
+  implementation libraries.slf4j_api
   compileOnly libraries.auto_service_annotations
-
   testImplementation project(path: ":proxima-core", configuration: "testsJar")
   testImplementation libraries.junit4
   annotationProcessor libraries.auto_service

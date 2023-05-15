@@ -25,16 +25,17 @@ def jackson_version = "2.14.1"
 dependencies {
   api project(':proxima-beam-core')
   api project(':proxima-tools')
-  api libraries.beam_core
-  api libraries.beam_extensions_join_library
-  api libraries.beam_extensions_kryo
+  implementation libraries.beam_core
+  implementation libraries.beam_extensions_join_library
+  implementation libraries.beam_extensions_kryo
   intoShadow libraries.grpc_core
   intoShadow libraries.grpc_protobuf
   intoShadow libraries.grpc_stub
   intoShadow libraries.grpc_netty_shaded
-  api libraries.slf4j_api
+  implementation libraries.slf4j_api
   provided libraries.flink_clients
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
+  testImplementation project(path: ':proxima-direct-core', configuration: 'shadowJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-tools', configuration: 'testsJar')
   testImplementation libraries.spark_core

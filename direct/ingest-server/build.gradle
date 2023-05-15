@@ -21,11 +21,11 @@ plugins {
 
 dependencies {
   api project(':proxima-direct-core')
-  api project(':proxima-scheme-proto')
-  api 'net.jodah:failsafe:1.0.4'
   api project(':proxima-server-rpc-proto')
-  api libraries.slf4j_api
-  api libraries.grpc_netty_shaded
+  implementation 'net.jodah:failsafe:1.0.4'
+  implementation project(':proxima-scheme-proto')
+  implementation libraries.slf4j_api
+  implementation libraries.grpc_netty_shaded
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation project(':proxima-direct-io-kafka')

@@ -22,6 +22,7 @@ dependencies {
   api project(':proxima-direct-core')
   intoShadow 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.17.2'
   intoShadow 'com.google.code.gson:gson:2.8.9'
+  implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.junit_jupiter_engine

@@ -85,7 +85,7 @@ subprojects {
 
     // for shadow
     intoShadow
-    api.extendsFrom intoShadow
+    implementation.extendsFrom intoShadow
   }
 
   shadowJar {

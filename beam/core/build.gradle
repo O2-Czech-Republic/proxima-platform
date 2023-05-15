@@ -21,7 +21,7 @@ plugins {
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
   api libraries.beam_core
-  api libraries.beam_extensions_kryo
+  implementation libraries.beam_extensions_kryo
   testImplementation libraries.slf4j_log4j
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')

@@ -21,6 +21,7 @@ plugins {
 dependencies {
   api project(':proxima-direct-core')
   api project(':proxima-server-rpc-proto')
+  implementation libraries.slf4j_api
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j

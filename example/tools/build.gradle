@@ -19,17 +19,17 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
-  api project(':proxima-scheme-proto')
-  api project(':proxima-tools')
-  api project(':proxima-beam-tools')
-  api libraries.beam_runners_direct
-  api project(':proxima-direct-io-cassandra')
-  api project(':proxima-direct-io-kafka')
-  api project(':proxima-direct-io-hadoop')
-  api project(':example-model')
-  api 'jline:jline:2.14.6'
-  api libraries.slf4j_log4j
+  implementation project(path: ':proxima-core', configuration: 'shadowJar')
+  implementation project(':proxima-scheme-proto')
+  implementation project(':proxima-tools')
+  implementation project(':proxima-beam-tools')
+  implementation libraries.beam_runners_direct
+  implementation project(':proxima-direct-io-cassandra')
+  implementation project(':proxima-direct-io-kafka')
+  implementation project(':proxima-direct-io-hadoop')
+  implementation project(':example-model')
+  implementation 'jline:jline:2.14.6'
+  implementation libraries.slf4j_log4j
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
 

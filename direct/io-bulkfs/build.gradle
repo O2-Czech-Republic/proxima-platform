@@ -22,16 +22,12 @@ dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
   api project(':proxima-direct-core')
   api project(path: ':proxima-io-serialization', configuration: 'shadowJar')
-  api libraries.slf4j_api
+  implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4
-
   provided libraries.guava
-
   compileAnnotationProcessor libraries.lombok
-
-
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-bulkfs'

@@ -24,7 +24,7 @@ dependencies {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
   }
-  api libraries.slf4j_api
+  implementation libraries.slf4j_api
   provided libraries.guava
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j

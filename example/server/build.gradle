@@ -15,15 +15,15 @@
  */
 
 plugins {
-    id 'cz.o2.proxima.java-conventions'
+  id 'cz.o2.proxima.java-conventions'
 }
 
 dependencies {
-    api project(':proxima-ingest-server-grpc')
-    api project(':example-model')
-    api project(':example-proto')
-    api libraries.slf4j_api
-    api libraries.slf4j_log4j
+  implementation project(':proxima-ingest-server-grpc')
+  implementation project(':example-model')
+  implementation project(':example-proto')
+  implementation libraries.slf4j_api
+  implementation libraries.slf4j_log4j
 }
 
 group = 'cz.o2.proxima.example'

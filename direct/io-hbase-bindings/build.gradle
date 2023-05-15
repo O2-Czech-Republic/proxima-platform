@@ -20,18 +20,18 @@ plugins {
 
 dependencies {
   api project(':proxima-direct-core')
-  api project(path: ':proxima-io-serialization', configuration: 'shadowJar')
-  api(libraries.hadoop_common) {
+  implementation(libraries.hadoop_common) {
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
   }
-  api(libraries.hadoop_auth) {
+  implementation(libraries.hadoop_auth) {
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
   }
-  api libraries.slf4j_api
+  implementation project(path: ':proxima-io-serialization', configuration: 'shadowJar')
+  implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.hadoop_common
   testImplementation libraries.hbase_testing_util

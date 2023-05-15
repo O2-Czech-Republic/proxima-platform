@@ -15,22 +15,21 @@
  */
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
-  api project(':proxima-scheme-proto')
-  api project(':proxima-server-rpc-proto')
-  api project(':example-proto')
-  api project(':proxima-direct-io-kafka')
-  api project(':proxima-direct-io-cassandra')
-  api project(':proxima-direct-io-hbase')
-  api project(':proxima-direct-io-hdfs')
-  api libraries.slf4j_api
+  implementation project(path: ':proxima-core', configuration: 'shadowJar')
+  implementation project(':proxima-server-rpc-proto')
+  implementation project(':example-proto')
+  implementation project(':proxima-direct-io-kafka')
+  implementation project(':proxima-direct-io-cassandra')
+  implementation project(':proxima-direct-io-hbase')
+  implementation project(':proxima-direct-io-hdfs')
+  implementation project(':proxima-scheme-proto')
+  implementation libraries.slf4j_api
   compileOnly project(path: ':proxima-compiler-java-cli', configuration: 'shadowJar')
   compileOnly project(path: ':proxima-direct-compiler-plugin', configuration: 'shadowJar')
   testImplementation project(path: ':proxima-direct-core')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4
-
   compileAnnotationProcessor libraries.lombok
 }
 

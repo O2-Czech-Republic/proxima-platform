@@ -20,7 +20,7 @@ plugins {
 
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
-  api libraries.slf4j_api
+  implementation libraries.slf4j_api
   intoShadow 'com.google.code.gson:gson:2.8.9'
   provided libraries.guava
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')

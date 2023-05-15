@@ -20,7 +20,7 @@ plugins {
 
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
-  api libraries.slf4j_api
+  implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4

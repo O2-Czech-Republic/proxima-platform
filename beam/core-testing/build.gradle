@@ -20,9 +20,8 @@ plugins {
 
 dependencies {
   api project(':proxima-beam-core')
-  api project(':proxima-scheme-proto')
-  api project(path: ':proxima-core', configuration: 'shadowJar')
-  api project(':proxima-scheme-proto-testing')
+  implementation project(':proxima-scheme-proto-testing')
+  implementation project(':proxima-scheme-proto')
   provided libraries.guava
   testImplementation libraries.beam_runners_direct
   testImplementation libraries.junit4

@@ -20,12 +20,13 @@ plugins {
 
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
-  api project(':proxima-scheme-proto')
   api libraries.flink_table_planner
   api libraries.flink_streaming
   api libraries.flink_clients
   api libraries.flink_table_api_bridge
-  api libraries.slf4j_api
+  provided libraries.guava
+  implementation project(':proxima-scheme-proto')
+  implementation libraries.slf4j_api
   testImplementation project(':proxima-direct-core')
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')

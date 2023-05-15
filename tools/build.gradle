@@ -27,12 +27,13 @@ dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
   api libraries.groovy
   api libraries.groovysh
-  api 'jline:jline:2.14.6'
-  api libraries.grpc_core
-  api 'org.freemarker:freemarker:2.3.30'
-  api 'commons-cli:commons-cli:1.5.0'
-  api 'commons-io:commons-io:2.7'
-  api project(':proxima-ingest-client')
+  implementation libraries.slf4j_api
+  implementation 'jline:jline:2.14.6'
+  implementation 'org.freemarker:freemarker:2.3.30'
+  implementation 'commons-cli:commons-cli:1.5.0'
+  implementation 'commons-io:commons-io:2.7'
+  implementation project(':proxima-ingest-client')
+  implementation libraries.grpc_core
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j

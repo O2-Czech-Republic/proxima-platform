@@ -21,9 +21,9 @@ plugins {
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
   api project(':proxima-beam-core')
-  api project(':proxima-io-pubsub')
-  api libraries.beam_core
-  api libraries.beam_io_google_cloud
+  implementation project(':proxima-io-pubsub')
+  implementation libraries.beam_core
+  implementation libraries.beam_io_google_cloud
   testImplementation libraries.slf4j_log4j
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')

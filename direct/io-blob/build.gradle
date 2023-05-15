@@ -21,6 +21,7 @@ plugins {
 dependencies {
   api project(':proxima-direct-core')
   api project(':proxima-direct-io-bulkfs')
+  implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation libraries.junit4

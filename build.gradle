@@ -26,7 +26,15 @@ plugins {
   id "org.sonarqube" version "4.0.0.2929"
 }
 
-version = '0.12-SNAPSHOT'
+version = '0.12.0'
+repositories {
+  mavenLocal()
+  mavenCentral()
+  maven {
+    url = uri('https://packages.confluent.io/maven/')
+  }
+}
+
 group = 'cz.o2.proxima'
 
 configureRepositores(project)

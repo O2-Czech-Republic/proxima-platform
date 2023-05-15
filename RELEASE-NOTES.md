@@ -1,25 +1,30 @@
- - Merge pull request [#773](https://github.com/datadrivencz/proxima-platform/pull/773): [proxima-transaction-manager] stabilize TransactionIT
- - Merge pull request [#772](https://github.com/datadrivencz/proxima-platform/pull/772): [proxima-scheme-proto-testing] add as separate module
- - Merge pull request [#771](https://github.com/datadrivencz/proxima-platform/pull/771): [proxima] fix javadoc
- - Merge pull request [#769](https://github.com/datadrivencz/proxima-platform/pull/769): [proxima] bump groovy to 4.0.10
- - Merge pull request [#770](https://github.com/datadrivencz/proxima-platform/pull/770): [proxima-beam] bump beam to 2.46.0
- - Merge pull request [#768](https://github.com/datadrivencz/proxima-platform/pull/768): [proxima-direct-core-testing] simplify build
- - Merge pull request [#767](https://github.com/datadrivencz/proxima-platform/pull/767): [beam-core-testing] simplify build
- - Merge pull request [#766](https://github.com/datadrivencz/proxima-platform/pull/766): [proxima-flink] bump flink to 1.15
- - Merge pull request [#764](https://github.com/datadrivencz/proxima-platform/pull/764): [proxima-tools] rename generated class name
- - Merge pull request [#763](https://github.com/datadrivencz/proxima-platform/pull/763): [proxima-direct-transaction-manager] handle transaction duplicates in test
- - Merge pull request [#762](https://github.com/datadrivencz/proxima-platform/pull/762): [proxima-docs] add more chapters of docs
- - Merge pull request [#761](https://github.com/datadrivencz/proxima-platform/pull/761): [proxima-compiler-java-cli] create executable jar
- - Merge pull request [#759](https://github.com/datadrivencz/proxima-platform/pull/759): [proxima-compiler-plugin] add CLI interface for the generator
- - Merge pull request [#760](https://github.com/datadrivencz/proxima-platform/pull/760): [proxima-direct-io-hbase-bindings] increase timeout for test
- - Merge pull request [#758](https://github.com/datadrivencz/proxima-platform/pull/758): [proxima-docs] relative URL for image
- - Merge pull request [#757](https://github.com/datadrivencz/proxima-platform/pull/757): [proxima-docs] fix link to image
- - Merge pull request [#756](https://github.com/datadrivencz/proxima-platform/pull/756): Fix sonar issues
- - Merge pull request [#719](https://github.com/datadrivencz/proxima-platform/pull/719): Doc infra skeleton
- - Merge pull request [#755](https://github.com/datadrivencz/proxima-platform/pull/755): [proxima-beam] bump beam to 2.44.0
- - Merge pull request [#753](https://github.com/datadrivencz/proxima-platform/pull/753): [proxima-tools] bump groovy to 4.0.8
- - Merge pull request [#754](https://github.com/datadrivencz/proxima-platform/pull/754): [proxima-direct-io-kafka] O2-Czech-Republic#301 fix flaky test
- - Merge pull request [#751](https://github.com/datadrivencz/proxima-platform/pull/751): Bump hbase to 2.5
- - Merge pull request [#752](https://github.com/datadrivencz/proxima-platform/pull/752): [proxima-transaction-manager] O2-Czech-Republic#255 stabilize TransactionIT
- - Merge pull request [#750](https://github.com/datadrivencz/proxima-platform/pull/750): [proxima-infra] make lift happy
- - Merge pull request [#749](https://github.com/datadrivencz/proxima-platform/pull/749): Release 0.11
+ - Merge pull request [#805](https://github.com/datadrivencz/proxima-platform/pull/805): [proxima] bump groovy to 4.0.13
+ - Merge pull request [#804](https://github.com/datadrivencz/proxima-platform/pull/804): [proxima-direct-io-hbase-bindings] fix flaky test
+ - Merge pull request [#803](https://github.com/datadrivencz/proxima-platform/pull/803): [proxima] exclude module-info when shading automatic modules
+ - Merge pull request [#802](https://github.com/datadrivencz/proxima-platform/pull/802): [proxima] add JPMSMain for running modularized direct applications
+ - Merge pull request [#801](https://github.com/datadrivencz/proxima-platform/pull/801): [proxima-beam] O2-Czech-Republic#311 add calendarWindow to Stream
+ - Merge pull request [#800](https://github.com/datadrivencz/proxima-platform/pull/800): [proxima-direct-io-bigtable] [proxima-direct-io-hbase] javadoc formatting
+ - Merge pull request [#799](https://github.com/datadrivencz/proxima-platform/pull/799): [proxima] generate aggregated javadoc
+ - Merge pull request [#798](https://github.com/datadrivencz/proxima-platform/pull/798): [proxima-ingest-server] limit scanning for prefixed list requests
+ - Merge pull request [#797](https://github.com/datadrivencz/proxima-platform/pull/797): [proxima] ensure slf4j bindings have correct versions
+ - Merge pull request [#796](https://github.com/datadrivencz/proxima-platform/pull/796): [proxima-direct] O2-Czech-Republic#310 enhance prefix listing semantics
+ - Merge pull request [#795](https://github.com/datadrivencz/proxima-platform/pull/795): [proxima-beam] O2-Czech-Republic#302 add TypeDescriptor to LogRead DoFns
+ - Merge pull request [#794](https://github.com/datadrivencz/proxima-platform/pull/794): JPMS modules
+ - Merge pull request [#793](https://github.com/datadrivencz/proxima-platform/pull/793): [proxima] bump beam to 2.48.0
+ - Merge pull request [#792](https://github.com/datadrivencz/proxima-platform/pull/792): [proxima-transaction-manager] fix transaction manager package
+ - Merge pull request [#790](https://github.com/datadrivencz/proxima-platform/pull/790): [proxima] fix overlapping packages
+ - Merge pull request [#791](https://github.com/datadrivencz/proxima-platform/pull/791): [proxima] remove maven build
+ - Merge pull request [#789](https://github.com/datadrivencz/proxima-platform/pull/789): [proxima] add Automatic-Module-Name to manifest
+ - Merge pull request [#788](https://github.com/datadrivencz/proxima-platform/pull/788): [proxima-beam] bump beam to 2.47.0
+ - Merge pull request [#787](https://github.com/datadrivencz/proxima-platform/pull/787): [proxima] polish gradle configurations of dependencies
+ - Merge pull request [#786](https://github.com/datadrivencz/proxima-platform/pull/786): [proxima-direct-io-hbase-bindings] drop protobuf 2.5.0
+ - Merge pull request [#785](https://github.com/datadrivencz/proxima-platform/pull/785): [proxima] bump groovy to 4.0.12
+ - Merge pull request [#784](https://github.com/datadrivencz/proxima-platform/pull/784): [proxima] do not fail on javadocAggregate errors
+ - Merge pull request [#782](https://github.com/datadrivencz/proxima-platform/pull/782): [proxima] fix deploy snapshot
+ - Merge pull request [#783](https://github.com/datadrivencz/proxima-platform/pull/783): [proxima] add pexeso build cache
+ - Merge pull request [#779](https://github.com/datadrivencz/proxima-platform/pull/779): Gradle init
+ - Merge pull request [#781](https://github.com/datadrivencz/proxima-platform/pull/781): [proxima-beam-tools] remove illegal reflective access to URLClassLoader
+ - Merge pull request [#780](https://github.com/datadrivencz/proxima-platform/pull/780): [proxima-transaction-manager] O2-Czech-Republic#304 transaction auto open flag
+ - Merge pull request [#778](https://github.com/datadrivencz/proxima-platform/pull/778): [proxima] add link to docs to README.md
+ - Merge pull request [#777](https://github.com/datadrivencz/proxima-platform/pull/777): [proxima] update setup-java github action
+ - Merge pull request [#776](https://github.com/datadrivencz/proxima-platform/pull/776): [proxima] fix links to javadoc in README.md

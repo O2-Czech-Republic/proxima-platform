@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.transaction.manager;
+package cz.o2.proxima.direct.core.transaction.manager;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -38,10 +38,10 @@ import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.transaction.ServerTransactionManager;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;

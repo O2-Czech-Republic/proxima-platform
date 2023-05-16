@@ -20,11 +20,11 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.commitlog.Position;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.core.commitlog.Offset;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -133,7 +133,7 @@ public class CommitLogSourceFunction<OutputT>
       List<Offset> offsets,
       List<AttributeDescriptor<?>> attributeDescriptors,
       LogObserver<OutputT> observer) {
-    final cz.o2.proxima.direct.commitlog.ObserveHandle delegate =
+    final cz.o2.proxima.direct.core.commitlog.ObserveHandle delegate =
         reader.observeBulkOffsets(offsets, false, observer);
     return new UnifiedObserveHandle<Offset>() {
 

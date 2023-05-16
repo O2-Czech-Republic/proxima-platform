@@ -32,12 +32,12 @@ import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import cz.o2.proxima.direct.commitlog.ObserveHandleUtils;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.core.commitlog.ObserveHandleUtils;
 import cz.o2.proxima.direct.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -89,7 +89,7 @@ public class KafkaLogReaderIT {
           + "    type: primary\n"
           + "    access: %s\n"
           + "    watermark {\n"
-          + "      idle-policy-factory: cz.o2.proxima.direct.time.NotProgressingWatermarkIdlePolicy.Factory\n"
+          + "      idle-policy-factory: cz.o2.proxima.direct.core.time.NotProgressingWatermarkIdlePolicy.Factory\n"
           + "    }\n"
           + "    assignment-timeout-ms: 1000\n"
           + "  }\n"

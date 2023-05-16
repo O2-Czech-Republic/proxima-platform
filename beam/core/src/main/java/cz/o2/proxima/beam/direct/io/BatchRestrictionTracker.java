@@ -18,8 +18,8 @@ package cz.o2.proxima.beam.direct.io;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.core.storage.Partition;
-import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.commitlog.Offset;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Comparator;
@@ -38,7 +38,7 @@ import org.joda.time.Instant;
 
 /**
  * A {@link RestrictionTracker} for {@link Offset Offsets} read from {@link
- * cz.o2.proxima.direct.commitlog.CommitLogReader}
+ * cz.o2.proxima.direct.core.commitlog.CommitLogReader}
  */
 public class BatchRestrictionTracker extends RestrictionTracker<PartitionList, Partition> {
 

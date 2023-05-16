@@ -18,9 +18,9 @@ package cz.o2.proxima.direct.kafka;
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
-import cz.o2.proxima.direct.time.BoundedOutOfOrdernessWatermarkEstimator;
-import cz.o2.proxima.direct.time.SkewedProcessingTimeIdlePolicy;
-import cz.o2.proxima.direct.time.WatermarkConfiguration;
+import cz.o2.proxima.direct.core.time.BoundedOutOfOrdernessWatermarkEstimator;
+import cz.o2.proxima.direct.core.time.SkewedProcessingTimeIdlePolicy;
+import cz.o2.proxima.direct.core.time.WatermarkConfiguration;
 import java.util.Map;
 
 public class KafkaWatermarkConfiguration extends WatermarkConfiguration {

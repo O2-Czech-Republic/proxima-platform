@@ -20,8 +20,8 @@ import static org.junit.Assert.*;
 import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.time.Watermarks;
-import cz.o2.proxima.direct.time.BoundedOutOfOrdernessWatermarkEstimator;
-import cz.o2.proxima.direct.time.SkewedProcessingTimeIdlePolicy;
+import cz.o2.proxima.direct.core.time.BoundedOutOfOrdernessWatermarkEstimator;
+import cz.o2.proxima.direct.core.time.SkewedProcessingTimeIdlePolicy;
 import java.util.Map;
 import org.junit.Test;
 

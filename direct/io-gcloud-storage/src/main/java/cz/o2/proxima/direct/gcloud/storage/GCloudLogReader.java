@@ -18,10 +18,10 @@ package cz.o2.proxima.direct.gcloud.storage;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.StorageException;
-import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.blob.BlobLogReader;
 import cz.o2.proxima.direct.blob.BlobPath;
 import cz.o2.proxima.direct.core.Context;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.gcloud.storage.GCloudBlobPath.GCloudBlob;
 import lombok.extern.slf4j.Slf4j;
 

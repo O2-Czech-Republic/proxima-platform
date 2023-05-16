@@ -19,7 +19,7 @@ import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.time.Watermarks;
-import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.core.commitlog.Offset;
 import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -32,7 +32,7 @@ import org.apache.beam.sdk.transforms.splittabledofn.SplitResult;
 
 /**
  * A {@link RestrictionTracker} for {@link Offset Offsets} read from {@link
- * cz.o2.proxima.direct.commitlog.CommitLogReader}
+ * cz.o2.proxima.direct.core.commitlog.CommitLogReader}
  */
 public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Offset> {
 

@@ -25,7 +25,7 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
-import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
 import groovy.lang.Closure;
 import java.util.List;

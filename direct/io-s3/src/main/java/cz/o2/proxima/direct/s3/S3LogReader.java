@@ -16,9 +16,9 @@
 package cz.o2.proxima.direct.s3;
 
 import cz.o2.proxima.core.util.ExceptionUtils;
-import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.blob.BlobLogReader;
 import cz.o2.proxima.direct.core.Context;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.s3.S3BlobPath.S3Blob;
 import lombok.extern.slf4j.Slf4j;
 

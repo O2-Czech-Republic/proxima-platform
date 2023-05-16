@@ -28,7 +28,7 @@ import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.KeyAttributes;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.CommitCallback;
-import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.proto.service.Rpc.GetRequest;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;

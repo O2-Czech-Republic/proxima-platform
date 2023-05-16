@@ -17,9 +17,9 @@ package cz.o2.proxima.direct;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.storage.StreamElement;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.testing.model.Model;
 import lombok.extern.slf4j.Slf4j;
 

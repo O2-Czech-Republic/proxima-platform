@@ -24,9 +24,9 @@ import cz.o2.proxima.core.time.WatermarkSupplier;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
-import cz.o2.proxima.direct.LogObserver;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
-import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.core.LogObserver;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
+import cz.o2.proxima.direct.core.commitlog.Offset;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,7 +44,7 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link cz.o2.proxima.direct.commitlog.CommitLogObserver} that caches data in {@link
+ * A {@link cz.o2.proxima.direct.core.commitlog.CommitLogObserver} that caches data in {@link
  * BlockingQueue}.
  */
 @Slf4j
@@ -94,9 +94,9 @@ abstract class BlockingQueueLogObserver<
 
   static class BatchLogObserver
       extends BlockingQueueLogObserver<
-          cz.o2.proxima.direct.batch.Offset,
-          cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext>
-      implements cz.o2.proxima.direct.batch.BatchLogObserver {
+          cz.o2.proxima.direct.core.batch.Offset,
+          cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext>
+      implements cz.o2.proxima.direct.core.batch.BatchLogObserver {
 
     public BatchLogObserver(String name, long limit, long startingWatermark, int capacity) {
       super(name, limit, startingWatermark, capacity);
@@ -104,7 +104,8 @@ abstract class BlockingQueueLogObserver<
 
     @Override
     public boolean onNext(
-        StreamElement element, cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context) {
+        StreamElement element,
+        cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext context) {
       log.debug(
           "{}: Received next element {} on partition {}",
           getName(),
@@ -116,8 +117,8 @@ abstract class BlockingQueueLogObserver<
 
   static class CommitLogObserver
       extends BlockingQueueLogObserver<
-          Offset, cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext>
-      implements cz.o2.proxima.direct.commitlog.CommitLogObserver {
+          Offset, cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext>
+      implements cz.o2.proxima.direct.core.commitlog.CommitLogObserver {
 
     public CommitLogObserver(String name, long limit, long startingWatermark, int capacity) {
       super(name, limit, startingWatermark, capacity);
@@ -126,7 +127,7 @@ abstract class BlockingQueueLogObserver<
     @Override
     public boolean onNext(
         StreamElement ingest,
-        cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context) {
+        cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext context) {
       if (log.isDebugEnabled()) {
         log.debug(
             "{}: Received next element {} at watermark {} offset {}",
@@ -150,10 +151,10 @@ abstract class BlockingQueueLogObserver<
 
     private static final long serialVersionUID = 1L;
 
-    private final cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context;
+    private final cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext context;
 
     LogObserverUnifiedContext(
-        cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context) {
+        cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext context) {
       this.context = context;
     }
 
@@ -189,10 +190,10 @@ abstract class BlockingQueueLogObserver<
 
     private static final long serialVersionUID = 1L;
 
-    private final cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context;
+    private final cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext context;
 
     private BatchLogObserverUnifiedContext(
-        cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context) {
+        cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext context) {
       this.context = context;
     }
 

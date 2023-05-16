@@ -14,8 +14,8 @@ import cz.o2.proxima.core.storage.StreamElement
 import cz.o2.proxima.core.storage.commitlog.Position
 import cz.o2.proxima.core.util.Pair
 import cz.o2.proxima.direct.core.DirectDataOperator
-import cz.o2.proxima.direct.randomaccess.KeyValue
-import cz.o2.proxima.direct.randomaccess.RandomOffset;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue
+import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.tools.groovy.AttributeDescriptorProvider
 import cz.o2.proxima.tools.groovy.Console
 import cz.o2.proxima.tools.groovy.RepositoryProvider
@@ -181,7 +181,7 @@ class Environment implements RepositoryProvider {
         reader.listKeys(consumer)
       }
 
-      def List<cz.o2.proxima.core.util.Pair<cz.o2.proxima.direct.randomaccess.RandomOffset, String>> listKeys(
+      def List<cz.o2.proxima.core.util.Pair<cz.o2.proxima.direct.core.randomaccess.RandomOffset, String>> listKeys(
           String offset, int limit) {
         return reader.listKeys(offset, limit)
       }

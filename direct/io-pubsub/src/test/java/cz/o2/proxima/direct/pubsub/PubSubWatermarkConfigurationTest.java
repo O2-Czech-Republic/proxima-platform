@@ -19,8 +19,8 @@ import static java.util.Collections.emptyMap;
 import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
-import cz.o2.proxima.direct.time.SkewedProcessingTimeIdlePolicy;
-import cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimator;
+import cz.o2.proxima.direct.core.time.SkewedProcessingTimeIdlePolicy;
+import cz.o2.proxima.direct.core.time.UnboundedOutOfOrdernessWatermarkEstimator;
 import java.util.Map;
 import org.junit.Test;
 

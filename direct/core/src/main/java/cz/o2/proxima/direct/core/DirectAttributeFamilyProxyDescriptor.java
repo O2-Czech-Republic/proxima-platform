@@ -28,18 +28,18 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.transform.ProxyTransform;
 import cz.o2.proxima.core.util.Pair;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.randomaccess.KeyValue;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.randomaccess.RandomOffset;
-import cz.o2.proxima.direct.randomaccess.RawOffset;
-import cz.o2.proxima.direct.view.CachedView;
-import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
+import cz.o2.proxima.direct.core.batch.BatchLogObserver;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
+import cz.o2.proxima.direct.core.randomaccess.RawOffset;
+import cz.o2.proxima.direct.core.view.CachedView;
+import cz.o2.proxima.direct.core.view.LocalCachedPartitionedView;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
@@ -638,7 +638,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     }
 
     @Override
-    public cz.o2.proxima.direct.batch.ObserveHandle observe(
+    public cz.o2.proxima.direct.core.batch.ObserveHandle observe(
         List<Partition> partitions,
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {

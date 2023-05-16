@@ -18,10 +18,10 @@ package cz.o2.proxima.direct.core;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.storage.internal.AbstractDataAccessor;
-import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.view.CachedView;
 import java.util.Optional;
 
 /** Interface providing various types of data access patterns to storage. */

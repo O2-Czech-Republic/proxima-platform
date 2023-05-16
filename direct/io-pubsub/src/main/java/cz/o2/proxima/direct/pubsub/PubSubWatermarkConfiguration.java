@@ -15,16 +15,16 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
-import static cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimator.ALLOWED_TIMESTAMP_SKEW;
-import static cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimator.ESTIMATE_DURATION_MS;
-import static cz.o2.proxima.direct.time.WatermarkConfiguration.prefixedKey;
+import static cz.o2.proxima.direct.core.time.UnboundedOutOfOrdernessWatermarkEstimator.ALLOWED_TIMESTAMP_SKEW;
+import static cz.o2.proxima.direct.core.time.UnboundedOutOfOrdernessWatermarkEstimator.ESTIMATE_DURATION_MS;
+import static cz.o2.proxima.direct.core.time.WatermarkConfiguration.prefixedKey;
 
 import cz.o2.proxima.core.time.WatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
-import cz.o2.proxima.direct.time.SkewedProcessingTimeIdlePolicy;
-import cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimator;
-import cz.o2.proxima.direct.time.WatermarkConfiguration;
+import cz.o2.proxima.direct.core.time.SkewedProcessingTimeIdlePolicy;
+import cz.o2.proxima.direct.core.time.UnboundedOutOfOrdernessWatermarkEstimator;
+import cz.o2.proxima.direct.core.time.WatermarkConfiguration;
 import java.util.HashMap;
 import java.util.Map;
 

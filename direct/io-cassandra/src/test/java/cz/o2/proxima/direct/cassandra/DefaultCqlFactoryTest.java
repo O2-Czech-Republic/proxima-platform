@@ -36,7 +36,7 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.proto.Serialization.Cell;
-import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import java.net.URI;
 import java.nio.ByteBuffer;

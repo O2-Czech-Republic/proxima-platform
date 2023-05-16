@@ -20,7 +20,7 @@ import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
-import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.cassandra;
 
-import cz.o2.proxima.direct.batch.BoundedPartition;
+import cz.o2.proxima.direct.core.batch.BoundedPartition;
 import lombok.Getter;
 
 /** A {@code Partition} in Cassandra. */

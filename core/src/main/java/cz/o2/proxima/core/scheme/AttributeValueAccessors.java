@@ -33,7 +33,7 @@ public class AttributeValueAccessors {
 
   /**
    * Accessor for manipulation with {@link
-   * cz.o2.proxima.scheme.SchemaDescriptors.PrimitiveTypeDescriptor}.
+   * cz.o2.proxima.core.scheme.SchemaDescriptors.PrimitiveTypeDescriptor}.
    *
    * <p>Allows type conversion between T and V - See Protobuf implementation for details.
    *
@@ -63,7 +63,7 @@ public class AttributeValueAccessors {
 
   /**
    * Accessor for manipulation with {@link
-   * cz.o2.proxima.scheme.SchemaDescriptors.ArrayTypeDescriptor}.
+   * cz.o2.proxima.core.scheme.SchemaDescriptors.ArrayTypeDescriptor}.
    *
    * @param <T> input type
    * @param <V> output type

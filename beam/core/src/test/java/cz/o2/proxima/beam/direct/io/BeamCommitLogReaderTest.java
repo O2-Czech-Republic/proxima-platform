@@ -29,7 +29,7 @@ import cz.o2.proxima.core.time.WatermarkEstimator;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.storage.InMemStorage;
+import cz.o2.proxima.direct.core.storage.InMemStorage;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;

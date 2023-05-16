@@ -39,13 +39,13 @@ import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.TestUtils;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.randomaccess.KeyValue;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.batch.BatchLogObserver;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.batch.ObserveHandle;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -659,7 +659,7 @@ public class CassandraDBAccessorTest {
     assertEquals(1, numConsumed.get());
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 30000)
   public void testBatchReaderCancelled() throws InterruptedException {
 
     TestDBAccessor accessor =

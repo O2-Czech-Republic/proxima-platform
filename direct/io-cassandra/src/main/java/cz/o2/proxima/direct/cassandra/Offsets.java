@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.cassandra;
 
-import cz.o2.proxima.direct.randomaccess.RandomOffset;
+import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 
 /** Offset based on {@code token} function. */
 public class Offsets {

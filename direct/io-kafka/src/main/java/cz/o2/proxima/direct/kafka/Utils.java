@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.core.storage.UriUtil;
-import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.core.commitlog.Offset;
 import java.net.URI;
 import java.util.Collection;
 import java.util.regex.Pattern;

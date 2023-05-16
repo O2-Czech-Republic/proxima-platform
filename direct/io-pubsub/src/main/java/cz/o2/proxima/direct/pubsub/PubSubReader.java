@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
+import static cz.o2.proxima.direct.core.commitlog.ObserverUtils.asOnNextContext;
+import static cz.o2.proxima.direct.core.commitlog.ObserverUtils.asRepartitionContext;
 
 import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
@@ -45,12 +45,12 @@ import cz.o2.proxima.core.time.WatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.time.WatermarkSupplier;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Context;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.core.commitlog.Offset;
 import cz.o2.proxima.io.pubsub.util.PubSubUtils;
 import java.io.IOException;
 import java.io.Serializable;

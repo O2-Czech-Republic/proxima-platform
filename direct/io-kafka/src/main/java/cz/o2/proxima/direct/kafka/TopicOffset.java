@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.MoreObjects;
-import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.core.commitlog.Offset;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

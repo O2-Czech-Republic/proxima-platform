@@ -20,7 +20,7 @@ plugins {
 
 dependencies {
   api project(path: ':proxima-core', configuration: 'shadowJar')
-  api project(':proxima-direct-core')
+  api project(path: ':proxima-direct-core', configuration: 'shadowJar')
   api project(path: ':proxima-io-serialization', configuration: 'shadowJar')
   intoShadow 'com.datastax.cassandra:cassandra-driver-core:3.11.0'
   intoShadow 'io.netty:netty-handler:4.1.42.Final'

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.transaction.manager;
+package cz.o2.proxima.direct.core.transaction.manager;
 
 import static org.junit.Assert.*;
 

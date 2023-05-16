@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.transaction.manager;
+package cz.o2.proxima.direct.core.transaction.manager;
 
 import static org.junit.Assert.*;
 
@@ -37,9 +37,9 @@ import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.core.util.TransformationRunner;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.transaction.ClientTransactionManager;
-import cz.o2.proxima.direct.transaction.ServerTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionResourceManager;
+import cz.o2.proxima.direct.core.transaction.ClientTransactionManager;
+import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
+import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;

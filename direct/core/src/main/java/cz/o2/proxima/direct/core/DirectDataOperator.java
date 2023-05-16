@@ -37,17 +37,17 @@ import cz.o2.proxima.core.storage.internal.DataAccessorLoader;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
-import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.BatchLogReaders;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.CommitLogReaders;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.transaction.ClientTransactionManager;
-import cz.o2.proxima.direct.transaction.ServerTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionResourceManager;
-import cz.o2.proxima.direct.transaction.TransactionalCachedView;
-import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
-import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.batch.BatchLogReaders;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReaders;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.transaction.ClientTransactionManager;
+import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
+import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
+import cz.o2.proxima.direct.core.transaction.TransactionalCachedView;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter;
+import cz.o2.proxima.direct.core.view.CachedView;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -300,7 +300,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * fulfil any transactional requests.
    *
    * <p>Note that global transactions are required to be processed by a single instance of {@link
-   * cz.o2.proxima.direct.transaction.TransactionManager} and therefore are not scalable.
+   * cz.o2.proxima.direct.core.transaction.TransactionManager} and therefore are not scalable.
    *
    * <p>Use with caution.
    *

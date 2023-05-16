@@ -21,7 +21,7 @@ import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
-import cz.o2.proxima.direct.LogObserver;
+import cz.o2.proxima.direct.core.LogObserver;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -79,7 +79,7 @@ abstract class AbstractLogSourceFunction<
 
   /**
    * A handle, that unifies handles from different log readers. For example {@link
-   * cz.o2.proxima.direct.batch.BatchLogReader} is not able to retrieve offsets by default.
+   * cz.o2.proxima.direct.core.batch.BatchLogReader} is not able to retrieve offsets by default.
    *
    * @param <OffsetT> Type of offset used by current log reader.
    */

@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.time.WatermarkSupplier;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;

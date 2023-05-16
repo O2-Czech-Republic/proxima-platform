@@ -19,8 +19,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.o2.proxima.core.scheme.SerializationException;
-import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.commitlog.OffsetExternalizer;
+import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.direct.core.commitlog.OffsetExternalizer;
 import java.util.HashMap;
 
 /** Externalizes Kafka offset to external formats. */

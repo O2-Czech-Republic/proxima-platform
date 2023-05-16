@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.transaction.manager;
+package cz.o2.proxima.direct.core.transaction.manager;
 
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.Consumer;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 
 @FunctionalInterface
 @Internal

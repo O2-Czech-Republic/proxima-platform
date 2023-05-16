@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.transaction.manager;
+package cz.o2.proxima.direct.core.transaction.manager;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -35,17 +35,17 @@ import cz.o2.proxima.core.transaction.Response.Flags;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.TransformationRunner;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.direct.randomaccess.KeyValue;
-import cz.o2.proxima.direct.transaction.ClientTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionResourceManager;
-import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
-import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Transaction;
-import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
-import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue;
+import cz.o2.proxima.direct.core.transaction.ClientTransactionManager;
+import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.Transaction;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
+import cz.o2.proxima.direct.core.view.CachedView;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;

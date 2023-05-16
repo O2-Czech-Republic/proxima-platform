@@ -19,7 +19,7 @@
 
 syntax = "proto3";
 
-package cz.o2.proxima.core.storage.proto;
+package cz.o2.proxima.io.serialization.proto;
 
 /* Header message */
 message Header {

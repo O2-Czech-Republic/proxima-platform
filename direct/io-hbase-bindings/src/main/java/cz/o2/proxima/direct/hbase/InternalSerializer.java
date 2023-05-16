@@ -53,8 +53,8 @@ interface InternalSerializer {
 
     @Override
     public Put toPut(byte[] family, byte[] keyAsBytes, StreamElement element) {
-      cz.o2.proxima.core.storage.proto.Serialization.Cell.Builder builder =
-          cz.o2.proxima.core.storage.proto.Serialization.Cell.newBuilder()
+      cz.o2.proxima.io.serialization.proto.Serialization.Cell.Builder builder =
+          cz.o2.proxima.io.serialization.proto.Serialization.Cell.newBuilder()
               .setValue(ByteString.copyFrom(element.getValue()));
       if (element.hasSequentialId()) {
         builder.setSeqId(element.getSequentialId());
@@ -67,8 +67,8 @@ interface InternalSerializer {
         EntityDescriptor entity, AttributeDescriptor<V> attrDesc, Cell cell)
         throws InvalidProtocolBufferException {
 
-      cz.o2.proxima.core.storage.proto.Serialization.Cell protoCell =
-          cz.o2.proxima.core.storage.proto.Serialization.Cell.parseFrom(
+      cz.o2.proxima.io.serialization.proto.Serialization.Cell protoCell =
+          cz.o2.proxima.io.serialization.proto.Serialization.Cell.parseFrom(
               ByteString.copyFrom(
                   cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()));
       return InternalSerializers.toKeyValue(

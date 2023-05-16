@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Position;
 import groovy.lang.Closure;
 import java.io.Closeable;
 import java.util.function.Predicate;

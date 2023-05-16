@@ -17,11 +17,11 @@ package cz.o2.proxima.tools.groovy;
 
 import static org.junit.Assert.*;
 
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Pair;
 import groovy.lang.Script;
 import groovy.lang.Tuple;
 import java.io.File;

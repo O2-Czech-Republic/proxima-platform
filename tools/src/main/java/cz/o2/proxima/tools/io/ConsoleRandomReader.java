@@ -16,15 +16,15 @@
 package cz.o2.proxima.tools.io;
 
 import com.google.common.base.Preconditions;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Optionals;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.randomaccess.KeyValue;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.randomaccess.RandomOffset;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.util.ExceptionUtils;
-import cz.o2.proxima.util.Optionals;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -94,7 +94,7 @@ public class ConsoleRandomReader implements AutoCloseable {
     RandomAccessReader reader = readerFor(desc);
     RandomOffset off =
         offset == null ? null : reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, offset);
-    cz.o2.proxima.functional.Consumer<KeyValue<Object>> scanConsumer =
+    cz.o2.proxima.core.functional.Consumer<KeyValue<Object>> scanConsumer =
         isPrefix
             ? kv -> {
               if (kv.getAttribute().startsWith(prefix)) {

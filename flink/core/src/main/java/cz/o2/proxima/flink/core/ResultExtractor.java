@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.flink.core;
 
-import cz.o2.proxima.annotations.Experimental;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.core.annotations.Experimental;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Optionals;
 import java.io.Serializable;
 
 /**

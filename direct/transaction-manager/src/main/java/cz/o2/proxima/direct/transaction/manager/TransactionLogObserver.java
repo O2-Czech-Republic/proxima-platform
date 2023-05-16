@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.transaction.manager;
+package cz.o2.proxima.direct.core.transaction.manager;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -22,26 +22,26 @@ import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Sets;
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.Streams;
-import cz.o2.proxima.annotations.DeclaredThreadSafe;
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.functional.BiConsumer;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.Commit;
+import cz.o2.proxima.core.transaction.KeyAttribute;
+import cz.o2.proxima.core.transaction.KeyAttributes;
+import cz.o2.proxima.core.transaction.Request;
+import cz.o2.proxima.core.transaction.Request.Flags;
+import cz.o2.proxima.core.transaction.Response;
+import cz.o2.proxima.core.transaction.State;
+import cz.o2.proxima.core.util.Optionals;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.transaction.ServerTransactionManager;
-import cz.o2.proxima.functional.BiConsumer;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.Commit;
-import cz.o2.proxima.transaction.KeyAttribute;
-import cz.o2.proxima.transaction.KeyAttributes;
-import cz.o2.proxima.transaction.Request;
-import cz.o2.proxima.transaction.Request.Flags;
-import cz.o2.proxima.transaction.Response;
-import cz.o2.proxima.transaction.State;
-import cz.o2.proxima.util.Optionals;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;

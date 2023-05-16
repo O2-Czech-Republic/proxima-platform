@@ -16,17 +16,17 @@
 package cz.o2.proxima.flink.core.batch;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.ObserveHandle;
-import cz.o2.proxima.direct.batch.Offset;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.storage.ListBatchReader;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.direct.core.batch.BatchLogObserver;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.batch.ObserveHandle;
+import cz.o2.proxima.direct.core.batch.Offset;
+import cz.o2.proxima.direct.core.storage.ListBatchReader;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;

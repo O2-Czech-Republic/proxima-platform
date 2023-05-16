@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.direct.commitlog.CommitLogReader.Factory;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader.Factory;
 import java.net.URI;
 import javax.annotation.concurrent.NotThreadSafe;
 

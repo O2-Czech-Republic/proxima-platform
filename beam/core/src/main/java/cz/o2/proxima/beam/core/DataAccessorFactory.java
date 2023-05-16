@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.beam.core;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory;
 
 @Internal
 public interface DataAccessorFactory

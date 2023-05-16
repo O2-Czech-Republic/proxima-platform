@@ -18,7 +18,7 @@ package cz.o2.proxima.beam.tools.groovy;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Closures;
 import java.io.File;

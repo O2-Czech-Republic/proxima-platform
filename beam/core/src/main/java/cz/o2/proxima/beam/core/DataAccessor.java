@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.beam.core;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.storage.internal.AbstractDataAccessor;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.core.storage.internal.AbstractDataAccessor;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.values.PCollection;

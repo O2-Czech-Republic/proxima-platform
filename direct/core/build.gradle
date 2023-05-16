@@ -26,18 +26,10 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.12.6.1'
-
   compileOnly libraries.auto_service_annotations
   provided libraries.guava
-
-
-
-
-
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
-
-
 }
 
 description = 'cz.o2.proxima:proxima-direct-core'

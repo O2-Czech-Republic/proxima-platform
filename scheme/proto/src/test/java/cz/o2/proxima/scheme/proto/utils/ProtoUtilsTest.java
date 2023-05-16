@@ -19,8 +19,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.Descriptors.Descriptor;
-import cz.o2.proxima.scheme.AttributeValueType;
-import cz.o2.proxima.scheme.SchemaDescriptors.StructureTypeDescriptor;
+import cz.o2.proxima.core.scheme.AttributeValueType;
+import cz.o2.proxima.core.scheme.SchemaDescriptors.StructureTypeDescriptor;
 import cz.o2.proxima.scheme.proto.test.Scheme;
 import cz.o2.proxima.scheme.proto.test.Scheme.Device;
 import cz.o2.proxima.scheme.proto.test.Scheme.MessageWithWrappers;

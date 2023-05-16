@@ -19,35 +19,35 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.BatchLogReaders;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.CommitLogReaders;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.transaction.ClientTransactionManager;
-import cz.o2.proxima.direct.transaction.ServerTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionResourceManager;
-import cz.o2.proxima.direct.transaction.TransactionalCachedView;
-import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
-import cz.o2.proxima.direct.view.CachedView;
-import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
-import cz.o2.proxima.repository.ConfigConstants;
-import cz.o2.proxima.repository.ConfigRepository;
-import cz.o2.proxima.repository.DataOperator;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.Repository.Validate;
-import cz.o2.proxima.repository.TransactionMode;
-import cz.o2.proxima.storage.StorageType;
-import cz.o2.proxima.storage.ThroughputLimiter;
-import cz.o2.proxima.storage.internal.DataAccessorLoader;
-import cz.o2.proxima.util.Classpath;
-import cz.o2.proxima.util.ExceptionUtils;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.AttributeFamilyProxyDescriptor;
+import cz.o2.proxima.core.repository.ConfigConstants;
+import cz.o2.proxima.core.repository.ConfigRepository;
+import cz.o2.proxima.core.repository.DataOperator;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.Repository.Validate;
+import cz.o2.proxima.core.repository.TransactionMode;
+import cz.o2.proxima.core.storage.StorageType;
+import cz.o2.proxima.core.storage.ThroughputLimiter;
+import cz.o2.proxima.core.storage.internal.DataAccessorLoader;
+import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.batch.BatchLogReaders;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReaders;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.transaction.ClientTransactionManager;
+import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
+import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
+import cz.o2.proxima.direct.core.transaction.TransactionalCachedView;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter;
+import cz.o2.proxima.direct.core.view.CachedView;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -300,7 +300,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * fulfil any transactional requests.
    *
    * <p>Note that global transactions are required to be processed by a single instance of {@link
-   * cz.o2.proxima.direct.transaction.TransactionManager} and therefore are not scalable.
+   * cz.o2.proxima.direct.core.transaction.TransactionManager} and therefore are not scalable.
    *
    * <p>Use with caution.
    *

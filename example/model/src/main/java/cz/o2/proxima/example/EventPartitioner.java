@@ -17,9 +17,9 @@ package cz.o2.proxima.example;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Partitioner;
 import cz.o2.proxima.example.event.Event.BaseEvent;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Partitioner;
 import lombok.extern.slf4j.Slf4j;
 
 /** Partitioner for the events. */

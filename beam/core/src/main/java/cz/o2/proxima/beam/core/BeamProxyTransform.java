@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.beam.core;
 
-import cz.o2.proxima.repository.DataOperatorFactory;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.transform.ContextualProxyTransform;
+import cz.o2.proxima.core.repository.DataOperatorFactory;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.core.transform.ContextualProxyTransform;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.values.PCollection;
 

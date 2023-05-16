@@ -34,16 +34,13 @@ dependencies {
   compileOnly libraries.hadoop_mapreduce_client
   provided libraries.guava
   compileOnly libraries.log4j_over_slf4j
-
   compileAnnotationProcessor libraries.lombok
-
-
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-bulkfs-parquet'
 
 shadowJar {
   ["com.google.gson", "org.apache.commons"].each {
-    relocate it, "cz.o2.proxima.direct.io.parquet.shaded.${it}"
+    relocate it, "cz.o2.proxima.parquet.shaded.${it}"
   }
 }

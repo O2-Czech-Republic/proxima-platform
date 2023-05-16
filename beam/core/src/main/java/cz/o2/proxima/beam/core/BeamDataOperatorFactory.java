@@ -16,9 +16,9 @@
 package cz.o2.proxima.beam.core;
 
 import com.google.auto.service.AutoService;
-import cz.o2.proxima.repository.DataOperator;
-import cz.o2.proxima.repository.DataOperatorFactory;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.core.repository.DataOperator;
+import cz.o2.proxima.core.repository.DataOperatorFactory;
+import cz.o2.proxima.core.repository.Repository;
 
 /** A {@link DataOperatorFactory} for {@link BeamDataOperator}. */
 @AutoService(DataOperatorFactory.class)

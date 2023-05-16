@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.transaction.manager;
+package cz.o2.proxima.direct.core.transaction.manager;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.annotations.Experimental;
+import cz.o2.proxima.core.annotations.Experimental;
+import cz.o2.proxima.core.repository.ConfigRepository;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.TransactionMode;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.transaction.ServerTransactionManager;
-import cz.o2.proxima.repository.ConfigRepository;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.TransactionMode;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;

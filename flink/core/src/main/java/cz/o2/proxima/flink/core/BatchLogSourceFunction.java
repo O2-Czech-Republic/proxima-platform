@@ -16,16 +16,16 @@
 package cz.o2.proxima.flink.core;
 
 import com.google.common.annotations.VisibleForTesting;
-import cz.o2.proxima.annotations.Experimental;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.ObserveHandle;
-import cz.o2.proxima.direct.batch.Offset;
+import cz.o2.proxima.core.annotations.Experimental;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.batch.BatchLogObserver;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.batch.ObserveHandle;
+import cz.o2.proxima.direct.core.batch.Offset;
 import cz.o2.proxima.flink.core.batch.OffsetTrackingBatchLogReader;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.storage.Partition;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;

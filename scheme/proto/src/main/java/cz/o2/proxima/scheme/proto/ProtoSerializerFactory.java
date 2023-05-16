@@ -25,15 +25,25 @@ import com.google.protobuf.Message.Builder;
 import com.google.protobuf.Parser;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
-import cz.o2.proxima.functional.BiFunction;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.scheme.AttributeValueAccessor;
-import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.core.functional.BiFunction;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.scheme.AttributeValueAccessor;
+import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
+import cz.o2.proxima.core.scheme.ValueSerializer;
+import cz.o2.proxima.core.scheme.ValueSerializerFactory;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.Commit;
+import cz.o2.proxima.core.transaction.Commit.TransactionUpdate;
+import cz.o2.proxima.core.transaction.KeyAttribute;
+import cz.o2.proxima.core.transaction.Request;
+import cz.o2.proxima.core.transaction.Response;
+import cz.o2.proxima.core.transaction.State;
+import cz.o2.proxima.core.transaction.TransactionSerializerSchemeProvider;
+import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.scheme.proto.transactions.Transactions;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoCommit;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoRequest;
@@ -41,16 +51,6 @@ import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoResponse;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoState;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoStreamElement;
 import cz.o2.proxima.scheme.proto.utils.ProtoUtils;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.Commit;
-import cz.o2.proxima.transaction.Commit.TransactionUpdate;
-import cz.o2.proxima.transaction.KeyAttribute;
-import cz.o2.proxima.transaction.Request;
-import cz.o2.proxima.transaction.Response;
-import cz.o2.proxima.transaction.State;
-import cz.o2.proxima.transaction.TransactionSerializerSchemeProvider;
-import cz.o2.proxima.util.Classpath;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
@@ -81,7 +81,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   private static <M extends AbstractMessage> ValueSerializer<M> createSerializer(URI uri) {
     String className = uri.getSchemeSpecificPart();
-    if (className.startsWith("cz.o2.proxima.transaction.")) {
+    if (className.startsWith("cz.o2.proxima.core.transaction.")) {
       return TransactionProtoSerializer.ofTransactionClass(className);
     }
     return new ProtoValueSerializer<>(className);
@@ -233,25 +233,25 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         String className) {
 
       switch (className) {
-        case "cz.o2.proxima.transaction.Request":
+        case "cz.o2.proxima.core.transaction.Request":
           return (TransactionProtoSerializer)
               new TransactionProtoSerializer<Request, ProtoRequest>(
                   new ProtoValueSerializer<>(ProtoRequest.class.getName()),
                   TransactionProtoSerializer::requestToProto,
                   TransactionProtoSerializer::requestFromProto);
-        case "cz.o2.proxima.transaction.Response":
+        case "cz.o2.proxima.core.transaction.Response":
           return (TransactionProtoSerializer)
               new TransactionProtoSerializer<Response, ProtoResponse>(
                   new ProtoValueSerializer<>(ProtoResponse.class.getName()),
                   TransactionProtoSerializer::responseToProto,
                   TransactionProtoSerializer::responseFromProto);
-        case "cz.o2.proxima.transaction.State":
+        case "cz.o2.proxima.core.transaction.State":
           return (TransactionProtoSerializer)
               new TransactionProtoSerializer<State, ProtoState>(
                   new ProtoValueSerializer<>(ProtoState.class.getName()),
                   TransactionProtoSerializer::stateToProto,
                   TransactionProtoSerializer::stateFromProto);
-        case "cz.o2.proxima.transaction.Commit":
+        case "cz.o2.proxima.core.transaction.Commit":
           return (TransactionProtoSerializer)
               new TransactionProtoSerializer<Commit, ProtoCommit>(
                   new ProtoValueSerializer<>(ProtoCommit.class.getName()),

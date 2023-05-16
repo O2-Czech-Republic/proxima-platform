@@ -19,8 +19,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.core.scheme.ValueSerializer;
+import cz.o2.proxima.core.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import java.net.URI;
 import java.net.URISyntaxException;

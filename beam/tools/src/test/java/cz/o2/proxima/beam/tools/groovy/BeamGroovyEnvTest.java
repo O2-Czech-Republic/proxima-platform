@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.groovy.GroovyEnv;
 import cz.o2.proxima.tools.groovy.GroovyEnvTest;
-import cz.o2.proxima.util.Optionals;
 import java.util.Arrays;
 import java.util.Collection;
 import org.apache.beam.runners.direct.DirectRunner;

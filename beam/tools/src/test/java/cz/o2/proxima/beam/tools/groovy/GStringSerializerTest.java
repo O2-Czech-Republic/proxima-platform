@@ -17,8 +17,8 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import static org.junit.Assert.assertEquals;
 
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.tools.groovy.util.Closures;
-import cz.o2.proxima.util.Pair;
 import groovy.lang.GString;
 import java.util.Collections;
 import java.util.List;

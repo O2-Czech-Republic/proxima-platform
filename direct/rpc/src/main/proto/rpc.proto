@@ -16,7 +16,7 @@
 /* service definition */
 
 syntax = "proto3";
-option java_package = "cz.o2.proxima.proto.service";
+option java_package = "cz.o2.proxima.direct.server.rpc.proto.service";
 option go_package = "ingest";
 
 /** Ingest of a attribute update (or delete) */

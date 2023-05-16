@@ -39,7 +39,7 @@ if [ -f "${BIN_DIR}/${SHADED_JAR_NAME}" ]; then
 else
   JAR="${BIN_DIR}/../target/${SHADED_JAR_NAME}"
 fi
-CLASS=${1:-"cz.o2.proxima.server.IngestServer"}
+CLASS=${1:-"cz.o2.proxima.direct.server.IngestServer"}
 
 CONFIG=""
 if [ -n "${2} "]; then

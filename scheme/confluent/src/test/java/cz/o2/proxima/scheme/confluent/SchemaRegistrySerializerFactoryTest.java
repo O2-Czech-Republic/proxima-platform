@@ -17,8 +17,8 @@ package cz.o2.proxima.scheme.confluent;
 
 import static org.junit.Assert.*;
 
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.core.scheme.ValueSerializer;
+import cz.o2.proxima.core.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.avro.AvroSerializer;
 import cz.o2.proxima.scheme.avro.test.Event;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;

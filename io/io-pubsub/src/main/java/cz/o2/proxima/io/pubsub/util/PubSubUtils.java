@@ -16,10 +16,10 @@
 package cz.o2.proxima.io.pubsub.util;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.io.pubsub.proto.PubSub.KeyValue;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 

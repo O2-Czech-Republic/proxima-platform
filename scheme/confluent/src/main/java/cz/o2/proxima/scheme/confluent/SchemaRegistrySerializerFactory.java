@@ -16,9 +16,9 @@
 package cz.o2.proxima.scheme.confluent;
 
 import com.google.auto.service.AutoService;
-import cz.o2.proxima.scheme.SerializationException;
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.core.scheme.SerializationException;
+import cz.o2.proxima.core.scheme.ValueSerializer;
+import cz.o2.proxima.core.scheme.ValueSerializerFactory;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

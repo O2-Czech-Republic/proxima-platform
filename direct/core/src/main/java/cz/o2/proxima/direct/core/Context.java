@@ -16,10 +16,10 @@
 package cz.o2.proxima.direct.core;
 
 import com.google.common.annotations.VisibleForTesting;
-import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;

@@ -16,12 +16,12 @@
 package cz.o2.proxima.flink.core;
 
 import com.google.common.annotations.VisibleForTesting;
-import cz.o2.proxima.direct.LogObserver;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.time.Watermarks;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.direct.core.LogObserver;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -79,7 +79,7 @@ abstract class AbstractLogSourceFunction<
 
   /**
    * A handle, that unifies handles from different log readers. For example {@link
-   * cz.o2.proxima.direct.batch.BatchLogReader} is not able to retrieve offsets by default.
+   * cz.o2.proxima.direct.core.batch.BatchLogReader} is not able to retrieve offsets by default.
    *
    * @param <OffsetT> Type of offset used by current log reader.
    */
@@ -187,7 +187,7 @@ abstract class AbstractLogSourceFunction<
    *
    * @param sourceContext Source context to use for writing output and watermarks.
    * @param resultExtractor Function for extracting results from {@link
-   *     cz.o2.proxima.storage.StreamElement}.
+   *     cz.o2.proxima.core.storage.StreamElement}.
    * @param skipFirstElement List of partitions, we want to skip the first element from. See {@link
    *     #getSkipFirstElementFromPartitions(List)} for more details.
    * @return Log observer.

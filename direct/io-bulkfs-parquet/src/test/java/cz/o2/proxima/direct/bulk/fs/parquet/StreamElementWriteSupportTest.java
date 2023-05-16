@@ -13,24 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.bulk.fs.parquet;
+package cz.o2.proxima.direct.io.bulkfs.parquet;
 
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.bulk.fs.parquet.StreamElementWriteSupport.Writer;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.ConfigRepository;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.scheme.AttributeValueType;
-import cz.o2.proxima.scheme.SchemaDescriptors;
-import cz.o2.proxima.scheme.SchemaDescriptors.ArrayTypeDescriptor;
-import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
-import cz.o2.proxima.scheme.SchemaDescriptors.StructureTypeDescriptor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.TestUtils;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.ConfigRepository;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.scheme.AttributeValueType;
+import cz.o2.proxima.core.scheme.SchemaDescriptors;
+import cz.o2.proxima.core.scheme.SchemaDescriptors.ArrayTypeDescriptor;
+import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
+import cz.o2.proxima.core.scheme.SchemaDescriptors.StructureTypeDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.TestUtils;
+import cz.o2.proxima.direct.io.bulkfs.parquet.StreamElementWriteSupport.Writer;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

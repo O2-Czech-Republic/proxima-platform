@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.beam.core.io;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.util.Pair;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

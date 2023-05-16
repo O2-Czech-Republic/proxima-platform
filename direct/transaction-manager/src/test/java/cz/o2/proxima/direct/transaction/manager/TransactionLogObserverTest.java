@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.transaction.manager;
+package cz.o2.proxima.direct.core.transaction.manager;
 
 import static org.junit.Assert.*;
 
@@ -22,24 +22,24 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.config.ConfigUtils;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.KeyAttribute;
+import cz.o2.proxima.core.transaction.KeyAttributes;
+import cz.o2.proxima.core.transaction.Request;
+import cz.o2.proxima.core.transaction.Response;
+import cz.o2.proxima.core.transaction.State;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.core.util.TransformationRunner;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.transaction.ClientTransactionManager;
-import cz.o2.proxima.direct.transaction.ServerTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionResourceManager;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.config.ConfigUtils;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.KeyAttribute;
-import cz.o2.proxima.transaction.KeyAttributes;
-import cz.o2.proxima.transaction.Request;
-import cz.o2.proxima.transaction.Response;
-import cz.o2.proxima.transaction.State;
-import cz.o2.proxima.util.ExceptionUtils;
-import cz.o2.proxima.util.Pair;
-import cz.o2.proxima.util.TransformationRunner;
+import cz.o2.proxima.direct.core.transaction.ClientTransactionManager;
+import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
+import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;

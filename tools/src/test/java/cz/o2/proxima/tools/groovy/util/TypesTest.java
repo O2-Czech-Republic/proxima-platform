@@ -18,8 +18,8 @@ package cz.o2.proxima.tools.groovy.util;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.tools.groovy.ToolsClassLoader;
-import cz.o2.proxima.util.Classpath;
 import groovy.lang.Closure;
 import groovy.lang.Script;
 import org.junit.Before;

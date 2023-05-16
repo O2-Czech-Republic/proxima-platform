@@ -15,7 +15,7 @@
  */
 syntax = "proto3";
 
-package cz.o2.proxima.server.test;
+package cz.o2.proxima.direct.server.test;
 
 /* This is message with just a single field. */
 message SimpleMessage {

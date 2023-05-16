@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.utils.zookeeper;
+package cz.o2.proxima.core.utils.zookeeper;
 
 import static org.junit.Assert.*;
 
@@ -21,13 +21,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Lists;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.functional.TimeProvider;
-import cz.o2.proxima.util.ExceptionUtils;
-import cz.o2.proxima.util.Pair;
-import cz.o2.proxima.util.TestUtils;
-import cz.o2.proxima.utils.zookeeper.ZKGlobalWatermarkTracker.WatermarkWithUpdate;
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.core.functional.TimeProvider;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.core.util.TestUtils;
+import cz.o2.proxima.core.utils.zookeeper.ZKGlobalWatermarkTracker.WatermarkWithUpdate;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;

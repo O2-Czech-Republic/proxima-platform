@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.repository.EntityDescriptor;
 import java.net.URI;
 import lombok.extern.slf4j.Slf4j;
 

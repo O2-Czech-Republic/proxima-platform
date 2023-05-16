@@ -13,20 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.utils.zookeeper;
+package cz.o2.proxima.core.utils.zookeeper;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.TimeProvider;
-import cz.o2.proxima.storage.UriUtil;
-import cz.o2.proxima.storage.watermark.GlobalWatermarkTracker;
-import cz.o2.proxima.time.Watermarks;
-import cz.o2.proxima.util.Classpath;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.functional.TimeProvider;
+import cz.o2.proxima.core.storage.UriUtil;
+import cz.o2.proxima.core.storage.watermark.GlobalWatermarkTracker;
+import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import java.io.File;
 import java.net.URI;
 import java.nio.ByteBuffer;

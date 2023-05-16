@@ -25,7 +25,7 @@ source ${BIN_DIR}/config.sh
 
 LOG_LEVEL=INFO
 JAR="${BIN_DIR}/../target/proxima-example-ingest-server.jar"
-CLASS=cz.o2.proxima.server.IngestServer
+CLASS=cz.o2.proxima.direct.server.IngestServer
 
 JAVAOPTS=""
 # Enable this for kerberized kafka

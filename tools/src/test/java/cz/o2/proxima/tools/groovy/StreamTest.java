@@ -18,11 +18,11 @@ package cz.o2.proxima.tools.groovy;
 import static org.junit.Assert.*;
 
 import com.google.common.collect.Sets;
-import cz.o2.proxima.functional.BiFunction;
-import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.core.functional.BiFunction;
+import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.tools.groovy.util.Closures;
-import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 import java.util.Arrays;
 import java.util.List;

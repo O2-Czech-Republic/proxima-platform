@@ -7,21 +7,21 @@
   package ${groovyPackage}
 </#if>
 
+import cz.o2.proxima.core.repository.Repository
+import cz.o2.proxima.core.repository.AttributeDescriptor
+import cz.o2.proxima.core.repository.EntityDescriptor
+import cz.o2.proxima.core.storage.StreamElement
+import cz.o2.proxima.core.storage.commitlog.Position
+import cz.o2.proxima.core.util.Pair
 import cz.o2.proxima.direct.core.DirectDataOperator
-import cz.o2.proxima.direct.randomaccess.KeyValue
-import cz.o2.proxima.direct.randomaccess.RandomOffset;
-import cz.o2.proxima.repository.Repository
-import cz.o2.proxima.repository.AttributeDescriptor
-import cz.o2.proxima.repository.EntityDescriptor
-import cz.o2.proxima.storage.StreamElement
-import cz.o2.proxima.storage.commitlog.Position
+import cz.o2.proxima.direct.core.randomaccess.KeyValue
+import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.tools.groovy.AttributeDescriptorProvider
 import cz.o2.proxima.tools.groovy.Console
 import cz.o2.proxima.tools.groovy.RepositoryProvider
 import cz.o2.proxima.tools.groovy.Stream
 import cz.o2.proxima.tools.groovy.WindowedStream
 import cz.o2.proxima.tools.io.ConsoleRandomReader
-import cz.o2.proxima.util.Pair
 
 @groovy.transform.CompileStatic
 class Environment implements RepositoryProvider {
@@ -33,11 +33,11 @@ class Environment implements RepositoryProvider {
     class ${entity.classname}Descriptor {
 
       private final Console console = Environment.this.console
-      private final cz.o2.proxima.repository.EntityDescriptor desc = console.findEntityDescriptor("${entity.name}")
+      private final cz.o2.proxima.core.repository.EntityDescriptor desc = console.findEntityDescriptor("${entity.name}")
       private final String name = "${entity.name}"
       private final ConsoleRandomReader reader = console.getRandomAccessReader("${entity.name}")
 
-      def cz.o2.proxima.repository.EntityDescriptor getDesc() {
+      def cz.o2.proxima.core.repository.EntityDescriptor getDesc() {
         return desc
       }
 
@@ -57,7 +57,7 @@ class Environment implements RepositoryProvider {
           private final AttributeDescriptor desc = ${entity.classname}Descriptor.this.desc.findAttribute("${attribute.origname}").get()
           private final Class type = ${attribute.type}
           private final String name = "${attribute.name}"
-          private final cz.o2.proxima.scheme.ValueSerializer serializer = desc.getValueSerializer()
+          private final cz.o2.proxima.core.scheme.ValueSerializer serializer = desc.getValueSerializer()
 
           def AttributeDescriptor desc() {
             return desc
@@ -71,7 +71,7 @@ class Environment implements RepositoryProvider {
             return name
           }
 
-          def cz.o2.proxima.scheme.ValueSerializer serializer() {
+          def cz.o2.proxima.core.scheme.ValueSerializer serializer() {
             return serializer
           }
 
@@ -181,7 +181,7 @@ class Environment implements RepositoryProvider {
         reader.listKeys(consumer)
       }
 
-      def List<cz.o2.proxima.util.Pair<cz.o2.proxima.direct.randomaccess.RandomOffset, String>> listKeys(
+      def List<cz.o2.proxima.core.util.Pair<cz.o2.proxima.direct.core.randomaccess.RandomOffset, String>> listKeys(
           String offset, int limit) {
         return reader.listKeys(offset, limit)
       }

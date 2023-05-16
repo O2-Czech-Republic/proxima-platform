@@ -16,10 +16,10 @@
 package cz.o2.proxima.direct.core;
 
 import com.google.auto.service.AutoService;
-import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.net.URI;
 import java.util.Optional;
 import lombok.Getter;

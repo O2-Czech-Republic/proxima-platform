@@ -96,6 +96,7 @@ subprojects {
     relocate "com.google.common", "${coreShade}.com.google.common"
 
     mergeServiceFiles()
+
   }
 
   tasks.register("configureShadow") {
@@ -105,6 +106,12 @@ subprojects {
         // apply all relocations from shadowJar to testsJar
         shadowJar.relocators.each {
           testsJar.relocate it
+        }
+      }
+      def moduleName = project.description ? asModuleName(project.description) : null
+      if (moduleName) {
+        shadowJar.manifest {
+          attributes("Automatic-Module-Name": asModuleName(project.description))
         }
       }
     }
@@ -351,4 +358,14 @@ def processDependency(def dependenciesNode, def it, def scope) {
   if (it.artifacts.find { a -> a.classifier }) {
     dependencyNode.appendNode("classifier", it.artifacts.find { a -> a.classifier }?.classifier)
   }
+}
+
+def asModuleName(name) {
+  // cut anything before ':'
+  def jar = name.substring(name.indexOf(':') + 1)
+  if (!jar.startsWith("proxima")) {
+    return null;
+  }
+  def stripped = jar.substring("proxima".length() + 1)
+  return "cz.o2.proxima.${stripped.replace("-", ".")}"
 }

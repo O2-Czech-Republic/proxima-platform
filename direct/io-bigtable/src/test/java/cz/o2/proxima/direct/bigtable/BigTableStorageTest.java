@@ -18,11 +18,11 @@ package cz.o2.proxima.direct.bigtable;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory.Accept;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.hbase.HBaseDataAccessor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
 import java.net.URI;
 import java.util.Collections;
 import org.apache.hadoop.conf.Configuration;

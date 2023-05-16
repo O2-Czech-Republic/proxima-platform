@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.hadoop;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
 import java.io.IOException;

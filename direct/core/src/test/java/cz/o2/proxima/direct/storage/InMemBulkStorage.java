@@ -17,6 +17,12 @@ package cz.o2.proxima.direct.storage;
 
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.AbstractStorage;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -30,12 +36,6 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
@@ -110,13 +110,13 @@ public class InMemBulkStorage implements DataAccessorFactory {
 
   private static class BatchReader extends AbstractStorage implements BatchLogReader {
 
-    private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
+    private final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory;
     private transient ExecutorService executor;
 
     private BatchReader(
         EntityDescriptor entityDesc,
         URI uri,
-        cz.o2.proxima.functional.Factory<ExecutorService> executorFactory) {
+        cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory) {
 
       super(entityDesc, uri);
       this.executorFactory = executorFactory;
@@ -194,7 +194,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
     public Factory<?> asFactory() {
       final EntityDescriptor entity = getEntityDescriptor();
       final URI uri = getUri();
-      final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory =
+      final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory =
           this.executorFactory;
       return repo -> new BatchReader(entity, uri, executorFactory);
     }

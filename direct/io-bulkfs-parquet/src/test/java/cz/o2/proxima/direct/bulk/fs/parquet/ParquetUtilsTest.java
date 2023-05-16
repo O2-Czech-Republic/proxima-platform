@@ -22,11 +22,11 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.scheme.SchemaDescriptors;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.scheme.SchemaDescriptors;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage;
 import cz.o2.proxima.scheme.proto.utils.ProtoUtils;
 import java.net.URI;

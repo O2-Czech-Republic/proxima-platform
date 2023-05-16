@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.core;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Callback for write and commit log operations. */

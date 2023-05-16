@@ -18,15 +18,15 @@ package cz.o2.proxima.direct.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.cassandra.CassandraDBAccessor.ClusterHolder;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -38,12 +38,12 @@ class CassandraLogReader implements BatchLogReader {
 
   private final CassandraDBAccessor accessor;
   private final int parallelism;
-  private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
+  private final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory;
   private final ExecutorService executor;
 
   CassandraLogReader(
       CassandraDBAccessor accessor,
-      cz.o2.proxima.functional.Factory<ExecutorService> executorFactory) {
+      cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory) {
     this.accessor = accessor;
     this.parallelism = accessor.getBatchParallelism();
     this.executorFactory = executorFactory;
@@ -161,7 +161,8 @@ class CassandraLogReader implements BatchLogReader {
   @Override
   public Factory<?> asFactory() {
     final CassandraDBAccessor accessor = this.accessor;
-    final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory = this.executorFactory;
+    final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory =
+        this.executorFactory;
     return repo -> new CassandraLogReader(accessor, executorFactory);
   }
 }

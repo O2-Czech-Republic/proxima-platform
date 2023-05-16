@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct.batch;
 
 import com.google.common.annotations.VisibleForTesting;
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import lombok.Getter;

@@ -16,10 +16,10 @@
 package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.time.Watermarks;
 import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nonnull;

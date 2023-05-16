@@ -17,12 +17,12 @@ package cz.o2.proxima.direct.hbase;
 
 import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.InvalidProtocolBufferException;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.client.Put;
@@ -53,8 +53,8 @@ interface InternalSerializer {
 
     @Override
     public Put toPut(byte[] family, byte[] keyAsBytes, StreamElement element) {
-      cz.o2.proxima.storage.proto.Serialization.Cell.Builder builder =
-          cz.o2.proxima.storage.proto.Serialization.Cell.newBuilder()
+      cz.o2.proxima.core.storage.proto.Serialization.Cell.Builder builder =
+          cz.o2.proxima.core.storage.proto.Serialization.Cell.newBuilder()
               .setValue(ByteString.copyFrom(element.getValue()));
       if (element.hasSequentialId()) {
         builder.setSeqId(element.getSequentialId());
@@ -67,8 +67,8 @@ interface InternalSerializer {
         EntityDescriptor entity, AttributeDescriptor<V> attrDesc, Cell cell)
         throws InvalidProtocolBufferException {
 
-      cz.o2.proxima.storage.proto.Serialization.Cell protoCell =
-          cz.o2.proxima.storage.proto.Serialization.Cell.parseFrom(
+      cz.o2.proxima.core.storage.proto.Serialization.Cell protoCell =
+          cz.o2.proxima.core.storage.proto.Serialization.Cell.parseFrom(
               ByteString.copyFrom(
                   cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()));
       return InternalSerializers.toKeyValue(

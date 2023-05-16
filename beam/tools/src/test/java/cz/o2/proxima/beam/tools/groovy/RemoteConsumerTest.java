@@ -17,7 +17,7 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import static org.junit.Assert.*;
 
-import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.core.functional.Consumer;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;

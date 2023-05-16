@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.bulk;
 
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.io.Closeable;
 import java.io.IOException;
 

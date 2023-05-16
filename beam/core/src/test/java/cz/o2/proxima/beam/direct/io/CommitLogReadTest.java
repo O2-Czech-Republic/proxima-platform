@@ -15,12 +15,22 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import static cz.o2.proxima.util.TestUtils.createTestFamily;
+import static cz.o2.proxima.core.util.TestUtils.createTestFamily;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -28,16 +38,6 @@ import cz.o2.proxima.direct.kafka.KafkaAccessor;
 import cz.o2.proxima.direct.kafka.LocalKafkaCommitLogDescriptor;
 import cz.o2.proxima.direct.storage.ListCommitLog;
 import cz.o2.proxima.direct.time.WatermarkConfiguration;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.time.WatermarkEstimator;
-import cz.o2.proxima.time.WatermarkEstimatorFactory;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
-import cz.o2.proxima.time.Watermarks;
-import cz.o2.proxima.util.Optionals;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.time.Instant;

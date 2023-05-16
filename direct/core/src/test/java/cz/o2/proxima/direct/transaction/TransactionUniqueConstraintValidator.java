@@ -15,6 +15,12 @@
  */
 package cz.o2.proxima.direct.transaction;
 
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.KeyAttributes;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
@@ -22,12 +28,6 @@ import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Trans
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionPreconditionFailedException;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionValidator;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.KeyAttributes;
-import cz.o2.proxima.util.Optionals;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

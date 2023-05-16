@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct.bulk;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.util.Pair;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;

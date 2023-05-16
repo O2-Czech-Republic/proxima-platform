@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.blob;
 
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
 import java.io.Serializable;
 
 /** Generic descriptor of blob in any blob store (e.g. S3, GCS, ...). */

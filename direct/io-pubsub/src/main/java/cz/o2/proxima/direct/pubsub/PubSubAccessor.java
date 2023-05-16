@@ -17,13 +17,13 @@ package cz.o2.proxima.direct.pubsub;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.AbstractStorage.SerializableAbstractStorage;
+import cz.o2.proxima.core.storage.UriUtil;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
-import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;

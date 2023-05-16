@@ -18,9 +18,9 @@ package cz.o2.proxima.direct.kafka.serializer;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

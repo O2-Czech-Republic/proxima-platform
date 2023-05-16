@@ -20,7 +20,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import io.grpc.BindableService;
 import io.grpc.Server;
 import java.util.concurrent.ArrayBlockingQueue;

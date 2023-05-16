@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.time;
 
-import cz.o2.proxima.time.WatermarkEstimatorFactory;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
-import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.core.util.Classpath;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.Optional;

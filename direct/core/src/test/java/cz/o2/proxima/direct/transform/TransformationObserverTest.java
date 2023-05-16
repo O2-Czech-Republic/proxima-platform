@@ -18,6 +18,13 @@ package cz.o2.proxima.direct.transform;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.PassthroughFilter;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.Response.Flags;
+import cz.o2.proxima.core.transform.ElementWiseTransformation;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -25,13 +32,6 @@ import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Trans
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.direct.transform.TransformationObserver.Contextual;
 import cz.o2.proxima.direct.transform.TransformationObserver.NonContextual;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.PassthroughFilter;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.Response.Flags;
-import cz.o2.proxima.transform.ElementWiseTransformation;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;

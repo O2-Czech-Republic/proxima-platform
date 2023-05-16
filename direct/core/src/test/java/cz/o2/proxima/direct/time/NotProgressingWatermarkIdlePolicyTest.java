@@ -19,8 +19,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import cz.o2.proxima.time.WatermarkIdlePolicy;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.core.time.WatermarkIdlePolicy;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Random;

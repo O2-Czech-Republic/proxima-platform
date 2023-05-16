@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.direct.http;
 
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.AbstractStorage.SerializableAbstractStorage;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.http.opentsdb.OpenTsdbWriter;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;

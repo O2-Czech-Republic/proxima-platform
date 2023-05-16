@@ -16,11 +16,11 @@
 package cz.o2.proxima.direct.kafka.serializer;
 
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.kafka.ElementSerializer;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;

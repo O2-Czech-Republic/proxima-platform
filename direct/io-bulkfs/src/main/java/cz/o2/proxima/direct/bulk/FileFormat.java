@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.bulk;
 
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
 import java.io.IOException;
 import java.io.Serializable;
 

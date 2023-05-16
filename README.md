@@ -128,7 +128,7 @@ First, let's introduce some glossary:
          attributes: [ "event.*" ]
          storage: "cassandra://"${cassandra.seed}/${cassandra.user-event-table}"?primary=user&secondary=stamp&data=event&reversed=true"
          # ignore this for now
-         converter: cz.o2.proxima.storage.cassandra.DateToLongConverter
+         converter: cz.o2.proxima.core.storage.cassandra.DateToLongConverter
          type: replica
          # we will not explicitly modify this, it will be updated automatically by incoming events
          access: read-only

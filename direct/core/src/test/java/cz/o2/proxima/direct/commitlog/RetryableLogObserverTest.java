@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.CommitLogObservers.TerminationStrategy;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Assert;

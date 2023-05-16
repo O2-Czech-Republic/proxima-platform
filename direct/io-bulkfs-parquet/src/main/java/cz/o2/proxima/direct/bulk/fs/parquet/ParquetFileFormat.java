@@ -16,14 +16,14 @@
 package cz.o2.proxima.direct.bulk.fs.parquet;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.bulk.Writer;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;

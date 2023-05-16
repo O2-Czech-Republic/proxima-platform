@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.bulk;
 import static org.junit.Assert.*;
 
 import com.google.common.collect.Sets;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.core.util.Pair;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;

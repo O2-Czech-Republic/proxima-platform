@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.direct.batch;
 
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.time.WatermarkSupplier;
+import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.time.WatermarkSupplier;
-import cz.o2.proxima.time.Watermarks;
 import javax.annotation.Nullable;
 import lombok.Value;
 

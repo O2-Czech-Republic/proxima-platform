@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.server.metrics;
 
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.metrics.ApproxPercentileMetric;
-import cz.o2.proxima.metrics.GaugeMetric;
-import cz.o2.proxima.metrics.Metric;
-import cz.o2.proxima.metrics.TimeAveragingMetric;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.time.Watermarks;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.metrics.ApproxPercentileMetric;
+import cz.o2.proxima.core.metrics.GaugeMetric;
+import cz.o2.proxima.core.metrics.Metric;
+import cz.o2.proxima.core.metrics.TimeAveragingMetric;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.core.util.Pair;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.Collections;

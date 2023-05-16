@@ -24,6 +24,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import cz.o2.proxima.core.functional.BiFunction;
+import cz.o2.proxima.core.functional.UnaryPredicate;
+import cz.o2.proxima.core.scheme.SerializationException;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
@@ -33,14 +41,6 @@ import cz.o2.proxima.direct.commitlog.ObserverUtils;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.OffsetExternalizer;
 import cz.o2.proxima.direct.core.Context;
-import cz.o2.proxima.functional.BiFunction;
-import cz.o2.proxima.functional.UnaryPredicate;
-import cz.o2.proxima.scheme.SerializationException;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.time.WatermarkEstimator;
-import cz.o2.proxima.time.Watermarks;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -634,14 +634,14 @@ public class ListCommitLog implements CommitLogReader {
     return handle;
   }
 
-  private cz.o2.proxima.functional.Factory<Boolean> allMatchOffset(
+  private cz.o2.proxima.core.functional.Factory<Boolean> allMatchOffset(
       UnaryPredicate<Integer> offsetPredicate) {
     return () -> IntStream.range(0, data().size()).allMatch(offsetPredicate::apply);
   }
 
   private void pushTo(
       BiFunction<StreamElement, Integer, Boolean> consumer,
-      cz.o2.proxima.functional.Factory<Boolean> finishedCheck,
+      cz.o2.proxima.core.functional.Factory<Boolean> finishedCheck,
       Runnable onFinished,
       Runnable onCancelled) {
 

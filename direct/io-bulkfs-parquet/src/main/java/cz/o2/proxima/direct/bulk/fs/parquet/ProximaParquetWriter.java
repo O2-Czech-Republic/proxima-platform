@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.bulk.fs.parquet;
 
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.bulk.Writer;
-import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.io.OutputStream;
 import org.apache.hadoop.conf.Configuration;

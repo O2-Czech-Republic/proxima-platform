@@ -16,8 +16,8 @@
 package cz.o2.proxima.tools.groovy;
 
 import com.google.common.collect.Sets;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.tools.groovy.internal.ClassloaderUtils;
-import cz.o2.proxima.util.ExceptionUtils;
 import groovy.lang.GroovyClassLoader;
 import java.net.URI;
 import java.util.Arrays;

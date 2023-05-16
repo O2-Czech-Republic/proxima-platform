@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.batch;
 
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.LogObserver;
-import cz.o2.proxima.storage.StreamElement;
 
 /**
  * Batch observer of data. No commits needed.

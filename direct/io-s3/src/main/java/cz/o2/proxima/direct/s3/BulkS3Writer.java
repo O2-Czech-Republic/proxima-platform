@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.s3;
 
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
 import cz.o2.proxima.direct.blob.BulkBlobWriter;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.Context;

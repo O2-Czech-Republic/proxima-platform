@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.bulk;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import java.io.File;
 import java.io.Serializable;
 import java.net.URI;

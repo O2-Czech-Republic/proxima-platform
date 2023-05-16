@@ -19,6 +19,17 @@ import static cz.o2.proxima.direct.transaction.TransactionResourceManagerTest.ru
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.KeyAttribute;
+import cz.o2.proxima.core.transaction.KeyAttributes;
+import cz.o2.proxima.core.transaction.Request;
+import cz.o2.proxima.core.transaction.Response;
+import cz.o2.proxima.core.transaction.State;
+import cz.o2.proxima.core.util.Optionals;
+import cz.o2.proxima.core.util.TransformationRunner;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.AttributeWriterBase.Type;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -27,17 +38,6 @@ import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Trans
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.CachedView.Factory;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.KeyAttribute;
-import cz.o2.proxima.transaction.KeyAttributes;
-import cz.o2.proxima.transaction.Request;
-import cz.o2.proxima.transaction.Response;
-import cz.o2.proxima.transaction.State;
-import cz.o2.proxima.util.Optionals;
-import cz.o2.proxima.util.TransformationRunner;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

@@ -15,15 +15,15 @@
  */
 package cz.o2.proxima.direct.view;
 
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.functional.BiConsumer;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.functional.BiConsumer;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;

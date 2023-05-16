@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.bulk;
 
 import static org.junit.Assert.assertEquals;
 
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;

@@ -19,15 +19,15 @@ import static org.junit.Assert.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
 import java.util.Optional;
 import org.junit.Test;
 
-/** Test parsing of {@link cz.o2.proxima.storage.ThroughputLimiter} from config. */
+/** Test parsing of {@link cz.o2.proxima.core.storage.ThroughputLimiter} from config. */
 public class GlobalWatermarkThroughputLimiterTest {
 
   private final Config config =

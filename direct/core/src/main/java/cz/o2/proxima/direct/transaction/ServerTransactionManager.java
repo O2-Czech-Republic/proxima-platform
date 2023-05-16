@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.direct.transaction;
 
+import cz.o2.proxima.core.functional.BiConsumer;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.Response;
+import cz.o2.proxima.core.transaction.State;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
-import cz.o2.proxima.functional.BiConsumer;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.Response;
-import cz.o2.proxima.transaction.State;
-import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 
 public interface ServerTransactionManager extends AutoCloseable, TransactionManager {

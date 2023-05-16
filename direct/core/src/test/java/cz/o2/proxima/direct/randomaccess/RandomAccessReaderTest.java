@@ -20,12 +20,12 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader.GetRequest;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.io.Serializable;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

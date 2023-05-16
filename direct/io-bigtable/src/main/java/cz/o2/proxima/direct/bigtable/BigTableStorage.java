@@ -17,12 +17,12 @@ package cz.o2.proxima.direct.bigtable;
 
 import com.google.auto.service.AutoService;
 import com.google.cloud.bigtable.hbase2_x.BigtableConnection;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.hbase.HBaseDataAccessor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Connection;

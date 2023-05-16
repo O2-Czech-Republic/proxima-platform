@@ -21,7 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import cz.o2.proxima.scheme.SerializationException;
+import cz.o2.proxima.core.scheme.SerializationException;
 import java.util.HashMap;
 import org.junit.Test;
 

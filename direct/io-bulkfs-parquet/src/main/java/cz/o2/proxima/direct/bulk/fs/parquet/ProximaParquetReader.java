@@ -17,11 +17,11 @@ package cz.o2.proxima.direct.bulk.fs.parquet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.bulk.Reader;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;

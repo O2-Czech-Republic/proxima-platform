@@ -21,7 +21,7 @@ import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage.BlobListOption;
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.bulk.Path;

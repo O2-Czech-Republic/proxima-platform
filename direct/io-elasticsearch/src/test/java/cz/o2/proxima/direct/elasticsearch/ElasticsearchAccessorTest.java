@@ -23,8 +23,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.util.TestUtils;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;

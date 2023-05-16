@@ -16,10 +16,10 @@
 package cz.o2.proxima.direct.elasticsearch;
 
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;

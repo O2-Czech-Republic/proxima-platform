@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.transaction.manager;
 
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.functional.Consumer;
 
 @FunctionalInterface
 @Internal

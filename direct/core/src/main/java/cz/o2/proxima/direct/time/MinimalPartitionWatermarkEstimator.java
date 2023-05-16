@@ -16,9 +16,9 @@
 package cz.o2.proxima.direct.time;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.time.PartitionedWatermarkEstimator;
-import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.time.PartitionedWatermarkEstimator;
+import cz.o2.proxima.core.time.WatermarkEstimator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;

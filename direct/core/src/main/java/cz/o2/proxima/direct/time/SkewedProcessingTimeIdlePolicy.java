@@ -17,9 +17,9 @@ package cz.o2.proxima.direct.time;
 
 import static cz.o2.proxima.direct.time.WatermarkConfiguration.prefixedKey;
 
-import cz.o2.proxima.time.WatermarkIdlePolicy;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
-import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.core.time.WatermarkIdlePolicy;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.core.time.Watermarks;
 import java.util.Map;
 import java.util.Optional;
 import lombok.Getter;

@@ -16,8 +16,8 @@
 package cz.o2.proxima.beam.core;
 
 import com.google.common.collect.Streams;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Optionals;
 import java.util.Comparator;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.transforms.Combine;

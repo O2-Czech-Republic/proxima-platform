@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.pubsub;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.v1.PubsubMessage;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.io.pubsub.proto.PubSub;
-import cz.o2.proxima.repository.AttributeDescriptor;
 import java.util.UUID;
 
 /** Various utilities. */

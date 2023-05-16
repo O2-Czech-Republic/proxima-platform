@@ -15,15 +15,15 @@
  */
 package cz.o2.proxima.direct.http;
 
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.AbstractStorage;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Classpath;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.Map;

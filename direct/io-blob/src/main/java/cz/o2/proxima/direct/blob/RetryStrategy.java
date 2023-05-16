@@ -16,9 +16,9 @@
 package cz.o2.proxima.direct.blob;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;

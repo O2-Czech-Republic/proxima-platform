@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.bulk.Path;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
 import java.util.Spliterator;
 import java.util.Spliterators;

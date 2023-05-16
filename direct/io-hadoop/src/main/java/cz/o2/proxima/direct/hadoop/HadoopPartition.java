@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.batch.BoundedPartition;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;

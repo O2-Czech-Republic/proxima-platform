@@ -20,10 +20,10 @@ import static org.junit.Assert.assertNotNull;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.UUID;

@@ -17,11 +17,11 @@ package cz.o2.proxima.direct.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Session;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.cassandra.CassandraDBAccessor.ClusterHolder;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.storage.StreamElement;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 

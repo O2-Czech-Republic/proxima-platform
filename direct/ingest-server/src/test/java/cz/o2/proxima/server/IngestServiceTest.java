@@ -23,14 +23,14 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.storage.InMemBulkStorage;
 import cz.o2.proxima.direct.storage.InMemStorage;
 import cz.o2.proxima.proto.service.Rpc;
-import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.proto.test.Scheme;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;
-import cz.o2.proxima.storage.StreamElement;
 import io.grpc.stub.StreamObserver;
 import java.net.URI;
 import java.net.URISyntaxException;

@@ -17,13 +17,13 @@ package cz.o2.proxima.direct.pubsub;
 
 import com.google.auto.service.AutoService;
 import com.typesafe.config.Config;
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.ConfigRepository;
+import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.ConfigRepository;
-import cz.o2.proxima.repository.Repository;
 import java.net.URI;
 import lombok.AccessLevel;
 import lombok.Getter;

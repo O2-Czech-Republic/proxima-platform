@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.beam.core.io;
 
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.RepositoryFactory;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.RepositoryFactory;
 import org.apache.beam.sdk.coders.CustomCoder;
 
 abstract class AbstractRepositoryCoder<T> extends CustomCoder<T> {

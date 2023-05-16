@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.flink.core;
 
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.LogObserver;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.time.Watermarks;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Optional;

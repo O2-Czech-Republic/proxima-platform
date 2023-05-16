@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.direct.blob;
 
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

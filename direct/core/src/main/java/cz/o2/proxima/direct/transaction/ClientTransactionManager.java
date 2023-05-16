@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.transaction;
 
-import cz.o2.proxima.functional.BiConsumer;
-import cz.o2.proxima.transaction.KeyAttribute;
-import cz.o2.proxima.transaction.Response;
+import cz.o2.proxima.core.functional.BiConsumer;
+import cz.o2.proxima.core.transaction.KeyAttribute;
+import cz.o2.proxima.core.transaction.Response;
 import java.util.List;
 
 public interface ClientTransactionManager extends AutoCloseable, TransactionManager {

@@ -16,9 +16,9 @@
 package cz.o2.proxima.tools.groovy;
 
 import com.google.auto.service.AutoService;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Position;
 import groovy.lang.Closure;
 
 @AutoService(StreamProvider.class)

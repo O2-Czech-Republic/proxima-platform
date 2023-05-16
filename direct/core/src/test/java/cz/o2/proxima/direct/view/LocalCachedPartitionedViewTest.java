@@ -19,6 +19,14 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StorageType;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -26,14 +34,6 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
-import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StorageType;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Pair;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -80,7 +80,7 @@ public class LocalCachedPartitionedViewTest {
         @Override
         long getCurrentTimeMillis() {
           return Optional.ofNullable(timeProvider)
-              .map(cz.o2.proxima.functional.Factory::apply)
+              .map(cz.o2.proxima.core.functional.Factory::apply)
               .orElseGet(super::getCurrentTimeMillis);
         }
       };

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.scheme.SerializationException;
+import cz.o2.proxima.core.scheme.SerializationException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

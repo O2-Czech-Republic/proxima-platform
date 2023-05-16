@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.beam.transforms;
 
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.storage.StreamElement;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.KV;

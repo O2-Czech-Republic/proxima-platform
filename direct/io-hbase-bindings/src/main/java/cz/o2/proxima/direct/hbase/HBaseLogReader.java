@@ -15,16 +15,16 @@
  */
 package cz.o2.proxima.direct.hbase;
 
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.batch.TerminationContext;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -51,14 +51,14 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
 
   private final EntityDescriptor entity;
   private final InternalSerializer serializer;
-  private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
+  private final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory;
   private final ExecutorService executor;
 
   public HBaseLogReader(
       URI uri,
       Configuration conf,
       EntityDescriptor entity,
-      cz.o2.proxima.functional.Factory<ExecutorService> executorFactory) {
+      cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory) {
 
     super(uri, conf);
     this.entity = entity;
@@ -125,7 +125,8 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
   public Factory<?> asFactory() {
     final URI uri = getUri();
     final EntityDescriptor entity = this.entity;
-    final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory = this.executorFactory;
+    final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory =
+        this.executorFactory;
     final byte[] serializedConf = this.serializedConf;
     return repo ->
         new HBaseLogReader(

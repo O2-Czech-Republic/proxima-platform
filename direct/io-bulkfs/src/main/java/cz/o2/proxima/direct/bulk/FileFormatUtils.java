@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.bulk;
 
-import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.core.util.Classpath;
 import java.net.InetAddress;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;

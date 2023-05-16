@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.core;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.core.repository.Repository;
 import org.junit.Test;
 
 public class StdoutStorageTest {

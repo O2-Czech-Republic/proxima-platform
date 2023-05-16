@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Position;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Collection;

@@ -19,10 +19,10 @@ import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

@@ -17,13 +17,13 @@ package cz.o2.proxima.direct.bulk;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.AbstractBulkAttributeWriter;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collection;
@@ -117,7 +117,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
   @Getter private final FileFormat format;
   @Getter private final long rollPeriodMs;
   @Getter private final long allowedLatenessMs;
-  @Getter private final cz.o2.proxima.functional.Factory<Executor> executorFactory;
+  @Getter private final cz.o2.proxima.core.functional.Factory<Executor> executorFactory;
   @Getter private final Context context;
   private final Map<Long, Bulk> writers = Collections.synchronizedMap(new HashMap<>());
   private final Map<String, LateBulk> lateWriters = Collections.synchronizedMap(new HashMap<>());
@@ -144,7 +144,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
     this.format = format;
     this.rollPeriodMs = rollPeriodMs;
     this.allowedLatenessMs = allowedLatenessMs;
-    this.executorFactory = (cz.o2.proxima.functional.Factory) context.getExecutorFactory();
+    this.executorFactory = (cz.o2.proxima.core.functional.Factory) context.getExecutorFactory();
     this.context = context;
   }
 

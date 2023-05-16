@@ -19,8 +19,8 @@ import static org.junit.Assert.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.ConfigRepository;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.core.repository.ConfigRepository;
+import cz.o2.proxima.core.repository.Repository;
 import org.junit.Test;
 
 /** Test suite for {@link TransactionManagerServer}. */

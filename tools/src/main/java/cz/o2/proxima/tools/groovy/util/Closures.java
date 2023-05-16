@@ -16,9 +16,9 @@
 package cz.o2.proxima.tools.groovy.util;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.functional.BiFunction;
-import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.core.functional.BiFunction;
+import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.core.functional.UnaryFunction;
 import groovy.lang.Closure;
 
 /** Utilities related to creating {@link Closure}s from Java. */

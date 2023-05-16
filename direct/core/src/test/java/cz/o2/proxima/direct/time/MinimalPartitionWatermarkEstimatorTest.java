@@ -24,11 +24,11 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.ConfigRepository;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.ConfigRepository;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.time.WatermarkEstimator;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;

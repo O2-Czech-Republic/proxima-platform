@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.UnaryPredicate;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.functional.UnaryPredicate;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.util.List;
 
 public class LogObserverUtils {

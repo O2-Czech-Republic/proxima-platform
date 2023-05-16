@@ -16,16 +16,16 @@
 package cz.o2.proxima.direct.hbase;
 
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.core.functional.BiFunction;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.AbstractStorage.SerializableAbstractStorage;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.UriUtil;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.functional.BiFunction;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;

@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.direct.transform;
 
-import cz.o2.proxima.annotations.Experimental;
+import cz.o2.proxima.core.annotations.Experimental;
+import cz.o2.proxima.core.repository.DataOperatorFactory;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transform.ContextualTransformation;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.DirectDataOperatorFactory;
-import cz.o2.proxima.repository.DataOperatorFactory;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transform.ContextualTransformation;
 import java.util.Map;
 
 /** An element-wise transformation runnable in the context of {@link DirectDataOperator} only. */

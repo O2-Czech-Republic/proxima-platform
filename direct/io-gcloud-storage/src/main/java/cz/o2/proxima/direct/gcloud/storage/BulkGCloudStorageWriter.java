@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.gcloud.storage;
 
 import com.google.cloud.storage.Storage;
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
 import cz.o2.proxima.direct.blob.BulkBlobWriter;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.Context;

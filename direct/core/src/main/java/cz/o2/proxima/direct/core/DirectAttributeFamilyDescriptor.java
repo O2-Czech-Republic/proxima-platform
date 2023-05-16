@@ -15,15 +15,15 @@
  */
 package cz.o2.proxima.direct.core;
 
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;

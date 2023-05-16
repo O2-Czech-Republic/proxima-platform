@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.direct.transaction;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.transaction.Commit;
-import cz.o2.proxima.transaction.Request;
-import cz.o2.proxima.transaction.Response;
-import cz.o2.proxima.transaction.State;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.transaction.Commit;
+import cz.o2.proxima.core.transaction.Request;
+import cz.o2.proxima.core.transaction.Response;
+import cz.o2.proxima.core.transaction.State;
 
 @Internal
 public interface TransactionManager {

@@ -19,12 +19,12 @@ import static cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimato
 import static cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimator.ESTIMATE_DURATION_MS;
 import static cz.o2.proxima.direct.time.WatermarkConfiguration.prefixedKey;
 
+import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.direct.time.SkewedProcessingTimeIdlePolicy;
 import cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.direct.time.WatermarkConfiguration;
-import cz.o2.proxima.time.WatermarkEstimator;
-import cz.o2.proxima.time.WatermarkEstimatorFactory;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import java.util.HashMap;
 import java.util.Map;
 

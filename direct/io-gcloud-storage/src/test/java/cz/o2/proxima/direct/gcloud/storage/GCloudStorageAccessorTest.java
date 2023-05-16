@@ -19,15 +19,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.TestUtils;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Optional;

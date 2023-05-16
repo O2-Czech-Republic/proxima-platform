@@ -15,15 +15,15 @@
  */
 package cz.o2.proxima.direct.hbase;
 
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.randomaccess.RawOffset;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;

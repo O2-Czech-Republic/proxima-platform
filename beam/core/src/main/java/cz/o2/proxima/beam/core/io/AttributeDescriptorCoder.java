@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.beam.core.io;
 
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.RepositoryFactory;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.RepositoryFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

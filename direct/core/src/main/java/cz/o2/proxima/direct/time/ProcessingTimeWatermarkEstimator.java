@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.direct.time;
 
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.time.AbstractWatermarkEstimator;
-import cz.o2.proxima.time.WatermarkEstimator;
-import cz.o2.proxima.time.WatermarkEstimatorFactory;
-import cz.o2.proxima.time.WatermarkIdlePolicy;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
-import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.time.AbstractWatermarkEstimator;
+import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.core.time.WatermarkIdlePolicy;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.core.time.Watermarks;
 import java.util.Map;
 
 /** Estimates watermark as processing time. */

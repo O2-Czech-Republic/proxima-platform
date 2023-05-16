@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.http.opentsdb;
 
-import cz.o2.proxima.annotations.Evolving;
+import cz.o2.proxima.core.annotations.Evolving;
+import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.direct.http.ConnFactory;
 import cz.o2.proxima.direct.http.HttpWriter;
-import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
 

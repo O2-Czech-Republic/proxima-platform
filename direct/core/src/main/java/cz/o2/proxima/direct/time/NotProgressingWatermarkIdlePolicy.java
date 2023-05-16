@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.time;
 
-import cz.o2.proxima.time.WatermarkIdlePolicy;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
-import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.core.time.WatermarkIdlePolicy;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.core.time.Watermarks;
 import java.util.Map;
 
 /** Idle policy doesn't progress watermark on idle. */

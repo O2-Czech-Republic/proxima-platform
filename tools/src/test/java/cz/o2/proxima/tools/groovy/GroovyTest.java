@@ -17,8 +17,8 @@ package cz.o2.proxima.tools.groovy;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.Classpath;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Script;

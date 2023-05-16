@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.bulk.AbstractBulkFileSystemAttributeWriter;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.Context;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
 import lombok.extern.slf4j.Slf4j;
 

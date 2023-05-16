@@ -16,10 +16,10 @@
 package cz.o2.proxima.direct.commitlog;
 
 import com.google.common.annotations.VisibleForTesting;
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.CommitLogObservers.TerminationStrategy;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.storage.StreamElement;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 

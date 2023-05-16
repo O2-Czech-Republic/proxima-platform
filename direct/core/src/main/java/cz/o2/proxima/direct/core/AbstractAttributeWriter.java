@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.AbstractStorage;
 import java.net.URI;
 
 /** Base class for {@code AttributeWriter}s. */

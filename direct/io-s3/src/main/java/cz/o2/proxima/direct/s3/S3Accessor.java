@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.direct.s3;
 
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.blob.BlobStorageAccessor;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.util.Optional;
 
 /** A {@link DataAccessor} for gcloud storage. */

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import cz.o2.proxima.util.TestUtils;
+import cz.o2.proxima.core.util.TestUtils;
 import org.junit.Test;
 
 public class TopicOffsetTest {

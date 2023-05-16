@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory;
+import cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory;
 
 /** Factory for {@link DataAccessor}s from given URI. */
 public interface DataAccessorFactory

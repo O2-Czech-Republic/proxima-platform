@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
 import java.util.List;
 
 /** A interface for handling progress and control consumption of running observe process. */

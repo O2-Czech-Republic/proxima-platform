@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.commitlog;
 
 import static org.junit.Assert.assertEquals;
 
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 

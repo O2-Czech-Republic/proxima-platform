@@ -16,10 +16,10 @@
 package cz.o2.proxima.direct.randomaccess;
 
 import com.google.common.base.MoreObjects;
-import cz.o2.proxima.annotations.Evolving;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.annotations.Evolving;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;

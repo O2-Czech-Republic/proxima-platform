@@ -16,8 +16,8 @@
 package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.storage.StreamElement;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;

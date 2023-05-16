@@ -17,10 +17,10 @@ package cz.o2.proxima.direct.cassandra;
 
 import static org.junit.Assert.*;
 
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory.Accept;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
 import java.net.URI;
 import java.util.Collections;
 import org.junit.Test;

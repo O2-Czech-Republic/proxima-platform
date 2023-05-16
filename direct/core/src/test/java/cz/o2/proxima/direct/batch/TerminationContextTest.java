@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.batch;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;

@@ -15,7 +15,7 @@ We will describe the key properties of these three type below.
 A commit log is a type of write-once-read-many storage. The key properties are, that it consists of immutable records, that can only be appended and have associated timestamp. Such records are called _events_. A commit log is thus an **unordered** sequence of events and thus forms a _partitioned event stream_.
 
 Proxima platform further restricts this to _partitioned event stream of upserts_.
-This is due to the requirement that every event in the event stream refers to a particular _(key, attribute)_ pair, thus every event describes a change of value (or insertion of new value) of particular attribute of particular entity at given timestamp. These proparties were defined in [Data model]({{< relref "/book/datamodel" >}}) and are constituents of **StreamElement** (see [javadoc](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/storage/StreamElement.html)), a commit log is therefore a stream of StreamElements.
+This is due to the requirement that every event in the event stream refers to a particular _(key, attribute)_ pair, thus every event describes a change of value (or insertion of new value) of particular attribute of particular entity at given timestamp. These proparties were defined in [Data model]({{< relref "/book/datamodel" >}}) and are constituents of **StreamElement** (see [javadoc](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/storage/StreamElement.html)), a commit log is therefore a stream of StreamElements.
 
 A commit log, being a stream of upserts, can be reduced to table, via the _table-stream duality_ (see [Data model]({{< relref "/book/datamodel" >}}). We can create a table from the stream of upserts by _applying_ the upserts to the initial state of the table. Provided the commit log implementation (e.g. [Apache Kafka](https://kafka.apache.org/)) is able to hold all most recent updates to any key-attributes, then we can reconstruct a table from the stream by reading all the updates and applying each individual update to initially empty table. A commit log that has this property is called a _state commit log_, because it is able to hold the state (and modifications over time) of attributes.
 
@@ -135,6 +135,6 @@ A replica attribute family might also specify an optional `filter`, which will t
     }
 ```
 
-The filter must implement [StorageFilter](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/storage/StorageFilter.html) interface.
+The filter must implement [StorageFilter](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/storage/StorageFilter.html) interface.
 
 With this high-level description of entities and attribute families, we are ready to see how will this definition by actually used to access the data and to ensure eventual consistency between primary and replica storages. Let's first see the latter described in [Replication]({{< relref "/book/replication" >}}).

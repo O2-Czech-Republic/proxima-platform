@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.time;
 
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
 import java.io.Serializable;
 
 @Internal

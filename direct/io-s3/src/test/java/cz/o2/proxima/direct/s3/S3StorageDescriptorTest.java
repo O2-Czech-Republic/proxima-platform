@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.s3;
 
 import static org.junit.Assert.assertEquals;
 
-import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
+import cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory.Accept;
 import java.net.URI;
 import org.junit.Test;
 

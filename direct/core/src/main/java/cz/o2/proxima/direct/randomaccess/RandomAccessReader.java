@@ -15,15 +15,15 @@
  */
 package cz.o2.proxima.direct.randomaccess;
 
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.ContextProvider;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.util.Pair;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.util.ArrayList;

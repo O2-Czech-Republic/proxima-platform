@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.commitlog.Position;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;

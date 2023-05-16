@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.bulk;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.core.util.Pair;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;

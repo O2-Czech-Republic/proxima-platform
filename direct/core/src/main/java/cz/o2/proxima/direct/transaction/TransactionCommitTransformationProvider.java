@@ -16,9 +16,9 @@
 package cz.o2.proxima.direct.transaction;
 
 import com.google.auto.service.AutoService;
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.transaction.TransactionTransformProvider;
-import cz.o2.proxima.transform.Transformation;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.transaction.TransactionTransformProvider;
+import cz.o2.proxima.core.transform.Transformation;
 
 @Internal
 @AutoService(TransactionTransformProvider.class)

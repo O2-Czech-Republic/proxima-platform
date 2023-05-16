@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.net.URI;
 
 @Internal

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.elasticsearch;
 
-import static cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.*;
+import static cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.net.URI;

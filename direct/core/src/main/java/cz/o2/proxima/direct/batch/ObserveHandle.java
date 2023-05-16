@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.batch;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.annotations.Stable;
 
 /** A interface for handling progress and control consumption of running observe process. */
 @Stable
@@ -30,7 +30,7 @@ public interface ObserveHandle extends AutoCloseable {
 
   /**
    * Verify if we can read without any (known in advance) delays defined by any possible {@link
-   * cz.o2.proxima.storage.ThroughputLimiter}.
+   * cz.o2.proxima.core.storage.ThroughputLimiter}.
    */
   default boolean isReadyForProcessing() {
     return true;

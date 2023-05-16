@@ -17,9 +17,9 @@ package cz.o2.proxima.direct.gcloud.storage;
 
 import static org.junit.Assert.assertEquals;
 
+import cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory.Accept;
+import cz.o2.proxima.core.util.TestUtils;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
-import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
-import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import org.junit.Test;

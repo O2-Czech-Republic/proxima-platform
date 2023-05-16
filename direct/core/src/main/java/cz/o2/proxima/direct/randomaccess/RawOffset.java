@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.randomaccess;
 
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Stable;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 

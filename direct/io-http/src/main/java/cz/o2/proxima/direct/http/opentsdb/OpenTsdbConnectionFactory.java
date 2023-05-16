@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.direct.http.opentsdb;
 
-import cz.o2.proxima.annotations.Experimental;
+import cz.o2.proxima.core.annotations.Experimental;
+import cz.o2.proxima.core.scheme.ValueSerializer;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.http.ConnFactory;
 import cz.o2.proxima.direct.http.TestableConnFactory;
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;

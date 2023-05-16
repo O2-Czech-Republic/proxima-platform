@@ -17,9 +17,9 @@ package cz.o2.proxima.direct.hbase;
 
 import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;

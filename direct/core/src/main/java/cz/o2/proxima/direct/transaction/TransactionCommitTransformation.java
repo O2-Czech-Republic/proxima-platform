@@ -15,18 +15,18 @@
  */
 package cz.o2.proxima.direct.transaction;
 
+import cz.o2.proxima.core.repository.ConfigConstants;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.Commit;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.transform.DirectElementWiseTransform;
-import cz.o2.proxima.repository.ConfigConstants;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transaction.Commit;
-import cz.o2.proxima.util.Optionals;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;

@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.commitlog.Position;
 import java.net.URI;
 import java.util.Collection;
 import java.util.Collections;

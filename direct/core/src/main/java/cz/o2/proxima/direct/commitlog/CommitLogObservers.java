@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
+import cz.o2.proxima.core.functional.BiConsumer;
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
-import cz.o2.proxima.functional.BiConsumer;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Pair;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;

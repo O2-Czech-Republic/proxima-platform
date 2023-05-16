@@ -18,13 +18,13 @@ package cz.o2.proxima.direct.blob;
 import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.TestUtils;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.TestBlob;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.TestBlobPath;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import org.junit.Test;

@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.direct.transaction;
 
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.ExceptionUtils;
-import cz.o2.proxima.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;

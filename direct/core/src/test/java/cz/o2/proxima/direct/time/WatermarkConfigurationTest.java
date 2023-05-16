@@ -18,10 +18,10 @@ package cz.o2.proxima.direct.time;
 import static cz.o2.proxima.direct.time.WatermarkConfiguration.prefixedKey;
 import static org.junit.Assert.*;
 
-import cz.o2.proxima.time.WatermarkEstimator;
-import cz.o2.proxima.time.WatermarkEstimatorFactory;
-import cz.o2.proxima.time.WatermarkIdlePolicy;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.core.time.WatermarkIdlePolicy;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;

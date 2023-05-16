@@ -13,8 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.core.util;
 
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.storage.StorageType;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -23,10 +27,6 @@ import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.storage.StorageType;
-import cz.o2.proxima.storage.StreamElement;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 

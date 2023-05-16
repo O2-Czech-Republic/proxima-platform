@@ -16,10 +16,10 @@
 package cz.o2.proxima.scheme.avro;
 
 import com.google.auto.service.AutoService;
-import cz.o2.proxima.scheme.SerializationException;
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
-import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.core.scheme.SerializationException;
+import cz.o2.proxima.core.scheme.ValueSerializer;
+import cz.o2.proxima.core.scheme.ValueSerializerFactory;
+import cz.o2.proxima.core.util.Classpath;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

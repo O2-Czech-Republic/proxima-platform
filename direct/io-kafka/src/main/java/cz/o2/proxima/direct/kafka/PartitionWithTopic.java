@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.MoreObjects;
-import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.core.storage.Partition;
 import java.util.Objects;
 import lombok.Getter;
 

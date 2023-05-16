@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.flink.core.batch;
 
-import cz.o2.proxima.annotations.Experimental;
+import cz.o2.proxima.core.annotations.Experimental;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.batch.Offset;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

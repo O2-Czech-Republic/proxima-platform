@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.beam.transforms;
 
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.time.Instant;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.Filter;

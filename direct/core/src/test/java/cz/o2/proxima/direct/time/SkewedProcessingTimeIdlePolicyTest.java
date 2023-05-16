@@ -24,7 +24,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
-import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;

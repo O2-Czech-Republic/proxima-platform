@@ -19,7 +19,7 @@ import static cz.o2.proxima.direct.blob.BlobPath.normalizePath;
 
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.direct.blob.BlobPath;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;

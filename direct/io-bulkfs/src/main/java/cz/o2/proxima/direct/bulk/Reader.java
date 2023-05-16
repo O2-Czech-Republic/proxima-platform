@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.bulk;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.storage.StreamElement;
 
 /** Proxima's representation of generic reader. */
 @Internal

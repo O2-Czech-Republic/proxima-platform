@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.example;
 
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transform.ElementWiseTransformation;
 import cz.o2.proxima.example.event.Event;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transform.ElementWiseTransformation;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;

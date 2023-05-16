@@ -18,11 +18,11 @@ package cz.o2.proxima.direct.kafka;
 import static org.junit.Assert.assertEquals;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.record.TimestampType;

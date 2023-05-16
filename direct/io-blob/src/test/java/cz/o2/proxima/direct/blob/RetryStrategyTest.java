@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.blob;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.core.functional.Factory;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 

@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.scheme.ValueSerializerFactory;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import java.io.StringWriter;

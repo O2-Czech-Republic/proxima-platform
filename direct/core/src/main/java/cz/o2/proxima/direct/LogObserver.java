@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct;
 
-import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.time.WatermarkSupplier;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.time.WatermarkSupplier;
 import java.io.Serializable;
 
 /** Base interface for bulk and online observers. */

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.http;
 
-import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.core.storage.StreamElement;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.HttpURLConnection;

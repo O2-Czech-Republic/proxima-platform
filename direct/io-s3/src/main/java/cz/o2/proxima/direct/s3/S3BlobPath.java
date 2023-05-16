@@ -21,7 +21,7 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.direct.blob.BlobBase;
 import cz.o2.proxima.direct.blob.BlobPath;
 import cz.o2.proxima.direct.bulk.Path;

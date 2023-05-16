@@ -13,8 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.core.util;
 
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.TransformationDescriptor;
+import cz.o2.proxima.core.repository.TransformationDescriptor.InputTransactionMode;
+import cz.o2.proxima.core.repository.TransformationDescriptor.OutputTransactionMode;
+import cz.o2.proxima.core.storage.StorageType;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -22,15 +31,6 @@ import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transform.DirectElementWiseTransform;
 import cz.o2.proxima.direct.transform.TransformationObserver;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.TransformationDescriptor;
-import cz.o2.proxima.repository.TransformationDescriptor.InputTransactionMode;
-import cz.o2.proxima.repository.TransformationDescriptor.OutputTransactionMode;
-import cz.o2.proxima.storage.StorageType;
-import cz.o2.proxima.storage.StreamElement;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 

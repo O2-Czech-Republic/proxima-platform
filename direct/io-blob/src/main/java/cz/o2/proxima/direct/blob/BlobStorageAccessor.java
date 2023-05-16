@@ -16,14 +16,14 @@
 package cz.o2.proxima.direct.blob;
 
 import com.google.common.annotations.VisibleForTesting;
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.storage.AbstractStorage.SerializableAbstractStorage;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.FileFormatUtils;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.core.DataAccessor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.storage.AbstractStorage.SerializableAbstractStorage;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;

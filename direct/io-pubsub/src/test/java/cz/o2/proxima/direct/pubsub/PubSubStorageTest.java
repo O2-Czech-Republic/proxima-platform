@@ -18,10 +18,10 @@ package cz.o2.proxima.direct.pubsub;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory.Accept;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
 import java.net.URI;
 import org.junit.Test;
 import org.mockito.Mockito;

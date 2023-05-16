@@ -17,9 +17,9 @@ package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.direct.io.BatchRestrictionTracker.PartitionList;
+import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.storage.Partition;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Comparator;

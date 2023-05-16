@@ -16,14 +16,14 @@
 package cz.o2.proxima.direct.batch;
 
 import com.google.common.base.MoreObjects;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.ThroughputLimiter;
-import cz.o2.proxima.storage.ThroughputLimiter.Context;
-import cz.o2.proxima.time.Watermarks;
-import cz.o2.proxima.util.ExceptionUtils;
-import cz.o2.proxima.util.SerializableUtils;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.ThroughputLimiter;
+import cz.o2.proxima.core.storage.ThroughputLimiter.Context;
+import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.SerializableUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;

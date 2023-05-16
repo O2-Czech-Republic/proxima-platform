@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;

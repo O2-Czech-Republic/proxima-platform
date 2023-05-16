@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.direct.transaction;
 
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.repository.TransactionMode;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.view.CachedView;
-import cz.o2.proxima.repository.TransactionMode;
-import cz.o2.proxima.storage.StreamElement;
 
 @Internal
 public class TransactionalCachedView extends DelegatingCachedView {

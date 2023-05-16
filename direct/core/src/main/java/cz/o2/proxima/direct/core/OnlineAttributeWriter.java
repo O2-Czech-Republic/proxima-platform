@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
-import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
 
 /**
@@ -71,8 +71,8 @@ public interface OnlineAttributeWriter extends AttributeWriterBase {
   /**
    * @return {@code true} is this is a {@link TransactionalOnlineAttributeWriter}. {@link
    *     TransactionalOnlineAttributeWriter} is used when writing attribute that supports {@link
-   *     cz.o2.proxima.repository.TransactionMode} different from {@link
-   *     cz.o2.proxima.repository.TransactionMode#NONE}.
+   *     cz.o2.proxima.core.repository.TransactionMode} different from {@link
+   *     cz.o2.proxima.core.repository.TransactionMode#NONE}.
    */
   default boolean isTransactional() {
     return false;

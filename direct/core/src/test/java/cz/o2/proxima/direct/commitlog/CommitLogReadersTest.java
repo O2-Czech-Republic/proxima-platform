@@ -17,9 +17,9 @@ package cz.o2.proxima.direct.commitlog;
 
 import static org.mockito.Mockito.*;
 
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.ThroughputLimiter;
-import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.ThroughputLimiter;
+import cz.o2.proxima.core.storage.commitlog.Position;
 import java.time.Duration;
 import java.util.Arrays;
 import org.junit.Test;

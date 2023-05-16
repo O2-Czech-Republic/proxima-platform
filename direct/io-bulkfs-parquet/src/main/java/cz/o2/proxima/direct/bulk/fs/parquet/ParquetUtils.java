@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.direct.bulk.fs.parquet;
 
-import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.scheme.AttributeValueType;
+import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.direct.bulk.fs.parquet.StreamElementWriteSupport.ArrayWriter;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.scheme.AttributeValueType;
-import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -157,11 +157,11 @@ class ParquetUtils {
   }
 
   /**
-   * Create base {@link MessageType} for storing {@link cz.o2.proxima.storage.StreamElement} with
-   * additional fields
+   * Create base {@link MessageType} for storing {@link cz.o2.proxima.core.storage.StreamElement}
+   * with additional fields
    *
    * @param fieldsToAdd additional fields
-   * @return message type for {@link cz.o2.proxima.storage.StreamElement}.
+   * @return message type for {@link cz.o2.proxima.core.storage.StreamElement}.
    */
   static MessageType createMessageWithFields(List<Type> fieldsToAdd) {
     List<Type> fields =

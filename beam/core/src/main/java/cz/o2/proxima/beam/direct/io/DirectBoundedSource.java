@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;

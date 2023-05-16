@@ -25,6 +25,29 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.core.repository.ConfigConstants;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.scheme.SerializationException;
+import cz.o2.proxima.core.storage.AbstractStorage;
+import cz.o2.proxima.core.storage.Partition;
+import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.storage.commitlog.KeyAttributePartitioner;
+import cz.o2.proxima.core.storage.commitlog.Partitioner;
+import cz.o2.proxima.core.storage.commitlog.Partitioners;
+import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.core.time.PartitionedWatermarkEstimator;
+import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.core.time.WatermarkIdlePolicy;
+import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.core.util.Optionals;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
@@ -53,29 +76,6 @@ import cz.o2.proxima.direct.time.BoundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.direct.time.MinimalPartitionWatermarkEstimator;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.ConfigConstants;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.RepositoryFactory;
-import cz.o2.proxima.scheme.SerializationException;
-import cz.o2.proxima.storage.AbstractStorage;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.KeyAttributePartitioner;
-import cz.o2.proxima.storage.commitlog.Partitioner;
-import cz.o2.proxima.storage.commitlog.Partitioners;
-import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.time.PartitionedWatermarkEstimator;
-import cz.o2.proxima.time.WatermarkEstimator;
-import cz.o2.proxima.time.WatermarkIdlePolicy;
-import cz.o2.proxima.time.Watermarks;
-import cz.o2.proxima.util.Classpath;
-import cz.o2.proxima.util.Optionals;
-import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -307,7 +307,7 @@ public class InMemStorage implements DataAccessorFactory {
 
   private class InMemCommitLogReader extends AbstractStorage implements CommitLogReader {
 
-    private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
+    private final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory;
     private final Partitioner partitioner;
     private final int numPartitions;
     private transient ExecutorService executor;
@@ -315,7 +315,7 @@ public class InMemStorage implements DataAccessorFactory {
     private InMemCommitLogReader(
         EntityDescriptor entityDesc,
         URI uri,
-        cz.o2.proxima.functional.Factory<ExecutorService> executorFactory,
+        cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory,
         Partitioner partitioner,
         int numPartitions) {
       super(entityDesc, uri);
@@ -794,7 +794,7 @@ public class InMemStorage implements DataAccessorFactory {
     public Factory<?> asFactory() {
       final EntityDescriptor entity = getEntityDescriptor();
       final URI uri = getUri();
-      final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory =
+      final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory =
           this.executorFactory;
       final Partitioner partitioner = this.partitioner;
       final int numPartitions = this.numPartitions;
@@ -810,13 +810,13 @@ public class InMemStorage implements DataAccessorFactory {
 
   private final class Reader extends AbstractStorage implements RandomAccessReader, BatchLogReader {
 
-    private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
+    private final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory;
     private transient ExecutorService executor;
 
     private Reader(
         EntityDescriptor entityDesc,
         URI uri,
-        cz.o2.proxima.functional.Factory<ExecutorService> executorFactory) {
+        cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory) {
       super(entityDesc, uri);
       this.executorFactory = executorFactory;
     }
@@ -990,7 +990,7 @@ public class InMemStorage implements DataAccessorFactory {
     public ReaderFactory asFactory() {
       final EntityDescriptor entity = getEntityDescriptor();
       final URI uri = getUri();
-      final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory =
+      final cz.o2.proxima.core.functional.Factory<ExecutorService> executorFactory =
           this.executorFactory;
       final InMemStorage storage = InMemStorage.this;
       return repo -> storage.new Reader(entity, uri, executorFactory);

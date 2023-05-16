@@ -27,12 +27,8 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
-
   provided libraries.guava
-
   compileAnnotationProcessor libraries.lombok
-
-
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-blob'

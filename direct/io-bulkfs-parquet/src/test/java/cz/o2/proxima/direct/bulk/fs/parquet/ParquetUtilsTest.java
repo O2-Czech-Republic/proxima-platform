@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.bulk.fs.parquet;
+package cz.o2.proxima.direct.io.bulkfs.parquet;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

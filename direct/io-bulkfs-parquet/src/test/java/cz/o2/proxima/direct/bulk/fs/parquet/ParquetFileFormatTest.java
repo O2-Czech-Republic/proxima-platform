@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.bulk.fs.parquet;
+package cz.o2.proxima.direct.io.bulkfs.parquet;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -27,12 +27,12 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.TestUtils;
-import cz.o2.proxima.direct.bulk.AbstractFileFormatTest;
-import cz.o2.proxima.direct.bulk.FileFormat;
-import cz.o2.proxima.direct.bulk.FileSystem;
-import cz.o2.proxima.direct.bulk.NamingConvention;
-import cz.o2.proxima.direct.bulk.Path;
-import cz.o2.proxima.direct.bulk.fs.parquet.ParquetFileFormat.Operation;
+import cz.o2.proxima.direct.io.bulkfs.AbstractFileFormatTest;
+import cz.o2.proxima.direct.io.bulkfs.FileFormat;
+import cz.o2.proxima.direct.io.bulkfs.FileSystem;
+import cz.o2.proxima.direct.io.bulkfs.NamingConvention;
+import cz.o2.proxima.direct.io.bulkfs.Path;
+import cz.o2.proxima.direct.io.bulkfs.parquet.ParquetFileFormat.Operation;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage.Directions;

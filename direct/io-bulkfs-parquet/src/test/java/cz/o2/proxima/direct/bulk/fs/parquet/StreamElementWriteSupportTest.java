@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.bulk.fs.parquet;
+package cz.o2.proxima.direct.io.bulkfs.parquet;
 
 import static org.junit.Assert.assertEquals;
 
@@ -30,7 +30,7 @@ import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.core.scheme.SchemaDescriptors.StructureTypeDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.TestUtils;
-import cz.o2.proxima.direct.bulk.fs.parquet.StreamElementWriteSupport.Writer;
+import cz.o2.proxima.direct.io.bulkfs.parquet.StreamElementWriteSupport.Writer;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

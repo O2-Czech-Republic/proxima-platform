@@ -25,7 +25,6 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
-
   compileAnnotationProcessor libraries.lombok
 }
 

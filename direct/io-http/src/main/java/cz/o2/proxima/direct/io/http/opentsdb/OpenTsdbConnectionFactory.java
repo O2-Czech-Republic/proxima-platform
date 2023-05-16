@@ -53,7 +53,7 @@ public class OpenTsdbConnectionFactory extends TestableConnFactory {
             + elem.getStamp()
             + ","
             + "\"value\": "
-            + valueSerializer.asJsonValue(elem.getParsed().get())
+            + valueSerializer.asJsonValue(elem.getParsed().orElseThrow())
             + ","
             + "\"tags\": {\"entity\": \""
             + elem.getEntityDescriptor().getName()

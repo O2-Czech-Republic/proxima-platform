@@ -142,6 +142,9 @@ class PubSubWriter extends AbstractOnlineAttributeWriter implements OnlineAttrib
           },
           executor);
     } catch (Throwable err) {
+      if (err instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       log.warn("Failed to publish {} to pubsub", data, err);
       statusCallback.commit(false, err);
     }

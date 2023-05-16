@@ -18,7 +18,7 @@ package cz.o2.proxima.beam.io.pubsub;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.beam.transforms.AssignEventTime;
+import cz.o2.proxima.beam.core.transforms.AssignEventTime;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;

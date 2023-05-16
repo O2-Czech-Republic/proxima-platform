@@ -19,7 +19,7 @@ import static org.junit.Assert.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper;
+import cz.o2.proxima.beam.core.direct.io.DirectDataAccessorWrapper;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;

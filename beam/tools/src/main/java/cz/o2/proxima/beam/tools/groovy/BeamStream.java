@@ -23,7 +23,7 @@ import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.beam.transforms.AssignEventTime;
+import cz.o2.proxima.beam.core.transforms.AssignEventTime;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.Factory;

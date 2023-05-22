@@ -15,50 +15,40 @@
  */
 package cz.o2.proxima.direct.io.kafka;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.o2.proxima.core.scheme.SerializationException;
 import cz.o2.proxima.direct.core.commitlog.Offset;
 import cz.o2.proxima.direct.core.commitlog.OffsetExternalizer;
-import java.util.HashMap;
+import cz.o2.proxima.internal.com.google.gson.JsonObject;
+import cz.o2.proxima.internal.com.google.gson.JsonParser;
 
 /** Externalizes Kafka offset to external formats. */
 class TopicOffsetExternalizer implements OffsetExternalizer {
 
-  private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
-
   @Override
   public String toJson(Offset offset) {
-    try {
-      final TopicOffset topicOffset = (TopicOffset) offset;
-      final HashMap<String, Object> jsonMap = new HashMap<>();
-      jsonMap.put("topic", topicOffset.getPartition().getTopic());
-      jsonMap.put("partition", topicOffset.getPartition().getPartition());
-      jsonMap.put("offset", topicOffset.getOffset());
-      jsonMap.put("watermark", topicOffset.getWatermark());
+    final TopicOffset topicOffset = (TopicOffset) offset;
+    final JsonObject json = new JsonObject();
+    json.addProperty("topic", topicOffset.getPartition().getTopic());
+    json.addProperty("partition", topicOffset.getPartition().getPartition());
+    json.addProperty("offset", topicOffset.getOffset());
+    json.addProperty("watermark", topicOffset.getWatermark());
 
-      return JSON_MAPPER.writeValueAsString(jsonMap);
-    } catch (JsonProcessingException e) {
-      throw new SerializationException("Offset can't be externalized to Json", e);
-    }
+    return json.toString();
   }
 
   @Override
   public TopicOffset fromJson(String json) {
     try {
-      final HashMap<String, Object> jsonMap =
-          JSON_MAPPER.readValue(json, new TypeReference<HashMap<String, Object>>() {});
-
+      final JsonObject object = JsonParser.parseString(json).getAsJsonObject();
       final PartitionWithTopic partitionWithTopic =
-          new PartitionWithTopic((String) jsonMap.get("topic"), (int) jsonMap.get("partition"));
+          new PartitionWithTopic(
+              object.get("topic").getAsString(), object.get("partition").getAsInt());
       return new TopicOffset(
           partitionWithTopic,
-          ((Number) jsonMap.get("offset")).longValue(),
-          ((Number) jsonMap.get("watermark")).longValue());
-
-    } catch (JsonProcessingException e) {
-      throw new SerializationException("Offset can't be create from externalized Json", e);
+          object.get("offset").getAsLong(),
+          object.get("watermark").getAsLong());
+    } catch (Exception ex) {
+      throw new SerializationException("Failed to deserialize " + json, ex);
     }
   }
 }

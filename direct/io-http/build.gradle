@@ -19,23 +19,40 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  intoShadow 'org.java-websocket:Java-WebSocket:1.5.0'
+  api project(path: ':proxima-direct-core')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
+  implementation libraries.slf4j_api
+  intoShadow('org.java-websocket:Java-WebSocket:1.5.0') {
+    exclude group: "org.slf4j", module: "slf4j-api"
+  }
   testImplementation libraries.junit4
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
-
   compileOnly libraries.auto_service_annotations
-  provided libraries.guava
-
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-http'
 
+enableShadowJar(project) {
+  if (!it.endsWith(".class")) {
+    return true
+  }
+  def allowed = ["cz/o2/proxima", "META-INF"]
+  if (allowed.find { s -> it.startsWith(s) } != null) {
+    return true
+  }
+  def regexes = [~"^[^/]+.class\$"]
+  regexes.find { p -> it =~ p }
+}
+
+updateModulePath(project)
+
 shadowJar {
   relocate "org.java_websocket", "cz.o2.proxima.http.shaded.websocket"
 }
+
+publishArtifacts(project, "default")

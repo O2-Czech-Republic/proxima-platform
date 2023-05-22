@@ -15,10 +15,6 @@
  */
 package cz.o2.proxima.direct.core;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
-import com.google.common.collect.Sets;
-import com.typesafe.config.Config;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.functional.UnaryFunction;
@@ -48,7 +44,16 @@ import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
 import cz.o2.proxima.direct.core.transaction.TransactionalCachedView;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.view.CachedView;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.typesafe.config.Config;
+import java.lang.module.Configuration;
+import java.lang.module.ModuleFinder;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -109,6 +114,13 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   private Factory<ExecutorService> executorFactory = createExecutorFactory();
 
   private final Context context;
+
+  private final Config config;
+
+  private final Map<String, ClassLoader> loaderCache = new HashMap<>();
+
+  private final ModuleLayer layer;
+
   private final DataAccessorLoader<DirectDataOperator, DataAccessor, DataAccessorFactory> loader;
 
   private volatile TransactionResourceManager transactionManager;
@@ -116,8 +128,55 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   DirectDataOperator(Repository repo) {
     this.repo = repo;
     this.context = new Context(familyMap::get, executorFactory);
-    this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class);
+    this.config = ((ConfigRepository) repo).getConfig();
+    this.layer = getModuleLayer(config);
+    this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class, layer);
     reload();
+  }
+
+  private ModuleLayer getModuleLayer(Config config) {
+    ModuleLayer parentLayer = getClass().getModule().getLayer();
+    if (parentLayer == null) {
+      parentLayer = ModuleLayer.boot();
+    }
+    if (config.hasPath(ConfigConstants.MODULE_LAYER_PATH)) {
+      String path = config.getString(ConfigConstants.MODULE_LAYER_PATH);
+      Class<?> thisCls = getClass();
+      ModuleFinder finder = ModuleFinder.of(Path.of(path));
+      Configuration parentConf = parentLayer.configuration();
+      ClassLoader parentLoader = Thread.currentThread().getContextClassLoader();
+      Configuration moduleConf =
+          parentConf.resolveAndBind(
+              finder, ModuleFinder.of(), Collections.singletonList(thisCls.getModule().getName()));
+      return thisCls
+          .getModule()
+          .getLayer()
+          .defineModules(
+              moduleConf,
+              name ->
+                  getOrCreateModuleLoader(
+                      parentLoader,
+                      finder
+                          .find(name)
+                          .orElseThrow()
+                          .location()
+                          .map(u -> ExceptionUtils.uncheckedFactory(u::toURL))
+                          .orElseThrow(),
+                      name));
+    }
+    return parentLayer;
+  }
+
+  private ClassLoader getOrCreateModuleLoader(ClassLoader parent, URL location, String moduleName) {
+    return loaderCache.computeIfAbsent(
+        moduleName,
+        tmp ->
+            new URLClassLoader(new URL[] {location}, parent) {
+              @Override
+              protected Class<?> findClass(String moduleName, String name) {
+                return super.findClass(null, name);
+              }
+            });
   }
 
   /**
@@ -521,7 +580,6 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     if (transactionManager == null) {
       synchronized (this) {
         if (transactionManager == null) {
-          Config config = ((ConfigRepository) repo).getConfig();
           Map<String, Object> cfg =
               config.hasPath(ConfigConstants.TRANSACTIONS)
                   ? config.getObject(ConfigConstants.TRANSACTIONS).unwrapped()

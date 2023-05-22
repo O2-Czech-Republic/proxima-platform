@@ -18,11 +18,9 @@ package cz.o2.proxima.direct.io.kafka;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.o2.proxima.core.scheme.SerializationException;
-import java.util.HashMap;
+import cz.o2.proxima.internal.com.google.gson.JsonObject;
+import cz.o2.proxima.internal.com.google.gson.JsonParser;
 import org.junit.Test;
 
 public class TopicOffsetExternalizerTest {
@@ -30,15 +28,13 @@ public class TopicOffsetExternalizerTest {
   private final TopicOffsetExternalizer externalizer = new TopicOffsetExternalizer();
 
   @Test
-  public void testToJson() throws JsonProcessingException {
+  public void testToJson() {
     String json = externalizer.toJson(new TopicOffset(new PartitionWithTopic("topic-1", 1), 1, 2));
-    HashMap<String, Object> jsonMap =
-        new ObjectMapper().readValue(json, new TypeReference<HashMap<String, Object>>() {});
-
-    assertEquals("topic-1", jsonMap.get("topic"));
-    assertEquals(1, jsonMap.get("partition"));
-    assertEquals(1, jsonMap.get("offset"));
-    assertEquals(2, jsonMap.get("watermark"));
+    JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+    assertEquals("topic-1", obj.get("topic").getAsString());
+    assertEquals(1, obj.get("partition").getAsInt());
+    assertEquals(1, obj.get("offset").getAsLong());
+    assertEquals(2, obj.get("watermark").getAsLong());
   }
 
   @Test

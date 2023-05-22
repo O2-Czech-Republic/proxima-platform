@@ -18,11 +18,11 @@ package cz.o2.proxima.core.storage.watermark;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 
-import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.ThroughputLimiter.Context;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.TestUtils;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;

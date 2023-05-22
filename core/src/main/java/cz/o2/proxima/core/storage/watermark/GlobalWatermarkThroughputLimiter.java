@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.core.storage.watermark;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.storage.ThroughputLimiter;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;

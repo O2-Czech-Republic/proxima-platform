@@ -24,27 +24,33 @@ apply plugin: 'groovy'
 sourceSets.all { it.java.srcDirs = []; it.groovy.srcDirs += ["src/${it.name}/java"] }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-server-rpc-proto')
   api libraries.groovy
   api libraries.groovysh
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.slf4j_api
   implementation 'jline:jline:2.14.6'
   implementation 'org.freemarker:freemarker:2.3.30'
   implementation 'commons-cli:commons-cli:1.5.0'
   implementation 'commons-io:commons-io:2.7'
-  implementation project(':proxima-ingest-client')
+  implementation project(path: ':proxima-ingest-client')
   implementation libraries.grpc_core
+  implementation libraries.grpc_stub
+  implementation(libraries.protobuf_java) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+  }
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.beam_runners_direct
   testImplementation project(path: ':proxima-core', configuration: "testsJar")
   testImplementation project(path: ':proxima-direct-core', configuration: "testsJar")
-
-  compileOnly project(':proxima-direct-core')
-  provided libraries.guava
+  testImplementation project(path: ':proxima-direct-core')
+  compileOnly project(path: ':proxima-direct-core')
   compileOnly libraries.auto_service_annotations
-
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
 }
@@ -52,3 +58,5 @@ dependencies {
 description = 'cz.o2.proxima:proxima-tools'
 
 registerTestsJar(project)
+
+publishArtifacts(project, "default")

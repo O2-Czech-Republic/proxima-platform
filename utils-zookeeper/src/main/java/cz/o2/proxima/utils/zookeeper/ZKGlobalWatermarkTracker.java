@@ -15,11 +15,6 @@
  */
 package cz.o2.proxima.core.utils.zookeeper;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.TimeProvider;
 import cz.o2.proxima.core.storage.UriUtil;
@@ -27,6 +22,11 @@ import cz.o2.proxima.core.storage.watermark.GlobalWatermarkTracker;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.cache.Cache;
+import cz.o2.proxima.internal.com.google.common.cache.CacheBuilder;
 import java.io.File;
 import java.net.URI;
 import java.nio.ByteBuffer;

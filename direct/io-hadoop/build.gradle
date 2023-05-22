@@ -19,8 +19,10 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  api project(':proxima-direct-io-bulkfs')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-direct-core')
+  api project(path: ':proxima-direct-io-bulkfs')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   testImplementation libraries.junit4
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -28,9 +30,10 @@ dependencies {
   provided libraries.hadoop_common
   compileOnly libraries.hadoop_common
   compileOnly libraries.auto_service_annotations
-  provided libraries.guava
   annotationProcessor libraries.auto_service
   compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-hadoop'
+
+publishArtifacts(project, "default")

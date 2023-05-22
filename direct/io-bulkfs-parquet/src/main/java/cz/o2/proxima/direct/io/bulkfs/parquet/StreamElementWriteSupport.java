@@ -22,7 +22,6 @@ import static cz.o2.proxima.direct.io.bulkfs.parquet.ParquetFileFormat.PARQUET_C
 import static cz.o2.proxima.direct.io.bulkfs.parquet.ParquetFileFormat.PARQUET_COLUMN_NAME_TIMESTAMP;
 import static cz.o2.proxima.direct.io.bulkfs.parquet.ParquetFileFormat.PARQUET_COLUMN_NAME_UUID;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.scheme.AttributeValueAccessor;
@@ -32,6 +31,7 @@ import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.core.scheme.SchemaDescriptors.StructureTypeDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.io.bulkfs.parquet.ParquetFileFormat.Operation;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;

@@ -19,13 +19,13 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
+  api project(path: ':proxima-core')
   intoShadow('org.apache.zookeeper:zookeeper:3.6.2') {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
   }
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.slf4j_api
-  provided libraries.guava
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4
@@ -37,8 +37,12 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-utils-zookeeper'
 
+enableShadowJar(project)
+
 shadowJar {
   ["org.apache.commons", "org.apache.zookeeper"].each {
     relocate it, "cz.o2.proxima.core.utils.zookeeper.${it}"
   }
 }
+
+publishArtifacts(project, "default")

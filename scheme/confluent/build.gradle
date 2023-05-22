@@ -19,10 +19,10 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
-  api project(':proxima-scheme-avro')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-scheme-avro')
   api 'io.confluent:kafka-schema-registry-client:5.1.0'
-  provided libraries.guava
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   testImplementation project(path: ':proxima-scheme-avro', configuration: 'testsJar')
   testImplementation libraries.junit4
   compileOnly libraries.auto_service_annotations
@@ -31,3 +31,5 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-scheme-confluent'
+
+publishArtifacts(project, "default")

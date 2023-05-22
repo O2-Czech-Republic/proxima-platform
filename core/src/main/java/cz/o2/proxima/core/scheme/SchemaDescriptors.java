@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.core.scheme;
 
-import com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;

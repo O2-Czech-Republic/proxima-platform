@@ -18,8 +18,8 @@ package cz.o2.proxima.tools.groovy;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.google.common.collect.Sets;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import groovy.lang.Closure;
 import java.util.Arrays;
 import java.util.List;

@@ -26,32 +26,19 @@ plugins {
   id "org.sonarqube" version "4.0.0.2929"
 }
 
-repositories {
-  mavenLocal()
-  mavenCentral()
-  maven {
-    url = uri('https://packages.confluent.io/maven/')
-  }
-}
-
 version = '0.12-SNAPSHOT'
 group = 'cz.o2.proxima'
+
+configureRepositores(project)
 
 subprojects {
 
   version = rootProject.version
   group = rootProject.group
 
-  repositories {
-    mavenLocal()
-    mavenCentral()
-    maven {
-      url = uri('https://packages.confluent.io/maven/')
-    }
-  }
-
+  configureRepositores(project)
+  
   apply plugin: 'cz.o2.proxima.java-conventions'
-  apply plugin: 'com.github.johnrengelman.shadow'
 
   license {
     header project.file("license-header.txt")
@@ -63,11 +50,6 @@ subprojects {
     mapping("yaml", "SCRIPT_STYLE")
     mapping("conf", "SLASHSTAR_STYLE")
     mapping("cql", "SLASHSTAR_STYLE")
-  }
-
-  jar {
-    enabled = false
-    dependsOn shadowJar
   }
 
   configurations {
@@ -88,148 +70,28 @@ subprojects {
     implementation.extendsFrom intoShadow
   }
 
-  shadowJar {
-    archiveClassifier = null
-    dependencies {
-      exclude "META-INF/maven/**"
-    }
-    relocate "com.google.common", "${coreShade}.com.google.common"
-
-    mergeServiceFiles()
-
+  compileJava {
+    options.javaModuleVersion = provider { version }
   }
 
-  tasks.register("configureShadow") {
+  tasks.register("configureJar") {
     doLast {
-      shadowJar.configurations = [ project.configurations.intoShadow ]
-      if (tasks.findByPath("testsJar")) {
-        // apply all relocations from shadowJar to testsJar
-        shadowJar.relocators.each {
-          testsJar.relocate it
-        }
-      }
-      def moduleName = project.description ? asModuleName(project.description) : null
-      if (moduleName) {
-        shadowJar.manifest {
-          attributes("Automatic-Module-Name": asModuleName(project.description))
-        }
+      includeModuleName(project, jar)
+    }
+  }
+
+  tasks.register("verifyDependencies") {    
+    doLast {
+      def banned = [/j2objc-annotations/, /javax.annotation/, /checkerframework/]
+      def runtimeDeps = project.configurations.runtimeClasspath.files - project.configurations.intoShadow.files
+      def invalid = runtimeDeps.findAll({ banned.find({ pattern -> it =~ pattern }) })
+      if (!invalid.isEmpty()) {
+        throw new IllegalArgumentException("Illegal dependencies ${invalid} in ${project.description}")
       }
     }
   }
 
-  shadowJar.dependsOn configureShadow
-
-  configurations.create("shadowJar") {
-    outgoing {
-      artifact(shadowJar)
-    }
-  }
-
-  publishing {
-    publications {
-      maven(MavenPublication) { publication ->
-        project.shadow.component(publication)
-
-        pom {
-          name = "Proxima platform's module ${project.name}"
-          scm {
-            connection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
-            developerConnection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
-            url = "https://github.com/O2-Czech-Republic/proxima-platform.git"
-          }
-          licenses {
-            license {
-              name = 'The Apache License, Version 2.0'
-              url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-            }
-          }
-        }
-
-        pom.withXml {
-          def dependenciesNode = asNode()['dependencies'][0]
-
-          configurations.compileClasspath.allDependencies
-              .findAll {!configurations.intoShadow.dependencies.contains(it) }
-              .each {
-
-            processDependency(dependenciesNode, it, "compile")
-          }
-
-          configurations.runtimeClasspath.allDependencies
-              .findAll {!configurations.intoShadow.allDependencies.contains(it) }
-              .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
-              .each {
-
-            processDependency(dependenciesNode, it, "runtime")
-          }
-
-          configurations.testRuntimeClasspath.allDependencies
-              .findAll {!configurations.intoShadow.allDependencies.contains(it) }
-              .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
-              .findAll {!configurations.runtimeClasspath.allDependencies.contains(it) }
-              .each {
-
-            processDependency(dependenciesNode, it, "test")
-          }
-        }
-      }
-    }
-
-    repositories {
-      def configureCredentials = {
-        if (project.hasProperty("sonatypeUsername")) {
-          username sonatypeUsername
-          password sonatypePassword
-        }
-      }
-      if (project.version.endsWith("-SNAPSHOT")) {
-        maven {
-          name = "sonatype"
-          url = "https://oss.sonatype.org/content/repositories/snapshots"
-          configureCredentials.delegate = credentials
-          configureCredentials()
-        }
-      } else {
-        maven {
-          name = "sonatype"
-          url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
-          configureCredentials.delegate = credentials
-          configureCredentials()
-        }
-      }
-    }
-  }
-
-
-  if (project.hasProperty("publish") || project.hasProperty("release")) {
-    java {
-      withJavadocJar()
-      withSourcesJar()
-    }
-    javadoc {
-      dependsOn compileJava, compileTestJava
-      failOnError = false
-      if (JavaVersion.current().isJava9Compatible()) {
-        options.addBooleanOption('html5', true)
-      }
-    }
-    tasks.named("sourcesJar") {
-      dependsOn compileJava, compileTestJava
-    }
-
-    tasks.named("javadoc") {
-      dependsOn compileJava, compileTestJava
-    }
-    project.publishing.publications.maven.artifact(sourcesJar)
-    project.publishing.publications.maven.artifact(javadocJar)
-    if (project.hasProperty("release")) {
-      apply plugin: "signing"
-      signing {
-        useGpgCmd()
-        publishing.publications.each { signing.sign(it) }
-      }
-    }
-  }
+  jar.dependsOn configureJar
 }
 
 sonar {
@@ -325,6 +187,23 @@ def renamingTransformer() {
   RenamingTransformer.class
 }
 
+def configureRepositores(project) {
+  project.with {
+    repositories {
+      mavenLocal()
+      mavenCentral()
+      maven {
+        url = uri('https://packages.confluent.io/maven/')
+      }
+      if (project.version.endsWith("-SNAPSHOT")) {
+        maven {
+          url = uri("https://oss.sonatype.org/content/repositories/snapshots")
+        }
+      }
+    }
+  }
+}
+
 def registerTestsJar(Project project) {
   registerTestsJar(project, {})
 }
@@ -332,19 +211,24 @@ def registerTestsJar(Project project) {
 def registerTestsJar(Project project, Closure configureClosure) {
   def tasks = project.tasks
   tasks.register('testsJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    dependsOn project.tasks["configureShadow"]
     archiveClassifier = 'tests'
     from project.sourceSets.test.output
     configurations = [project.configurations.testRuntimeClasspath]
   }
   def testsJar = project.tasks["testsJar"]
-  project.publishing.publications.maven.artifact(testsJar)
   project.configurations.create("testsJar") {
     outgoing {
       artifact(testsJar)
     }
   }
   testsJar.exclude "*.jar"
+  if (tasks.findByPath("shadowJar")) {
+    // apply all relocations from shadowJar to testsJar
+    project.shadowJar.relocators.each {
+      testsJar.relocate it
+    }
+  }
+
   configureClosure.delegate = testsJar
   configureClosure()
 }
@@ -368,4 +252,217 @@ def asModuleName(name) {
   }
   def stripped = jar.substring("proxima".length() + 1)
   return "cz.o2.proxima.${stripped.replace("-", ".")}"
+}
+
+def isAlreadyModule(project) {
+  return project.sourceSets.main.allJava.findIndexOf({ it.path.endsWith("module-info.java") }) != -1
+}
+
+def updateModulePath(project) {
+  updateModulePath(project, { true })
+}
+
+def updateModulePath(project, Closure<Boolean> includeClosure) {
+  project.compileJava {
+    doFirst {
+      def modules = classpath.filter(includeClosure)
+      options.compilerArgs += ['--module-path', modules.asPath]
+      classpath = classpath.filter { !includeClosure(it) }
+    }
+  }
+  project.javadoc {
+    def cp = classpath.files as List
+    options.modulePath = cp.findAll(includeClosure)
+    classpath = files(cp.findAll { !includeClosure(it) })
+  }
+}
+
+def includeModuleName(project, delegate) {
+  def moduleName = project.description ? asModuleName(project.description) : null
+  if (moduleName && !isAlreadyModule(project)) {
+    delegate.manifest {
+      attributes("Automatic-Module-Name": asModuleName(project.description))
+    }
+  }
+}
+
+def enableShadowJar(project) {
+  enableShadowJar(project, { true })
+}
+
+def enableShadowJar(project, Closure<Boolean> allowedEntry) {
+
+  project.with {
+
+    apply plugin: 'com.github.johnrengelman.shadow'
+
+    jar {
+      dependsOn shadowJar
+      enabled = false
+    }
+
+    tasks.register("configureShadow") {
+      doLast {
+        includeModuleName(project, shadowJar)
+      }
+    }
+    shadowJar {
+      dependsOn configureShadow
+      archiveClassifier = null
+      dependencies {
+        exclude "META-INF/maven/**"
+      }
+      mergeServiceFiles()
+      configurations = [ project.configurations.intoShadow ]
+      excludes.remove("module-info.class")
+      exclude "org/checkerframework/**"
+    }
+
+    tasks.create("validateShadowJar") {
+      dependsOn shadowJar
+      doLast {
+        def jarFile = configurations.shadowJar.outgoing.artifacts.files.singleFile
+        def zip = new java.util.zip.ZipFile(jarFile)
+        def disallowed = zip.entries().findAll { !it.isDirectory() && !allowedEntry(it.name) }.collect { it }
+        if (!disallowed.isEmpty()) {
+          throw new IllegalArgumentException("Disallowed entries ${disallowed} in ${jarFile.path}")
+        }
+      }
+    }
+
+    shadowJar.finalizedBy validateShadowJar
+    
+    configurations.create("shadowJar") {
+      outgoing {
+        artifact(shadowJar)
+      }
+    }
+    configurations["default"].outgoing.artifacts.clear()
+  }
+}
+
+def publishArtifacts(project, scope) {
+  if (!project.hasProperty(scope)) {
+    return
+  }
+  project.with {
+    publishing {
+      publications {
+        maven(MavenPublication) { publication ->
+          if (project.hasProperty("shadowJar")) {
+            artifact(shadowJar)
+            //project.shadow.component(publication)
+          } else {
+            artifact(jar)
+          }
+
+          pom {
+            name = "Proxima platform's module ${project.name}"
+            scm {
+              connection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
+              developerConnection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
+              url = "https://github.com/O2-Czech-Republic/proxima-platform.git"
+            }
+            licenses {
+              license {
+                name = 'The Apache License, Version 2.0'
+                url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+              }
+            }
+          }
+
+          pom.withXml {
+            def dependenciesNode = asNode()['dependencies'][0]
+            if (dependenciesNode == null) {
+              dependenciesNode = asNode().appendNode('dependencies')
+            }
+
+            configurations.compileClasspath.allDependencies
+                .findAll {!configurations.intoShadow.dependencies.contains(it) }
+                .each {
+
+              processDependency(dependenciesNode, it, "compile")
+            }
+
+            configurations.runtimeClasspath.allDependencies
+                .findAll {!configurations.intoShadow.allDependencies.contains(it) }
+                .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
+                .each {
+
+              processDependency(dependenciesNode, it, "runtime")
+            }
+
+            configurations.testRuntimeClasspath.allDependencies
+                .findAll {!configurations.intoShadow.allDependencies.contains(it) }
+                .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
+                .findAll {!configurations.runtimeClasspath.allDependencies.contains(it) }
+                .each {
+
+              processDependency(dependenciesNode, it, "test")
+            }
+          }
+        }
+      }
+
+      repositories {
+        def configureCredentials = {
+          if (project.hasProperty("sonatypeUsername")) {
+            username sonatypeUsername
+            password sonatypePassword
+          }
+        }
+        if (project.version.endsWith("-SNAPSHOT")) {
+          maven {
+            name = "sonatype"
+            url = "https://oss.sonatype.org/content/repositories/snapshots"
+            configureCredentials.delegate = credentials
+            configureCredentials()
+          }
+        } else {
+          maven {
+            name = "sonatype"
+            url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            configureCredentials.delegate = credentials
+            configureCredentials()
+          }
+        }
+      }
+    }
+
+    if (project.hasProperty("publish")) {
+      java {
+        withJavadocJar()
+        withSourcesJar()
+      }
+      javadoc {
+        dependsOn compileJava, compileTestJava
+        failOnError = false
+        options.addBooleanOption('html5', true)
+      }
+      tasks.named("sourcesJar") {
+        dependsOn compileJava, compileTestJava
+        archiveClassifier = "sources"
+      }
+
+      tasks.named("javadoc") {
+        doLast {
+          options {
+            modulePath = configurations["compileClasspath"].incoming.files.files as List
+          }
+        }
+      }
+      if (tasks.findByPath("testsJar")) {
+        project.publishing.publications.maven.artifact(tasks.getByPath("testsJar"))
+      }
+      project.publishing.publications.maven.artifact(sourcesJar)
+      project.publishing.publications.maven.artifact(javadocJar)
+      if (!project.version.endsWith("-SNAPSHOT")) {
+        apply plugin: "signing"
+        signing {
+          useGpgCmd()
+          publishing.publications.each { signing.sign(it) }
+        }
+      }
+    }
+  }
 }

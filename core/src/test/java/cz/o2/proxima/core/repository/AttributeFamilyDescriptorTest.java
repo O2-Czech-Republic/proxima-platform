@@ -18,7 +18,6 @@ package cz.o2.proxima.core.repository;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.DefaultConsumerNameFactory.DefaultReplicationConsumerNameFactory;
 import cz.o2.proxima.core.scheme.AttributeValueType;
 import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
@@ -26,6 +25,7 @@ import cz.o2.proxima.core.storage.AccessType;
 import cz.o2.proxima.core.storage.StorageType;
 import cz.o2.proxima.core.util.DummyFilter;
 import cz.o2.proxima.core.util.TestUtils;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;

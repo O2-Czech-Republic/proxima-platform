@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.server;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.TextFormat;
@@ -40,6 +39,7 @@ import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ListResponse;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.MultifetchRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.MultifetchResponse;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Collection;

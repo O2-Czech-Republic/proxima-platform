@@ -19,23 +19,24 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
+  api project(path: ':proxima-core')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.slf4j_api
-  intoShadow 'com.google.code.gson:gson:2.8.9'
-  provided libraries.guava
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
-
-
   compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-flink-utils'
 
+enableShadowJar(project)
+
 shadowJar {
-  ["com.google.gson", "org.apache.commons"].each {
-    relocate it, "cz.o2.proxima.flink.utils.${it}"
+  ["org.apache.commons"].each {
+    relocate it, "cz.o2.proxima.flink.shaded.${it}"
   }
 }
+
+publishArtifacts(project, "default")

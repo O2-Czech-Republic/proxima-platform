@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.io.http;
 
-import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;

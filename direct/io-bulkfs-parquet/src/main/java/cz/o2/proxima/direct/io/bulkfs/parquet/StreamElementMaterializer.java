@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.io.bulkfs.parquet;
 
 import static java.util.Optional.of;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -29,6 +28,7 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.io.bulkfs.parquet.ParquetFileFormat.Operation;
 import cz.o2.proxima.direct.io.bulkfs.parquet.StreamElementMaterializer.ParquetColumnGroup.ParquetColumn;
 import cz.o2.proxima.direct.io.bulkfs.parquet.StreamElementWriteSupport.ArrayWriter;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;

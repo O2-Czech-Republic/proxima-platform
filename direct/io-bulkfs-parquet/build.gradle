@@ -19,7 +19,8 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-io-bulkfs')
+  api project(path: ':proxima-direct-io-bulkfs')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   intoShadow 'org.apache.parquet:parquet-hadoop:1.12.2'
   testImplementation project(path: ':proxima-direct-io-bulkfs', configuration: 'testsJar')
   testImplementation project(':proxima-scheme-proto')
@@ -32,15 +33,18 @@ dependencies {
   testImplementation libraries.hadoop_mapreduce_client
   compileOnly libraries.hadoop_common
   compileOnly libraries.hadoop_mapreduce_client
-  provided libraries.guava
   compileOnly libraries.log4j_over_slf4j
   compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-bulkfs-parquet'
 
+enableShadowJar(project)
+
 shadowJar {
   ["com.google.gson", "org.apache.commons"].each {
     relocate it, "cz.o2.proxima.parquet.shaded.${it}"
   }
 }
+
+publishArtifacts(project, "default")

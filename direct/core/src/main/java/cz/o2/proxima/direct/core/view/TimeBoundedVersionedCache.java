@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.direct.core.view;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

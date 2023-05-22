@@ -17,11 +17,11 @@ package cz.o2.proxima.core.repository;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.TestUtils;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.time.Instant;
 import org.junit.Test;

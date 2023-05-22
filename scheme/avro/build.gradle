@@ -20,7 +20,7 @@ plugins {
 }
 
 dependencies {
-  api project(path: ":proxima-core", configuration: "shadowJar")
+  api project(path: ":proxima-core")
   api 'org.apache.avro:avro:1.11.0'
   compileOnly libraries.auto_service_annotations
 
@@ -41,8 +41,12 @@ spotless {
   }
 }
 
+enableShadowJar(project)
+
 shadowJar {
   relocate "com.fasterxml", "cz.o2.proxima.scheme.avro.shaded.com.fasterxml"
 }
 
 registerTestsJar(project)
+
+publishArtifacts(project, "default")

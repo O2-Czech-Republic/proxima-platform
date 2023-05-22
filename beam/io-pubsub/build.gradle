@@ -19,11 +19,17 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
-  api project(':proxima-beam-core')
-  implementation project(':proxima-io-pubsub')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-beam-core')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
+  implementation project(path: ':proxima-io-pubsub')
   implementation libraries.beam_core
-  implementation libraries.beam_io_google_cloud
+  implementation(libraries.beam_io_google_cloud) {
+    exclude group: "com.google.cloud", module:"google-cloud-bigtable"
+    exclude group: "com.google.cloud", module:"google-cloud-spanner"
+    exclude group: "com.google.cloud", module:"google-cloud-spanner-admin-database"
+    exclude group: "com.google.cloud", module:"google-cloud-firestore"
+  }
   testImplementation libraries.slf4j_log4j
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -31,10 +37,10 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.hamcrest
   compileOnly libraries.auto_service_annotations
-  provided libraries.guava
-
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
 }
 
 description = 'cz.o2.proxima:proxima-beam-io-pubsub'
+
+publishArtifacts(project, "default")

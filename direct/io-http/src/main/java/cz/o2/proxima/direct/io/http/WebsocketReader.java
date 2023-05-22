@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.io.http;
 
 import static cz.o2.proxima.direct.core.commitlog.ObserverUtils.asOnNextContext;
 
-import com.google.common.collect.Iterables;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -30,6 +29,7 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

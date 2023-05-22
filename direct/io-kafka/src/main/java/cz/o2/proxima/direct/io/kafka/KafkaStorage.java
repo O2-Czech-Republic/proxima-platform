@@ -16,11 +16,11 @@
 package cz.o2.proxima.direct.io.kafka;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 
 /** Storage using {@code KafkaProducer}. */

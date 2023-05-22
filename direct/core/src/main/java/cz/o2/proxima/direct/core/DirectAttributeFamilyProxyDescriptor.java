@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.core;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -40,6 +39,7 @@ import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.core.randomaccess.RawOffset;
 import cz.o2.proxima.direct.core.view.CachedView;
 import cz.o2.proxima.direct.core.view.LocalCachedPartitionedView;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;

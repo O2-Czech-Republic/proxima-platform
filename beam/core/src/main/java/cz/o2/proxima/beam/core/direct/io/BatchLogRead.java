@@ -16,8 +16,6 @@
 package cz.o2.proxima.beam.core.direct.io;
 
 import com.google.auto.service.AutoService;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -29,6 +27,8 @@ import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;

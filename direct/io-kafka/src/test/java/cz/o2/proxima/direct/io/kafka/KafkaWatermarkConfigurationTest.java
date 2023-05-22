@@ -17,11 +17,11 @@ package cz.o2.proxima.direct.io.kafka;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.core.time.BoundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.direct.core.time.SkewedProcessingTimeIdlePolicy;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import org.junit.Test;
 

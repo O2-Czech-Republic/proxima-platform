@@ -20,8 +20,12 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
-  api libraries.protobuf_java
+  api project(path: ':proxima-core')
+  api(libraries.protobuf_java) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+  }
   implementation libraries.slf4j_api
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit_jupiter_engine
@@ -34,3 +38,5 @@ description = 'cz.o2.proxima:proxima-io-pubsub'
 protobuf {
   protoc { artifact = libraries.protoc }
 }
+
+publishArtifacts(project, "default")

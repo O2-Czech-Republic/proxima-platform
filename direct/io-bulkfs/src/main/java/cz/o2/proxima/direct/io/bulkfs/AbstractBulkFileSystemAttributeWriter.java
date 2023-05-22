@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.direct.io.bulkfs;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.ExceptionUtils;
@@ -24,6 +22,8 @@ import cz.o2.proxima.direct.core.AbstractBulkAttributeWriter;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collection;

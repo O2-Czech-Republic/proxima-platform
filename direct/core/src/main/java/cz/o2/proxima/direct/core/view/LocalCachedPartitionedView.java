@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.core.view;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.functional.BiConsumer;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -35,6 +34,7 @@ import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.core.randomaccess.RawOffset;
 import cz.o2.proxima.direct.core.view.TimeBoundedVersionedCache.Payload;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Collection;

@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.direct.core.transaction;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.TransactionMode;
@@ -38,6 +36,8 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.transform.DirectElementWiseTransform;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;

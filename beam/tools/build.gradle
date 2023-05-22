@@ -23,8 +23,12 @@ def scala_version = "2.12"
 def jackson_version = "2.14.1"
 
 dependencies {
-  api project(':proxima-beam-core')
-  api project(':proxima-tools')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-beam-core')
+  api project(path: ':proxima-tools')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
+  implementation libraries.groovy
+  implementation libraries.groovysh
   implementation libraries.beam_core
   implementation libraries.beam_extensions_join_library
   implementation libraries.beam_extensions_kryo
@@ -35,7 +39,7 @@ dependencies {
   implementation libraries.slf4j_api
   provided libraries.flink_clients
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
-  testImplementation project(path: ':proxima-direct-core', configuration: 'shadowJar')
+  testImplementation project(path: ':proxima-direct-core')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-tools', configuration: 'testsJar')
   testImplementation libraries.spark_core
@@ -56,9 +60,8 @@ dependencies {
   }
   testImplementation libraries.spark_streaming
   testImplementation libraries.beam_runners_direct
-  compileOnly project(':proxima-direct-core')
+  compileOnly project(path: ':proxima-direct-core')
   compileOnly libraries.beam_runners_direct
-  provided libraries.guava
   compileOnly libraries.beam_runners_flink
   compileOnly libraries.beam_runners_spark
   compileOnly libraries.auto_service_annotations
@@ -89,6 +92,8 @@ protobuf {
   }
 }
 
+enableShadowJar(project)
+
 shadowJar {
   transform(renamingTransformer()) {
     renameClosure = {
@@ -104,3 +109,5 @@ shadowJar {
     relocate it, "cz.o2.proxima.beam.tools.shaded.${it}"
   }
 }
+
+publishArtifacts(project, "default")

@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.beam.core.direct.io;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Comparator;

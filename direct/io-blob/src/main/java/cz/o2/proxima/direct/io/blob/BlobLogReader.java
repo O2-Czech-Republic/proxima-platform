@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.direct.io.blob;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.Partition;
@@ -34,6 +32,8 @@ import cz.o2.proxima.direct.io.bulkfs.FileSystem;
 import cz.o2.proxima.direct.io.bulkfs.NamingConvention;
 import cz.o2.proxima.direct.io.bulkfs.Path;
 import cz.o2.proxima.direct.io.bulkfs.Reader;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;

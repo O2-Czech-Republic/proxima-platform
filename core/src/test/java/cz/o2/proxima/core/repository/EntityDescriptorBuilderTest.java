@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;

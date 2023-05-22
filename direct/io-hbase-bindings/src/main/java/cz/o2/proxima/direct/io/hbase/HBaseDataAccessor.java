@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.io.hbase;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.AbstractStorage.SerializableAbstractStorage;
@@ -26,6 +25,7 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;

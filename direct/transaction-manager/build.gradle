@@ -19,7 +19,9 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-direct-core')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.slf4j_api
   testImplementation project(':proxima-scheme-proto')
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
@@ -30,15 +32,10 @@ dependencies {
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4
-
-  provided libraries.guava
-
   compileAnnotationProcessor libraries.lombok
-
-
 }
 
-description = 'cz.o2.proxima:proxima-transaction-manager'
+description = 'cz.o2.proxima:proxima-direct-transaction-manager'
 
 test {
   filter {
@@ -46,3 +43,5 @@ test {
   }
   forkEvery 1
 }
+
+publishArtifacts(project, "default")

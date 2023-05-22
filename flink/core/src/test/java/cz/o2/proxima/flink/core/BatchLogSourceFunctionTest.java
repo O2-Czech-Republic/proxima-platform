@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.flink.core;
 
-import com.google.common.base.Preconditions;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -31,6 +29,8 @@ import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.BatchLogReaders;
 import cz.o2.proxima.direct.core.storage.ListBatchReader;
 import cz.o2.proxima.flink.core.batch.OffsetTrackingBatchLogReader;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;

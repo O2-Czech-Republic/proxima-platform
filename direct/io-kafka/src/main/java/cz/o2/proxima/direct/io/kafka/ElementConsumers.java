@@ -19,7 +19,6 @@ import static cz.o2.proxima.direct.core.commitlog.ObserverUtils.asOnIdleContext;
 import static cz.o2.proxima.direct.core.commitlog.ObserverUtils.asOnNextContext;
 import static cz.o2.proxima.direct.core.commitlog.ObserverUtils.asRepartitionContext;
 
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.functional.BiConsumer;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -27,6 +26,7 @@ import cz.o2.proxima.core.time.WatermarkSupplier;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;

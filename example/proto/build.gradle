@@ -20,7 +20,11 @@ plugins {
 }
 
 dependencies {
-  api libraries.protobuf_java
+  api(libraries.protobuf_java) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+  }
 }
 
 protobuf {

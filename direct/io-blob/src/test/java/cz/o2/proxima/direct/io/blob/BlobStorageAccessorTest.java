@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.io.blob;
 
 import static org.junit.Assert.assertTrue;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.util.TestUtils;
@@ -25,6 +24,7 @@ import cz.o2.proxima.direct.io.blob.TestBlobStorageAccessor.TestBlob;
 import cz.o2.proxima.direct.io.blob.TestBlobStorageAccessor.TestBlobPath;
 import cz.o2.proxima.direct.io.bulkfs.FileSystem;
 import cz.o2.proxima.direct.io.bulkfs.NamingConvention;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import org.junit.Test;

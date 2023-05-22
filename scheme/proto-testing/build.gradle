@@ -24,3 +24,5 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-scheme-proto-testing'
+
+publishArtifacts(project, "default")

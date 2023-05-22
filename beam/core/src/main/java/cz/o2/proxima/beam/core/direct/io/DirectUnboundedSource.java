@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.beam.core.direct.io;
 
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.Partition;
@@ -24,6 +23,7 @@ import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;

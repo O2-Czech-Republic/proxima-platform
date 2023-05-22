@@ -19,12 +19,15 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
-  api project(path: ':proxima-direct-core', configuration: 'shadowJar')
-  api project(path: ':proxima-io-serialization', configuration: 'shadowJar')
+  api project(':proxima-core')
+  api project(':proxima-direct-core')
+  implementation project(path: ':proxima-io-serialization', configuration: "shadowJar")
+  implementation libraries.slf4j_api;
   intoShadow 'com.datastax.cassandra:cassandra-driver-core:3.11.0'
   intoShadow 'io.netty:netty-handler:4.1.42.Final'
   intoShadow 'commons-codec:commons-codec:1.10'
+  provided "com.google.j2objc:j2objc-annotations:2.8"
+  provided "com.google.code.findbugs:jsr305:3.0.2"
   testImplementation libraries.junit4
   testImplementation libraries.slf4j_log4j
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
@@ -36,12 +39,28 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-io-cassandra'
 
+enableShadowJar(project) {
+  if (!it.endsWith(".class")) {
+    return true
+  }
+  def allowed = ["cz/o2/proxima", "com/datastax", "META-INF"]
+  if (allowed.find { s -> it.startsWith(s) } != null) {
+    return true
+  }
+  def regexes = [~"^[^/]+.class\$"]
+  regexes.find { p -> it =~ p }
+}
+
+updateModulePath(project)
+
 shadowJar {
   relocators.clear()
-  ["io.netty", "io.dropwizard", "com.github.jnr", "com.google.protobuf", "com.google.common",
-   "org.apache.commons", "org.objectweb", "org.codehaus", "com.fasterxml"].each {
+  ["io.netty", "io.dropwizard", "com.github.jnr", "com.google", "jnr", "com.kenai",
+   "org.apache.commons", "org.objectweb", "org.codehaus", "com.codahale", "com.fasterxml"].each {
 
     relocate it, "cz.o2.proxima.cassandra.shaded.${it}"
   }
-
+  exclude "org/slf4j/**"
 }
+
+publishArtifacts(project, "default")

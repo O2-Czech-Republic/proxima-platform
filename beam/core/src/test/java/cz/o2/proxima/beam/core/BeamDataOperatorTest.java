@@ -17,8 +17,6 @@ package cz.o2.proxima.beam.core;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.direct.io.DirectDataAccessorWrapper;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -29,6 +27,8 @@ import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.util.ReplicationRunner;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;

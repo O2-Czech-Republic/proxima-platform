@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.io.bulkfs;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;

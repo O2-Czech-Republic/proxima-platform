@@ -15,16 +15,16 @@
  */
 package cz.o2.proxima.flink.utils;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import cz.o2.proxima.core.storage.watermark.GlobalWatermarkTracker;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
+import cz.o2.proxima.internal.com.google.gson.JsonArray;
+import cz.o2.proxima.internal.com.google.gson.JsonElement;
+import cz.o2.proxima.internal.com.google.gson.JsonObject;
+import cz.o2.proxima.internal.com.google.gson.JsonParser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;

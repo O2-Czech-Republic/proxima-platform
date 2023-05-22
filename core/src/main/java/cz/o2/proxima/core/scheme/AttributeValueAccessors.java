@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.core.scheme;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Experimental;
 import cz.o2.proxima.core.functional.UnaryFunction;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;

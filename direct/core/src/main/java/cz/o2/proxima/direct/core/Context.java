@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.direct.core;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.annotations.Stable;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;

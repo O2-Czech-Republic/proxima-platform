@@ -15,9 +15,6 @@
  */
 package cz.o2.proxima.direct.io.blob;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.io.ByteStreams;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -27,6 +24,9 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.io.bulkfs.AbstractBulkFileSystemAttributeWriter;
 import cz.o2.proxima.direct.io.bulkfs.FileSystem;
 import cz.o2.proxima.direct.io.bulkfs.Path;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.io.ByteStreams;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;

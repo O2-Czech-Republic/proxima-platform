@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.beam;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.example.Example.BaseEvent;
 import cz.o2.proxima.testing.model.Model;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.transforms.Count;

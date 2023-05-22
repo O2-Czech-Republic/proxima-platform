@@ -17,9 +17,6 @@ package cz.o2.proxima.direct.io.hadoop;
 
 import static org.junit.Assert.*;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.ConfigRepository;
@@ -37,6 +34,9 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;

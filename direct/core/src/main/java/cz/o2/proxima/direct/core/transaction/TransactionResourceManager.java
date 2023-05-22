@@ -15,10 +15,6 @@
  */
 package cz.o2.proxima.direct.core.transaction;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.BiConsumer;
@@ -51,6 +47,10 @@ import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandleUtils;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.view.CachedView;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;

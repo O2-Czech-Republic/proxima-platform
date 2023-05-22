@@ -19,10 +19,13 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  intoShadow project(':proxima-direct-io-hbase-bindings')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-direct-core')
+  intoShadow project(path: ':proxima-direct-io-hbase-bindings')
   intoShadow 'com.google.cloud.bigtable:bigtable-hbase-2.x:1.12.0'
-  intoShadow 'com.google.cloud.bigtable:bigtable-client-core:1.12.0'
+  intoShadow('com.google.cloud.bigtable:bigtable-client-core:1.12.0') {
+    exclude group:"junit", module: "junit"
+  }
   intoShadow 'xerces:xercesImpl:2.12.2'
   testImplementation libraries.junit4
   testImplementation libraries.slf4j_log4j
@@ -33,6 +36,18 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-bigtable'
+
+enableShadowJar(project) {
+  if (!it.endsWith(".class")) {
+    return true
+  }
+  def allowed = ["cz/o2/proxima", "com/sun", "org/xerial", "jline", "tables/", "license/", "META-INF"]
+  if (allowed.find { s -> it.startsWith(s) } != null) {
+    return true
+  }
+  def regexes = [~"^[^/]+.class\$"]
+  regexes.find { p -> it =~ p }
+}
 
 shadowJar {
   transform(renamingTransformer()) {
@@ -46,10 +61,22 @@ shadowJar {
     }
   }
 
-  ["io.grpc", "io.opencensus", "com.google.api", "com.google.protobuf", "com.google.bigtable",
-   "com.google.cloud", "com.google.auth", "com.google.gson", "com.fasterxml", "org.apache.avro",
-   "org.apache.commons", "javax.xml", "org.apache.xerces", "org.codehaus"].each {
+  exclude "org/junit/**"
+  exclude "junit/**"
+  exclude "org/hamcrest/**"
+  exclude "javax/annotation/**"
+  exclude "org/slf4j/**"
+  exclude "android/annotation/**"
+
+  ["io.grpc", "io.opencensus", "com.google", "com.fasterxml", "org.apache",
+   "javax.xml", "javax.servlet", "javax.ws", "javax.activation", "javax.el",
+   "org.jboss", "org.codehaus", "org.objectweb", "org.eclipse", "org.threeten",
+   "net.minidev", "com.thoughtworks", "com.jcraft", "org.w3c", "com.nimbusds",
+   "net.jcip", "edu.umd", "org.xbill", "com.ctc", "org.xml", "jersey.repackaged",
+   "com.codahale"].each {
 
     relocate it, "cz.o2.proxima.bigtable.shaded.${it}"
   }
 }
+
+publishArtifacts(project, "default")

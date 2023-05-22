@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import cz.o2.proxima.core.annotations.Evolving;
 import cz.o2.proxima.core.storage.PassthroughFilter;
 import cz.o2.proxima.core.storage.StorageFilter;
 import cz.o2.proxima.core.transform.Transformation;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;

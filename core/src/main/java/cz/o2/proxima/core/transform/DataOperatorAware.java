@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.core.transform;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.DataOperator;
 import cz.o2.proxima.core.repository.DataOperatorFactory;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 
 @Internal

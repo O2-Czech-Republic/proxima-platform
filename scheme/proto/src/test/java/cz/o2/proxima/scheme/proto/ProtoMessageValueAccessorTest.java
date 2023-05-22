@@ -21,7 +21,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.BoolValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
@@ -34,6 +33,7 @@ import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.StructureValue;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.StructureValueAccessor;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import cz.o2.proxima.scheme.proto.test.Scheme.MessageWithWrappers;
 import cz.o2.proxima.scheme.proto.test.Scheme.MultiLevelMessage;

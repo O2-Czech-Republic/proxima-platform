@@ -17,8 +17,8 @@ package cz.o2.proxima.core.storage;
 
 import static cz.o2.proxima.core.repository.ConfigConstants.*;
 
-import com.google.common.collect.Streams;
 import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Set;

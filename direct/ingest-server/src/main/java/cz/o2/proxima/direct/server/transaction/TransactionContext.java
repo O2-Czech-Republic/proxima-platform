@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.direct.server.transaction;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -28,6 +26,8 @@ import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.server.IngestService;
 import cz.o2.proxima.direct.server.RetrieveService;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

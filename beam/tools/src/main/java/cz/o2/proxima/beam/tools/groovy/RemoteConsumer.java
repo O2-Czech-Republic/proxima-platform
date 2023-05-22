@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import cz.o2.proxima.beam.tools.proto.service.Collect.Item;
 import cz.o2.proxima.beam.tools.proto.service.Collect.Response;
@@ -23,6 +22,7 @@ import cz.o2.proxima.beam.tools.proto.service.CollectServiceGrpc;
 import cz.o2.proxima.beam.tools.proto.service.CollectServiceGrpc.CollectServiceStub;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;

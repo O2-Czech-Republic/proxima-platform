@@ -18,12 +18,12 @@ package cz.o2.proxima.beam.core.transforms;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.UUID;

@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.io.bulkfs.parquet;
 
 import static org.junit.Assert.assertEquals;
 
-import com.google.common.collect.ImmutableMap;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.ConfigRepository;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -31,6 +29,8 @@ import cz.o2.proxima.core.scheme.SchemaDescriptors.StructureTypeDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.TestUtils;
 import cz.o2.proxima.direct.io.bulkfs.parquet.StreamElementWriteSupport.Writer;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

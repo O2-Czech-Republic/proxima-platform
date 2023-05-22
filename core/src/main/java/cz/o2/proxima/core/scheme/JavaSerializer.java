@@ -16,7 +16,6 @@
 package cz.o2.proxima.core.scheme;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Stable;
 import cz.o2.proxima.core.transaction.Commit;
 import cz.o2.proxima.core.transaction.Request;
@@ -24,6 +23,7 @@ import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.transaction.TransactionSerializerSchemeProvider;
 import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

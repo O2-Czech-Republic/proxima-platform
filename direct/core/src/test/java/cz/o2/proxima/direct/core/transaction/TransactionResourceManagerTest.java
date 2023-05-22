@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.core.transaction;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Iterables;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
@@ -38,6 +36,8 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.transaction.TransactionResourceManager.CachedTransaction;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;

@@ -17,12 +17,12 @@ package cz.o2.proxima.beam.core;
 
 import static org.junit.Assert.assertNotNull;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Count;

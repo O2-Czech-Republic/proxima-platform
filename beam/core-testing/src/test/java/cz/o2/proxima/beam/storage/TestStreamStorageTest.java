@@ -18,7 +18,6 @@ package cz.o2.proxima.beam.storage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -30,6 +29,7 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.storage.internal.AbstractDataAccessorFactory.Accept;
 import cz.o2.proxima.core.util.Optionals;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.util.UUID;
 import org.apache.beam.sdk.testing.PAssert;

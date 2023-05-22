@@ -17,9 +17,9 @@ package cz.o2.proxima.core.repository;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.RepositoryFactory.VersionedCaching;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 public class RepositoryFactoryTest {

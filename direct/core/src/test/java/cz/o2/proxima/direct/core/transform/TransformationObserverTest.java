@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.core.transform;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -32,6 +31,7 @@ import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.direct.core.transform.TransformationObserver.Contextual;
 import cz.o2.proxima.direct.core.transform.TransformationObserver.NonContextual;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;

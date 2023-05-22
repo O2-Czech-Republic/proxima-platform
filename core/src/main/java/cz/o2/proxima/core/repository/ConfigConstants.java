@@ -61,6 +61,7 @@ public class ConfigConstants {
   public static final String STATE_ATTRIBUTE = "state";
   public static final String COMMIT_ATTRIBUTE = "commit";
   public static final String PARTITIONER = "partitioner";
+  public static final String MODULE_LAYER_PATH = "module.path";
 
   private ConfigConstants() {
     // nop

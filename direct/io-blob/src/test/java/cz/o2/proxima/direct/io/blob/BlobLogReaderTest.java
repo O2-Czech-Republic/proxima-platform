@@ -19,8 +19,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.Lists;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -35,6 +33,8 @@ import cz.o2.proxima.direct.core.batch.BatchLogReader.Factory;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.io.blob.TestBlobStorageAccessor.BlobReader;
 import cz.o2.proxima.direct.io.blob.TestBlobStorageAccessor.BlobWriter;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;

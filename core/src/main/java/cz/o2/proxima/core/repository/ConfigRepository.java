@@ -17,15 +17,6 @@ package cz.o2.proxima.core.repository;
 
 import static cz.o2.proxima.core.repository.ConfigConstants.*;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigObject;
-import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.RepositoryFactory.LocalInstance;
@@ -47,12 +38,23 @@ import cz.o2.proxima.core.transform.Transformation;
 import cz.o2.proxima.core.util.CamelCase;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
+import cz.o2.proxima.typesafe.config.ConfigObject;
+import cz.o2.proxima.typesafe.config.ConfigValue;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -146,7 +148,6 @@ public final class ConfigRepository extends Repository {
     private int validate;
     private boolean loadFamilies = true;
     private boolean loadClasses = true;
-    private @Nullable RepositoryFactory factory = null;
 
     private Builder(Config config) {
       this.config = Objects.requireNonNull(config);
@@ -293,6 +294,9 @@ public final class ConfigRepository extends Repository {
   /** Set of operators created by this repository. */
   private final Set<DataOperator> operators = Collections.synchronizedSet(new HashSet<>());
 
+  /** Cache of classloader for child modules. */
+  private final Map<String, ClassLoader> loaderCache = new HashMap<>();
+
   /**
    * Construct the repository from the config with the specified read-only and validation flag.
    *
@@ -344,6 +348,11 @@ public final class ConfigRepository extends Repository {
       }
       cachedConfigConstructed = this.config;
     }
+  }
+
+  private ClassLoader getOrCreateModuleLoader(ClassLoader parent, URL location, String moduleName) {
+    return loaderCache.computeIfAbsent(
+        moduleName, tmp -> new URLClassLoader(new URL[] {location}, parent));
   }
 
   /** @return this */

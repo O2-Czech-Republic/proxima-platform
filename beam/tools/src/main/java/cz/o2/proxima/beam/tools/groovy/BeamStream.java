@@ -15,11 +15,6 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -49,6 +44,11 @@ import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider.TerminatePredicate;

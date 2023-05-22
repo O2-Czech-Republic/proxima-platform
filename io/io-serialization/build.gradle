@@ -19,9 +19,16 @@ plugins {
 }
 
 dependencies {
-  intoShadow libraries.protobuf_java
-  intoShadow libraries.protobuf_java_util
-  provided libraries.guava
+  intoShadow(libraries.protobuf_java) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+  }
+  intoShadow(libraries.protobuf_java_util) {
+    exclude group: "com.google.errorprone", module: "error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+  }
 }
 
 description = 'cz.o2.proxima:proxima-io-serialization'
@@ -30,6 +37,12 @@ protobuf {
   protoc { artifact = libraries.protoc }
 }
 
+enableShadowJar(project)
+
 shadowJar {
+  relocators.clear()
   relocate "com.google", "${serializationShade}.com.google"
+  exclude "module-info.*"
 }
+
+publishArtifacts(project, "default")

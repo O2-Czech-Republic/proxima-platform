@@ -17,9 +17,6 @@ package cz.o2.proxima.core.repository;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Iterables;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.repository.ConfigRepository.Builder;
 import cz.o2.proxima.core.repository.ConfigRepository.WriteOnceHashMap;
@@ -38,6 +35,9 @@ import cz.o2.proxima.core.transform.WriteProxy;
 import cz.o2.proxima.core.util.DummyFilter;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.TestUtils;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;

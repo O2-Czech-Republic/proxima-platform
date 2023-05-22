@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.google.common.collect.Lists;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.util.NamePattern;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;

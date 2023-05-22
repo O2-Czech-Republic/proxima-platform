@@ -22,7 +22,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -31,6 +30,7 @@ import cz.o2.proxima.direct.core.storage.InMemStorage;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
 import cz.o2.proxima.direct.server.test.Test.ExtendedMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import io.grpc.stub.StreamObserver;
 import java.net.URI;
 import java.net.URISyntaxException;

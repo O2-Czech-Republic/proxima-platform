@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.direct.io.kafka;
 
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.direct.core.time.BoundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.direct.core.time.SkewedProcessingTimeIdlePolicy;
 import cz.o2.proxima.direct.core.time.WatermarkConfiguration;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.util.Map;
 
 public class KafkaWatermarkConfiguration extends WatermarkConfiguration {

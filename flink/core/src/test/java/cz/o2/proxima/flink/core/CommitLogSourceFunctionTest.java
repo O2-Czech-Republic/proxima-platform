@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.flink.core;
 
-import com.google.common.base.Preconditions;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -29,6 +27,8 @@ import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;

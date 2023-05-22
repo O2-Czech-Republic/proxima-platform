@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.beam.core.direct.io;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -27,6 +26,7 @@ import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;

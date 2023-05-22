@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.core.view;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.ConfigRepository;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -28,6 +26,8 @@ import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;

@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.PCollectionTools;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
 import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.WindowedStream;

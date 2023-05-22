@@ -15,13 +15,6 @@
  */
 package cz.o2.proxima.direct.transaction.manager;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.MultimapBuilder;
-import com.google.common.collect.Sets;
-import com.google.common.collect.SortedSetMultimap;
-import com.google.common.collect.Streams;
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.BiConsumer;
@@ -42,6 +35,13 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Iterators;
+import cz.o2.proxima.internal.com.google.common.collect.MultimapBuilder;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.internal.com.google.common.collect.SortedSetMultimap;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;

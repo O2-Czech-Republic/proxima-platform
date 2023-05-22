@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.scheme.ValueSerializer;
 import cz.o2.proxima.core.transform.ProxyTransform;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.net.URI;
 import javax.annotation.Nullable;
 import lombok.Getter;

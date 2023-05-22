@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.beam.core;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.core.repository.AttributeProxyDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.transform.ProxyTransform;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;

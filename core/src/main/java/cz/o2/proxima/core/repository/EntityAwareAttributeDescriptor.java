@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.core.scheme.ValueSerializer;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;

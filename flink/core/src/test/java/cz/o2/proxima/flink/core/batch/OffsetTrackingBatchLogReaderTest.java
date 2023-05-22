@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.flink.core.batch;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -27,6 +26,7 @@ import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.batch.Offset;
 import cz.o2.proxima.direct.core.storage.ListBatchReader;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;

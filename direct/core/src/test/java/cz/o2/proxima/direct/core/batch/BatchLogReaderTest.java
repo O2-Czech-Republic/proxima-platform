@@ -18,8 +18,6 @@ package cz.o2.proxima.direct.core.batch;
 import static cz.o2.proxima.direct.core.commitlog.CommitLogReaderTest.withNumRecordsPerSec;
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Streams;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -33,6 +31,8 @@ import cz.o2.proxima.core.util.SerializableLong;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.storage.ListBatchReader;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;

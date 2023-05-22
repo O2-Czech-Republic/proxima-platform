@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.server;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Sets;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.functional.UnaryPredicate;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -41,6 +39,8 @@ import cz.o2.proxima.direct.core.commitlog.Offset;
 import cz.o2.proxima.direct.core.storage.InMemStorage;
 import cz.o2.proxima.direct.core.transform.TransformationObserver;
 import cz.o2.proxima.direct.server.metrics.Metrics;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;

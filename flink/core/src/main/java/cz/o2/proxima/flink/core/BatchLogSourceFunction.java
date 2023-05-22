@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.flink.core;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.annotations.Experimental;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.RepositoryFactory;
@@ -26,6 +25,7 @@ import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.batch.Offset;
 import cz.o2.proxima.flink.core.batch.OffsetTrackingBatchLogReader;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;

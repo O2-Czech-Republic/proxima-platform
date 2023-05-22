@@ -19,8 +19,10 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  api project(':proxima-direct-io-blob')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-direct-core')
+  api project(path: ':proxima-direct-io-blob')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   intoShadow 'com.google.cloud:google-cloud-storage:1.101.0'
   implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
@@ -28,7 +30,6 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
-  provided libraries.guava
   compileOnly libraries.auto_service_annotations
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
@@ -36,11 +37,30 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-io-gcloud-storage'
 
+enableShadowJar(project) {
+  if (!it.endsWith(".class")) {
+    return true
+  }
+  def allowed = ["cz/o2/proxima", "com/sun", "META-INF"]
+  if (allowed.find { s -> it.startsWith(s) } != null) {
+    return true
+  }
+  def regexes = [~"^[^/]+.class\$"]
+  regexes.find { p -> it =~ p }
+}
+
+updateModulePath(project) {
+  def name = it.name
+  !name.contains("j2objc") && !name.contains("jsr305") && !name.contains("javax.annotation")
+}
+
 shadowJar {
-  ["io.netty", "io.grpc", "io.opencensus", "com.google.api", "com.google.iam",
-   "com.google.auth", "com.google.cloud", "org.codehaus.jackson", "com.google.protobuf",
-   "com.google.gson", "com.fasterxml", "org.apache.commons", "org.codehaus"].each {
+  ["io.netty", "io.grpc", "io.opencensus", "com.google", "org.codehaus.jackson",
+   "com.fasterxml", "org.apache.commons", "org.codehaus", "org.apache", "org.threeten"].each {
 
     relocate it, "cz.o2.proxima.gcloud.storage.shaded.${it}"
   }
+  exclude "javax/annotation/**"
 }
+
+publishArtifacts(project, "default")

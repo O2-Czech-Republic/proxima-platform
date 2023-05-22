@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.direct.io.bulkfs;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.scheme.ValueSerializer;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.AbstractIterator;
 import cz.o2.proxima.io.serialization.proto.Serialization.JsonElement;
 import cz.o2.proxima.io.serialization.proto.Serialization.JsonElement.Builder;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.util.JsonFormat.Parser;

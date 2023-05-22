@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.core.repository.ConfigRepository;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.Serializable;
 import java.net.InetAddress;
 import lombok.Getter;

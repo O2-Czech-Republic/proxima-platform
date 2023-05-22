@@ -15,9 +15,6 @@
  */
 package cz.o2.proxima.direct.server;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Sets;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -41,6 +38,9 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.transform.DirectElementWiseTransform;
 import cz.o2.proxima.direct.core.transform.TransformationObserver;
 import cz.o2.proxima.direct.server.metrics.Metrics;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashSet;

@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.io.kafka;
 
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;

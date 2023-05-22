@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.core.util;
 
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.Map;

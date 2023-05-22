@@ -19,9 +19,17 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  api project(':proxima-server-rpc-proto')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-direct-core')
+  api project(path: ':proxima-server-rpc-proto')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.slf4j_api
+  implementation libraries.grpc_stub
+  implementation(libraries.protobuf_java) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+  }
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
@@ -29,3 +37,5 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-ingest-client'
+
+publishArtifacts(project, "default")

@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.io.bulkfs;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;

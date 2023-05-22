@@ -19,8 +19,6 @@ import static cz.o2.proxima.core.util.TestUtils.createTestFamily;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import com.google.common.collect.ImmutableMap;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -38,6 +36,8 @@ import cz.o2.proxima.direct.core.storage.ListCommitLog;
 import cz.o2.proxima.direct.core.time.WatermarkConfiguration;
 import cz.o2.proxima.direct.io.kafka.KafkaAccessor;
 import cz.o2.proxima.direct.io.kafka.LocalKafkaCommitLogDescriptor;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.time.Instant;

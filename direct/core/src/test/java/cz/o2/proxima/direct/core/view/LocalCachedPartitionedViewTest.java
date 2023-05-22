@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.core.view;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Sets;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -34,6 +32,8 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;

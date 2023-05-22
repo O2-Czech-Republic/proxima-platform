@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.core.storage.internal;
 
-import com.google.common.collect.Streams;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.DataOperator;
 import cz.o2.proxima.core.repository.Repository;
@@ -25,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.stream.Collectors;
 
 /** Loader for various implementations of {@link AbstractDataAccessorFactory}. */
@@ -41,13 +41,35 @@ public class DataAccessorLoader<
           T extends AbstractDataAccessorFactory<OP, A>>
       DataAccessorLoader<OP, A, T> of(Repository repo, Class<T> cls) {
 
-    return new DataAccessorLoader<>(repo, cls);
+    return of(repo, cls, ModuleLayer.boot());
+  }
+
+  public static <
+          OP extends DataOperator,
+          A extends AbstractDataAccessor,
+          T extends AbstractDataAccessorFactory<OP, A>>
+      DataAccessorLoader<OP, A, T> of(Repository repo, Class<T> cls, ModuleLayer layer) {
+
+    return new DataAccessorLoader<>(repo, cls, layer);
   }
 
   private final List<T> loaded;
 
-  private DataAccessorLoader(Repository repo, Class<T> cls) {
-    this.loaded = Streams.stream(ServiceLoader.load(cls)).collect(Collectors.toList());
+  private DataAccessorLoader(Repository repo, Class<T> cls, ModuleLayer layer) {
+    Module thisModule = getClass().getModule();
+    if (!thisModule.canUse(cls)) {
+      getClass().getModule().addUses(cls);
+    }
+    if (!thisModule.canRead(cls.getModule())) {
+      thisModule.addReads(cls.getModule());
+    }
+    if (thisModule.isNamed()) {
+      this.loaded =
+          ServiceLoader.load(layer, cls).stream().map(Provider::get).collect(Collectors.toList());
+    } else {
+      this.loaded =
+          ServiceLoader.load(cls).stream().map(Provider::get).collect(Collectors.toList());
+    }
     this.loaded.forEach(f -> f.setup(repo));
   }
 

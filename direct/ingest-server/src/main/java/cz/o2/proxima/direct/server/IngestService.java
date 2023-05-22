@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.server;
 
 import static cz.o2.proxima.direct.server.IngestServer.*;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Strings;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -35,6 +33,8 @@ import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.Status;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitResponse;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.Strings;
 import io.grpc.stub.StreamObserver;
 import java.util.Collections;
 import java.util.List;

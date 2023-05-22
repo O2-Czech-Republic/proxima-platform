@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.google.common.collect.Lists;
 import cz.o2.proxima.core.annotations.Evolving;
 import cz.o2.proxima.core.repository.DefaultConsumerNameFactory.DefaultReplicationConsumerNameFactory;
 import cz.o2.proxima.core.storage.AccessType;
@@ -23,6 +22,7 @@ import cz.o2.proxima.core.storage.PassthroughFilter;
 import cz.o2.proxima.core.storage.StorageFilter;
 import cz.o2.proxima.core.storage.StorageType;
 import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;

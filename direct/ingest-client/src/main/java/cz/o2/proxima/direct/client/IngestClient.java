@@ -15,14 +15,14 @@
  */
 package cz.o2.proxima.direct.client;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.direct.server.rpc.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.IngestServiceGrpc.IngestServiceStub;
 import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Strings;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;

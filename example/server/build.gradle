@@ -19,7 +19,7 @@ plugins {
 }
 
 dependencies {
-  implementation project(':proxima-ingest-server-grpc')
+  implementation project(path: ':proxima-ingest-server-grpc')
   implementation project(':example-model')
   implementation project(':example-proto')
   implementation libraries.slf4j_api

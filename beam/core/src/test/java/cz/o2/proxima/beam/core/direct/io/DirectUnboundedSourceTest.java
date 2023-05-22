@@ -18,7 +18,6 @@ package cz.o2.proxima.beam.core.direct.io;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.direct.io.DirectUnboundedSource.Checkpoint;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -31,6 +30,7 @@ import cz.o2.proxima.core.util.TestUtils;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.beam.sdk.io.UnboundedSource;

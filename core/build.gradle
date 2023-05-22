@@ -15,10 +15,9 @@
  */
 
 dependencies {
-  implementation libraries.slf4j_api
-  intoShadow 'com.typesafe:config:1.4.2'
-  intoShadow 'com.tdunning:t-digest:3.3'
-  intoShadow libraries.guava
+  api "cz.o2.proxima:proxima-config:${project.version}"
+  api libraries.slf4j_api
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
@@ -30,12 +29,12 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-core'
 
-shadowJar {
-  relocate "com.tdunning", "${coreShade}.com.tdunning"
-}
+updateModulePath(project)
 
 registerTestsJar(project)
 
 test {
   forkEvery 1
 }
+
+publishArtifacts(project, "default")

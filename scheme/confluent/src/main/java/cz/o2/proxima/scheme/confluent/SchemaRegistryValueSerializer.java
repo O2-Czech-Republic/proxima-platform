@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.scheme.confluent;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.scheme.SerializationException;
 import cz.o2.proxima.core.scheme.ValueSerializer;
 import cz.o2.proxima.core.storage.UriUtil;
 import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.scheme.avro.AvroSerializer;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;

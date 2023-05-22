@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.core.transform;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.StorageFilter;
@@ -29,6 +28,7 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 

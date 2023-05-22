@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.core.time;
 
 import static cz.o2.proxima.direct.core.time.WatermarkConfiguration.prefixedKey;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.time.AbstractWatermarkEstimator;
@@ -26,6 +24,8 @@ import cz.o2.proxima.core.time.WatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicy;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;

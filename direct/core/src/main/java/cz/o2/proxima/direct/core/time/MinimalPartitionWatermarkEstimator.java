@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.core.time;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.time.PartitionedWatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;

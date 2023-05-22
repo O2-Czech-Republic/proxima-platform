@@ -17,10 +17,6 @@ package cz.o2.proxima.core.utils.zookeeper;
 
 import static org.junit.Assert.*;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
-import com.google.common.collect.Lists;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.functional.TimeProvider;
@@ -28,6 +24,10 @@ import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.core.util.TestUtils;
 import cz.o2.proxima.core.utils.zookeeper.ZKGlobalWatermarkTracker.WatermarkWithUpdate;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap.Builder;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;

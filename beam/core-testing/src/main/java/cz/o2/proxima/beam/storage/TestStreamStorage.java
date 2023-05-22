@@ -16,7 +16,6 @@
 package cz.o2.proxima.beam.storage;
 
 import com.google.auto.service.AutoService;
-import com.typesafe.config.Config;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.DataAccessorFactory;
@@ -27,6 +26,7 @@ import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.repository.config.ConfigUtils;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.typesafe.config.Config;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;

@@ -19,12 +19,12 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
+  api project(':proxima-core')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation 'commons-io:commons-io:2.7'
   implementation 'commons-cli:commons-cli:1.5.0'
   implementation 'org.freemarker:freemarker:2.3.23'
   implementation libraries.slf4j_api
-  provided libraries.guava
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
@@ -34,3 +34,5 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-compiler-java-lib'
+
+publishArtifacts(project, "default")

@@ -15,17 +15,18 @@
  */
 
 dependencies {
-  implementation project(path: ':proxima-core', configuration: 'shadowJar')
-  implementation project(':proxima-server-rpc-proto')
+  implementation project(path: ':proxima-core')
+  implementation project(path: ':proxima-server-rpc-proto')
   implementation project(':example-proto')
-  implementation project(':proxima-direct-io-kafka')
-  implementation project(':proxima-direct-io-cassandra')
-  implementation project(':proxima-direct-io-hbase')
-  implementation project(':proxima-direct-io-hdfs')
-  implementation project(':proxima-scheme-proto')
+  implementation project(path: ':proxima-direct-io-kafka')
+  implementation project(path: ':proxima-direct-io-cassandra')
+  implementation project(path: ':proxima-direct-io-hbase')
+  implementation project(path: ':proxima-direct-io-hdfs')
+  implementation project(path: ':proxima-scheme-proto')
   implementation libraries.slf4j_api
-  compileOnly project(path: ':proxima-compiler-java-cli', configuration: 'shadowJar')
-  compileOnly project(path: ':proxima-direct-compiler-plugin', configuration: 'shadowJar')
+  compileOnly project(path: ':proxima-compiler-java-cli', configuration: "shadowJar")
+  compileOnly project(path: ':proxima-direct-compiler-plugin', configuration: "shadowJar")
+  compileOnly project(path: ':proxima-direct-core')
   testImplementation project(path: ':proxima-direct-core')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j
@@ -48,10 +49,6 @@ task generateModel(type: JavaExec) {
 
 tasks.named("compileJava") {
   dependsOn generateModel
-}
-
-tasks.named("sourcesJar") {
-  dependsOn compileJava
 }
 
 sourceSets.main.java.srcDirs += ["${project.buildDir}/generated/sources/"]

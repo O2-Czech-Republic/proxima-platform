@@ -18,6 +18,7 @@ plugins {
   id 'java-library'
   id 'maven-publish'
   id "com.diffplug.spotless"
+  //id 'org.gradlex.extra-java-module-info'
 }
 
 java.sourceCompatibility = JavaVersion.VERSION_11

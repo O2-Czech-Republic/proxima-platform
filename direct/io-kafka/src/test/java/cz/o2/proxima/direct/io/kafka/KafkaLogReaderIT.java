@@ -17,11 +17,6 @@ package cz.o2.proxima.direct.io.kafka;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Lists;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigResolveOptions;
-import com.typesafe.config.ConfigValueFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -39,6 +34,11 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandleUtils;
 import cz.o2.proxima.direct.io.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
+import cz.o2.proxima.typesafe.config.ConfigResolveOptions;
+import cz.o2.proxima.typesafe.config.ConfigValueFactory;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;

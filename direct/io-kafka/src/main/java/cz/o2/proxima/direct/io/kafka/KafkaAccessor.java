@@ -15,10 +15,6 @@
  */
 package cz.o2.proxima.direct.io.kafka;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.ConfigConstants;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -35,6 +31,10 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.view.CachedView;
 import cz.o2.proxima.direct.core.view.LocalCachedPartitionedView;
 import cz.o2.proxima.direct.io.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.base.Strings;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Map;

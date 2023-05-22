@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.core.metrics;
 
-import com.google.common.base.Preconditions;
-import com.tdunning.math.stats.TDigest;
 import cz.o2.proxima.core.annotations.Stable;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.tdunning.math.stats.TDigest;
 import java.util.Arrays;
 
 /** An approximation of 1st, 10th, 30th, 50th, 70th, 90th and 99th percentile. */

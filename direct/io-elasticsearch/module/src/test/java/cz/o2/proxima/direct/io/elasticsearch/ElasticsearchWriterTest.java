@@ -37,7 +37,6 @@ import cz.o2.proxima.elasticsearch.shaded.org.elasticsearch.action.index.IndexRe
 import cz.o2.proxima.internal.com.google.gson.JsonObject;
 import cz.o2.proxima.internal.com.google.gson.JsonParser;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableMap;
@@ -56,7 +55,7 @@ class ElasticsearchWriterTest {
   private final Regular<Float> metric = Regular.of(gateway, gateway.getAttribute("metric"));
 
   @Test
-  void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+  void testAsFactorySerializable() {
     ElasticsearchStorage storage = new ElasticsearchStorage();
     ElasticsearchAccessor accessor =
         storage.createAccessor(direct, repo.getFamilyByName("gateway-to-es"));

@@ -20,6 +20,7 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.scheme.ValueSerializer;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.AbstractIterator;
@@ -221,6 +222,6 @@ public class JsonFormat implements FileFormat {
     Optional<?> maybeValue = element.getParsed();
     Preconditions.checkArgument(
         maybeValue.isPresent(), "Cannot deserialize value in [%s]", element);
-    return builder.setValue(serializer.asJsonValue(maybeValue.get())).build();
+    return builder.setValue(serializer.asJsonValue(Optionals.get(maybeValue))).build();
   }
 }

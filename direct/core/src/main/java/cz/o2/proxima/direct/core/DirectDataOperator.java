@@ -72,6 +72,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -122,13 +123,16 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
 
   private final DataAccessorLoader<DirectDataOperator, DataAccessor, DataAccessorFactory> loader;
 
+  @Getter(AccessLevel.PACKAGE)
+  private final ModuleLayer layer;
+
   private volatile TransactionResourceManager transactionManager;
 
   DirectDataOperator(Repository repo) {
     this.repo = repo;
     this.context = new Context(familyMap::get, executorFactory);
     this.config = ((ConfigRepository) repo).getConfig();
-    ModuleLayer layer = getModuleLayer(config);
+    this.layer = getModuleLayer(config);
     this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class, layer);
     reload();
   }

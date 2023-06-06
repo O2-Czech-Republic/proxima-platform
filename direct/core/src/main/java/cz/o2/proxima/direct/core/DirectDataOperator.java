@@ -284,7 +284,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return the serializable context
    */
   @Override
-  public Context getContext () {
+  public Context getContext() {
     return context;
   }
 

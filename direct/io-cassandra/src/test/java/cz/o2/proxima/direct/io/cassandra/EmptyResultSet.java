@@ -25,10 +25,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /** A result set with no data. */
 public class EmptyResultSet implements ResultSet, Serializable {
@@ -66,7 +64,7 @@ public class EmptyResultSet implements ResultSet, Serializable {
 
   @Override
   public ListenableFuture<ResultSet> fetchMoreResults() {
-    return new ListenableFuture<ResultSet>() {
+    return new ListenableFuture<>() {
 
       @Override
       public void addListener(Runnable r, Executor exctr) {
@@ -89,13 +87,12 @@ public class EmptyResultSet implements ResultSet, Serializable {
       }
 
       @Override
-      public ResultSet get() throws InterruptedException, ExecutionException {
+      public ResultSet get() {
         return new EmptyResultSet();
       }
 
       @Override
-      public ResultSet get(long timeout, TimeUnit unit)
-          throws InterruptedException, ExecutionException, TimeoutException {
+      public ResultSet get(long timeout, TimeUnit unit) {
         return new EmptyResultSet();
       }
     };

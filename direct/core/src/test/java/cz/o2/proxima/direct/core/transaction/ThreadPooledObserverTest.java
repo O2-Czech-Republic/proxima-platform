@@ -18,11 +18,11 @@ package cz.o2.proxima.direct.core.transaction;
 import static cz.o2.proxima.direct.core.commitlog.ObserverUtils.asOnNextContext;
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

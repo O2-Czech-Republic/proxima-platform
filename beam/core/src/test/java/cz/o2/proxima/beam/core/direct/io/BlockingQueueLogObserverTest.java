@@ -17,7 +17,6 @@ package cz.o2.proxima.beam.core.direct.io;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -27,6 +26,7 @@ import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;

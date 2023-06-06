@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.core.transaction;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;

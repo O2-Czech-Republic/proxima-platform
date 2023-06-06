@@ -19,16 +19,19 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  api project(':proxima-direct-io-bulkfs')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-direct-core')
+  api project(path: ':proxima-direct-io-bulkfs')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
-  provided libraries.guava
   compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-direct-io-blob'
+
+publishArtifacts(project, "default")

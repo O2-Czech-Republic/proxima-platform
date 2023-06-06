@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigRenderOptions;
 import cz.o2.proxima.core.util.StringCompressions;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
+import cz.o2.proxima.typesafe.config.ConfigRenderOptions;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;

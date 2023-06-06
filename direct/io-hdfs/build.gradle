@@ -19,9 +19,9 @@ plugins {
 }
 
 dependencies {
-  api project(path: ":proxima-core", configuration: "shadowJar")
-  api project(":proxima-direct-core")
-  api project(':proxima-direct-io-hadoop')
+  api project(path: ":proxima-core")
+  api project(path: ":proxima-direct-core")
+  api project(path: ':proxima-direct-io-hadoop')
   intoShadow libraries.hadoop_common
   intoShadow libraries.hadoop_hdfs
   testImplementation libraries.junit4
@@ -35,6 +35,8 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-io-hdfs'
 
+enableShadowJar(project)
+
 shadowJar {
   ["io.netty", "javax.servlet", "javax.ws", "org.mortbay.jetty", "org.mortbay.servlet",
    "com.google", "org.apache.commons", "org.objectweb", "org.codehaus", "com.fasterxml"].each {
@@ -42,3 +44,5 @@ shadowJar {
     relocate it, "cz.o2.proxima.hdfs.shaded.${it}"
   }
 }
+
+publishArtifacts(project, "default")

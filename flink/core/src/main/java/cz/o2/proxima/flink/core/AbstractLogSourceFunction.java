@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.flink.core;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.LogObserver;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.util.ArrayList;

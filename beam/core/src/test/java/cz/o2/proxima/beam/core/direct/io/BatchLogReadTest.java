@@ -18,7 +18,6 @@ package cz.o2.proxima.beam.core.direct.io;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.direct.io.BatchLogRead.BatchLogReadFn;
 import cz.o2.proxima.beam.core.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -32,6 +31,7 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.BatchLogReaders;
 import cz.o2.proxima.direct.core.storage.ListBatchReader;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;

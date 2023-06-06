@@ -1,0 +1,73 @@
+/*
+ * Copyright 2017-2023 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+  id 'cz.o2.proxima.java-conventions'
+}
+
+dependencies {
+  api project(':proxima-direct-core')
+  intoShadow project(path: ':proxima-direct-io-pubsub-shade', configuration: "shadowJar")
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
+  implementation libraries.slf4j_api
+  testImplementation project(path: ':proxima-core', configuration: 'testsJar')
+  testImplementation libraries.slf4j_log4j
+  testImplementation libraries.junit4
+  testImplementation libraries.mockito_core
+  compileOnly libraries.auto_service_annotations
+  compileAnnotationProcessor libraries.lombok
+  annotationProcessor libraries.auto_service
+}
+
+description = 'cz.o2.proxima:proxima-direct-io-pubsub'
+
+enableShadowJar(project) {
+  if (!it.endsWith(".class")) {
+    return true
+  }
+  def allowed = ["cz/o2/proxima", "com/sun", "META-INF"]
+  if (allowed.find { s -> it.startsWith(s) } != null) {
+    return true
+  }
+  def regexes = [~"^[^/]+.class\$"]
+  regexes.find { p -> it =~ p }
+}
+
+shadowJar {
+  relocators.clear()
+  transform(renamingTransformer()) {
+    renameClosure = {
+      if (it.startsWith("META-INF/native/libio_grpc_netty_shaded_")) {
+        return "META-INF/native/libcz_o2_proxima_pubsub_shaded_${it.substring(19)}"
+      }
+      if (it.startsWith("META-INF/native/io_grpc_netty_shaded_")) {
+        return "META-INF/native/cz_o2_proxima_pubsub_shaded_${it.substring(16)}"
+      }
+    }
+  }
+
+  ["io.grpc", "io.opencensus", "com.google", "com.fasterxml",
+   "org.apache.commons", "org.codehaus", "org.apache", "org.threeten",
+   "io.perfmark"].each {
+
+    relocate it, "cz.o2.proxima.pubsub.shaded.${it}"
+  }
+  exclude "android/annotation/**"
+}
+
+registerTestsJar(project)
+
+publishArtifacts(project, "default")

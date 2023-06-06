@@ -16,11 +16,11 @@
 package cz.o2.proxima.core.scheme;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Stable;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.PrimitiveValueAccessor;
 import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.util.Base64;
 import java.util.Optional;

@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.scheme.ValueSerializer;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.util.List;
 import javax.annotation.Nullable;

@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.core.transaction;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.ConfigConstants;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -33,6 +32,7 @@ import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.LogObserverUtils;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;

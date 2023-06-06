@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.ConfigRepository;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.repository.Repository.Validate;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import java.io.File;

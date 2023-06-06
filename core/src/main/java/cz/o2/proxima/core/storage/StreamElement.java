@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.core.storage;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Evolving;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.Objects;

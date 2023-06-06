@@ -15,18 +15,18 @@
  */
 package cz.o2.proxima.direct.io.bulkfs;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.AbstractIterator;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.collect.AbstractIterator;
 import cz.o2.proxima.io.serialization.proto.Serialization;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.Parser;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;

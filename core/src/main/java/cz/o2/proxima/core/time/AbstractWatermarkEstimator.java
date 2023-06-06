@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.core.time;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 
 /** The watermark estimator base class. */
 public abstract class AbstractWatermarkEstimator implements WatermarkEstimator {

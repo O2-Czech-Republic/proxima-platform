@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.io.bulkfs.parquet;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -24,6 +23,7 @@ import cz.o2.proxima.direct.io.bulkfs.FileFormat;
 import cz.o2.proxima.direct.io.bulkfs.Path;
 import cz.o2.proxima.direct.io.bulkfs.Reader;
 import cz.o2.proxima.direct.io.bulkfs.Writer;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;

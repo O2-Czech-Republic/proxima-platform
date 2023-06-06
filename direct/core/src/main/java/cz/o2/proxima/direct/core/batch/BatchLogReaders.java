@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.core.batch;
 
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -24,6 +23,7 @@ import cz.o2.proxima.core.storage.ThroughputLimiter.Context;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.SerializableUtils;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;

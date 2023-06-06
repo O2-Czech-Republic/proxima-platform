@@ -17,7 +17,7 @@ package cz.o2.proxima.core.repository;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Map;
 import org.junit.Test;
 

@@ -21,7 +21,8 @@ plugins {
 def maven_version = "3.6.1"
 
 dependencies {
-  api project(':proxima-compiler-java-lib')
+  api project(path: ":proxima-core")
+  api project(path: ':proxima-compiler-java-lib')
   api "org.apache.maven:maven-project:2.2.1"
   api "org.apache.maven:maven-plugin-api:${maven_version}"
   testImplementation libraries.junit4
@@ -32,3 +33,5 @@ dependencies {
 }
 
 description = 'cz.o2.proxima:proxima-compiler-java-maven-plugin'
+
+publishArtifacts(project, "default")

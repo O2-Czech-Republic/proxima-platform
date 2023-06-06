@@ -20,8 +20,6 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableMap;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.ConfigConstants;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -33,6 +31,8 @@ import cz.o2.proxima.core.util.TestUtils;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;

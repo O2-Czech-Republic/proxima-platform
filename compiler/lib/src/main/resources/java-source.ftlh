@@ -5,8 +5,8 @@
 
 package ${java_package};
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.ConfigRepository;

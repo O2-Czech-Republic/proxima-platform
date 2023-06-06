@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.beam.core.direct.io;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
@@ -24,6 +22,8 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;

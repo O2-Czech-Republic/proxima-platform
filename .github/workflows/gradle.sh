@@ -27,7 +27,7 @@ fi
 
 if [[ "${1}" == "11" ]]; then
   if [[ "${IS_PR}" != "false" ]] || [[ "${BRANCH}" == "master" ]]; then
-    ./gradlew build -x test --build-cache && ./gradlew test sonar -Pwith-coverage --no-parallel --build-cache
+    ./gradlew build -x test && ./gradlew test sonar -Pwith-coverage --no-parallel
     exit $?
   fi
 fi

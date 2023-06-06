@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.core.util;
 
-import com.google.common.collect.Sets;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import java.util.Set;
 
 /** Transform string to camel case. */

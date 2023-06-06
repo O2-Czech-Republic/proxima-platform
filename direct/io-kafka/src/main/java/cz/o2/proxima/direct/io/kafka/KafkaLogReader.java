@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.io.kafka;
 
 import static java.util.stream.Collectors.toMap;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.functional.BiConsumer;
 import cz.o2.proxima.core.storage.AbstractStorage;
 import cz.o2.proxima.core.storage.Partition;
@@ -39,6 +37,8 @@ import cz.o2.proxima.direct.core.commitlog.OffsetExternalizer;
 import cz.o2.proxima.direct.core.time.MinimalPartitionWatermarkEstimator;
 import cz.o2.proxima.direct.io.kafka.ElementConsumers.BulkConsumer;
 import cz.o2.proxima.direct.io.kafka.ElementConsumers.OnlineConsumer;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;

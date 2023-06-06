@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.core.util;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.PassthroughFilter;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.Map;
 import lombok.Getter;
 

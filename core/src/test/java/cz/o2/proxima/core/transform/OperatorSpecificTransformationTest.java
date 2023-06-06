@@ -18,12 +18,12 @@ package cz.o2.proxima.core.transform;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.DataOperatorFactory;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.repository.TestDataOperatorFactory;
 import cz.o2.proxima.core.repository.TestDataOperatorFactory.TestDataOperator;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Map;
 import org.junit.Test;
 

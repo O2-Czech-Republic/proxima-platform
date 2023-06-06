@@ -19,8 +19,6 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.Iterables;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -38,6 +36,8 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReaders.LimitedCommitLogReader;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;

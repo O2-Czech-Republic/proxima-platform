@@ -20,7 +20,6 @@ import static org.junit.Assert.*;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -42,6 +41,7 @@ import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionValidator;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;

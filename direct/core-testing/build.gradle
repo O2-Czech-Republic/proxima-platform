@@ -21,14 +21,13 @@ plugins {
 dependencies {
   api project(':proxima-direct-core')
   api project(':proxima-scheme-proto')
-  api project(path: ':proxima-core', configuration: 'shadowJar')
+  api project(path: ':proxima-core')
   api project(':proxima-scheme-proto-testing')
-  provided libraries.guava
   compileOnly project(path: ":proxima-core")
   compileOnly project(path: ':proxima-direct-core')
   compileOnly project(path: ":proxima-core", configuration: 'testsJar')
   compileOnly project(path: ':proxima-direct-core', configuration: 'testsJar')
-  compileOnly project(path: ":proxima-compiler-java-cli", configuration: 'shadowJar')
+  compileOnly project(path: ":proxima-compiler-java-cli", configuration: "shadowJar")
   testImplementation libraries.junit4
   testImplementation project(path: ":proxima-core", configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -60,10 +59,6 @@ task generateCoreModel(type: JavaExec) {
 
 tasks.named("compileJava") {
   dependsOn generateReadmeModel, generateCoreModel
-}
-
-tasks.named("sourcesJar") {
-  dependsOn compileJava
 }
 
 sourceSets.main.java.srcDirs += ["${project.buildDir}/generated/sources/"]

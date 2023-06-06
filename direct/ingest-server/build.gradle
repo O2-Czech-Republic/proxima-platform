@@ -20,18 +20,20 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  api project(':proxima-server-rpc-proto')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-direct-core')
+  api project(path: ':proxima-server-rpc-proto')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation 'net.jodah:failsafe:1.0.4'
-  implementation project(':proxima-scheme-proto')
+  implementation project(path: ':proxima-scheme-proto')
   implementation libraries.slf4j_api
   implementation libraries.grpc_netty_shaded
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
-  testImplementation project(':proxima-direct-io-kafka')
+  testImplementation project(path: ':proxima-direct-io-kafka')
   testImplementation project(path: ':proxima-direct-io-kafka', configuration: 'testsJar')
-  testImplementation project(':proxima-scheme-proto-testing')
-  testImplementation project(':proxima-transaction-manager')
+  testImplementation project(path: ':proxima-scheme-proto-testing')
+  testImplementation project(path: ':proxima-direct-transaction-manager')
   testImplementation libraries.slf4j_log4j
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
@@ -47,3 +49,5 @@ protobuf {
 test {
   forkEvery 1
 }
+
+publishArtifacts(project, "default")

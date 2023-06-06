@@ -15,16 +15,13 @@
 # limitations under the License.
 #
 
-function deploy() {
+function deploy_set() {
 
-  set -eu
-  git submodule update
-
+  set=$1
   TRY=0
-
   while [ $TRY -lt 3 ]; do
     echo "Starting to deploy step $((TRY + 1))"
-    if ./gradlew publish -Ppublish; then
+    if ./gradlew publish -Ppublish -P${set}; then
       break;
     fi
     TRY="$((TRY+1))"
@@ -35,6 +32,16 @@ function deploy() {
     echo "Failed to deploy snapshot"
     return 1
   fi
+
+}
+
+function deploy() {
+
+  set -eu
+  git submodule update
+
+  deploy_set "vendor"
+  deploy_set "default"
 
 }
 

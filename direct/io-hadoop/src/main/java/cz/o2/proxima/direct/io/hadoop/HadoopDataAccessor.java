@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.direct.io.hadoop;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -27,6 +25,8 @@ import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.io.bulkfs.FileFormat;
 import cz.o2.proxima.direct.io.bulkfs.FileFormatUtils;
 import cz.o2.proxima.direct.io.bulkfs.NamingConvention;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;

@@ -17,11 +17,11 @@ package cz.o2.proxima.direct.io.hadoop;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.ConfigRepository;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.util.TestUtils;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;

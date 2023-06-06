@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.core.storage;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -36,6 +35,7 @@ import cz.o2.proxima.direct.core.batch.BatchLogObservers;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.batch.TerminationContext;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;

@@ -17,9 +17,9 @@ package cz.o2.proxima.core.repository.config;
 
 import static org.junit.Assert.assertEquals;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import org.junit.Test;
 

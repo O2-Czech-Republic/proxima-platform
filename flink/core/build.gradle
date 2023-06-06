@@ -19,18 +19,18 @@ plugins {
 }
 
 dependencies {
-  api project(path: ':proxima-core', configuration: 'shadowJar')
+  api project(path: ':proxima-core')
   api libraries.flink_table_planner
   api libraries.flink_streaming
   api libraries.flink_clients
   api libraries.flink_table_api_bridge
-  provided libraries.guava
-  implementation project(':proxima-scheme-proto')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
+  implementation project(path: ':proxima-scheme-proto')
   implementation libraries.slf4j_api
-  testImplementation project(':proxima-direct-core')
+  testImplementation project(path:':proxima-direct-core')
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
-  testImplementation project(':proxima-scheme-proto-testing')
+  testImplementation project(path: ':proxima-scheme-proto-testing')
   testImplementation libraries.flink_test_util
   testImplementation libraries.flink_runtime
   testImplementation libraries.flink_streaming
@@ -40,8 +40,10 @@ dependencies {
   testImplementation libraries.junit_jupiter_api
   testImplementation libraries.mockito_core
   testImplementation libraries.mockito_jupiter
-  compileOnly project(':proxima-direct-core')
+  compileOnly project(path: ':proxima-direct-core')
   compileAnnotationProcessor libraries.lombok
 }
 
 description = 'cz.o2.proxima:proxima-flink-core'
+
+publishArtifacts(project, "default")

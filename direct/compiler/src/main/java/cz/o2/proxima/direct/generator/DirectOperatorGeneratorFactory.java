@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.generator;
 
 import com.google.auto.service.AutoService;
-import com.google.common.collect.Sets;
 import cz.o2.proxima.core.generator.OperatorGenerator;
 import cz.o2.proxima.core.generator.OperatorGeneratorFactory;
 import cz.o2.proxima.core.repository.DataOperatorFactory;
@@ -27,6 +26,7 @@ import cz.o2.proxima.direct.core.DirectDataOperatorFactory;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateExceptionHandler;

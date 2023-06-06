@@ -15,10 +15,6 @@
  */
 package cz.o2.proxima.direct.core;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
-import com.google.common.collect.Sets;
-import com.typesafe.config.Config;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.functional.UnaryFunction;
@@ -37,6 +33,8 @@ import cz.o2.proxima.core.storage.internal.DataAccessorLoader;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.direct.core.ClassLoaders.ChildFirstURLClassLoader;
+import cz.o2.proxima.direct.core.ClassLoaders.ChildLayerFirstClassLoader;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.BatchLogReaders;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
@@ -48,7 +46,15 @@ import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
 import cz.o2.proxima.direct.core.transaction.TransactionalCachedView;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.view.CachedView;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.typesafe.config.Config;
+import java.lang.module.Configuration;
+import java.lang.module.ModuleFinder;
 import java.net.URI;
+import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -66,6 +72,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -109,15 +116,68 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   private Factory<ExecutorService> executorFactory = createExecutorFactory();
 
   private final Context context;
+
+  private final Config config;
+
+  private final Map<String, ClassLoader> loaderCache = new HashMap<>();
+
   private final DataAccessorLoader<DirectDataOperator, DataAccessor, DataAccessorFactory> loader;
+
+  @Getter(AccessLevel.PACKAGE)
+  private final ModuleLayer layer;
 
   private volatile TransactionResourceManager transactionManager;
 
   DirectDataOperator(Repository repo) {
     this.repo = repo;
     this.context = new Context(familyMap::get, executorFactory);
-    this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class);
+    this.config = ((ConfigRepository) repo).getConfig();
+    this.layer = getModuleLayer(config);
+    this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class, layer);
     reload();
+  }
+
+  private ModuleLayer getModuleLayer(Config config) {
+    ModuleLayer parentLayer = getClass().getModule().getLayer();
+    if (parentLayer == null) {
+      parentLayer = ModuleLayer.boot();
+    }
+    if (config.hasPath(ConfigConstants.MODULE_LAYER_PATH)) {
+      String path = config.getString(ConfigConstants.MODULE_LAYER_PATH);
+      Class<?> thisCls = getClass();
+      ModuleFinder finder = ModuleFinder.of(Path.of(path));
+      Configuration parentConf = parentLayer.configuration();
+      ChildLayerFirstClassLoader parentLoader =
+          new ChildLayerFirstClassLoader(finder, getClass().getModule().getClassLoader());
+      Configuration moduleConf =
+          parentConf.resolveAndBind(
+              finder, ModuleFinder.of(), Collections.singletonList(thisCls.getModule().getName()));
+      ModuleLayer layer =
+          thisCls
+              .getModule()
+              .getLayer()
+              .defineModules(
+                  moduleConf,
+                  name ->
+                      getOrCreateModuleLoader(
+                          parentLoader,
+                          finder
+                              .find(name)
+                              .orElseThrow()
+                              .location()
+                              .map(u -> ExceptionUtils.uncheckedFactory(u::toURL))
+                              .orElseThrow(),
+                          name));
+      parentLoader.setLayer(layer);
+      return layer;
+    }
+    return parentLayer;
+  }
+
+  private ClassLoader getOrCreateModuleLoader(
+      ChildLayerFirstClassLoader parent, URL location, String moduleName) {
+    return loaderCache.computeIfAbsent(
+        moduleName, tmp -> new ChildFirstURLClassLoader(new URL[] {location}, parent));
   }
 
   /**
@@ -521,7 +581,6 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     if (transactionManager == null) {
       synchronized (this) {
         if (transactionManager == null) {
-          Config config = ((ConfigRepository) repo).getConfig();
           Map<String, Object> cfg =
               config.hasPath(ConfigConstants.TRANSACTIONS)
                   ? config.getObject(ConfigConstants.TRANSACTIONS).unwrapped()

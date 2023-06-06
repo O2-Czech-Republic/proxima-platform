@@ -22,9 +22,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.Iterables;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyProxyDescriptor;
@@ -51,6 +48,10 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogReaders.LimitedCommitLogRead
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.core.view.CachedView;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.io.NotSerializableException;
 import java.io.UnsupportedEncodingException;
@@ -1636,6 +1637,18 @@ public class DirectDataOperatorTest {
     assertTrue(tracker instanceof TestTracker);
     TestTracker testTracker = (TestTracker) tracker;
     assertEquals(2, testTracker.getTestConf());
+  }
+
+  @Test
+  public void testWithModuleLayer() {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load("test-limiter.conf")
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .withFallback(ConfigFactory.parseMap(ImmutableMap.of("module.path", "/tmp/")))
+            .resolve());
+    DirectDataOperator operator = repo.getOrCreateOperator(DirectDataOperator.class);
+    assertNotNull(operator.getLayer());
   }
 
   private void testReplicationWriteObserveInternal(

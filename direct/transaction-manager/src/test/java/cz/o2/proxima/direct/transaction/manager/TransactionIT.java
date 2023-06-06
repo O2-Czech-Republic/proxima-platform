@@ -18,8 +18,6 @@ package cz.o2.proxima.direct.transaction.manager;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.core.repository.ConfigConstants;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
@@ -45,6 +43,8 @@ import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.core.view.CachedView;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;

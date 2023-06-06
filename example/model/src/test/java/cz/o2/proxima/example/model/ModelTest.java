@@ -17,7 +17,6 @@ package cz.o2.proxima.example.model;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
@@ -26,6 +25,7 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.example.event.Event.BaseEvent;
 import cz.o2.proxima.example.user.User.Details;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

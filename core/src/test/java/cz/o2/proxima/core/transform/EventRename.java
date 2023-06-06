@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.core.transform;
 
-import com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 
 /** Rename {@code _e.*} to {@code event.*} back and forth. */
 public class EventRename implements ElementWiseProxyTransform {

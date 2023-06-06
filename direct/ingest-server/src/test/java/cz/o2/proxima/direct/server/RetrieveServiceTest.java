@@ -20,7 +20,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -33,6 +32,7 @@ import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.GetRequest;
 import cz.o2.proxima.direct.server.test.Test.ExtendedMessage;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Arrays;

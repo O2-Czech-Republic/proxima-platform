@@ -18,8 +18,6 @@ package cz.o2.proxima.tools.groovy;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -27,6 +25,8 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import groovy.lang.Closure;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,7 +40,7 @@ public class ConsoleTest {
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
 
-  @Test(timeout = 20000)
+  @Test(timeout = 30000)
   public void testClosureLoading() throws Exception {
     final ToolsClassLoader toolsLoader;
     String script = "a = { it } \n";

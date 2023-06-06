@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.io.hbase;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.storage.UriUtil;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;

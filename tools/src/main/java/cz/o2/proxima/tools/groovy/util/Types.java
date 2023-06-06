@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy.util;
 
-import com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import groovy.lang.Closure;
 import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.reflection.CachedClass;

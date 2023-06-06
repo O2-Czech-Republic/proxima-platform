@@ -16,9 +16,6 @@
 package cz.o2.proxima.scheme.proto;
 
 import com.google.auto.service.AutoService;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message.Builder;
@@ -44,6 +41,9 @@ import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.transaction.TransactionSerializerSchemeProvider;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Strings;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.scheme.proto.transactions.Transactions;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoCommit;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoRequest;

@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.io.blob;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;

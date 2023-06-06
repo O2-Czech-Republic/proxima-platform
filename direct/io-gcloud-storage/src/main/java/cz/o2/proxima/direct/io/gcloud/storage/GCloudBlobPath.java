@@ -16,15 +16,15 @@
 package cz.o2.proxima.direct.io.gcloud.storage;
 
 import com.google.cloud.storage.Blob;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
-import com.google.common.base.MoreObjects.ToStringHelper;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.direct.io.blob.BlobBase;
 import cz.o2.proxima.direct.io.blob.BlobPath;
 import cz.o2.proxima.direct.io.bulkfs.FileSystem;
 import cz.o2.proxima.direct.io.bulkfs.Path;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects.ToStringHelper;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;

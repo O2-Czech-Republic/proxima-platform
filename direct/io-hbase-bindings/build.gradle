@@ -19,18 +19,28 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
+  api project(path: ':proxima-core')
+  api project(path: ':proxima-direct-core')
   implementation(libraries.hadoop_common) {
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "com.google.errorprone", module: "error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
   }
   implementation(libraries.hadoop_auth) {
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "com.google.errorprone", module: "error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
   }
-  implementation project(path: ':proxima-io-serialization', configuration: 'shadowJar')
+  api project(path: ':proxima-io-serialization', configuration: "shadowJar")
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.hadoop_common

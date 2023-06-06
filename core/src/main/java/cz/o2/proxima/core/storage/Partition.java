@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.core.storage;
 
-import com.google.common.base.MoreObjects;
 import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;

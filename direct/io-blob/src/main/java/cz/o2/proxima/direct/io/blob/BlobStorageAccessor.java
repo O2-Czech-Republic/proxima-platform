@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.io.blob;
 
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.storage.AbstractStorage.SerializableAbstractStorage;
@@ -24,6 +23,7 @@ import cz.o2.proxima.direct.io.bulkfs.FileFormat;
 import cz.o2.proxima.direct.io.bulkfs.FileFormatUtils;
 import cz.o2.proxima.direct.io.bulkfs.FileSystem;
 import cz.o2.proxima.direct.io.bulkfs.NamingConvention;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;

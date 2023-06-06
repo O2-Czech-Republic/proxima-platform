@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.core.repository;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Streams;
-import com.typesafe.config.Config;
 import cz.o2.proxima.core.annotations.Evolving;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.scheme.ValueSerializerFactory;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.collect.Streams;
+import cz.o2.proxima.typesafe.config.Config;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Map;
@@ -93,6 +93,16 @@ public abstract class Repository implements Serializable {
     return ConfigRepository.ofTest(config, validate);
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static Iterable<DataOperatorFactory<?>> readDataOperatorFactories() {
+    Class<?> thisClass = Repository.class;
+    ModuleLayer thisLayer = thisClass.getModule().getLayer();
+    if (thisLayer != null) {
+      return (Iterable) ServiceLoader.load(thisLayer, DataOperatorFactory.class);
+    }
+    return (Iterable) ServiceLoader.load(DataOperatorFactory.class);
+  }
+
   RepositoryFactory factory;
 
   Repository() {
@@ -107,7 +117,7 @@ public abstract class Repository implements Serializable {
   @SuppressWarnings({"unchecked", "rawtypes"})
   @Getter(AccessLevel.PACKAGE)
   private final transient Iterable<DataOperatorFactory<?>> dataOperatorFactories =
-      (Iterable) ServiceLoader.load(DataOperatorFactory.class);
+      readDataOperatorFactories();
 
   private final transient Map<String, DataOperator> operatorCache = new ConcurrentHashMap<>();
 
@@ -217,7 +227,7 @@ public abstract class Repository implements Serializable {
   /**
    * Retrieve value serializer for given scheme.
    *
-   * @param scheme scheme of the {@link cz.o2.proxima.scheme.ValueSerializerFactory}
+   * @param scheme scheme of the {@link ValueSerializerFactory}
    * @return optional {@link ValueSerializerFactory} for the scheme
    */
   public abstract Optional<ValueSerializerFactory> getValueSerializerFactory(String scheme);

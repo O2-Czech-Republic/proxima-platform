@@ -17,10 +17,7 @@ package cz.o2.proxima.direct.server.transaction;
 
 import static org.junit.Assert.*;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -44,6 +41,9 @@ import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.StatusBulk;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitResponse;
 import cz.o2.proxima.direct.transaction.manager.TransactionLogObserver;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Arrays;

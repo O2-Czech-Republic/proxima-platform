@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.io.kafka;
 
-import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.TimeUnit;
 
 /** Limits throughput when reading data from Kafka. */

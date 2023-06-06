@@ -19,17 +19,20 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  api 'org.freemarker:freemarker:2.3.30'
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
+  intoShadow project(path: ':proxima-direct-core')
+  intoShadow 'org.freemarker:freemarker:2.3.30'
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j
   compileOnly libraries.auto_service_annotations
-  provided libraries.guava
-
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
 }
 
 description = 'cz.o2.proxima:proxima-direct-compiler-plugin'
+
+enableShadowJar(project)
+
+publishArtifacts(project, "default")

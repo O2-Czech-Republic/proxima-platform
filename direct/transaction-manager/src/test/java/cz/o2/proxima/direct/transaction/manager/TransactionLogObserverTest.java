@@ -17,11 +17,6 @@ package cz.o2.proxima.direct.transaction.manager;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -40,6 +35,11 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.transaction.ClientTransactionManager;
 import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
 import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;

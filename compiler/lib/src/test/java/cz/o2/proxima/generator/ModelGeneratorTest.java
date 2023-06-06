@@ -17,7 +17,7 @@ package cz.o2.proxima.generator;
 
 import static org.junit.Assert.*;
 
-import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.StringWriter;

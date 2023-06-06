@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.core.repository.config;
 
-import com.google.common.base.Preconditions;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.functional.UnaryPredicate;
 import cz.o2.proxima.core.repository.ConfigConstants;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.typesafe.config.Config;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;

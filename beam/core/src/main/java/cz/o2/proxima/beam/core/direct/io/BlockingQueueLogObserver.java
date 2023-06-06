@@ -15,9 +15,6 @@
  */
 package cz.o2.proxima.beam.core.direct.io;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.time.WatermarkSupplier;
@@ -27,6 +24,9 @@ import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.LogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;

@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.core.util;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.lang.reflect.InvocationTargetException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,6 +24,21 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 @Slf4j
 public class Classpath {
+
+  private static class ContextClassLoaderFence implements AutoCloseable {
+
+    private final ClassLoader loader;
+
+    ContextClassLoaderFence(ClassLoader newLoader) {
+      this.loader = Thread.currentThread().getContextClassLoader();
+      Thread.currentThread().setContextClassLoader(newLoader);
+    }
+
+    @Override
+    public void close() {
+      Thread.currentThread().setContextClassLoader(loader);
+    }
+  }
 
   /**
    * Find given class. Try hard to find it replacing `.' by `$' if appropriate.
@@ -80,6 +95,11 @@ public class Classpath {
    */
   public static <T> T newInstance(Class<T> cls) {
     try {
+      if (cls.getModule().isNamed()) {
+        try (var fence = new ContextClassLoaderFence(cls.getModule().getClassLoader())) {
+          return cls.getDeclaredConstructor().newInstance();
+        }
+      }
       return cls.getDeclaredConstructor().newInstance();
     } catch (InstantiationException
         | IllegalAccessException

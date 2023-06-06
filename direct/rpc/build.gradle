@@ -20,12 +20,42 @@ plugins {
 }
 
 dependencies {
-  api libraries.protobuf_java
-  api libraries.grpc_core
-  api libraries.grpc_stub
-  api libraries.grpc_api
-  api libraries.grpc_protobuf
-  api 'javax.annotation:javax.annotation-api:1.3.2'
+  api(libraries.protobuf_java) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "javax.annotation", module: "javax.annotation-api"
+  }
+  api(libraries.grpc_core) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "javax.annotation", module: "javax.annotation-api"
+  }
+  api(libraries.grpc_stub) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "javax.annotation", module: "javax.annotation-api"
+  }
+  api(libraries.grpc_api) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "javax.annotation", module: "javax.annotation-api"
+  }
+  api(libraries.grpc_protobuf) {
+    exclude group: "com.google.errorprone", module:"error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "javax.annotation", module: "javax.annotation-api"
+  }
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
 }
 
 description = 'cz.o2.proxima:proxima-server-rpc-proto'
@@ -39,3 +69,5 @@ protobuf {
     all()*.plugins { grpc {} }
   }
 }
+
+publishArtifacts(project, "default")

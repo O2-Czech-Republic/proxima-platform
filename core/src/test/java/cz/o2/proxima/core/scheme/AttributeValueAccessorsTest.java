@@ -17,7 +17,6 @@ package cz.o2.proxima.core.scheme;
 
 import static org.junit.Assert.assertEquals;
 
-import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.scheme.AttributeValueAccessor.Type;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.ArrayValueAccessor;
@@ -25,6 +24,7 @@ import cz.o2.proxima.core.scheme.AttributeValueAccessors.PrimitiveValueAccessor;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.StructureValue;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.StructureValueAccessor;
 import cz.o2.proxima.core.util.TestUtils;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

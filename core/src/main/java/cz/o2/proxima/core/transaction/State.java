@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.core.transaction;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Lists;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;

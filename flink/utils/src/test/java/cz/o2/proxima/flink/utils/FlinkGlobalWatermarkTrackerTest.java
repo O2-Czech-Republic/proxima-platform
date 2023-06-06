@@ -18,13 +18,13 @@ package cz.o2.proxima.flink.utils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
+import cz.o2.proxima.internal.com.google.gson.JsonArray;
+import cz.o2.proxima.internal.com.google.gson.JsonElement;
+import cz.o2.proxima.internal.com.google.gson.JsonObject;
+import cz.o2.proxima.internal.com.google.gson.JsonParser;
 import java.io.ByteArrayInputStream;
 import java.net.MalformedURLException;
 import java.net.URL;

@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.core.metrics;
 
-import com.google.common.util.concurrent.AtomicDouble;
 import cz.o2.proxima.core.annotations.Stable;
+import cz.o2.proxima.internal.com.google.common.util.concurrent.AtomicDouble;
 import java.beans.ConstructorProperties;
 
 /** A metric with absolute value. */

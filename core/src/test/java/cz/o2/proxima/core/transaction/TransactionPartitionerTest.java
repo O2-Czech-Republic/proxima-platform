@@ -18,7 +18,6 @@ package cz.o2.proxima.core.transaction;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
-import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.core.repository.ConfigConstants;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -26,6 +25,7 @@ import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Partitioner;
 import cz.o2.proxima.core.transaction.Request.Flags;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 public class TransactionPartitionerTest {

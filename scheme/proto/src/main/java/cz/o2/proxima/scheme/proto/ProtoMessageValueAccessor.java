@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.scheme.proto;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
@@ -31,6 +29,8 @@ import cz.o2.proxima.core.scheme.AttributeValueAccessors.ArrayValueAccessor;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.PrimitiveValueAccessor;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.StructureValue;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.StructureValueAccessor;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;

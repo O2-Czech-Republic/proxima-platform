@@ -22,13 +22,12 @@ dependencies {
   api project(':proxima-beam-core')
   implementation project(':proxima-scheme-proto-testing')
   implementation project(':proxima-scheme-proto')
-  provided libraries.guava
   testImplementation libraries.beam_runners_direct
   testImplementation libraries.junit4
   testImplementation libraries.hamcrest
   testImplementation libraries.slf4j_log4j
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
-  compileOnly project(path: ':proxima-compiler-java-cli', configuration: 'shadowJar')
+  compileOnly project(path: ':proxima-compiler-java-cli', configuration: "shadowJar")
   compileOnly libraries.auto_service_annotations
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service

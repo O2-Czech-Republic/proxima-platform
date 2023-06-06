@@ -33,6 +33,8 @@ import cz.o2.proxima.core.storage.internal.DataAccessorLoader;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.direct.core.ClassLoaders.ChildFirstURLClassLoader;
+import cz.o2.proxima.direct.core.ClassLoaders.ChildLayerFirstClassLoader;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.BatchLogReaders;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
@@ -52,7 +54,6 @@ import java.lang.module.Configuration;
 import java.lang.module.ModuleFinder;
 import java.net.URI;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -119,8 +120,6 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
 
   private final Map<String, ClassLoader> loaderCache = new HashMap<>();
 
-  private final ModuleLayer layer;
-
   private final DataAccessorLoader<DirectDataOperator, DataAccessor, DataAccessorFactory> loader;
 
   private volatile TransactionResourceManager transactionManager;
@@ -129,7 +128,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     this.repo = repo;
     this.context = new Context(familyMap::get, executorFactory);
     this.config = ((ConfigRepository) repo).getConfig();
-    this.layer = getModuleLayer(config);
+    ModuleLayer layer = getModuleLayer(config);
     this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class, layer);
     reload();
   }
@@ -144,39 +143,37 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       Class<?> thisCls = getClass();
       ModuleFinder finder = ModuleFinder.of(Path.of(path));
       Configuration parentConf = parentLayer.configuration();
-      ClassLoader parentLoader = Thread.currentThread().getContextClassLoader();
+      ChildLayerFirstClassLoader parentLoader =
+          new ChildLayerFirstClassLoader(finder, getClass().getModule().getClassLoader());
       Configuration moduleConf =
           parentConf.resolveAndBind(
               finder, ModuleFinder.of(), Collections.singletonList(thisCls.getModule().getName()));
-      return thisCls
-          .getModule()
-          .getLayer()
-          .defineModules(
-              moduleConf,
-              name ->
-                  getOrCreateModuleLoader(
-                      parentLoader,
-                      finder
-                          .find(name)
-                          .orElseThrow()
-                          .location()
-                          .map(u -> ExceptionUtils.uncheckedFactory(u::toURL))
-                          .orElseThrow(),
-                      name));
+      ModuleLayer layer =
+          thisCls
+              .getModule()
+              .getLayer()
+              .defineModules(
+                  moduleConf,
+                  name ->
+                      getOrCreateModuleLoader(
+                          parentLoader,
+                          finder
+                              .find(name)
+                              .orElseThrow()
+                              .location()
+                              .map(u -> ExceptionUtils.uncheckedFactory(u::toURL))
+                              .orElseThrow(),
+                          name));
+      parentLoader.setLayer(layer);
+      return layer;
     }
     return parentLayer;
   }
 
-  private ClassLoader getOrCreateModuleLoader(ClassLoader parent, URL location, String moduleName) {
+  private ClassLoader getOrCreateModuleLoader(
+      ChildLayerFirstClassLoader parent, URL location, String moduleName) {
     return loaderCache.computeIfAbsent(
-        moduleName,
-        tmp ->
-            new URLClassLoader(new URL[] {location}, parent) {
-              @Override
-              protected Class<?> findClass(String moduleName, String name) {
-                return super.findClass(null, name);
-              }
-            });
+        moduleName, tmp -> new ChildFirstURLClassLoader(new URL[] {location}, parent));
   }
 
   /**
@@ -287,7 +284,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return the serializable context
    */
   @Override
-  public Context getContext() {
+  public Context getContext () {
     return context;
   }
 

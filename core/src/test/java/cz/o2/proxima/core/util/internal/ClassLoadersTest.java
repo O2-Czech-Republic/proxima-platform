@@ -13,18 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.core;
+package cz.o2.proxima.core.util.internal;
 
+import static junit.framework.Assert.assertSame;
 import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import cz.o2.proxima.direct.core.ClassLoaders.ChildFirstURLClassLoader;
-import cz.o2.proxima.direct.core.ClassLoaders.ChildLayerFirstClassLoader;
+import cz.o2.proxima.core.util.internal.ClassLoaders.ChildFirstURLClassLoader;
+import cz.o2.proxima.core.util.internal.ClassLoaders.ChildLayerFirstClassLoader;
+import java.io.IOException;
 import java.lang.module.ModuleFinder;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.junit.Test;
@@ -61,7 +66,6 @@ public class ClassLoadersTest {
   }
 
   @Test
-  @SuppressWarnings({"unchecked", "rawtypes"})
   public void testChildFirstURLClassLoaderInSibling() throws ClassNotFoundException {
     Class<?> sibling = String.class;
     AtomicReference<ChildFirstURLClassLoader> moduleALoader = new AtomicReference<>();
@@ -98,5 +102,37 @@ public class ClassLoadersTest {
 
     Class<?> clazz = moduleALoader.get().loadClass("test", true);
     assertEquals(sibling, clazz);
+  }
+
+  @Test
+  public void testFindResources() throws ClassNotFoundException, IOException {
+    ModuleFinder finder = mock(ModuleFinder.class);
+    ChildLayerFirstClassLoader parentLoader =
+        new ChildLayerFirstClassLoader(finder, Thread.currentThread().getContextClassLoader()) {
+
+          @Override
+          Stream<String> getNamesForModules(ModuleFinder finder) {
+            return Arrays.asList("module.a", "module.b").stream();
+          }
+
+          @Override
+          ChildFirstURLClassLoader getModuleLoader(String module) {
+            return new ChildFirstURLClassLoader(new URL[] {}, this);
+          }
+        };
+
+    parentLoader.setLayer(mock(ModuleLayer.class));
+    Enumeration<URL> found = parentLoader.findResources("test-reference.conf");
+    assertNotNull(found);
+  }
+
+  @Test
+  public void testContextLoaderFence() {
+    ClassLoader current = Thread.currentThread().getContextClassLoader();
+    ClassLoader loader = new URLClassLoader(new URL[] {}, getClass().getClassLoader());
+    try (var ign = new ClassLoaders.ContextLoaderFence(loader)) {
+      assertSame(loader, Thread.currentThread().getContextClassLoader());
+    }
+    assertSame(current, Thread.currentThread().getContextClassLoader());
   }
 }

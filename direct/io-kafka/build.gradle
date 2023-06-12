@@ -63,8 +63,6 @@ enableShadowJar(project) {
   regexes.find { p -> it =~ p }
 }
 
-updateModulePath(project)
-
 shadowJar {
   ["org.apache.kafka", "net.sf", "com.yammer", "scala", "com.101tec",
    "org.apache.zookeeper", "com.google", "com.fasterxml", "org.xerial",

@@ -51,8 +51,6 @@ enableShadowJar(project) {
   regexes.find { p -> it =~ p }
 }
 
-updateModulePath(project)
-
 shadowJar {
   relocators.clear()
   ["io.netty", "io.dropwizard", "com.github.jnr", "com.google", "jnr", "com.kenai",

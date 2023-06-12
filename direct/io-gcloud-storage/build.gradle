@@ -49,11 +49,6 @@ enableShadowJar(project) {
   regexes.find { p -> it =~ p }
 }
 
-updateModulePath(project) {
-  def name = it.name
-  !name.contains("j2objc") && !name.contains("jsr305") && !name.contains("javax.annotation")
-}
-
 shadowJar {
   ["io.netty", "io.grpc", "io.opencensus", "com.google", "org.codehaus.jackson",
    "com.fasterxml", "org.apache.commons", "org.codehaus", "org.apache", "org.threeten"].each {

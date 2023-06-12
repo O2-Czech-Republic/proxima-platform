@@ -80,8 +80,6 @@ import lombok.extern.slf4j.Slf4j;
 
 /** Repository of all entities configured in the system. */
 @Slf4j
-// BUG in error prone
-@SuppressWarnings("InconsistentCapitalization")
 public final class ConfigRepository extends Repository {
 
   private static final long serialVersionUID = 1L;

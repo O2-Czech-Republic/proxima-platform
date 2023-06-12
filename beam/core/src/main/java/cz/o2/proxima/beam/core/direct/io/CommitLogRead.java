@@ -55,6 +55,7 @@ import org.apache.beam.sdk.transforms.splittabledofn.WatermarkEstimators.Manual;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TypeDescriptor;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 
@@ -494,6 +495,11 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
     public Coder<Instant> getWatermarkEstimatorStateCoder() {
       return InstantCoder.of();
+    }
+
+    @Override
+    public TypeDescriptor<StreamElement> getOutputTypeDescriptor() {
+      return TypeDescriptor.of(StreamElement.class);
     }
   }
 

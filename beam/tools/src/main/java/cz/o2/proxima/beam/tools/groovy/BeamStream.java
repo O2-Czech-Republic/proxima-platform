@@ -171,7 +171,7 @@ class BeamStream<T> implements Stream<T> {
 
   @SuppressWarnings("unchecked")
   private static <T> BeamStream<T> wrapPCollection(StreamConfig config, PCollection<T> collection) {
-    return new BeamStream<T>(
+    return new BeamStream<>(
         config,
         collection.isBounded() == IsBounded.BOUNDED,
         PCollectionProvider.wrap(collection),
@@ -190,7 +190,7 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>... attrs) {
 
-    return new BeamStream<StreamElement>(
+    return new BeamStream<>(
         asConfig(beam),
         stopAtCurrent,
         PCollectionProvider.fixedType(
@@ -208,7 +208,7 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
-    return new BeamStream<StreamElement>(
+    return new BeamStream<>(
         asConfig(beam),
         true,
         PCollectionProvider.boundedOrUnbounded(
@@ -546,14 +546,13 @@ class BeamStream<T> implements Stream<T> {
     if (what instanceof StreamElement) {
       StreamElement el = (StreamElement) what;
       Optional<?> parsed = el.getParsed();
-      System.out.println(
-          String.format(
-              "%s %s %s %d %s",
-              el.getKey(),
-              el.getAttribute(),
-              el.getUuid(),
-              el.getStamp(),
-              parsed.isPresent() ? parsed.get() : "(null)"));
+      System.out.printf(
+          "%s %s %s %d %s%n",
+          el.getKey(),
+          el.getAttribute(),
+          el.getUuid(),
+          el.getStamp(),
+          parsed.isPresent() ? parsed.get() : "(null)");
     } else {
       System.out.println(what);
     }

@@ -28,6 +28,7 @@ import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.server.metrics.Metrics;
 import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc;
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 
 /** Service for reading data. */
@@ -128,20 +130,40 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
       List<KeyValue<Object>> kvs = new ArrayList<>();
       Rpc.ListResponse.Builder response = Rpc.ListResponse.newBuilder().setStatus(200);
+      Predicate<KeyValue<Object>> filterPredicate =
+          request.getWildcardPrefix().equals(wildcard.toAttributePrefix())
+                  || request.getWildcardPrefix().equals(wildcard.toAttributePrefix(false))
+              ? ign -> true
+              : kv -> kv.getAttribute().startsWith(request.getWildcardPrefix());
+      String requestOffset = request.getOffset();
+      if (requestOffset.isEmpty()) {
+        requestOffset = request.getWildcardPrefix();
+      }
+
+      if (!requestOffset.startsWith(request.getWildcardPrefix())) {
+        throw new Status(
+            400,
+            String.format(
+                "Offset must have prefix given by wildcardPrefix, got %s and %s",
+                requestOffset, request.getWildcardPrefix()));
+      }
 
       synchronized (reader) {
+        int limit = request.getLimit() > 0 ? request.getLimit() : -1;
         reader.scanWildcard(
             request.getKey(),
             wildcard,
-            reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, request.getOffset()),
-            request.getLimit() > 0 ? request.getLimit() : -1,
+            reader.fetchOffset(Listing.ATTRIBUTE, requestOffset),
+            limit,
             kvs::add);
-        kvs.forEach(
-            kv ->
-                response.addValue(
-                    Rpc.ListResponse.AttrValue.newBuilder()
-                        .setAttribute(kv.getAttribute())
-                        .setValue(ByteString.copyFrom(kv.getValue()))));
+        kvs.stream()
+            .filter(filterPredicate)
+            .forEach(
+                kv ->
+                    response.addValue(
+                        Rpc.ListResponse.AttrValue.newBuilder()
+                            .setAttribute(kv.getAttribute())
+                            .setValue(ByteString.copyFrom(kv.getValue()))));
       }
       noticeListResult(request, entity, wildcard, kvs);
       replyLogged(responseObserver, request, response.build());

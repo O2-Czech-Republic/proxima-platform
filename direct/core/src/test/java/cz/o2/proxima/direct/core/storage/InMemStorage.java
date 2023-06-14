@@ -903,17 +903,20 @@ public class InMemStorage implements DataAccessorFactory {
         Consumer<KeyValue<Object>> consumer) {
 
       String off = offset == null ? "" : ((RawOffset) offset).getOffset();
-      String start = toMapKey(key, prefix);
+      String prefixKey = toMapKey(key, prefix);
+      boolean isOffsetExplicit = offset != null;
+      off = prefix.compareTo(off) > 0 ? prefix : off;
+      String startKey = toMapKey(key, off);
       int count = 0;
       try (Locker l = holder().lockRead()) {
-        SortedMap<String, StreamElement> dataMap = getData().tailMap(start);
+        SortedMap<String, StreamElement> dataMap = getData().tailMap(startKey);
         for (Map.Entry<String, StreamElement> e : dataMap.entrySet()) {
-          log.trace("Scanning entry {} looking for prefix {}", e, start);
+          log.trace("Scanning entry {} looking for prefix {}", e, prefixKey);
           if (e.getValue().getStamp() <= stamp) {
-            if (e.getKey().startsWith(start)) {
+            if (e.getKey().startsWith(prefixKey)) {
               int hash = e.getKey().lastIndexOf("#");
               String attribute = e.getKey().substring(hash + 1);
-              if (attribute.equals(off) || e.getValue().isDelete()) {
+              if ((isOffsetExplicit && attribute.equals(off)) || e.getValue().isDelete()) {
                 continue;
               }
               Optional<AttributeDescriptor<Object>> attr;

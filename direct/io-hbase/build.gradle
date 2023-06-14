@@ -20,10 +20,43 @@ plugins {
 
 dependencies {
   api project(path: ':proxima-direct-core')
-  intoShadow project(path: ':proxima-direct-io-hbase-bindings')
-  intoShadow libraries.hadoop_common
-  intoShadow libraries.hbase_client
-  intoShadow libraries.hbase_common
+  api project(path: ':proxima-core')
+  api libraries.slf4j_api
+  intoShadow(project(path: ':proxima-direct-io-hbase-bindings')) {
+    exclude group: "cz.o2.proxima", module: "proxima-core"
+    exclude group: "cz.o2.proxima", module: "proxima-direct-core"
+    exclude group: "org.slf4j", module: "slf4j-api"
+  }
+  intoShadow(libraries.hadoop_common) {
+    exclude group: "org.slf4j", module: "slf4j-api"
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "com.google.errorprone", module: "error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+  }
+  intoShadow(libraries.hbase_client) {
+    exclude group: "org.slf4j", module: "slf4j-api"
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "com.google.errorprone", module: "error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+  }
+  intoShadow(libraries.hbase_common) {
+    exclude group: "org.slf4j", module: "slf4j-api"
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "com.google.errorprone", module: "error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+  }
   compileAnnotationProcessor libraries.lombok
 }
 
@@ -37,6 +70,8 @@ shadowJar {
 
     relocate it, "cz.o2.proxima.hbase.shaded.${it}"
   }
+
+  exclude "org/slf4j/*"
 }
 
 publishArtifacts(project, "default")

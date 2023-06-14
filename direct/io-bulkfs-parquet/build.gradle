@@ -21,7 +21,10 @@ plugins {
 dependencies {
   api project(path: ':proxima-direct-io-bulkfs')
   implementation "cz.o2.proxima:proxima-vendor:${project.version}"
-  intoShadow 'org.apache.parquet:parquet-hadoop:1.12.2'
+  implementation libraries.slf4j_api
+  intoShadow('org.apache.parquet:parquet-hadoop:1.12.2') {
+    exclude group: "org.slf4j", module: "slf4j-api"
+  }
   testImplementation project(path: ':proxima-direct-io-bulkfs', configuration: 'testsJar')
   testImplementation project(':proxima-scheme-proto')
   testImplementation project(':proxima-scheme-proto-testing')

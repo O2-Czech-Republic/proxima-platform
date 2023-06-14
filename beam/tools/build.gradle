@@ -43,8 +43,8 @@ dependencies {
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-tools', configuration: 'testsJar')
   testImplementation libraries.spark_core
-  testImplementation libraries.log4j_over_slf4j
   testImplementation libraries.slf4j_log4j
+  testImplementation libraries.log4j_core
   testImplementation libraries.junit4
   testImplementation libraries.hamcrest
   testImplementation(libraries.beam_runners_flink) {

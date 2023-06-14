@@ -100,7 +100,9 @@ public interface RandomAccessReader extends Closeable {
   }
 
   /**
-   * Construct {@code Offset} from string (representing either key of the entity or attribute).
+   * Construct {@code Offset} from string (representing either key of the entity or attribute). The
+   * returned offset represents the first element that is <b>following</b> the given {@code key}, in
+   * case of equality.
    *
    * @param type the type of the key
    * @param key the key of entity or attribute
@@ -283,7 +285,7 @@ public interface RandomAccessReader extends Closeable {
    * @param key key of the entity
    * @param wildcard wildcard attribute to scan
    * @param offset name of attribute (including the prefix) to start from
-   * @param limit maximal number of items to consume *
+   * @param limit maximal number of items to consume
    * @param consumer the consumer to stream data to
    */
   default <T> void scanWildcard(

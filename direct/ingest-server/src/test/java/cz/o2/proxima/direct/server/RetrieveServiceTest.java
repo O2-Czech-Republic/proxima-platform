@@ -27,7 +27,7 @@ import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.KeyAttributes;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.CommitCallback;
-import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.GetRequest;
 import cz.o2.proxima.direct.server.test.Test.ExtendedMessage;
@@ -64,8 +64,7 @@ public class RetrieveServiceTest {
     retrieve =
         new RetrieveService(server.repo, server.direct, new TransactionContext(server.direct)) {
           @Override
-          void updateTransaction(String transactionId, List<KeyAttribute> keyAttributes)
-              throws TransactionRejectedException {
+          void updateTransaction(String transactionId, List<KeyAttribute> keyAttributes) {
             transactionUpdates.compute(
                 transactionId,
                 (k, v) -> {
@@ -87,7 +86,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.GetResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.GetResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.GetResponse res) {
             responses.add(res);
@@ -119,7 +118,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.ListResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.ListResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ListResponse res) {
             responses.add(res);
@@ -171,7 +170,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.GetResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.GetResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.GetResponse res) {
             responses.add(res);
@@ -237,7 +236,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.MultifetchResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.MultifetchResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.MultifetchResponse res) {
             responses.add(res);
@@ -295,7 +294,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.GetResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.GetResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.GetResponse res) {
             responses.add(res);
@@ -368,7 +367,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.MultifetchResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.MultifetchResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.MultifetchResponse res) {
             responses.add(res);
@@ -389,7 +388,6 @@ public class RetrieveServiceTest {
     assertTrue(finished.get());
     assertEquals(1, responses.size());
     for (int i = 0; i < keys.length; i++) {
-      String key = keys[i];
       Rpc.GetResponse response = responses.get(0).getGetResponse(i);
       assertEquals(
           "Error: " + response.getStatus() + ": " + response.getStatusMessage(),
@@ -418,7 +416,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.GetResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.GetResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.GetResponse res) {
             responses.add(res);
@@ -459,7 +457,7 @@ public class RetrieveServiceTest {
     final List<Rpc.GetResponse> responses = new ArrayList<>();
     final StreamObserver<Rpc.GetResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.GetResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.GetResponse res) {
             responses.add(res);
@@ -525,7 +523,7 @@ public class RetrieveServiceTest {
     AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.ListResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.ListResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ListResponse res) {
             responses.add(res);
@@ -605,7 +603,7 @@ public class RetrieveServiceTest {
     AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.MultifetchResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.MultifetchResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.MultifetchResponse res) {
             responses.add(res);
@@ -681,7 +679,7 @@ public class RetrieveServiceTest {
     List<Rpc.ListResponse> responses = new ArrayList<>();
     final StreamObserver<Rpc.ListResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.ListResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ListResponse res) {
             responses.add(res);
@@ -765,7 +763,7 @@ public class RetrieveServiceTest {
     List<Rpc.MultifetchResponse> responses = new ArrayList<>();
     final StreamObserver<Rpc.MultifetchResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.MultifetchResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.MultifetchResponse res) {
             responses.add(res);
@@ -843,7 +841,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.ListResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.ListResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ListResponse res) {
             responses.add(res);
@@ -874,7 +872,6 @@ public class RetrieveServiceTest {
   @Test
   public void testListValidWithOffsetAndTransaction() {
     EntityDescriptor entity = server.repo.getEntity("dummy");
-    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
     Rpc.ListRequest request =
@@ -889,7 +886,7 @@ public class RetrieveServiceTest {
     final List<Rpc.ListResponse> responses = new ArrayList<>();
     final StreamObserver<Rpc.ListResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.ListResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ListResponse res) {
             responses.add(res);
@@ -951,7 +948,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.ListResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.ListResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ListResponse res) {
             responses.add(res);
@@ -982,7 +979,6 @@ public class RetrieveServiceTest {
   @Test
   public void testListValidWithLimitWithTransaction() {
     EntityDescriptor entity = server.repo.getEntity("dummy");
-    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
     Rpc.ListRequest request =
@@ -997,7 +993,7 @@ public class RetrieveServiceTest {
     final List<Rpc.ListResponse> responses = new ArrayList<>();
     final StreamObserver<Rpc.ListResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.ListResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ListResponse res) {
             responses.add(res);
@@ -1048,7 +1044,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.GetResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.GetResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.GetResponse res) {
             responses.add(res);
@@ -1080,7 +1076,6 @@ public class RetrieveServiceTest {
   @Test
   public void testListNotFound() {
     EntityDescriptor entity = server.repo.getEntity("dummy");
-    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
     Rpc.ListRequest request =
@@ -1095,7 +1090,7 @@ public class RetrieveServiceTest {
     final AtomicBoolean finished = new AtomicBoolean(false);
     final StreamObserver<Rpc.ListResponse> responseObserver;
     responseObserver =
-        new StreamObserver<Rpc.ListResponse>() {
+        new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ListResponse res) {
             responses.add(res);
@@ -1119,5 +1114,72 @@ public class RetrieveServiceTest {
     Rpc.ListResponse response = responses.get(0);
     assertEquals(200, response.getStatus());
     assertTrue(response.getValueList().isEmpty());
+  }
+
+  @Test
+  public void testListWithLongPrefix() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
+    String key = "my-fancy-entity-key";
+
+    OnlineAttributeWriter writer = Optionals.get(server.direct.getWriter(attribute));
+    writer.write(
+        StreamElement.upsert(
+            entity,
+            attribute,
+            UUID.randomUUID().toString(),
+            key,
+            attribute.toAttributePrefix() + "non-prefix",
+            System.currentTimeMillis(),
+            new byte[] {}),
+        CommitCallback.noop());
+    writer.write(
+        StreamElement.upsert(
+            entity,
+            attribute,
+            UUID.randomUUID().toString(),
+            key,
+            attribute.toAttributePrefix() + "prefix",
+            System.currentTimeMillis(),
+            new byte[] {}),
+        CommitCallback.noop());
+
+    Rpc.ListRequest request =
+        Rpc.ListRequest.newBuilder()
+            .setEntity(entity.getName())
+            .setWildcardPrefix(attribute.toAttributePrefix() + "prefi")
+            .setKey(key)
+            .setLimit(1)
+            .build();
+
+    final List<Rpc.ListResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.ListResponse> responseObserver;
+    responseObserver =
+        new StreamObserver<>() {
+          @Override
+          public void onNext(Rpc.ListResponse res) {
+            responses.add(res);
+          }
+
+          @Override
+          public void onError(Throwable thrwbl) {
+            throw new RuntimeException(thrwbl);
+          }
+
+          @Override
+          public void onCompleted() {
+            finished.set(true);
+          }
+        };
+
+    retrieve.listAttributes(request, responseObserver);
+
+    assertTrue(finished.get());
+    assertEquals(1, responses.size());
+    Rpc.ListResponse response = responses.get(0);
+    assertEquals(200, response.getStatus());
+    assertEquals(1, response.getValueCount());
+    assertEquals(attribute.toAttributePrefix() + "prefix", response.getValue(0).getAttribute());
   }
 }

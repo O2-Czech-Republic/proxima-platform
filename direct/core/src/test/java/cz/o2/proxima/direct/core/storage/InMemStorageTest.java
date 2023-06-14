@@ -41,6 +41,7 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
@@ -49,6 +50,9 @@ import cz.o2.proxima.direct.core.commitlog.LogObserverUtils;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandleUtils;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.direct.core.randomaccess.KeyValue;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.core.storage.InMemStorage.ConsumedOffset;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
@@ -71,6 +75,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -81,6 +86,8 @@ public class InMemStorageTest implements Serializable {
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final EntityDescriptor entity = repo.getEntity("dummy");
   final AttributeDescriptor<?> data = entity.getAttribute("data");
+
+  final AttributeDescriptor<?> wildcard = entity.getAttribute("wildcard.*");
 
   @Test(timeout = 10000)
   public void testObservePartitions() throws InterruptedException {
@@ -478,11 +485,6 @@ public class InMemStorageTest implements Serializable {
     startLatch.countDown();
     latch.await();
     assertEquals(2 * numPartitions, elements.size());
-    List<Offset> committed = handle.getCommittedOffsets();
-    Map<Partition, Offset> endOffsets2 =
-        reader.fetchOffsets(
-            Position.NEWEST,
-            committed.stream().map(Offset::getPartition).collect(Collectors.toList()));
     assertTrue(ObserveHandleUtils.isAtHead(handle, reader));
     assertEquals(
         IntStream.range(0, 2 * numPartitions)
@@ -522,9 +524,6 @@ public class InMemStorageTest implements Serializable {
               public long getWatermark() {
                 return Watermarks.MAX_WATERMARK - InMemStorage.getBoundedOutOfOrderness();
               }
-
-              @Override
-              public void update(StreamElement element) {}
 
               @Override
               public void setMinWatermark(long minWatermark) {}
@@ -834,7 +833,7 @@ public class InMemStorageTest implements Serializable {
             new ConsumedOffset(Partition.of(1), new HashSet<>(Arrays.asList("a", "b")), 1000L));
 
     HashMap<String, Object> jsonObject =
-        new ObjectMapper().readValue(json, new TypeReference<HashMap<String, Object>>() {});
+        new ObjectMapper().readValue(json, new TypeReference<>() {});
 
     assertEquals(1, jsonObject.get("partition"));
     assertEquals(Arrays.asList("a", "b"), jsonObject.get("offset"));
@@ -873,6 +872,39 @@ public class InMemStorageTest implements Serializable {
     InMemStorage.ConsumedOffsetExternalizer externalizer =
         new InMemStorage.ConsumedOffsetExternalizer();
     assertThrows(SerializationException.class, () -> externalizer.fromBytes(new byte[] {0x0}));
+  }
+
+  @Test(timeout = 10000)
+  public void testScanWildcard() throws InterruptedException {
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
+    RandomAccessReader reader = Optionals.get(accessor.getRandomAccessReader(direct.getContext()));
+    OnlineAttributeWriter writer = Optionals.get(accessor.getWriter(direct.getContext())).online();
+    String key = "key";
+    Stream.of("prefix", "non-prefix")
+        .forEach(
+            name ->
+                writer.write(
+                    StreamElement.upsert(
+                        entity,
+                        wildcard,
+                        UUID.randomUUID().toString(),
+                        key,
+                        wildcard.toAttributePrefix() + name,
+                        System.currentTimeMillis(),
+                        new byte[] {1}),
+                    (succ, exc) -> {}));
+    List<KeyValue<?>> kvs = new ArrayList<>();
+    reader.scanWildcard(
+        key,
+        wildcard,
+        reader.fetchOffset(Listing.ATTRIBUTE, wildcard.toAttributePrefix() + "prefi"),
+        1,
+        kvs::add);
+    assertEquals(1, kvs.size());
+    assertEquals(wildcard.toAttributePrefix() + "prefix", kvs.get(0).getAttribute());
   }
 
   private AttributeFamilyDescriptor createFamilyDescriptor(URI storageUri) {

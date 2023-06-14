@@ -20,7 +20,9 @@ plugins {
 
 dependencies {
   api project(path: ':proxima-core')
+  implementation libraries.slf4j_api
   intoShadow('org.apache.zookeeper:zookeeper:3.6.2') {
+    exclude group: "org.slf4j", module: "slf4j-api"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
   }

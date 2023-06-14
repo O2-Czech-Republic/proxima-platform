@@ -22,8 +22,27 @@ dependencies {
   api project(path: ":proxima-core")
   api project(path: ":proxima-direct-core")
   api project(path: ':proxima-direct-io-hadoop')
-  intoShadow libraries.hadoop_common
-  intoShadow libraries.hadoop_hdfs
+  implementation libraries.slf4j_api
+  intoShadow(libraries.hadoop_common) {
+    exclude group: "org.slf4j", module: "slf4j-api"
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "com.google.errorprone", module: "error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+  }
+  intoShadow(libraries.hadoop_hdfs) {
+    exclude group: "org.slf4j", module: "slf4j-api"
+    exclude group: "org.slf4j", module: "slf4j-reload4j"
+    exclude group: "org.slf4j", module: "slf4j-log4j12"
+    exclude group: "log4j", module: "log4j"
+    exclude group: "com.google.code.findbugs", module: "jsr305"
+    exclude group: "org.checkerframework", module: "checker-qual"
+    exclude group: "com.google.errorprone", module: "error_prone_annotations"
+    exclude group: "com.google.j2objc", module: "j2objc-annotations"
+  }
   testImplementation libraries.junit4
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -43,6 +62,8 @@ shadowJar {
 
     relocate it, "cz.o2.proxima.hdfs.shaded.${it}"
   }
+
+  exclude "org/slf4j/*"
 }
 
 publishArtifacts(project, "default")

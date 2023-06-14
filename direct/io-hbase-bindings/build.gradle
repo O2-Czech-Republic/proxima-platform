@@ -22,6 +22,7 @@ dependencies {
   api project(path: ':proxima-core')
   api project(path: ':proxima-direct-core')
   implementation(libraries.hadoop_common) {
+    exclude group: "org.slf4j", module: "slf4j-api"
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"
@@ -31,6 +32,7 @@ dependencies {
     exclude group: "com.google.j2objc", module: "j2objc-annotations"
   }
   implementation(libraries.hadoop_auth) {
+    exclude group: "org.slf4j", module: "slf4j-api"
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "log4j", module: "log4j"

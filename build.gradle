@@ -115,17 +115,39 @@ if (project.hasProperty("with-coverage")) {
   }
 }
 
+def collectSources(p, target) {
+  def collectSingle = {
+    def path = it.path
+    def targetPath = "${target}/${path.substring(path.indexOf("cz/"))}"
+    def tp = java.nio.file.Path.of(targetPath)
+    def sp = java.nio.file.Path.of(path)
+    if (!java.nio.file.Files.exists(tp)) {
+      if (!java.nio.file.Files.exists(tp.getParent())) {
+        java.nio.file.Files.createDirectories(tp.getParent())
+      }
+      java.nio.file.Files.copy(sp, tp)
+    }
+  }
+  p.sourceSets.main.allJava.each {
+    if (it.path.contains("cz/o2")) {
+      collectSingle(it)
+    }
+  }
+}
 
 task javadocAggregate(type: Javadoc) {
   group = "Documentation"
   description = "Generate aggregated javadoc"
-  subprojects.each {
-    dependsOn it.compileJava, it.compileTestJava
-  }
-  source subprojects.collect { it.sourceSets.main.java }
-  classpath = files(subprojects.collect { it.sourceSets.main.compileClasspath })
+
+  dependsOn subprojects.collectMany { [it.tasks["compileJava"], it.tasks["compileTestJava"]] }
+  def target = "${buildDir}/docs/collected"
+  subprojects.each { collectSources(it, target) }
+  source files(target)
+  classpath = files(subprojects.collect { it.sourceSets.main.compileClasspath } + subprojects.collect { it.sourceSets.test.compileClasspath })
   destinationDir = file("${buildDir}/docs/javadoc")
-  failOnError = false
+  failOnError = true
+
+  exclude "cz/o2/proxima/example/**"
 }
 
 

@@ -1182,4 +1182,148 @@ public class RetrieveServiceTest {
     assertEquals(1, response.getValueCount());
     assertEquals(attribute.toAttributePrefix() + "prefix", response.getValue(0).getAttribute());
   }
+
+  @Test
+  public void testListWithLongPrefixMany() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
+    String key = "my-fancy-entity-key";
+
+    OnlineAttributeWriter writer = Optionals.get(server.direct.getWriter(attribute));
+    for (int i = 0; i < 5000; i++) {
+      writer.write(
+          StreamElement.upsert(
+              entity,
+              attribute,
+              UUID.randomUUID().toString(),
+              key,
+              String.format("%s.non-prefix.%04d", attribute.toAttributePrefix(false), i),
+              System.currentTimeMillis(),
+              new byte[] {}),
+          CommitCallback.noop());
+      writer.write(
+          StreamElement.upsert(
+              entity,
+              attribute,
+              UUID.randomUUID().toString(),
+              key,
+              String.format("%s.prefix.%04d", attribute.toAttributePrefix(false), i),
+              System.currentTimeMillis(),
+              new byte[] {}),
+          CommitCallback.noop());
+    }
+
+    Rpc.ListRequest request =
+        Rpc.ListRequest.newBuilder()
+            .setEntity(entity.getName())
+            .setWildcardPrefix(attribute.toAttributePrefix() + "prefix.")
+            .setKey(key)
+            .setLimit(1000)
+            .build();
+
+    final List<Rpc.ListResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.ListResponse> responseObserver;
+    responseObserver =
+        new StreamObserver<>() {
+          @Override
+          public void onNext(Rpc.ListResponse res) {
+            responses.add(res);
+          }
+
+          @Override
+          public void onError(Throwable thrwbl) {
+            throw new RuntimeException(thrwbl);
+          }
+
+          @Override
+          public void onCompleted() {
+            finished.set(true);
+          }
+        };
+
+    retrieve.listAttributes(request, responseObserver);
+
+    assertTrue(finished.get());
+    assertEquals(1, responses.size());
+    Rpc.ListResponse response = responses.get(0);
+    assertEquals(200, response.getStatus());
+    assertEquals(1000, response.getValueCount());
+    assertEquals(
+        attribute.toAttributePrefix() + "prefix.0000", response.getValue(0).getAttribute());
+    assertEquals(
+        attribute.toAttributePrefix() + "prefix.0999", response.getValue(999).getAttribute());
+  }
+
+  @Test
+  public void testListWithLongPrefixManyWithHugeLimit() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
+    String key = "my-fancy-entity-key";
+
+    OnlineAttributeWriter writer = Optionals.get(server.direct.getWriter(attribute));
+    for (int i = 0; i < 5000; i++) {
+      writer.write(
+          StreamElement.upsert(
+              entity,
+              attribute,
+              UUID.randomUUID().toString(),
+              key,
+              String.format("%s.non-prefix.%04d", attribute.toAttributePrefix(false), i),
+              System.currentTimeMillis(),
+              new byte[] {}),
+          CommitCallback.noop());
+      writer.write(
+          StreamElement.upsert(
+              entity,
+              attribute,
+              UUID.randomUUID().toString(),
+              key,
+              String.format("%s.prefix.%04d", attribute.toAttributePrefix(false), i),
+              System.currentTimeMillis(),
+              new byte[] {}),
+          CommitCallback.noop());
+    }
+
+    Rpc.ListRequest request =
+        Rpc.ListRequest.newBuilder()
+            .setEntity(entity.getName())
+            .setWildcardPrefix(attribute.toAttributePrefix() + "prefix.")
+            .setKey(key)
+            .setLimit(5001)
+            .build();
+
+    final List<Rpc.ListResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.ListResponse> responseObserver;
+    responseObserver =
+        new StreamObserver<>() {
+          @Override
+          public void onNext(Rpc.ListResponse res) {
+            responses.add(res);
+          }
+
+          @Override
+          public void onError(Throwable thrwbl) {
+            throw new RuntimeException(thrwbl);
+          }
+
+          @Override
+          public void onCompleted() {
+            finished.set(true);
+          }
+        };
+
+    retrieve.listAttributes(request, responseObserver);
+
+    assertTrue(finished.get());
+    assertEquals(1, responses.size());
+    Rpc.ListResponse response = responses.get(0);
+    assertEquals(200, response.getStatus());
+    assertEquals(5000, response.getValueCount());
+    assertEquals(
+        attribute.toAttributePrefix() + "prefix.0000", response.getValue(0).getAttribute());
+    assertEquals(
+        attribute.toAttributePrefix() + "prefix.4999", response.getValue(4999).getAttribute());
+  }
 }

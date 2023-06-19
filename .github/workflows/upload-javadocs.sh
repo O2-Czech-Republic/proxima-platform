@@ -27,5 +27,5 @@ if [ "$(is_datadriven_repo ${GITHUB_REPOSITORY})" == "1" ]; then
   echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
   gcloud auth activate-service-account --key-file /tmp/google-credentials.json
 
-  gsutil -m cp -r build/docs/javadoc gs://${PROXIMA_DOC_GC_STORAGE}/${VERSION}/
+  gsutil -m cp -r build/docs/apidocs gs://${PROXIMA_DOC_GC_STORAGE}/${VERSION}/
 fi

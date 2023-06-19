@@ -144,7 +144,7 @@ task javadocAggregate(type: Javadoc) {
   subprojects.each { collectSources(it, target) }
   source files(target)
   classpath = files(subprojects.collect { it.sourceSets.main.compileClasspath } + subprojects.collect { it.sourceSets.test.compileClasspath })
-  destinationDir = file("${buildDir}/docs/javadoc")
+  destinationDir = file("${buildDir}/docs/apidocs")
   failOnError = true
 
   exclude "cz/o2/proxima/example/**"

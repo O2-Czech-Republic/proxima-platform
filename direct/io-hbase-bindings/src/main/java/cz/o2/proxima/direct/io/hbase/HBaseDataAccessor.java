@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.io.hbase;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.AbstractStorage.SerializableAbstractStorage;
-import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.UriUtil;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
@@ -36,20 +35,21 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 /**
  * {@code DataAccessor} for HBase.
  *
- * HBase storage uses URIs in the form of
- * <pre>hbase://<master_hostport>/<table>?family=<family></pre> and stores data using HBase table
- * named <pre>table</pre> in family <pre>family</pre>.
+ * <p>HBase storage uses URIs in the form of {@code
+ * hbase://<master_hostport>/<table>?family=<family>} and stores data using HBase table named {@code
+ * table} in family {@code family}.
  *
- * An optional parameter in URI called <pre>v</pre> can be used to distinguish two serialization
+ * <p>An optional parameter in URI called {@code v} can be used to distinguish two serialization
  * versions of data in HBase {@link org.apache.hadoop.hbase.Cell}:
+ *
  * <ol>
- *   <li><pre>v=1</pre> (default) stores the serialized bytes of a value in a cell directly</li>
- *   <li><pre>v=2</pre> uses protobuffer to store more metadata into the value</li>
+ *   <li>{@code v=1} (default) stores the serialized bytes of a value in a cell directly
+ *   <li>{@code v=2} uses protobuffer to store more metadata into the value
  * </ol>
  *
- * The <pre>v=2</pre> serialization format is required to support transactions on top of HBase,
- * because the metadata preserves sequentialId (stored in {@link StreamElement#getSequentialId()}).
- **/
+ * The {@code v=2} serialization format is required to support transactions on top of HBase, because
+ * the metadata preserves sequentialId (stored in {@code StreamElement#getSequentialId}).
+ */
 @Slf4j
 public class HBaseDataAccessor extends SerializableAbstractStorage implements DataAccessor {
 

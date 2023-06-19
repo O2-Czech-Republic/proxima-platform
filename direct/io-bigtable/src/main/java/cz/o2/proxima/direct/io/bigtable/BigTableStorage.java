@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.io.bigtable;
 import com.google.auto.service.AutoService;
 import com.google.cloud.bigtable.hbase2_x.BigtableConnection;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -30,21 +29,22 @@ import org.apache.hadoop.hbase.client.Connection;
 /**
  * Storage descriptor for bigtable:// URIs.
  *
- * BigTable storage uses URIs in the form of
- * <pre>bigtable://<project>:<instance>/<table>?family=<family></pre> and stores data using HBase
- * client in BigTable instance <pre>instance</pre> of project <pre>project</pre> in table named
- * <pre>table</pre> in family <pre>family</pre>.
+ * <p>BigTable storage uses URIs in the form of {@code
+ * bigtable://<project>:<instance>/<table>?family=<family>} and stores data using HBase client in
+ * BigTable instance {@code instance} of project {@code project} in table named {@code table} in
+ * family {@code family}.
  *
- * An optional parameter in URI called <pre>v</pre> can be used to distinguish two serialization
+ * <p>An optional parameter in URI called {@code v} can be used to distinguish two serialization
  * versions of data in BigTable cell:
+ *
  * <ol>
- *   <li><pre>v=1</pre> (default) stores the serialized bytes of a value in a cell directly</li>
- *   <li><pre>v=2</pre> uses protobuffer to store more metadata into the value</li>
+ *   <li>{@code v=1} (default) stores the serialized bytes of a value in a cell directly
+ *   <li>{@code v=2} uses protobuffer to store more metadata into the value
  * </ol>
  *
- * The <pre>v=2</pre> serialization format is required to support transactions on top of BigTable,
- * because the metadata preserves sequentialId (stored in {@link StreamElement#getSequentialId()}).
- **/
+ * The {@code v=2} serialization format is required to support transactions on top of BigTable,
+ * because the metadata preserves sequentialId (stored in {@code StreamElement#getSequentialId}).
+ */
 @AutoService(DataAccessorFactory.class)
 public class BigTableStorage implements DataAccessorFactory {
 

@@ -29,6 +29,7 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader.Listing;
+import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.server.metrics.Metrics;
 import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc;
@@ -50,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 
@@ -128,43 +131,19 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
       RandomAccessReader reader = instantiateReader(wildcard);
 
-      List<KeyValue<Object>> kvs = new ArrayList<>();
       Rpc.ListResponse.Builder response = Rpc.ListResponse.newBuilder().setStatus(200);
       Predicate<KeyValue<Object>> filterPredicate =
           request.getWildcardPrefix().equals(wildcard.toAttributePrefix())
                   || request.getWildcardPrefix().equals(wildcard.toAttributePrefix(false))
               ? ign -> true
               : kv -> kv.getAttribute().startsWith(request.getWildcardPrefix());
-      String requestOffset = request.getOffset();
-      if (requestOffset.isEmpty()) {
-        requestOffset = request.getWildcardPrefix();
-      }
-
-      if (!requestOffset.startsWith(request.getWildcardPrefix())) {
-        throw new Status(
-            400,
-            String.format(
-                "Offset must have prefix given by wildcardPrefix, got %s and %s",
-                requestOffset, request.getWildcardPrefix()));
-      }
-
-      synchronized (reader) {
-        int limit = request.getLimit() > 0 ? request.getLimit() : -1;
-        reader.scanWildcard(
-            request.getKey(),
-            wildcard,
-            reader.fetchOffset(Listing.ATTRIBUTE, requestOffset),
-            limit,
-            kvs::add);
-        kvs.stream()
-            .filter(filterPredicate)
-            .forEach(
-                kv ->
-                    response.addValue(
-                        Rpc.ListResponse.AttrValue.newBuilder()
-                            .setAttribute(kv.getAttribute())
-                            .setValue(ByteString.copyFrom(kv.getValue()))));
-      }
+      List<KeyValue<Object>> kvs = processListRequest(request, wildcard, reader, filterPredicate);
+      kvs.forEach(
+          kv ->
+              response.addValue(
+                  ListResponse.AttrValue.newBuilder()
+                      .setAttribute(kv.getAttribute())
+                      .setValue(ByteString.copyFrom(kv.getValue()))));
       noticeListResult(request, entity, wildcard, kvs);
       replyLogged(responseObserver, request, response.build());
     } catch (Status s) {
@@ -174,6 +153,60 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       replyStatusLogged(responseObserver, request, 500, ex.getMessage());
     }
     responseObserver.onCompleted();
+  }
+
+  private static List<KeyValue<Object>> processListRequest(
+      ListRequest request,
+      AttributeDescriptor<Object> wildcard,
+      RandomAccessReader reader,
+      Predicate<KeyValue<Object>> filterPredicate)
+      throws Status {
+
+    List<KeyValue<Object>> kvs = new ArrayList<>();
+    String requestOffset = request.getOffset();
+    if (requestOffset.isEmpty()) {
+      requestOffset = request.getWildcardPrefix();
+    }
+
+    if (!requestOffset.startsWith(request.getWildcardPrefix())) {
+      throw new Status(
+          400,
+          String.format(
+              "Offset must have prefix given by wildcardPrefix, got %s and %s",
+              requestOffset, request.getWildcardPrefix()));
+    }
+    boolean prefixed = request.getWildcardPrefix().length() > wildcard.toAttributePrefix().length();
+    int limit = request.getLimit() > 0 ? request.getLimit() : -1;
+    int requestLimit = limit;
+    if (prefixed && limit == -1) {
+      requestLimit = 100;
+    }
+    AtomicReference<RandomOffset> effectiveOffset =
+        new AtomicReference<>(reader.fetchOffset(Listing.ATTRIBUTE, requestOffset));
+    do {
+      AtomicBoolean failedPredicate = new AtomicBoolean();
+      AtomicInteger addedKvs = new AtomicInteger();
+      synchronized (reader) {
+        reader.scanWildcard(
+            request.getKey(),
+            wildcard,
+            effectiveOffset.get(),
+            requestLimit,
+            kv -> {
+              effectiveOffset.set(kv.getOffset());
+              if (filterPredicate.test(kv)) {
+                kvs.add(kv);
+                addedKvs.incrementAndGet();
+              } else {
+                failedPredicate.set(true);
+              }
+            });
+      }
+      if (addedKvs.get() == 0 || failedPredicate.get()) {
+        break;
+      }
+    } while (limit > 0 && kvs.size() < limit);
+    return kvs;
   }
 
   private static void replyStatusLogged(

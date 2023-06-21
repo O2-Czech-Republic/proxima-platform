@@ -45,6 +45,7 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
+  testImplementation libraries.log4j_core
   testImplementation libraries.beam_runners_direct
   testImplementation project(path: ':proxima-core', configuration: "testsJar")
   testImplementation project(path: ':proxima-direct-core', configuration: "testsJar")

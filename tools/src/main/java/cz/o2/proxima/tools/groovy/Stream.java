@@ -26,6 +26,7 @@ import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.FromString;
 import java.util.Arrays;
 import java.util.List;
+import java.util.TimeZone;
 import javax.annotation.Nullable;
 
 /** A stream abstraction with fluent style methods. */
@@ -309,6 +310,16 @@ public interface Stream<T> {
   <K> WindowedStream<Pair<K, T>> sessionWindow(
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       long gapDuration);
+
+  /**
+   * Create calendar-based windowed stream.
+   *
+   * @param window the resolution of the calendar window ("days", "weeks", "months", "years")
+   * @param count number of days, weeks, months, years
+   * @param timeZone time zone of the calculation
+   * @return calendar windowed stream
+   */
+  WindowedStream<T> calendarWindow(String window, int count, TimeZone timeZone);
 
   /**
    * Group all elements into single window.

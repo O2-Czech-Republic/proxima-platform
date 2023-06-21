@@ -36,7 +36,6 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     super(provider);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllReduce() {
     Stream<Integer> stream = stream(1, 2, 3, 4);

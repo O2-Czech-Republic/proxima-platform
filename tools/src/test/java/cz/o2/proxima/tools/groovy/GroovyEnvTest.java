@@ -17,6 +17,7 @@ package cz.o2.proxima.tools.groovy;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -30,6 +31,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.Ignore;
@@ -1090,6 +1092,62 @@ public abstract class GroovyEnvTest extends GroovyTest {
     } catch (Exception ex) {
       assertTrue(ex instanceof RuntimeException);
     }
+  }
+
+  @Test
+  public void testCalendarWindowDays() throws Exception {
+    testCalendarWindows("days");
+  }
+
+  @Test
+  public void testCalendarWindowWeeks() throws Exception {
+    testCalendarWindows("weeks");
+  }
+
+  @Test
+  public void testCalendarWindowMonths() throws Exception {
+    testCalendarWindows("months");
+  }
+
+  @Test
+  public void testCalendarWindowYears() throws Exception {
+    testCalendarWindows("years");
+  }
+
+  private void testCalendarWindows(String window) throws Exception {
+    Script compiled =
+        compile(
+            "env.batch.wildcard.batchUpdates().calendarWindow("
+                + String.format("'%s', 1, TimeZone.getDefault()", window)
+                + ").count().collect()");
+    Map<String, Long> resolution =
+        ImmutableMap.of(
+            "days",
+            86400000L,
+            "weeks",
+            7 * 86400000L,
+            "months",
+            30 * 86400000L,
+            "years",
+            365 * 86400000L);
+    long now = 1600000000000L;
+    long step = Objects.requireNonNull(resolution.get(window)) / 5;
+    for (int i = 0; i < 10; i++) {
+      write(
+          StreamElement.upsert(
+              batch,
+              wildcard,
+              "uuid",
+              "key",
+              wildcard.toAttributePrefix() + i,
+              now + i * step,
+              new byte[] {}));
+    }
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    List<Long> result = (List) compiled.run();
+    assertTrue(result.toString(), 2 <= result.size());
+    assertTrue(result.toString(), 4 > result.size());
+    assertEquals(10L, result.stream().mapToLong(e -> e).sum());
   }
 
   protected abstract void write(StreamElement element);

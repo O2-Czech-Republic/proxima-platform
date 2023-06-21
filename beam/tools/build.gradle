@@ -110,4 +110,8 @@ shadowJar {
   }
 }
 
+test {
+  jvmArgs '-Dsun.io.serialization.extendedDebugInfo=true'
+}
+
 publishArtifacts(project, "default")

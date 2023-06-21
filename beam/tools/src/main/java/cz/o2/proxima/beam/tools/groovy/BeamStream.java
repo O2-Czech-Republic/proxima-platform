@@ -19,6 +19,7 @@ import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.beam.core.transforms.AssignEventTime;
+import cz.o2.proxima.beam.core.transforms.CalendarWindows;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.Factory;
@@ -71,6 +72,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -826,6 +828,30 @@ class BeamStream<T> implements Stream<T> {
               .setCoder(PairCoder.of(coder, in.getCoder()));
         },
         Sessions.withGapDuration(Duration.millis(gapDuration)));
+  }
+
+  @Override
+  public WindowedStream<T> calendarWindow(String window, int count, TimeZone timeZone) {
+    WindowFn<? super T, ?> windowFn;
+    int multiplier = 1;
+    switch (window) {
+      case "weeks":
+        multiplier = 7;
+      case "days":
+        windowFn = CalendarWindows.days(count * multiplier).withTimeZone(timeZone);
+        break;
+      case "months":
+        windowFn = CalendarWindows.months(count).withTimeZone(timeZone);
+        break;
+      case "years":
+        windowFn = CalendarWindows.years(count).withTimeZone(timeZone);
+        break;
+      default:
+        throw new IllegalArgumentException(
+            String.format(
+                "Unknown window %s, supported are 'days', 'weeks', 'months' and 'years'", window));
+    }
+    return windowed(collection::materialize, windowFn);
   }
 
   @Override

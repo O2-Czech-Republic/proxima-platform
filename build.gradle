@@ -336,7 +336,9 @@ def enableShadowJar(project, Closure<Boolean> allowedEntry) {
       }
       mergeServiceFiles()
       configurations = [ project.configurations.intoShadow ]
-      excludes.remove("module-info.class")
+      if (isAlreadyModule(project)) {
+        excludes.remove("module-info.class")
+      }
       exclude "org/checkerframework/**"
     }
 

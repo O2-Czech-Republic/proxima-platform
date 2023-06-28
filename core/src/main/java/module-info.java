@@ -14,6 +14,8 @@ module cz.o2.proxima.core {
   exports cz.o2.proxima.core.storage.internal;
   exports cz.o2.proxima.core.storage.commitlog;
   exports cz.o2.proxima.core.transform;
+  exports cz.o2.proxima.core.util.internal to
+      cz.o2.proxima.direct.core;
 
   requires org.slf4j;
   requires java.desktop;

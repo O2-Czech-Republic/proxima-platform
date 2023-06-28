@@ -29,6 +29,7 @@ import cz.o2.proxima.direct.server.metrics.Metrics;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.typesafe.config.Config;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import io.grpc.BindableService;
@@ -101,6 +102,8 @@ public class IngestServer {
   }
 
   protected IngestServer(Config cfg, Repository repo) {
+    // this will force load of class from different module layer, if needed
+    Preconditions.checkState(repo.hasOperator("direct"), "Missing direct operator");
     this.cfg = cfg;
     this.repo = repo;
     direct = repo.getOrCreateOperator(DirectDataOperator.class);

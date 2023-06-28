@@ -22,7 +22,9 @@ import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.collect.Streams;
 import cz.o2.proxima.typesafe.config.Config;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -30,7 +32,6 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -95,11 +96,6 @@ public abstract class Repository implements Serializable {
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static Iterable<DataOperatorFactory<?>> readDataOperatorFactories() {
-    Class<?> thisClass = Repository.class;
-    ModuleLayer thisLayer = thisClass.getModule().getLayer();
-    if (thisLayer != null) {
-      return (Iterable) ServiceLoader.load(thisLayer, DataOperatorFactory.class);
-    }
     return (Iterable) ServiceLoader.load(DataOperatorFactory.class);
   }
 
@@ -114,10 +110,7 @@ public abstract class Repository implements Serializable {
             });
   }
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
-  @Getter(AccessLevel.PACKAGE)
-  private final transient Iterable<DataOperatorFactory<?>> dataOperatorFactories =
-      readDataOperatorFactories();
+  private final transient List<DataOperatorFactory<?>> dataOperatorFactories = new ArrayList<>();
 
   private final transient Map<String, DataOperator> operatorCache = new ConcurrentHashMap<>();
 
@@ -243,10 +236,11 @@ public abstract class Repository implements Serializable {
   @VisibleForTesting
   @SuppressWarnings("unchecked")
   @SafeVarargs
-  private final synchronized <T extends DataOperator> T asDataOperator(
+  private synchronized <T extends DataOperator> T asDataOperator(
       Class<T> type, Consumer<T>... modifiers) {
 
     Iterable<DataOperatorFactory<?>> loaders = getDataOperatorFactories();
+    log.trace("Searching for {} in loaders {}", type, loaders);
 
     return Streams.stream(loaders)
         .filter(f -> f.isOfType(type))
@@ -275,16 +269,13 @@ public abstract class Repository implements Serializable {
    * @param modifiers modifiers of operator applied when the operator is created
    * @return the data operator of given type
    */
-  @SuppressWarnings("unchecked")
   @SafeVarargs
   public final synchronized <T extends DataOperator> T getOrCreateOperator(
       Class<T> type, Consumer<T>... modifiers) {
 
-    T ret = (T) operatorCache.get(type.getName());
-    if (ret != null) {
-      return ret;
-    }
-    return asDataOperator(type, modifiers);
+    return Optional.ofNullable(operatorCache.get(type.getName()))
+        .map(type::cast)
+        .orElseGet(() -> asDataOperator(type, modifiers));
   }
 
   /**
@@ -321,4 +312,11 @@ public abstract class Repository implements Serializable {
    * @param op the operator that was created
    */
   protected void addedDataOperator(DataOperator op) {}
+
+  Iterable<DataOperatorFactory<?>> getDataOperatorFactories() {
+    if (dataOperatorFactories.isEmpty()) {
+      readDataOperatorFactories().forEach(dataOperatorFactories::add);
+    }
+    return dataOperatorFactories;
+  }
 }

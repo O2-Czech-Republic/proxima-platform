@@ -48,8 +48,6 @@ enableShadowJar(project) {
   regexes.find { p -> it =~ p }
 }
 
-updateModulePath(project)
-
 shadowJar {
   ["com.google", "org.apache.commons", "org.apache.http", "org.elasticsearch",
    "com.fasterxml", "org.joda.time", "net.jpountz", "org.yaml", "joptsimple",

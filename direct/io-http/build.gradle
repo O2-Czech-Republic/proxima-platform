@@ -49,8 +49,6 @@ enableShadowJar(project) {
   regexes.find { p -> it =~ p }
 }
 
-updateModulePath(project)
-
 shadowJar {
   relocate "org.java_websocket", "cz.o2.proxima.http.shaded.websocket"
 }

@@ -13,32 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.core;
+package cz.o2.proxima.core.util.internal;
 
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import java.io.IOException;
 import java.lang.module.ModuleFinder;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
-class ClassLoaders {
+@Slf4j
+public class ClassLoaders {
 
-  static class ChildLayerFirstClassLoader extends ClassLoader {
-
-    private final ModuleFinder finder;
+  public static class ChildLayerFirstClassLoader extends ClassLoader {
 
     private final List<String> moduleNames;
 
-    private ModuleLayer layer = null;
+    @Getter private ModuleLayer layer = null;
 
     public ChildLayerFirstClassLoader(ModuleFinder finder, ClassLoader parent) {
       super(parent);
-      this.finder = finder;
       this.moduleNames = getNamesForModules(finder).collect(Collectors.toList());
+      log.info("Created {} with modules {}", getClass().getSimpleName(), moduleNames);
     }
 
     @VisibleForTesting
@@ -46,7 +52,7 @@ class ClassLoaders {
       return finder.findAll().stream().map(r -> r.descriptor().name());
     }
 
-    void setLayer(ModuleLayer layer) {
+    public void setLayer(ModuleLayer layer) {
       Objects.requireNonNull(layer);
       Preconditions.checkState(this.layer == null);
       this.layer = layer;
@@ -55,11 +61,14 @@ class ClassLoaders {
     private Class<?> loadClassFromModules(String name, boolean resolve) {
       for (String module : moduleNames) {
         try {
+          log.trace("Trying to load class {} from module {}", name, module);
           return getModuleLoader(module).loadClassFromSelf(name, resolve);
         } catch (ClassNotFoundException ex) {
           // continue
+          log.trace("Class {} not found module {}", name, module);
         }
       }
+      log.trace("No module found for class {}", name);
       return null;
     }
 
@@ -81,9 +90,34 @@ class ClassLoaders {
       }
       return loadedClass;
     }
+
+    @Override
+    protected URL findResource(String moduleName, String name) {
+      return Objects.requireNonNull(getModuleLoader(moduleName)).findResource(name);
+    }
+
+    @Override
+    protected URL findResource(String name) {
+      for (String module : moduleNames) {
+        URL resource = getModuleLoader(module).findResource(name);
+        if (resource != null) {
+          return resource;
+        }
+      }
+      return null;
+    }
+
+    @Override
+    protected Enumeration<URL> findResources(String name) throws IOException {
+      Set<URL> urls = new HashSet<>();
+      for (String module : moduleNames) {
+        urls.addAll(Collections.list(getModuleLoader(module).findResources(name)));
+      }
+      return Collections.enumeration(urls);
+    }
   }
 
-  static class ChildFirstURLClassLoader extends URLClassLoader {
+  public static class ChildFirstURLClassLoader extends URLClassLoader {
 
     public ChildFirstURLClassLoader(URL[] urls, ChildLayerFirstClassLoader parent) {
       super(urls, parent);
@@ -94,6 +128,7 @@ class ClassLoaders {
       return super.findClass(null, name);
     }
 
+    @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
       return loadClass(name, resolve, true);
     }
@@ -121,6 +156,20 @@ class ClassLoaders {
         resolveClass(loadedClass);
       }
       return loadedClass;
+    }
+  }
+
+  public static class ContextLoaderFence implements AutoCloseable {
+
+    private final ClassLoader old = Thread.currentThread().getContextClassLoader();
+
+    public ContextLoaderFence(ClassLoader loader) {
+      Thread.currentThread().setContextClassLoader(loader);
+    }
+
+    @Override
+    public void close() {
+      Thread.currentThread().setContextClassLoader(old);
     }
   }
 

@@ -51,6 +51,7 @@ dependencies {
   testImplementation libraries.hadoop_hdfs_tests
   testImplementation libraries.junit4
   testImplementation libraries.slf4j_log4j
+  testImplementation libraries.log4j_core
   testImplementation libraries.mockito_core
   compileOnly libraries.auto_service_annotations
   compileOnly libraries.hbase_client

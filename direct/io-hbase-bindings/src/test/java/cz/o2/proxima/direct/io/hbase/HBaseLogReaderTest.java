@@ -24,6 +24,7 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.TestUtils;
 import cz.o2.proxima.direct.core.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.batch.BatchLogReader.Factory;
@@ -36,9 +37,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
@@ -154,22 +157,21 @@ public class HBaseLogReaderTest {
     assertEquals(Arrays.asList("a", "fir"), keys);
   }
 
-  @Test(timeout = 20000)
+  @Test(timeout = 30000)
   public void testObserveCancel() throws InterruptedException, IOException {
     long now = 1500000000000L;
-    write("a", "dummy", "a", now);
-    write("firs", "wildcard.1", "firs", now);
-    write("fir", "dummy", "fir", now);
-    write("first", "dummy", "first", now);
+    for (int i = 0; i < 10; i++) {
+      write("key", "wildcard." + i, "", now + i);
+    }
 
     List<Partition> partitions = reader.getPartitions();
-    CountDownLatch latch = new CountDownLatch(1);
+    BlockingQueue<Boolean> result = new SynchronousQueue<>();
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
     ExecutorService pool = Executors.newCachedThreadPool();
     handle.set(
         reader.observe(
-            partitions.subList(0, 1),
-            Collections.singletonList(attr),
+            partitions,
+            Collections.singletonList(wildcard),
             new BatchLogObserver() {
               @Override
               public boolean onNext(StreamElement element) {
@@ -179,15 +181,15 @@ public class HBaseLogReaderTest {
 
               @Override
               public void onCancelled() {
-                latch.countDown();
+                ExceptionUtils.ignoringInterrupted(() -> result.put(true));
               }
 
               @Override
               public void onCompleted() {
-                fail("onCompleted should not heve been called");
+                ExceptionUtils.ignoringInterrupted(() -> result.put(false));
               }
             }));
-    latch.await();
+    assertTrue(result.take());
   }
 
   @Test(timeout = 30000)

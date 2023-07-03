@@ -389,7 +389,8 @@ def publishArtifacts(project, scope) {
           }
 
           pom {
-            name = "Proxima platform's module ${project.name}"
+            name = "${project.group}:${project.name}"
+            description = "Proxima platform's module ${project.name}"
             url = "https://github.com/O2-Czech-Republic/proxima-platform.git"
             scm {
               connection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"

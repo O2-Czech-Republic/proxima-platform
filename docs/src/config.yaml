@@ -57,7 +57,7 @@ params:
   BookPortableLinks: true
   BookServiceWorker: true
   proxima:
-    version: 0.11-SNAPSHOT
+    version: 0.12.0
 
 deployment:
   order: [".jpg$", ".gif$", ".png$"]

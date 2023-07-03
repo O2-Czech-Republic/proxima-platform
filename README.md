@@ -200,7 +200,7 @@ First, let's introduce some glossary:
       <plugin>
         <groupId>cz.o2.proxima</groupId>
         <artifactId>proxima-compiler-java-maven-plugin</artifactId>
-        <version>0.11.0</version>
+        <version>0.12.0</version>
         <configuration>
           <outputDir>${project.build.directory}/generated-sources/model</outputDir>
           <javaPackage>cz.o2.proxima.testing.model</javaPackage>
@@ -222,7 +222,7 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-direct-compiler-plugin</artifactId>
-            <version>0.11.0</version>
+            <version>0.12.0</version>
           </dependency>
           <!--
             The following dependencies define additional
@@ -237,12 +237,12 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto</artifactId>
-            <version>0.11.0</version>
+            <version>0.12.0</version>
           </dependency>
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto-testing</artifactId>
-            <version>0.11.0</version>
+            <version>0.12.0</version>
           </dependency>
         </dependencies>
       </plugin>
@@ -259,10 +259,10 @@ First, let's introduce some glossary:
   ```
 
 ## Platform's _DataOperators_
- The platform offers various modes of access to data. As of version 0.11.0, these types are:
+ The platform offers various modes of access to data. As of version 0.12.0, these types are:
   * direct
   * Apache Beam
-  * Apache Flink (experimental)
+  * Apache Flink
 ### Direct access to data
  This operator is used when accessing data from inside single JVM (or potentially multiple JVMs, e.g. coordinated via distributed consumption of commit log). The operator is constructed as follows:
  ```java
@@ -357,8 +357,8 @@ First, let's introduce some glossary:
 
 ## Online Java docs
   * [Latest](https://proxima.datadriven.cz/javadoc/)
+  * [0.13-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.13-SNAPSHOT/index.html)
   * [0.12-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.12-SNAPSHOT/index.html)
-  * [0.11-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.11-SNAPSHOT/index.html)
 
 ## Build notes
  CI is run only against changed modules (and its dependents) in pull requests. To completely rebuild the whole project in a PR push a commit with commit message 'rebuild'. After the build, you can squash and remove the commit.

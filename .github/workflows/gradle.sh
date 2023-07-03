@@ -25,11 +25,11 @@ if [[ ! -z $GOOGLE_CREDENTIALS ]]; then
   echo "${GOOGLE_CREDENTIALS}" >> /tmp/google-credentials.json
 fi
 
-if [[ "${1}" == "11" ]]; then
-  if [[ "${IS_PR}" != "false" ]] || [[ "${BRANCH}" == "master" ]]; then
-    ./gradlew build -x test && ./gradlew test sonar -Pwith-coverage --no-parallel
-    exit $?
-  fi
+./gradlew publishToMavenLocal -Pvendor -PnoSigning
+
+if [[ "${IS_PR}" != "false" ]] || [[ "${BRANCH}" == "master" ]]; then
+  ./gradlew build -x test && ./gradlew test sonar -Pwith-coverage --no-parallel
+  exit $?
 fi
 
 ./gradlew build --build-cache

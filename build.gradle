@@ -489,7 +489,7 @@ def publishArtifacts(project, scope) {
       }
       project.publishing.publications.maven.artifact(sourcesJar)
       project.publishing.publications.maven.artifact(javadocJar)
-      if (!project.version.endsWith("-SNAPSHOT")) {
+      if (!project.version.endsWith("-SNAPSHOT") && !project.hasProperty("noSigning")) {
         apply plugin: "signing"
         signing {
           useGpgCmd()

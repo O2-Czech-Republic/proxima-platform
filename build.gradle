@@ -26,7 +26,15 @@ plugins {
   id "org.sonarqube" version "4.0.0.2929"
 }
 
-version = '0.12-SNAPSHOT'
+version = '0.12.0'
+repositories {
+  mavenLocal()
+  mavenCentral()
+  maven {
+    url = uri('https://packages.confluent.io/maven/')
+  }
+}
+
 group = 'cz.o2.proxima'
 
 configureRepositores(project)
@@ -382,10 +390,19 @@ def publishArtifacts(project, scope) {
 
           pom {
             name = "Proxima platform's module ${project.name}"
+            url = "https://github.com/O2-Czech-Republic/proxima-platform.git"
             scm {
               connection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
               developerConnection = "scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git"
               url = "https://github.com/O2-Czech-Republic/proxima-platform.git"
+            }
+            developers {
+              developer {
+                id = "je-ik"
+                name = "Jan Lukavský"
+                email = "je.ik@seznam.cz"
+                timezone = "Europe/Prague"
+              }
             }
             licenses {
               license {
@@ -480,7 +497,7 @@ def publishArtifacts(project, scope) {
       }
       project.publishing.publications.maven.artifact(sourcesJar)
       project.publishing.publications.maven.artifact(javadocJar)
-      if (!project.version.endsWith("-SNAPSHOT")) {
+      if (!project.version.endsWith("-SNAPSHOT") && !project.hasProperty("noSigning")) {
         apply plugin: "signing"
         signing {
           useGpgCmd()

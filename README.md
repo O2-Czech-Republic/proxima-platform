@@ -342,16 +342,6 @@ First, let's introduce some glossary:
                            .orElse("")))
            .apply(Count.perKey());
 
-   PCollection<KV<String, Long>> counted = CountByKey.of(input)
-       .keyBy(el -> model.getEvent()
-           .getDataDescriptor()
-           .valueOf(el)
-           .map(BaseEvent::getProductId)
-           .orElse(""))
-       .windowBy(FixedWindows.of(Duration.standardMinutes(1)))
-       .triggeredBy(AfterWatermark.pastEndOfWindow())
-       .accumulationMode(AccumulationMode.DISCARDING_FIRED_PANES)
-       .output();
    // do something with the output
  ```
 

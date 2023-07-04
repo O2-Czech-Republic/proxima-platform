@@ -35,7 +35,7 @@ jobs:
       uses: peaceiris/actions-hugo@v2
       with:
         hugo-version: 'latest'
-    - name: Deploy with Maven
+    - name: Deploy snapshot
       env:
         GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
         GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}

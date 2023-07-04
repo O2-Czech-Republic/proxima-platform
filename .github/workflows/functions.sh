@@ -17,7 +17,7 @@
 
 
 proxima_version() {
-  ./gradlew properties | grep "version: " | cut -c10-
+  ./gradlew properties -Pvendor | grep "version: " | cut -c10-
 }
 
 is_snapshot_version() {

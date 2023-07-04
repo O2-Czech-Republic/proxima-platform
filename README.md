@@ -358,7 +358,7 @@ First, let's introduce some glossary:
 ## Online Java docs
   * [Latest](https://proxima.datadriven.cz/javadoc/)
   * [0.13-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.13-SNAPSHOT/index.html)
-  * [0.12-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.12-SNAPSHOT/index.html)
+  * [0.12.0](https://proxima.datadriven.cz/javadoc/0.12.0/index.html)
 
 ## Build notes
  CI is run only against changed modules (and its dependents) in pull requests. To completely rebuild the whole project in a PR push a commit with commit message 'rebuild'. After the build, you can squash and remove the commit.

@@ -408,8 +408,6 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     if (subscriptionAutoCreate) {
       try (SubscriptionAdminClient client = SubscriptionAdminClient.create()) {
         createSubscription(client, subscription);
-      } catch (IOException ex) {
-        log.error("Failed to close SubscriptionAdminClient", ex);
       } catch (Exception ex) {
         throw new RuntimeException(ex);
       }

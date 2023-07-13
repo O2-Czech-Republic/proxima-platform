@@ -93,6 +93,17 @@ subprojects {
   }
 
   jar.dependsOn configureJar
+
+
+  configurations.all {
+    resolutionStrategy {
+      eachDependency {
+        if (it.target.group == "io.grpc") {
+          it.useVersion("${grpc_version}")
+        }
+      }
+    }
+  }
 }
 
 sonar {

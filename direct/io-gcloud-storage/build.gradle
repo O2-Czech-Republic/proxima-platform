@@ -51,7 +51,8 @@ enableShadowJar(project) {
 
 shadowJar {
   ["io.netty", "io.grpc", "io.opencensus", "com.google", "org.codehaus.jackson",
-   "com.fasterxml", "org.apache.commons", "org.codehaus", "org.apache", "org.threeten"].each {
+   "com.fasterxml", "org.apache.commons", "org.codehaus", "org.apache", "org.threeten",
+   "org.conscrypt", "io.perfmark"].each {
 
     relocate it, "cz.o2.proxima.gcloud.storage.shaded.${it}"
   }

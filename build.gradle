@@ -224,7 +224,6 @@ def renamingTransformer() {
 def configureRepositores(project) {
   project.with {
     repositories {
-      mavenLocal()
       mavenCentral()
       maven {
         url = uri('https://packages.confluent.io/maven/')
@@ -234,6 +233,7 @@ def configureRepositores(project) {
           url = uri("https://oss.sonatype.org/content/repositories/snapshots")
         }
       }
+      mavenLocal()
     }
   }
 }

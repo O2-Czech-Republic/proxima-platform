@@ -27,13 +27,6 @@ plugins {
 }
 
 version = '0.13-SNAPSHOT'
-repositories {
-  mavenLocal()
-  mavenCentral()
-  maven {
-    url = uri('https://packages.confluent.io/maven/')
-  }
-}
 
 group = 'cz.o2.proxima'
 
@@ -44,7 +37,7 @@ subprojects {
   version = rootProject.version
   group = rootProject.group
 
-  configureRepositores(project)
+  configureRepositores(it)
   
   apply plugin: 'cz.o2.proxima.java-conventions'
 

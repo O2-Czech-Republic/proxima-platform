@@ -88,6 +88,7 @@ import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Serializer;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Input;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Output;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.serializers.DefaultSerializers.KryoSerializableSerializer;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.util.DefaultInstantiatorStrategy;
 import org.apache.beam.repackaged.kryo.org.objenesis.strategy.StdInstantiatorStrategy;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkRunner;
@@ -1184,7 +1185,7 @@ class BeamStream<T> implements Stream<T> {
         KryoCoder.of(
             kryo ->
                 kryo.setInstantiatorStrategy(
-                    new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
+                    new DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
             kryo ->
                 kryo.addDefaultSerializer(UnboundedSource.class, KryoSerializableSerializer.class),
             kryo ->
@@ -1226,7 +1227,7 @@ class BeamStream<T> implements Stream<T> {
       }
 
       @Override
-      public T read(Kryo kryo, Input input, Class<T> cls) {
+      public T read(Kryo kryo, Input input, Class<? extends T> cls) {
         int length = input.readInt();
         byte[] bytes = input.readBytes(length);
         return serializer

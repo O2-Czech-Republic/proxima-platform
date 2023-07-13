@@ -24,12 +24,12 @@ plugins {
 java.sourceCompatibility = JavaVersion.VERSION_11
 
 def auto_service_version = "1.0.1"
-def beam_version = "2.49.0"
+def beam_version = "2.50.0"
 def errorprone_version = "2.18.0"
 def flink_version = "1.16.2"
-def grpc_version = "1.55.1"
+def grpc_version = "1.56.1"
 def groovy_version = "4.0.14"
-def guava_version = "32.0.1-jre"
+def guava_version = "32.1.2-jre"
 def hadoop_version = "3.2.4"
 def hbase_version = "2.5.3-hadoop3"
 def hamcrest_version = "1.3"

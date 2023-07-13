@@ -33,7 +33,7 @@ public class GStringSerializer extends Serializer<GString> {
   }
 
   @Override
-  public GString read(Kryo kryo, Input input, Class<GString> aClass) {
+  public GString read(Kryo kryo, Input input, Class<? extends GString> aClass) {
     String str = stringSerializer.read(kryo, input, String.class);
     return new GStringImpl(new Object[] {}, new String[] {str});
   }

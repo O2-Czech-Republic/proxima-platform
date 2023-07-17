@@ -185,7 +185,7 @@ public class ConfigRepositoryTest {
   }
 
   @Test
-  public void testReplicationGloballyDisabled() throws InterruptedException {
+  public void testReplicationGloballyDisabled() {
     Config config =
         ConfigFactory.parseString("replications.disabled = true")
             .withFallback(ConfigFactory.load("test-replication.conf"))
@@ -199,7 +199,7 @@ public class ConfigRepositoryTest {
   }
 
   @Test
-  public void testReplicationGloballyReadOnly() throws InterruptedException {
+  public void testReplicationGloballyReadOnly() {
     Config config =
         ConfigFactory.parseString("replications.read-only = true")
             .withFallback(ConfigFactory.load("test-replication.conf"))
@@ -213,7 +213,7 @@ public class ConfigRepositoryTest {
   }
 
   @Test
-  public void testReplicationGloballyReadLocal() throws InterruptedException {
+  public void testReplicationGloballyReadLocal() {
     Config config =
         ConfigFactory.parseString("replications.read = local")
             .withFallback(ConfigFactory.load("test-replication.conf"))
@@ -330,7 +330,7 @@ public class ConfigRepositoryTest {
     // _dummyReplicationMasterSlave_write$_d
     // and _dummyReplicationMasterSlave_replicated$_d
     AttributeDescriptor<Object> _d = dummy.getAttribute("_d", true);
-    assertTrue(((AttributeDescriptorBase<?>) _d).isProxy());
+    assertTrue(_d.isProxy());
     Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(_d);
     assertEquals(1, families.size());
     AttributeFamilyDescriptor primary = Iterables.getOnlyElement(families);

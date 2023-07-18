@@ -15,5 +15,5 @@
 #
 
 protobuf
-grpcio
-grpcio-tools
+grpcio>=1.55.0
+grpcio-tools>=1.55.0

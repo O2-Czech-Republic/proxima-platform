@@ -30,6 +30,7 @@ dependencies {
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j
+  testImplementation libraries.log4j_core
   testImplementation "org.hsqldb:hsqldb:2.5.0"
   compileOnly libraries.auto_service_annotations
   compileAnnotationProcessor libraries.lombok

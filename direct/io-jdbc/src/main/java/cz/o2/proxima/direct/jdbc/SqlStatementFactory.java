@@ -24,7 +24,6 @@ import java.io.Serializable;
 import java.net.URI;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import javax.annotation.Nullable;
 
 public interface SqlStatementFactory extends Serializable {
 
@@ -48,24 +47,12 @@ public interface SqlStatementFactory extends Serializable {
     throw new UnsupportedOperationException("Not implemented");
   }
 
-  default PreparedStatement scan(
-      HikariDataSource dataSource,
-      String key,
-      AttributeDescriptor<?> desc,
-      @Nullable RandomOffset offset,
-      long stamp,
-      int limit) {
-
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  default PreparedStatement scanAll(
-      HikariDataSource dataSource,
-      String key,
-      @Nullable RandomOffset offset,
-      long stamp,
-      int limit) {
-
+  /**
+   * Scan the complete content of table.
+   * @param dataSource the source
+   * @return prepared statement
+   */
+  default PreparedStatement scanAll(HikariDataSource dataSource) {
     throw new UnsupportedOperationException("Not implemented");
   }
 

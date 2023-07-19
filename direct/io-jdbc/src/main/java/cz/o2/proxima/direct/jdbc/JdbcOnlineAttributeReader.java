@@ -60,8 +60,10 @@ public class JdbcOnlineAttributeReader extends AbstractStorage implements Random
   public <T> Optional<KeyValue<T>> get(
       String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
+    Converter<?> converter = accessor.getResultConverter();
     try (PreparedStatement statement = sqlStatementFactory.get(source, desc, key);
         ResultSet result = statement.executeQuery()) {
+
       log.debug("Executed statement {}", statement);
       if (!result.next()) {
         return Optional.empty();
@@ -72,9 +74,9 @@ public class JdbcOnlineAttributeReader extends AbstractStorage implements Random
                 desc,
                 key,
                 desc.getName(),
-                new Offsets.Raw(accessor.getResultConverter().getKeyFromResult(result)),
-                result.getString(desc.getName()).getBytes(),
-                accessor.getResultConverter().getTimestampFromResult(result)));
+                new Offsets.Raw(converter.getKeyFromResult(result)),
+                converter.getValueBytes(result, desc),
+                converter.getTimestampFromResult(result)));
       }
     } catch (SQLException e) {
       throw new IllegalStateException(
@@ -107,6 +109,7 @@ public class JdbcOnlineAttributeReader extends AbstractStorage implements Random
   @Override
   public void listEntities(
       @Nullable RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
+
     try (PreparedStatement statement = sqlStatementFactory.list(source, offset, limit);
         ResultSet resultSet = statement.executeQuery()) {
       log.debug("Executed statement {}", statement);

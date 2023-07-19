@@ -37,10 +37,6 @@ import org.junit.Test;
 @Slf4j
 public class JdbcOnlineAttributeReaderTest extends JdbcBaseTest {
 
-  public JdbcOnlineAttributeReaderTest() throws URISyntaxException {
-    super();
-  }
-
   @Test
   public void listEntitiesTest() throws IOException {
     assertTrue(

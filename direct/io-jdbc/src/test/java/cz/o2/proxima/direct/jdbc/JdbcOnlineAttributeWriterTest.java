@@ -33,10 +33,6 @@ import org.junit.Test;
 @Slf4j
 public class JdbcOnlineAttributeWriterTest extends JdbcBaseTest {
 
-  public JdbcOnlineAttributeWriterTest() throws URISyntaxException {
-    super();
-  }
-
   @Test
   public void writeSuccessfullyTest() {
     StreamElement element =

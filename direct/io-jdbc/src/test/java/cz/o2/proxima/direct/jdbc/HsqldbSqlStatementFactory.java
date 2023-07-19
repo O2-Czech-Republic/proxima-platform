@@ -19,6 +19,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import java.net.URI;
 import java.sql.Connection;
@@ -100,5 +101,14 @@ public class HsqldbSqlStatementFactory implements SqlStatementFactory {
       return statement;
     }
     return null;
+  }
+
+  @Override
+  public PreparedStatement scanAll(HikariDataSource dataSource) {
+    return ExceptionUtils.uncheckedFactory(
+        () ->
+            dataSource
+                .getConnection()
+                .prepareStatement(String.format("SELECT * FROM %s", tableName)));
   }
 }

@@ -23,6 +23,7 @@ import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.net.URI;
@@ -109,6 +110,11 @@ public class JdbcDataAccessor extends SerializableAbstractStorage implements Dat
     return Optional.of(newRandomAccessReader());
   }
 
+  @Override
+  public Optional<BatchLogReader> getBatchLogReader(Context context) {
+    return Optional.of(newBatchLogReader(context));
+  }
+
   @VisibleForTesting
   AttributeWriterBase newWriter() {
     return new JdbcOnlineAttributeWriter(
@@ -119,6 +125,15 @@ public class JdbcDataAccessor extends SerializableAbstractStorage implements Dat
   RandomAccessReader newRandomAccessReader() {
     return new JdbcOnlineAttributeReader(
         this, this.sqlStatementFactory, getEntityDescriptor(), getUri());
+  }
+
+  private BatchLogReader newBatchLogReader(Context context) {
+    return new JdbcBatchLogReader(
+        this,
+        this.sqlStatementFactory,
+        getEntityDescriptor(),
+        getUri(),
+        context::getExecutorService);
   }
 
   synchronized HikariDataSource borrowDataSource() {

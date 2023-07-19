@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.jdbc;
 import cz.o2.proxima.core.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -26,10 +25,6 @@ import org.junit.Test;
 
 @Slf4j
 public class JdbcDataAccessorTest extends JdbcBaseTest {
-
-  public JdbcDataAccessorTest() throws URISyntaxException {
-    super();
-  }
 
   @Test(expected = IllegalStateException.class)
   public void initializeWithoutSqlFactoryTest() {

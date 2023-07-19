@@ -15,24 +15,17 @@
  */
 package cz.o2.proxima.direct.jdbc;
 
-import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 
 public class TestConverter<T> implements Converter<T> {
   @Override
-  public String getKeyFromResult(ResultSet result) throws SQLException {
-    return result.getString("id");
+  public String getKeyFromResult(ResultSet result) {
+    return ExceptionUtils.uncheckedFactory(() -> result.getString("id"));
   }
 
   @Override
-  public Object attributeValue(ResultSet resultSet, AttributeDescriptor<T> attr)
-      throws SQLException {
-    return resultSet.getString(attr.getName());
-  }
-
-  @Override
-  public long getTimestampFromResult(ResultSet result) throws SQLException {
-    return result.getTimestamp("updatedAt").getTime();
+  public long getTimestampFromResult(ResultSet result) {
+    return ExceptionUtils.uncheckedFactory(() -> result.getTimestamp("updatedAt").getTime());
   }
 }

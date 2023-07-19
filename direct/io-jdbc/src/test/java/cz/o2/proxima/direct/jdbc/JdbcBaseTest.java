@@ -24,7 +24,6 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
@@ -42,32 +41,40 @@ public abstract class JdbcBaseTest {
   final AttributeDescriptor<Byte[]> attr;
   final EntityDescriptor entity;
   final JdbcDataAccessor accessor;
+  private HikariDataSource dataSource;
 
-  public JdbcBaseTest() throws URISyntaxException {
+  public JdbcBaseTest() {
+    this(HsqldbSqlStatementFactory.class, TestConverter.class, "");
+  }
+
+  JdbcBaseTest(
+      Class<? extends SqlStatementFactory> sqlStatementFactory,
+      Class<? extends Converter> converterClass,
+      String urlSuffix) {
+
     attr =
         AttributeDescriptor.newBuilder(repository)
             .setEntity("dummy")
             .setName("attribute")
-            .setSchemeUri(new URI("bytes:///"))
+            .setSchemeUri(URI.create("string:///"))
             .build();
     entity = EntityDescriptor.newBuilder().setName("dummy").addAttribute(attr).build();
     Map<String, Object> config = new HashMap<>();
-    config.put(
-        JdbcDataAccessor.JDBC_SQL_QUERY_FACTORY_CFG, HsqldbSqlStatementFactory.class.getName());
-    config.put(JdbcDataAccessor.JDBC_RESULT_CONVERTER_CFG, TestConverter.class.getName());
-    // config.put(JdbcDataAccessor.JDBC_DRIVER_CFG, "org.hsqldb.jdbc.JDBCDataSource");
+    config.put(JdbcDataAccessor.JDBC_SQL_QUERY_FACTORY_CFG, sqlStatementFactory.getName());
+    config.put(JdbcDataAccessor.JDBC_RESULT_CONVERTER_CFG, converterClass.getName());
     config.put(JdbcDataAccessor.JDBC_USERNAME_CFG, "SA");
     config.put(JdbcDataAccessor.JDBC_PASSWORD_CFG, "");
     accessor =
         new JdbcDataAccessor(
             entity,
-            URI.create(JdbcDataAccessor.JDBC_URI_STORAGE_PREFIX + "jdbc:hsqldb:mem:testdb"),
+            URI.create(
+                JdbcDataAccessor.JDBC_URI_STORAGE_PREFIX + "jdbc:hsqldb:mem:testdb" + urlSuffix),
             config);
   }
 
   @Before
   public void setup() throws SQLException {
-    HikariDataSource dataSource = accessor.borrowDataSource();
+    this.dataSource = accessor.borrowDataSource();
     try (Statement statement = dataSource.getConnection().createStatement()) {
       final String createTableSql =
           "CREATE TABLE DUMMYTABLE (id VARCHAR(255) NOT NULL, attribute VARCHAR(255) NOT NULL, updatedAt TIMESTAMP NOT NULL, PRIMARY KEY (id) )";
@@ -78,12 +85,12 @@ public abstract class JdbcBaseTest {
 
   @After
   public void cleanup() throws SQLException {
-    HikariDataSource dataSource = accessor.borrowDataSource();
     try (Statement statement = dataSource.getConnection().createStatement()) {
       final String sql = "DROP TABLE DUMMYTABLE";
       statement.execute(sql);
       log.info("Test table dropped.");
     }
+    accessor.releaseDataSource();
   }
 
   AtomicBoolean writeElement(JdbcDataAccessor accessor, StreamElement element) {

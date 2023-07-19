@@ -34,8 +34,6 @@ public interface Converter<T> extends Serializable {
     return System.currentTimeMillis();
   }
 
-  Object attributeValue(ResultSet resultSet, AttributeDescriptor<T> attr);
-
   /**
    * Convert single row of {@code result} to {@link KeyValue KeyValues}. The code must not call
    * {@link ResultSet#next()}.
@@ -46,6 +44,7 @@ public interface Converter<T> extends Serializable {
    * @param result result to convert single line from
    * @return converted KeyValues.
    */
+  @SuppressWarnings("unchecked")
   default List<KeyValue<?>> asKeyValues(
       EntityDescriptor entityDescriptor,
       List<AttributeDescriptor<?>> attributes,
@@ -62,13 +61,13 @@ public interface Converter<T> extends Serializable {
                   key,
                   a.getName(),
                   new Offsets.Raw(key),
-                  getValueBytes(result, a),
+                  getValueBytes(result, (AttributeDescriptor<T>) a),
                   stamp);
             })
         .collect(Collectors.toList());
   }
 
-  default byte[] getValueBytes(ResultSet result, AttributeDescriptor<?> attributeDescriptor) {
+  default byte[] getValueBytes(ResultSet result, AttributeDescriptor<T> attributeDescriptor) {
     @SuppressWarnings("unchecked")
     ValueSerializer<Object> serializer =
         (ValueSerializer<Object>) attributeDescriptor.getValueSerializer();

@@ -44,6 +44,14 @@ public abstract class JdbcBaseTest {
   private HikariDataSource dataSource;
 
   public JdbcBaseTest() {
+    this(HsqldbSqlStatementFactory.class, TestConverter.class, "");
+  }
+
+  JdbcBaseTest(
+      Class<? extends SqlStatementFactory> sqlStatementFactory,
+      Class<? extends Converter> converterClass,
+      String urlSuffix) {
+
     attr =
         AttributeDescriptor.newBuilder(repository)
             .setEntity("dummy")
@@ -52,16 +60,15 @@ public abstract class JdbcBaseTest {
             .build();
     entity = EntityDescriptor.newBuilder().setName("dummy").addAttribute(attr).build();
     Map<String, Object> config = new HashMap<>();
-    config.put(
-        JdbcDataAccessor.JDBC_SQL_QUERY_FACTORY_CFG, HsqldbSqlStatementFactory.class.getName());
-    config.put(JdbcDataAccessor.JDBC_RESULT_CONVERTER_CFG, TestConverter.class.getName());
-    // config.put(JdbcDataAccessor.JDBC_DRIVER_CFG, "org.hsqldb.jdbc.JDBCDataSource");
+    config.put(JdbcDataAccessor.JDBC_SQL_QUERY_FACTORY_CFG, sqlStatementFactory.getName());
+    config.put(JdbcDataAccessor.JDBC_RESULT_CONVERTER_CFG, converterClass.getName());
     config.put(JdbcDataAccessor.JDBC_USERNAME_CFG, "SA");
     config.put(JdbcDataAccessor.JDBC_PASSWORD_CFG, "");
     accessor =
         new JdbcDataAccessor(
             entity,
-            URI.create(JdbcDataAccessor.JDBC_URI_STORAGE_PREFIX + "jdbc:hsqldb:mem:testdb"),
+            URI.create(
+                JdbcDataAccessor.JDBC_URI_STORAGE_PREFIX + "jdbc:hsqldb:mem:testdb" + urlSuffix),
             config);
   }
 

@@ -60,7 +60,8 @@ public class JdbcOnlineAttributeReader extends AbstractStorage implements Random
   public <T> Optional<KeyValue<T>> get(
       String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
-    Converter<?> converter = accessor.getResultConverter();
+    @SuppressWarnings("unchecked")
+    Converter<T> converter = (Converter<T>) accessor.getResultConverter();
     try (PreparedStatement statement = sqlStatementFactory.get(source, desc, key);
         ResultSet result = statement.executeQuery()) {
 

@@ -49,6 +49,7 @@ public interface SqlStatementFactory extends Serializable {
 
   /**
    * Scan the complete content of table.
+   *
    * @param dataSource the source
    * @return prepared statement
    */

@@ -16,9 +16,7 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import static cz.o2.proxima.beam.tools.groovy.BeamStream.getCoder;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
@@ -29,13 +27,16 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.transaction.Response.Flags;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.core.util.SerializableScopedValue;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
@@ -73,6 +74,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.runners.direct.DirectOptions;
+import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.runners.spark.SparkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
@@ -709,6 +711,52 @@ public class BeamStreamTest extends StreamTest {
     List<ByteBuffer> result =
         stream.collect().stream().map(ByteBuffer::wrap).collect(Collectors.toList());
     assertEquals(Collections.singletonList(ByteBuffer.wrap(new byte[] {})), result);
+  }
+
+  @Test
+  public void testMissingProviderForBatchUpdates() {
+    EntityDescriptor event = repo.getEntity("event");
+    AttributeDescriptor<?> data = event.getAttribute("data");
+    try (DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class)) {
+      OnlineAttributeWriter writer = Optionals.get(direct.getWriter(data));
+      writer.write(
+          StreamElement.upsert(
+              event,
+              data,
+              UUID.randomUUID().toString(),
+              "key",
+              data.getName(),
+              System.currentTimeMillis(),
+              new byte[] {}),
+          CommitCallback.noop());
+      WindowedStream<StreamElement> input =
+          BeamStream.batchUpdates(
+              op,
+              Watermarks.MIN_WATERMARK,
+              Watermarks.MAX_WATERMARK,
+              () -> false,
+              () -> {
+                PipelineOptions opts = PipelineOptionsFactory.create();
+                opts.setRunner(FlinkRunner.class);
+                return Pipeline.create(opts);
+              },
+              Collections.singletonList(data).toArray(new AttributeDescriptor[] {}));
+      WindowedStream<Object> mapped =
+          input.map(
+              Closures.from(
+                  this,
+                  () -> {
+                    throw new RuntimeException("Fail!");
+                  }));
+      try {
+        List<Object> result = mapped.collect();
+        fail("Should have thrown exception");
+      } catch (IllegalArgumentException ex) {
+        assertTrue(
+            ex.getMessage(),
+            ex.getMessage().startsWith("Cannot find suitable family for attributes ["));
+      }
+    }
   }
 
   private void expectThrow(Runnable r, Class<? extends Throwable> errorClass) {

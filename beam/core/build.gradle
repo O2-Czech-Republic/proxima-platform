@@ -35,6 +35,7 @@ dependencies {
   testImplementation libraries.junit4
   testImplementation libraries.hamcrest
   testImplementation libraries.mockito_core
+  testImplementation libraries.log4j_core
   compileOnly project(path: ':proxima-direct-core')
   compileOnly libraries.auto_service_annotations
   compileAnnotationProcessor libraries.lombok

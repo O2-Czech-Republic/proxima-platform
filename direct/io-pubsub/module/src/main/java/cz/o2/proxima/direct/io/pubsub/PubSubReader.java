@@ -52,7 +52,6 @@ import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import cz.o2.proxima.io.pubsub.util.PubSubUtils;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;

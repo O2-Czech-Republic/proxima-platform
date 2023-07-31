@@ -30,6 +30,7 @@ import cz.o2.proxima.core.storage.internal.DataAccessorLoader;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
@@ -282,6 +283,8 @@ public class BeamDataOperator implements DataOperator {
       boolean asStream,
       AttributeDescriptor<?>... attrs) {
 
+    Preconditions.checkArgument(
+        attrs.length > 0, "Cannot create PCollection from empty attribute list");
     List<AttributeDescriptor<?>> attrClosure =
         findSuitableFamilies(af -> af.getAccess().canReadBatchUpdates(), attrs)
             .filter(p -> p.getSecond().isPresent())
@@ -289,6 +292,10 @@ public class BeamDataOperator implements DataOperator {
             .flatMap(d -> d.getAttributes().stream())
             .distinct()
             .collect(Collectors.toList());
+    Preconditions.checkArgument(
+        !attrClosure.isEmpty(),
+        "Cannot find suitable family for attributes %s",
+        Arrays.toString(attrs));
     AttributeDescriptor<?>[] closureAsArray = attrClosure.toArray(new AttributeDescriptor[0]);
 
     return findSuitableAccessors(

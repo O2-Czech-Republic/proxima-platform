@@ -23,11 +23,19 @@ import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Optionals;
+import cz.o2.proxima.core.util.ReplicationRunner;
+import cz.o2.proxima.direct.core.CommitCallback;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
+import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.core.commitlog.Offset;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -97,6 +105,40 @@ public class BlockingQueueLogObserverTest {
   }
 
   @Test(timeout = 10000)
+  public void testCapacityFullWithCancel() throws InterruptedException {
+    final int capacity = 100;
+    final CountDownLatch elements = new CountDownLatch(capacity + 1);
+    final BlockingQueueLogObserver.BatchLogObserver observer =
+        new BlockingQueueLogObserver.BatchLogObserver(
+            "name", Long.MAX_VALUE, Long.MIN_VALUE, capacity) {
+          @Override
+          public boolean onNext(
+              StreamElement ingest,
+              cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext context) {
+
+            elements.countDown();
+            return super.onNext(ingest, context);
+          }
+        };
+    long now = System.currentTimeMillis();
+    int numElements = 1000;
+    try (DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class)) {
+      ReplicationRunner.runAttributeReplicas(direct);
+      OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
+      for (int i = 0; i < numElements; i++) {
+        writer.write(newElement("key" + i, now + i), CommitCallback.noop());
+      }
+      BatchLogReader reader = Optionals.get(direct.getBatchLogReader(status));
+      ObserveHandle handle =
+          reader.observe(reader.getPartitions(), Collections.singletonList(status), observer);
+      // wait till queue is full
+      elements.await();
+      handle.close();
+      // must not time out
+    }
+  }
+
+  @Test(timeout = 10000)
   public void testCapacityEmpty() throws InterruptedException, ExecutionException {
     final BlockingQueueLogObserver.CommitLogObserver observer =
         BlockingQueueLogObserver.createCommitLogObserver("name", Long.MIN_VALUE);
@@ -163,11 +205,15 @@ public class BlockingQueueLogObserverTest {
   }
 
   private StreamElement newElement(long stamp) {
+    return newElement("key", stamp);
+  }
+
+  private StreamElement newElement(String key, long stamp) {
     return StreamElement.upsert(
         gateway,
         status,
         UUID.randomUUID().toString(),
-        "key",
+        key,
         status.getName(),
         stamp,
         new byte[] {1});

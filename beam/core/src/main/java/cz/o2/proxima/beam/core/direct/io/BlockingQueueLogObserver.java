@@ -22,6 +22,7 @@ import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.LogObserver;
+import cz.o2.proxima.direct.core.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.core.commitlog.Offset;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
@@ -112,6 +113,11 @@ abstract class BlockingQueueLogObserver<
           element,
           context.getPartition());
       return enqueue(element, new BatchLogObserverUnifiedContext(context));
+    }
+
+    @Override
+    public void onInterrupted() {
+      stop();
     }
   }
 

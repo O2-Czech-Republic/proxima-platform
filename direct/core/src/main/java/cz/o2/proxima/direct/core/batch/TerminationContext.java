@@ -39,6 +39,7 @@ public class TerminationContext implements ObserveHandle {
   /** Force cancellation of {@link BatchLogReader#observe}. */
   public void cancel() {
     cancelled = true;
+    observer.onInterrupted();
     while (terminateLatch.getCount() > 0 && !Thread.currentThread().isInterrupted()) {
       ExceptionUtils.ignoringInterrupted(() -> terminateLatch.await(100, TimeUnit.MILLISECONDS));
     }

@@ -54,4 +54,10 @@ public interface BatchLogObserver extends LogObserver<Offset, BatchLogObserver.O
   default boolean onNext(StreamElement element, OnNextContext context) {
     return onNext(element);
   }
+
+  /**
+   * Called when the consumption is cancelled in case {@link #onNext(StreamElement, OnNextContext)}
+   * method is blocked and should be interrupted.
+   */
+  default void onInterrupted() {}
 }

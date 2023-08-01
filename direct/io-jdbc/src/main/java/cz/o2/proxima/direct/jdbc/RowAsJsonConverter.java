@@ -73,7 +73,7 @@ public class RowAsJsonConverter implements Converter<String> {
           .build();
 
   private static final JsonFormatter DEFAULT_FORMATTER =
-      (columnName, result, obj, i) -> obj.addProperty(columnName, result.getObject(i).toString());
+      (columnName, result, obj, i) -> obj.addProperty(columnName, (String) result.getObject(i));
 
   @Override
   public String getKeyFromResult(ResultSet result) {

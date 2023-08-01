@@ -50,7 +50,7 @@ public interface ValueSerializerFactory extends Serializable {
   default String getClassName(URI specifier) {
     final String type = specifier.getSchemeSpecificPart();
     if (type == null) {
-      throw new IllegalArgumentException("Invalid specifier " + specifier.toString() + ".");
+      throw new IllegalArgumentException("Invalid specifier " + specifier + ".");
     }
     return type;
   }

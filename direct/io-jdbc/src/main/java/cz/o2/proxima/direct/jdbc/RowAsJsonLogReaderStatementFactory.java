@@ -21,6 +21,7 @@ import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.sql.PreparedStatement;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -31,12 +32,10 @@ public class RowAsJsonLogReaderStatementFactory implements SqlStatementFactory {
   private String tableName;
 
   @Override
-  public void setup(EntityDescriptor entity, URI uri, HikariDataSource dataSource) {
-    tableName = Objects.requireNonNull(uri.getPath());
-    while (tableName.startsWith("/")) {
-      tableName = tableName.substring(1);
-    }
+  public void setup(
+      EntityDescriptor entity, URI uri, Map<String, Object> cfg, HikariDataSource dataSource) {
 
+    tableName = Objects.requireNonNull(cfg.get("sql.table")).toString();
     Preconditions.checkArgument(
         TABLE_PATTERN.matcher(tableName).matches(), "Invalid table name in %s", uri);
   }

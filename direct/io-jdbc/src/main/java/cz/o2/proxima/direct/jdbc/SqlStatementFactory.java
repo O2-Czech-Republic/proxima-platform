@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.jdbc;
 
 import com.zaxxer.hikari.HikariDataSource;
+import cz.o2.proxima.core.annotations.Experimental;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -24,10 +25,13 @@ import java.io.Serializable;
 import java.net.URI;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Map;
 
+@Experimental
 public interface SqlStatementFactory extends Serializable {
 
-  void setup(EntityDescriptor entity, URI uri, HikariDataSource dataSource) throws SQLException;
+  void setup(EntityDescriptor entity, URI uri, Map<String, Object> cfg, HikariDataSource dataSource)
+      throws SQLException;
 
   default PreparedStatement get(
       HikariDataSource dataSource, AttributeDescriptor<?> desc, Object value) throws SQLException {

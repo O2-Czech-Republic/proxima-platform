@@ -51,7 +51,10 @@ public class JdbcBatchLogReaderTableAsJsonTest extends JdbcBaseTest {
   }
 
   public JdbcBatchLogReaderTableAsJsonTest() {
-    super(TestedSqlFactory.class, RowAsJsonConverter.class, "/DUMMYTABLE");
+    super(
+        TestedSqlFactory.class,
+        RowAsJsonConverter.class,
+        Collections.singletonMap("sql.table", "DUMMYTABLE"));
   }
 
   @Test(timeout = 20000)

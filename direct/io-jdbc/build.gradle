@@ -52,7 +52,7 @@ enableShadowJar(project) {
 }
 
 shadowJar {
-  ["com.zaxxer", "java.sql"].each {
+  ["com.zaxxer"].each {
     relocate it, "cz.o2.proxima.jdbc.${it}"
   }
 }

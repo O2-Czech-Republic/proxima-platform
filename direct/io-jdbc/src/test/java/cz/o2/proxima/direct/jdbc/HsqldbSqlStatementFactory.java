@@ -27,6 +27,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -35,7 +36,9 @@ public class HsqldbSqlStatementFactory implements SqlStatementFactory {
   private final String primaryKey = "id";
   private final String timestampCol = "updatedAt";
 
-  public void setup(EntityDescriptor entity, URI uri, HikariDataSource dataSource) {
+  @Override
+  public void setup(
+      EntityDescriptor entity, URI uri, Map<String, Object> cfg, HikariDataSource dataSource) {
     // currently no-op
   }
 

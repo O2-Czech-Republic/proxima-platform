@@ -20,12 +20,11 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.AbstractStorage;
 import cz.o2.proxima.core.storage.Partition;
-import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.core.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext;
+import cz.o2.proxima.direct.core.batch.BatchLogObservers;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
-import cz.o2.proxima.direct.core.batch.Offset;
 import cz.o2.proxima.direct.core.batch.TerminationContext;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
@@ -84,23 +83,7 @@ public class JdbcBatchLogReader extends AbstractStorage implements BatchLogReade
       TerminationContext context) {
 
     Converter<?> converter = accessor.getResultConverter();
-    OnNextContext onNextContext =
-        new OnNextContext() {
-          @Override
-          public long getWatermark() {
-            return Watermarks.MIN_WATERMARK;
-          }
-
-          @Override
-          public Partition getPartition() {
-            return Partition.of(0);
-          }
-
-          @Override
-          public Offset getOffset() {
-            return null;
-          }
-        };
+    OnNextContext onNextContext = BatchLogObservers.defaultContext(Partition.of(0));
     long stamp = System.currentTimeMillis();
     HikariDataSource source = accessor.borrowDataSource();
     try (PreparedStatement scan = sqlStatementFactory.scanAll(source);

@@ -26,6 +26,7 @@ import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -44,13 +45,20 @@ public abstract class JdbcBaseTest {
   private HikariDataSource dataSource;
 
   public JdbcBaseTest() {
-    this(HsqldbSqlStatementFactory.class, TestConverter.class, "");
+    this(HsqldbSqlStatementFactory.class, TestConverter.class);
+  }
+
+  JdbcBaseTest(
+      Class<? extends SqlStatementFactory> sqlStatementFactory,
+      Class<? extends Converter> converterClass) {
+
+    this(sqlStatementFactory, converterClass, Collections.emptyMap());
   }
 
   JdbcBaseTest(
       Class<? extends SqlStatementFactory> sqlStatementFactory,
       Class<? extends Converter> converterClass,
-      String urlSuffix) {
+      Map<String, Object> baseCfg) {
 
     attr =
         AttributeDescriptor.newBuilder(repository)
@@ -59,7 +67,7 @@ public abstract class JdbcBaseTest {
             .setSchemeUri(URI.create("string:///"))
             .build();
     entity = EntityDescriptor.newBuilder().setName("dummy").addAttribute(attr).build();
-    Map<String, Object> config = new HashMap<>();
+    Map<String, Object> config = new HashMap<>(baseCfg);
     config.put(JdbcDataAccessor.JDBC_SQL_QUERY_FACTORY_CFG, sqlStatementFactory.getName());
     config.put(JdbcDataAccessor.JDBC_RESULT_CONVERTER_CFG, converterClass.getName());
     config.put(JdbcDataAccessor.JDBC_USERNAME_CFG, "SA");
@@ -67,8 +75,7 @@ public abstract class JdbcBaseTest {
     accessor =
         new JdbcDataAccessor(
             entity,
-            URI.create(
-                JdbcDataAccessor.JDBC_URI_STORAGE_PREFIX + "jdbc:hsqldb:mem:testdb" + urlSuffix),
+            URI.create(JdbcDataAccessor.JDBC_URI_STORAGE_PREFIX + "jdbc:hsqldb:mem:testdb"),
             config);
   }
 

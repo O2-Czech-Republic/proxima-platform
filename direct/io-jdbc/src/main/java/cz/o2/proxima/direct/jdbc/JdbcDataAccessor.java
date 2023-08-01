@@ -36,14 +36,14 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JdbcDataAccessor extends SerializableAbstractStorage implements DataAccessor {
   static final String JDBC_URI_STORAGE_PREFIX = "jdbc://";
-  static final String JDBC_DRIVER_CFG = "driverClassName";
-  static final String JDBC_USERNAME_CFG = "username";
+  static final String JDBC_DRIVER_CFG = "sql.driver-class-name";
+  static final String JDBC_USERNAME_CFG = "sql.username";
 
   @SuppressWarnings("squid:S2068")
-  static final String JDBC_PASSWORD_CFG = "password";
+  static final String JDBC_PASSWORD_CFG = "sql.password";
 
-  static final String JDBC_SQL_QUERY_FACTORY_CFG = "sqlQueryFactory";
-  static final String JDBC_RESULT_CONVERTER_CFG = "converter";
+  static final String JDBC_SQL_QUERY_FACTORY_CFG = "sql.query-factory";
+  static final String JDBC_RESULT_CONVERTER_CFG = "sql.converter";
 
   private final String jdbcUri;
   private final String jdbcUsername;
@@ -66,38 +66,35 @@ public class JdbcDataAccessor extends SerializableAbstractStorage implements Dat
     jdbcPassword = cfg.getOrDefault(JDBC_PASSWORD_CFG, "").toString();
 
     if (!cfg.containsKey(JDBC_SQL_QUERY_FACTORY_CFG)) {
-      log.error("Missing configuration param {}.", JDBC_URI_STORAGE_PREFIX);
+      log.error("Missing configuration param {}.", JDBC_SQL_QUERY_FACTORY_CFG);
       throw new IllegalStateException(
           String.format("Missing configuration param %s", JDBC_SQL_QUERY_FACTORY_CFG));
-    } else {
-      log.info(
-          "Using '{}' as {}.", cfg.get(JDBC_SQL_QUERY_FACTORY_CFG), JDBC_SQL_QUERY_FACTORY_CFG);
-      sqlStatementFactory =
-          Classpath.newInstance(
-              cfg.get(JDBC_SQL_QUERY_FACTORY_CFG).toString(), SqlStatementFactory.class);
-      try {
-        getOrCreateDataSource();
-        sqlStatementFactory.setup(entityDesc, uri, dataSource);
-      } catch (SQLException e) {
-        log.error(
-            "Unable to setup {} from class {}.",
-            JDBC_SQL_QUERY_FACTORY_CFG,
-            cfg.get(JDBC_SQL_QUERY_FACTORY_CFG),
-            e);
-        throw new IllegalStateException(e.getMessage(), e);
-      }
+    }
+    log.info("Using '{}' as {}.", cfg.get(JDBC_SQL_QUERY_FACTORY_CFG), JDBC_SQL_QUERY_FACTORY_CFG);
+    sqlStatementFactory =
+        Classpath.newInstance(
+            cfg.get(JDBC_SQL_QUERY_FACTORY_CFG).toString(), SqlStatementFactory.class);
+    try {
+      getOrCreateDataSource();
+      sqlStatementFactory.setup(entityDesc, uri, cfg, dataSource);
+    } catch (SQLException e) {
+      log.error(
+          "Unable to setup {} from class {}.",
+          JDBC_SQL_QUERY_FACTORY_CFG,
+          cfg.get(JDBC_SQL_QUERY_FACTORY_CFG),
+          e);
+      throw new IllegalStateException(e.getMessage(), e);
     }
 
     if (!cfg.containsKey(JDBC_RESULT_CONVERTER_CFG)) {
       log.error("Missing configuration param {}.", JDBC_RESULT_CONVERTER_CFG);
       throw new IllegalStateException(
           String.format("Missing configuration param %s", JDBC_RESULT_CONVERTER_CFG));
-    } else {
-      log.info("Using '{}' as SqlStatementFactory.", cfg.get(JDBC_RESULT_CONVERTER_CFG));
-      resultConverter =
-          Classpath.newInstance(cfg.get(JDBC_RESULT_CONVERTER_CFG).toString(), Converter.class);
-      resultConverter.setup();
     }
+    log.info("Using '{}' as SqlStatementFactory.", cfg.get(JDBC_RESULT_CONVERTER_CFG));
+    resultConverter =
+        Classpath.newInstance(cfg.get(JDBC_RESULT_CONVERTER_CFG).toString(), Converter.class);
+    resultConverter.setup();
   }
 
   @Override

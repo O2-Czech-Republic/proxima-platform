@@ -291,8 +291,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     }
 
     @NewWatermarkEstimator
-    public Manual newWatermarkEstimator(@WatermarkEstimatorState Instant initialWatemark) {
-      return SDFUtils.rangeCheckedManualEstimator(initialWatemark);
+    public Manual newWatermarkEstimator(@WatermarkEstimatorState Instant initialWatermark) {
+      return SDFUtils.rangeCheckedManualEstimator(initialWatermark);
     }
 
     @GetInitialWatermarkEstimatorState

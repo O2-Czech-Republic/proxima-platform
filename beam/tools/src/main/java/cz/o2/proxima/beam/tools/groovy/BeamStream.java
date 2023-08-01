@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -75,6 +76,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -230,7 +232,7 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
-    return new BeamStream<StreamElement>(
+    return new BeamStream<>(
         asConfig(beam),
         true,
         PCollectionProvider.fixedType(
@@ -247,7 +249,7 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       Factory<T> factory) {
 
-    return new BeamWindowedStream<T>(
+    return new BeamWindowedStream<>(
         asConfig(beam),
         true,
         PCollectionProvider.fixedType(
@@ -284,7 +286,7 @@ class BeamStream<T> implements Stream<T> {
 
     final GenerateSequence transform =
         GenerateSequence.from(0).withRate(1, Duration.millis(durationMs));
-    return new BeamWindowedStream<T>(
+    return new BeamWindowedStream<>(
         asConfig(beam),
         false,
         PCollectionProvider.fixedType(
@@ -525,6 +527,7 @@ class BeamStream<T> implements Stream<T> {
 
   @VisibleForTesting
   static void rethrow(Throwable err) {
+    log.error("Pipeline failed", err);
     if (err instanceof Error) {
       throw (Error) err;
     }
@@ -823,7 +826,7 @@ class BeamStream<T> implements Stream<T> {
         pipeline -> {
           Coder<K> coder = coderOf(pipeline, dehydrated);
           PCollection<T> in = collection.materialize(pipeline);
-          TypeDescriptor<Pair<K, T>> type = new TypeDescriptor<Pair<K, T>>() {};
+          TypeDescriptor<Pair<K, T>> type = new TypeDescriptor<>() {};
           return in.apply(MapElements.into(type).via(e -> Pair.of(dehydrated.call(e), e)))
               .setCoder(PairCoder.of(coder, in.getCoder()));
         },
@@ -935,7 +938,7 @@ class BeamStream<T> implements Stream<T> {
                       ".mapToKv",
                       in,
                       MapElements.into(TypeDescriptors.kvs(keyType, valueType))
-                          .<T>via(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e))))
+                          .via(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e))))
                   .setCoder(KvCoder.of(keyCoder, valueCoder));
           KvCoder<K, V> coder = (KvCoder<K, V>) kvs.getCoder();
           PCollection<Pair<K, V>> ret =
@@ -1089,7 +1092,7 @@ class BeamStream<T> implements Stream<T> {
   static <T, W extends BoundedWindow>
       PTransform<PCollection<T>, PCollection<T>> withWindowingStrategy(
           WindowingStrategy<T, W> strategy) {
-    return new PTransform<PCollection<T>, PCollection<T>>() {
+    return new PTransform<>() {
       @Override
       public PCollection<T> expand(PCollection<T> input) {
         Window<T> window =
@@ -1214,7 +1217,7 @@ class BeamStream<T> implements Stream<T> {
   }
 
   private static <T> Serializer<T> asSerializer(ValueSerializer<T> serializer) {
-    return new Serializer<T>() {
+    return new Serializer<>() {
 
       @Override
       public void write(Kryo kryo, Output output, T t) {
@@ -1333,7 +1336,7 @@ class BeamStream<T> implements Stream<T> {
 
   private BeamStream<T> asUnwindowed() {
     if (getWindowFn().equals(new GlobalWindows()) && getTrigger().equals(DefaultTrigger.of())) {
-      return new BeamStream<T>(
+      return new BeamStream<>(
           this.config,
           this.bounded,
           this.collection,
@@ -1365,7 +1368,7 @@ class BeamStream<T> implements Stream<T> {
   static PTransform<PCollection<StreamElement>, PDone> createBulkWriteTransform(
       UnaryFunction<StreamElement, Integer> keyFn, BulkWriteDoFn bulkWriteDoFn) {
 
-    return new PTransform<PCollection<StreamElement>, PDone>() {
+    return new PTransform<>() {
 
       @Override
       public PDone expand(PCollection<StreamElement> input) {
@@ -1720,7 +1723,7 @@ class BeamStream<T> implements Stream<T> {
         () -> {
           try {
             while (!terminateCheck.check()) {
-              // nop
+              TimeUnit.MILLISECONDS.sleep(50);
             }
             terminate.run();
           } catch (InterruptedException ex) {

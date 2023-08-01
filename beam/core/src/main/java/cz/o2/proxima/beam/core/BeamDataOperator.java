@@ -355,7 +355,7 @@ public class BeamDataOperator implements DataOperator {
         findSuitableFamilies(af -> af.getAccess().canReadBatchSnapshot(), attrs)
             .collect(Collectors.toList());
 
-    boolean unresolved = resolvedAttrs.stream().anyMatch(p -> !p.getSecond().isPresent());
+    boolean unresolved = resolvedAttrs.stream().anyMatch(p -> p.getSecond().isEmpty());
 
     if (!unresolved) {
       return resolvedAttrs.stream()
@@ -414,7 +414,7 @@ public class BeamDataOperator implements DataOperator {
     return findSuitableFamilies(predicate, attrs)
         .map(
             p -> {
-              if (!p.getSecond().isPresent()) {
+              if (p.getSecond().isEmpty()) {
                 throw new IllegalArgumentException(
                     "Missing " + accessorType + " for " + p.getFirst());
               }
@@ -482,7 +482,7 @@ public class BeamDataOperator implements DataOperator {
       AttributeDescriptor<?>[] attrs) {
 
     Set<AttributeDescriptor<?>> attrSet = Arrays.stream(attrs).collect(Collectors.toSet());
-    return new PTransform<PCollection<StreamElement>, PCollection<StreamElement>>() {
+    return new PTransform<>() {
       @Override
       public PCollection<StreamElement> expand(PCollection<StreamElement> input) {
         return input.apply(Filter.by(el -> attrSet.contains(el.getAttributeDescriptor())));

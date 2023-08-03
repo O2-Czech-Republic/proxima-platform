@@ -51,19 +51,19 @@ class Environment implements RepositoryProvider {
 
       /* All attributes */
       <#list entity.attributes as attribute>
-        class ${attribute.classname}Descriptor implements AttributeDescriptorProvider {
+        class ${attribute.classname}Descriptor implements AttributeDescriptorProvider<${attribute.type}> {
 
           private final Console console = Environment.this.console
-          private final AttributeDescriptor desc = ${entity.classname}Descriptor.this.desc.findAttribute("${attribute.origname}").get()
-          private final Class type = ${attribute.type}
+          private final AttributeDescriptor<${attribute.type}> desc = (AttributeDescriptor) ${entity.classname}Descriptor.this.desc.findAttribute("${attribute.origname}").get()
+          private final Class<${attribute.type}> type = ${attribute.type}
           private final String name = "${attribute.name}"
-          private final cz.o2.proxima.core.scheme.ValueSerializer serializer = desc.getValueSerializer()
+          private final cz.o2.proxima.core.scheme.ValueSerializer<${attribute.type}> serializer = desc.getValueSerializer()
 
-          def AttributeDescriptor desc() {
+          def AttributeDescriptor<${attribute.type}> desc() {
             return desc
           }
 
-          def Class type() {
+          def Class<${attribute.type}> type() {
             return type
           }
 
@@ -71,7 +71,7 @@ class Environment implements RepositoryProvider {
             return name
           }
 
-          def cz.o2.proxima.core.scheme.ValueSerializer serializer() {
+          def cz.o2.proxima.core.scheme.ValueSerializer<${attribute.type}> serializer() {
             return serializer
           }
 
@@ -135,10 +135,10 @@ class Environment implements RepositoryProvider {
             def List<KeyValue<${attribute.type}>> listPrefix(String key, String prefix) {
               return ${entity.classname}Descriptor.this.reader.list(key, desc.toAttributePrefix() + prefix)
             }
-            def void put(String key, String attribute, Object value) {
+            def void put(String key, String attribute, ${attribute.type} value) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, value)
             }
-            def void put(String key, String attribute, long stamp, Object value) {
+            def void put(String key, String attribute, long stamp, ${attribute.type} value) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, stamp, value)
             }
             def void delete(String key, String attribute) {
@@ -157,10 +157,10 @@ class Environment implements RepositoryProvider {
             def KeyValue<${attribute.type}> get(String key) {
               return ${entity.classname}Descriptor.this.reader.get(key, name)
             }
-            def void put(String key, Object value) {
+            def void put(String key, ${attribute.type} value) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), value)
             }
-            def void put(String key, long stamp, Object value) {
+            def void put(String key, long stamp, ${attribute.type} value) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp, value)
             }
             def void delete(String key) {

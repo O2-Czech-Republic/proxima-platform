@@ -52,6 +52,7 @@ import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ScanResult;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import io.grpc.Status.Code;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -434,13 +435,21 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
           });
       Optional<Throwable> taken = ExceptionUtils.uncheckedFactory(result::take);
       if (taken.isPresent()) {
-        responseObserver.onError(taken.get());
+        Throwable err = taken.get();
+        responseObserver.onError(
+            io.grpc.Status.fromCode(Code.INTERNAL)
+                .withCause(err)
+                .withDescription(err.getMessage())
+                .asRuntimeException());
       } else {
         responseObserver.onCompleted();
       }
     } catch (Exception ex) {
-
-      responseObserver.onError(ex);
+      responseObserver.onError(
+          io.grpc.Status.fromCode(Code.INVALID_ARGUMENT)
+              .withCause(ex)
+              .withDescription(ex.getMessage())
+              .asRuntimeException());
     }
   }
 

@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-grpcio==1.43.0
-grpcio-tools==1.43.0
+grpcio>=1.55.0
+grpcio-tools>=1.55.0
 lorem==0.1.1
 names==0.3.0
-protobuf==3.19.5
+protobuf>=3.23.0
 six==1.16.0

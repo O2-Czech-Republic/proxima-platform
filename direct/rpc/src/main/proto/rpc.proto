@@ -343,6 +343,27 @@ message BeginTransactionResponse {
 }
 
 /**
+ * Request to scan the complete data for given attributes.
+ * Currently, the attributes have to reside in the same attribute family.
+ **/
+message ScanRequest {
+
+  string entity = 1;
+  repeated string attribute = 2;
+
+}
+
+message ScanResult {
+
+  string key = 1;
+  string attribute = 2;
+  bytes value = 3;
+  uint64 stamp = 4;
+
+}
+
+
+/**
  * Service that serves for retrieving data from the system
  * (via stream or random access calls).
  */
@@ -365,6 +386,11 @@ service RetrieveService {
    * Returns most importantly the ID of the transaction that should be the used in subsequent read operations.
    */
   rpc begin (BeginTransactionRequest) returns (BeginTransactionResponse);
+
+  /**
+   * Scan complete attributes.
+   **/
+  rpc scan (ScanRequest) returns (stream ScanResult);
 
 }
 

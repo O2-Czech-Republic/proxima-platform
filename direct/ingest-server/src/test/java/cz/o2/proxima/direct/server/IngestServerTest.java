@@ -69,7 +69,10 @@ public class IngestServerTest {
   @Test(timeout = 20000)
   public void testIngestExtensible() {
     ExtendedIngestServer server =
-        new ExtendedIngestServer(ConfigFactory.load("test-ingest-server.conf").resolve());
+        new ExtendedIngestServer(
+            ConfigFactory.load("test-ingest-server.conf")
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .resolve());
     IngestServer.runWithServerFactory(() -> server);
     assertTrue(server.isGetServicesCalled());
     assertTrue(server.isServerRuns());

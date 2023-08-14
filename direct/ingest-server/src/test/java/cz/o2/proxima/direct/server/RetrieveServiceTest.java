@@ -1326,4 +1326,78 @@ public class RetrieveServiceTest {
     assertEquals(
         attribute.toAttributePrefix() + "prefix.4999", response.getValue(4999).getAttribute());
   }
+
+  @Test
+  public void testScanValid() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
+    int numElements = 100;
+    OnlineAttributeWriter writer = Optionals.get(server.direct.getWriter(attribute));
+    long now = System.currentTimeMillis();
+    for (int i = 0; i < numElements; i++) {
+      writer.write(
+          StreamElement.upsert(
+              entity,
+              attribute,
+              UUID.randomUUID().toString(),
+              "key",
+              "wildcard." + i,
+              now + i,
+              new byte[] {1, 2, 3}),
+          CommitCallback.noop());
+    }
+    Rpc.ScanRequest request =
+        Rpc.ScanRequest.newBuilder().addAttribute("wildcard.*").setEntity(entity.getName()).build();
+    List<Rpc.ScanResult> responses = new ArrayList<>();
+    AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.ScanResult> responseObserver;
+    responseObserver =
+        new StreamObserver<>() {
+          @Override
+          public void onNext(Rpc.ScanResult res) {
+            responses.add(res);
+          }
+
+          @Override
+          public void onError(Throwable thrwbl) {
+            throw new RuntimeException(thrwbl);
+          }
+
+          @Override
+          public void onCompleted() {
+            finished.set(true);
+          }
+        };
+
+    retrieve.scan(request, responseObserver);
+
+    assertTrue(finished.get());
+    Rpc.ScanResult response = responses.get(0);
+    assertEquals("wildcard.0", response.getAttribute());
+    assertEquals("key", response.getKey());
+    assertEquals(now, response.getStamp());
+    assertArrayEquals(new byte[] {1, 2, 3}, response.getValue().toByteArray());
+    assertEquals(numElements, responses.size());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testScanInvalidAttribute() {
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    Rpc.ScanRequest request =
+        Rpc.ScanRequest.newBuilder().addAttribute("data").setEntity(entity.getName()).build();
+    final StreamObserver<Rpc.ScanResult> responseObserver;
+    responseObserver =
+        new StreamObserver<>() {
+          @Override
+          public void onNext(Rpc.ScanResult res) {}
+
+          @Override
+          public void onError(Throwable thrwbl) {}
+
+          @Override
+          public void onCompleted() {}
+        };
+
+    retrieve.scan(request, responseObserver);
+  }
 }

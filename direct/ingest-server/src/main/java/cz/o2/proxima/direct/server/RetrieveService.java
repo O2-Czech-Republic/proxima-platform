@@ -369,71 +369,78 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
   @Override
   public void scan(ScanRequest request, StreamObserver<ScanResult> responseObserver) {
-    EntityDescriptor entity = repo.getEntity(request.getEntity());
-    List<AttributeDescriptor<?>> attributes =
-        request.getAttributeList().stream().map(entity::getAttribute).collect(Collectors.toList());
-    List<DirectAttributeFamilyDescriptor> families =
-        attributes.stream()
-            .map(
-                a ->
-                    Pair.of(
-                        a,
-                        direct.getFamiliesForAttribute(a).stream()
-                            .filter(f -> f.getDesc().getAccess().canReadBatchSnapshot())
-                            .findAny()))
-            .map(
-                p ->
-                    p.getSecond()
-                        .orElseThrow(
-                            () -> {
-                              throw new IllegalArgumentException(
-                                  "Missing batch-snapshot family for attribute " + p.getFirst());
-                            }))
-            .distinct()
-            .collect(Collectors.toList());
-    Preconditions.checkArgument(
-        families.size() == 1,
-        "Got multiple families %s for attributes %s",
-        families,
-        request.getAttributeList());
-    DirectAttributeFamilyDescriptor family = Iterables.getOnlyElement(families);
-    BatchLogReader reader = Optionals.get(family.getBatchReader());
     BlockingQueue<Optional<Throwable>> result = new SynchronousQueue<>();
-    reader.observe(
-        reader.getPartitions(),
-        attributes,
-        new BatchLogObserver() {
-          @Override
-          public boolean onNext(StreamElement element) {
-            if (!element.isDelete()) {
-              ScanResult result =
-                  ScanResult.newBuilder()
-                      .setAttribute(element.getAttribute())
-                      .setKey(element.getKey())
-                      .setValue(ByteString.copyFrom(element.getValue()))
-                      .setStamp(element.getStamp())
-                      .build();
-              responseObserver.onNext(result);
+    try {
+      EntityDescriptor entity = repo.getEntity(request.getEntity());
+      List<AttributeDescriptor<?>> attributes =
+          request.getAttributeList().stream()
+              .map(entity::getAttribute)
+              .collect(Collectors.toList());
+      List<DirectAttributeFamilyDescriptor> families =
+          attributes.stream()
+              .map(
+                  a ->
+                      Pair.of(
+                          a,
+                          direct.getFamiliesForAttribute(a).stream()
+                              .filter(f -> f.getDesc().getAccess().canReadBatchSnapshot())
+                              .findAny()))
+              .map(
+                  p ->
+                      p.getSecond()
+                          .orElseThrow(
+                              () -> {
+                                throw new IllegalArgumentException(
+                                    "Missing batch-snapshot family for attribute " + p.getFirst());
+                              }))
+              .distinct()
+              .collect(Collectors.toList());
+      Preconditions.checkArgument(
+          families.size() == 1,
+          "Got multiple families %s for attributes %s",
+          families,
+          request.getAttributeList());
+      DirectAttributeFamilyDescriptor family = Iterables.getOnlyElement(families);
+      BatchLogReader reader = Optionals.get(family.getBatchReader());
+      reader.observe(
+          reader.getPartitions(),
+          attributes,
+          new BatchLogObserver() {
+            @Override
+            public boolean onNext(StreamElement element) {
+              if (!element.isDelete()) {
+                ScanResult result =
+                    ScanResult.newBuilder()
+                        .setAttribute(element.getAttribute())
+                        .setKey(element.getKey())
+                        .setValue(ByteString.copyFrom(element.getValue()))
+                        .setStamp(element.getStamp())
+                        .build();
+                responseObserver.onNext(result);
+              }
+              return true;
             }
-            return true;
-          }
 
-          @Override
-          public void onCompleted() {
-            ExceptionUtils.unchecked(() -> result.put(Optional.empty()));
-          }
+            @Override
+            public void onCompleted() {
+              ExceptionUtils.unchecked(() -> result.put(Optional.empty()));
+            }
 
-          @Override
-          public boolean onError(Throwable error) {
-            ExceptionUtils.unchecked(() -> result.put(Optional.of(error)));
-            return false;
-          }
-        });
-    Optional<Throwable> taken = ExceptionUtils.uncheckedFactory(result::take);
-    if (taken.isPresent()) {
-      responseObserver.onError(taken.get());
-    } else {
-      responseObserver.onCompleted();
+            @Override
+            public boolean onError(Throwable error) {
+              ExceptionUtils.unchecked(() -> result.put(Optional.of(error)));
+              return false;
+            }
+          });
+      Optional<Throwable> taken = ExceptionUtils.uncheckedFactory(result::take);
+      if (taken.isPresent()) {
+        responseObserver.onError(taken.get());
+      } else {
+        responseObserver.onCompleted();
+      }
+    } catch (Exception ex) {
+
+      responseObserver.onError(ex);
     }
   }
 

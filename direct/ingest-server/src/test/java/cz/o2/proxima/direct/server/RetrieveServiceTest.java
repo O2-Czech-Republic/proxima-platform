@@ -15,9 +15,7 @@
  */
 package cz.o2.proxima.direct.server;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -42,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -1380,24 +1379,28 @@ public class RetrieveServiceTest {
     assertEquals(numElements, responses.size());
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testScanInvalidAttribute() {
     EntityDescriptor entity = server.repo.getEntity("dummy");
     Rpc.ScanRequest request =
         Rpc.ScanRequest.newBuilder().addAttribute("data").setEntity(entity.getName()).build();
-    final StreamObserver<Rpc.ScanResult> responseObserver;
-    responseObserver =
+    AtomicReference<Throwable> error = new AtomicReference<>();
+    StreamObserver<Rpc.ScanResult> responseObserver =
         new StreamObserver<>() {
           @Override
           public void onNext(Rpc.ScanResult res) {}
 
           @Override
-          public void onError(Throwable thrwbl) {}
+          public void onError(Throwable thrwbl) {
+            error.set(thrwbl);
+          }
 
           @Override
           public void onCompleted() {}
         };
 
     retrieve.scan(request, responseObserver);
+    assertNotNull(error.get());
+    assertTrue(error.get() instanceof IllegalArgumentException);
   }
 }

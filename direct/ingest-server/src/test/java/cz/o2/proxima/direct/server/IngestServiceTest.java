@@ -262,7 +262,8 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = getInMemStorage();
-    Map<String, StreamElement> data = storage.getData();
+    Map<String, StreamElement> data =
+        storage.getData().tailMap("/proxima/dummy/").headMap("/proxima/dummy/" + (char) 0xFF);
     assertEquals(2, data.size());
     assertEquals(
         "muhehe",

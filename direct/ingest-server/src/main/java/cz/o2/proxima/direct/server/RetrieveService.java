@@ -15,17 +15,24 @@
  */
 package cz.o2.proxima.direct.server;
 
+import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.KeyAttributes;
 import cz.o2.proxima.core.transaction.Response.Flags;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Optionals;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.batch.BatchLogObserver;
+import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader.Listing;
@@ -40,8 +47,11 @@ import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ListRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ListResponse;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.MultifetchRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.MultifetchResponse;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ScanRequest;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ScanResult;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,10 +60,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /** Service for reading data. */
@@ -351,6 +364,76 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
         responseObserver.onNext(response.build());
         responseObserver.onCompleted();
       }
+    }
+  }
+
+  @Override
+  public void scan(ScanRequest request, StreamObserver<ScanResult> responseObserver) {
+    EntityDescriptor entity = repo.getEntity(request.getEntity());
+    List<AttributeDescriptor<?>> attributes =
+        request.getAttributeList().stream().map(entity::getAttribute).collect(Collectors.toList());
+    List<DirectAttributeFamilyDescriptor> families =
+        attributes.stream()
+            .map(
+                a ->
+                    Pair.of(
+                        a,
+                        direct.getFamiliesForAttribute(a).stream()
+                            .filter(f -> f.getDesc().getAccess().canReadBatchSnapshot())
+                            .findAny()))
+            .map(
+                p ->
+                    p.getSecond()
+                        .orElseThrow(
+                            () -> {
+                              throw new IllegalArgumentException(
+                                  "Missing batch-snapshot family for attribute " + p.getFirst());
+                            }))
+            .distinct()
+            .collect(Collectors.toList());
+    Preconditions.checkArgument(
+        families.size() == 1,
+        "Got multiple families %s for attributes %s",
+        families,
+        request.getAttributeList());
+    DirectAttributeFamilyDescriptor family = Iterables.getOnlyElement(families);
+    BatchLogReader reader = Optionals.get(family.getBatchReader());
+    BlockingQueue<Optional<Throwable>> result = new SynchronousQueue<>();
+    reader.observe(
+        reader.getPartitions(),
+        attributes,
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            if (!element.isDelete()) {
+              ScanResult result =
+                  ScanResult.newBuilder()
+                      .setAttribute(element.getAttribute())
+                      .setKey(element.getKey())
+                      .setValue(ByteString.copyFrom(element.getValue()))
+                      .setStamp(element.getStamp())
+                      .build();
+              responseObserver.onNext(result);
+            }
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            ExceptionUtils.unchecked(() -> result.put(Optional.empty()));
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            ExceptionUtils.unchecked(() -> result.put(Optional.of(error)));
+            return false;
+          }
+        });
+    Optional<Throwable> taken = ExceptionUtils.uncheckedFactory(result::take);
+    if (taken.isPresent()) {
+      responseObserver.onError(taken.get());
+    } else {
+      responseObserver.onCompleted();
     }
   }
 

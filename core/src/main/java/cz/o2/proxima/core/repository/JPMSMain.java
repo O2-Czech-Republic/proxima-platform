@@ -41,7 +41,9 @@ import lombok.extern.slf4j.Slf4j;
 public class JPMSMain {
 
   public static void main(String[] args)
-      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException,
+      throws ClassNotFoundException,
+          NoSuchMethodException,
+          InvocationTargetException,
           IllegalAccessException {
     if (args.length < 2) {
       usage(args);

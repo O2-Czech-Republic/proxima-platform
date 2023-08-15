@@ -163,6 +163,7 @@ public class BatchLogSourceFunction<OutputT>
       }
     };
   }
+
   /**
    * Allow tests to wrap the source observer, in order to place a barrier for deterministically
    * acquiring the checkpoint lock.

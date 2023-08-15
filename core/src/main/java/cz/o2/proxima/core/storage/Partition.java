@@ -46,12 +46,16 @@ public interface Partition extends Serializable, Comparable<Partition> {
    */
   int getId();
 
-  /** @return Retrieve minimal timestamp associated with data in this partition. */
+  /**
+   * @return Retrieve minimal timestamp associated with data in this partition.
+   */
   default long getMinTimestamp() {
     return Long.MIN_VALUE;
   }
 
-  /** @return Retrieve maximal timestamp associated with data in this partition. */
+  /**
+   * @return Retrieve maximal timestamp associated with data in this partition.
+   */
   default long getMaxTimestamp() {
     return Long.MAX_VALUE;
   }

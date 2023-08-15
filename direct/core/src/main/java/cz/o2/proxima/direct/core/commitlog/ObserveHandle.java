@@ -40,7 +40,9 @@ public interface ObserveHandle extends AutoCloseable {
    */
   void resetOffsets(List<Offset> offsets);
 
-  /** @return list of last processed element from each assigned partition. */
+  /**
+   * @return list of last processed element from each assigned partition.
+   */
   List<Offset> getCurrentOffsets();
 
   /**

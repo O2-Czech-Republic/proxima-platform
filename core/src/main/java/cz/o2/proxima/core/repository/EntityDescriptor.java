@@ -114,7 +114,9 @@ public interface EntityDescriptor extends Serializable {
                 String.format("Unable to find attribute [%s] of entity [%s].", name, getName())));
   }
 
-  /** @return {@code true} if the entity contains any attribute that has transactions enabled. */
+  /**
+   * @return {@code true} if the entity contains any attribute that has transactions enabled.
+   */
   default boolean isTransactional() {
     return getAllAttributes().stream()
         .anyMatch(attr -> attr.getTransactionMode() != TransactionMode.NONE);

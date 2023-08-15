@@ -57,10 +57,14 @@ interface ElementConsumer<K, V> {
    */
   Map<TopicPartition, OffsetAndMetadata> prepareOffsetsForCommit();
 
-  /** @return list of current offsets */
+  /**
+   * @return list of current offsets
+   */
   List<TopicOffset> getCurrentOffsets();
 
-  /** @return list of committed offsets */
+  /**
+   * @return list of committed offsets
+   */
   List<TopicOffset> getCommittedOffsets();
 
   /** Called when processing finishes. */

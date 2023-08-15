@@ -26,11 +26,15 @@ import java.io.Serializable;
 @FunctionalInterface
 public interface TimeProvider extends Serializable {
 
-  /** @return {@link TimeProvider} using {@link System#currentTimeMillis()}. */
+  /**
+   * @return {@link TimeProvider} using {@link System#currentTimeMillis()}.
+   */
   static TimeProvider processingTime() {
     return System::currentTimeMillis;
   }
 
-  /** @return current epoch milli time according to this timestamp provider */
+  /**
+   * @return current epoch milli time according to this timestamp provider
+   */
   long getCurrentTime();
 }

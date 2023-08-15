@@ -52,7 +52,9 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       return new OffsetRange(limit, bounded);
     }
 
-    /** @return restriction that reads from given offset (inclusive) */
+    /**
+     * @return restriction that reads from given offset (inclusive)
+     */
     public static OffsetRange startingFrom(
         Partition partition, Position position, OffsetRange initialRestriction) {
       return new OffsetRange(
@@ -164,7 +166,9 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       return totalLimit <= consumed;
     }
 
-    /** @return unmodifiable already processed split of the restriction */
+    /**
+     * @return unmodifiable already processed split of the restriction
+     */
     public OffsetRange asPrimary() {
       return new OffsetRange(
           startOffset, endOffsetInclusive, totalLimit, bounded, totalLimit - consumed);

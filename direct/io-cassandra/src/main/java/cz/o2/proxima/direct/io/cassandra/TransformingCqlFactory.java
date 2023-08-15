@@ -45,10 +45,13 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
 
   /** Parser of ingest to any intermediate type. */
   private final UnaryFunction<StreamElement, T> parser;
+
   /** Name of the the primary key column . */
   private final List<String> columns;
+
   /** Extract name value of key from ingest. */
   private final List<UnaryFunction<Pair<String, T>, Object>> extractors;
+
   /** Filter for bad messages. */
   private final UnaryFunction<T, Boolean> filter;
 

@@ -353,7 +353,9 @@ public final class ConfigRepository extends Repository {
         moduleName, tmp -> new URLClassLoader(new URL[] {location}, parent));
   }
 
-  /** @return this */
+  /**
+   * @return this
+   */
   ConfigRepository withFactory(RepositoryFactory factory) {
     this.factory = factory;
     return this;

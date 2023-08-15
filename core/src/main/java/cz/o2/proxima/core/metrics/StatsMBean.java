@@ -21,24 +21,38 @@ import cz.o2.proxima.core.annotations.Stable;
 @Stable
 public interface StatsMBean {
 
-  /** @return 1st percentile. */
+  /**
+   * @return 1st percentile.
+   */
   double get1();
 
-  /** @return 10th percentile. */
+  /**
+   * @return 10th percentile.
+   */
   double get10();
 
-  /** @return 30th percentile. */
+  /**
+   * @return 30th percentile.
+   */
   double get30();
 
-  /** @return 50th percentile. */
+  /**
+   * @return 50th percentile.
+   */
   double get50();
 
-  /** @return 70th percentile. */
+  /**
+   * @return 70th percentile.
+   */
   double get70();
 
-  /** @return 90th percentile. */
+  /**
+   * @return 90th percentile.
+   */
   double get90();
 
-  /** @return 99th percentile. */
+  /**
+   * @return 99th percentile.
+   */
   double get99();
 }

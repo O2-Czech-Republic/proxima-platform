@@ -138,10 +138,14 @@ public interface ElementWiseProxyTransform extends ProxyTransform, DataOperatorA
      */
     AttributeDescriptor<?> getTargetAttribute();
 
-    /** @return {@code true} is this is read transform */
+    /**
+     * @return {@code true} is this is read transform
+     */
     boolean isReadTransform();
 
-    /** @return {@code true} is this is read transform */
+    /**
+     * @return {@code true} is this is read transform
+     */
     boolean isWriteTransform();
 
     default boolean isSymmetric() {

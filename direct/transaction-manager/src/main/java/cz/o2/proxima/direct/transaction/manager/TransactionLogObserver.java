@@ -119,8 +119,10 @@ public class TransactionLogObserver implements CommitLogObserver {
 
     /** sequential ID of the update */
     long seqId;
+
     /** marker that the write is actually a delete */
     boolean tombstone;
+
     /** timestamp of creation of the record. */
     long timestamp;
 

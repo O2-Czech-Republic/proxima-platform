@@ -194,13 +194,19 @@ public interface AccessType extends Serializable {
    */
   boolean canReadBatchUpdates();
 
-  /** @return {@code true} if this family can be used to access batch snapshot. */
+  /**
+   * @return {@code true} if this family can be used to access batch snapshot.
+   */
   boolean canReadBatchSnapshot();
 
-  /** @return {@code true} if this family can be used for random reads. */
+  /**
+   * @return {@code true} if this family can be used for random reads.
+   */
   boolean canRandomRead();
 
-  /** @return {@code true} if this family can be used for observing the commit log. */
+  /**
+   * @return {@code true} if this family can be used for observing the commit log.
+   */
   boolean canReadCommitLog();
 
   /**
@@ -208,15 +214,23 @@ public interface AccessType extends Serializable {
    */
   boolean isStateCommitLog();
 
-  /** @return {@code true} if we can we modify the family. */
+  /**
+   * @return {@code true} if we can we modify the family.
+   */
   boolean isReadonly();
 
-  /** @return {@code true} if this family can access primary key of entities. */
+  /**
+   * @return {@code true} if this family can access primary key of entities.
+   */
   boolean isListPrimaryKey();
 
-  /** @return {@code true} if this family is accessed only write only */
+  /**
+   * @return {@code true} if this family is accessed only write only
+   */
   boolean isWriteOnly();
 
-  /** @return {@code true} if a cached view can be create from this attribute family */
+  /**
+   * @return {@code true} if a cached view can be create from this attribute family
+   */
   boolean canCreateCachedView();
 }

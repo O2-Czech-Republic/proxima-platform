@@ -41,6 +41,7 @@ public class Commit implements Serializable {
   public static class TransactionUpdate implements Serializable {
     /** Name of target attribute family. */
     String targetFamily;
+
     /** The update itself. */
     StreamElement update;
   }

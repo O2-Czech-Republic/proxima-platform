@@ -30,6 +30,7 @@ public interface StringConverter<T> extends Serializable {
 
     /** String value that all strings should be less than. */
     static final String MAX = new String(new byte[] {(byte) 0xFF}, 0, 1, StandardCharsets.US_ASCII);
+
     /** String value that all strings should be greater or equal to. */
     static final String MIN = "";
 

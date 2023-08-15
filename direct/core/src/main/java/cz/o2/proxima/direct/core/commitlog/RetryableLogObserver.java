@@ -33,14 +33,19 @@ class RetryableLogObserver implements CommitLogObserver {
 
   /** Maximal number of retries. */
   @Getter private final int maxRetries;
+
   /** Name of the consumer. */
   @Getter private final String name;
+
   /** Consumer of error when retries exhausted. */
   UnaryFunction<Throwable, TerminationStrategy> onRetriesExhausted;
+
   /** {@code true} is we should retry {@link Error Errors}. */
   final boolean retryErrors;
+
   /** Current number of failures in a row. */
   private int numFailures;
+
   /** Underlying log observer. */
   private final CommitLogObserver delegate;
 

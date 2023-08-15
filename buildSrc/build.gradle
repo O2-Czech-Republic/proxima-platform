@@ -25,7 +25,7 @@ repositories {
 }
 
 dependencies {
-  api "com.diffplug.spotless:spotless-plugin-gradle:5.0.0"
+  api "com.diffplug.spotless:spotless-plugin-gradle:6.20.0"
   //implementation "org.gradlex:extra-java-module-info:1.4"
   implementation "net.ltgt.gradle:gradle-errorprone-plugin:3.0.1"
 }

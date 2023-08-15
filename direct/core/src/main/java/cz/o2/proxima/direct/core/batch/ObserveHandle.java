@@ -22,7 +22,9 @@ import cz.o2.proxima.core.annotations.Stable;
 @Stable
 public interface ObserveHandle extends AutoCloseable {
 
-  /** @return an {@link ObserveHandle} which does nothing. */
+  /**
+   * @return an {@link ObserveHandle} which does nothing.
+   */
   @Internal
   static ObserveHandle noop() {
     return () -> {};

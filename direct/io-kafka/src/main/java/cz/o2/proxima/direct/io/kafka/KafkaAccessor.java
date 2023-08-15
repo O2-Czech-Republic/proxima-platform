@@ -63,22 +63,29 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   /** A poll interval in milliseconds. */
   public static final String POLL_INTERVAL_CFG = "poll.interval";
+
   /** Partitioner class for entity key-attribute pair. */
   public static final String PARTITIONER_CLASS = ConfigConstants.PARTITIONER;
+
   /**
    * Class performing parsing from (String, byte[]) to StreamElement. This kas to implement {@link
    * ElementSerializer} interface.
    */
   public static final String SERIALIZER_CLASS = "serializer-class";
+
   /** Maximal read speed in bytes per second. */
   public static final String MAX_BYTES_PER_SEC = "bytes-per-sec-max";
+
   /** Number of records per poll() */
   public static final String MAX_POLL_RECORDS =
       KAFKA_CONFIG_PREFIX + ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
+
   /** Auto commit interval in milliseconds. */
   public static final String AUTO_COMMIT_INTERVAL_MS = "commit.auto-interval-ms";
+
   /** Log stale commit interval in milliseconds. */
   public static final String LOG_STALE_COMMIT_INTERVAL_MS = "commit.log-stale-interval-ms";
+
   /**
    * Timeout in milliseconds, that consumer should wait for group assignment before throwing an
    * exception.

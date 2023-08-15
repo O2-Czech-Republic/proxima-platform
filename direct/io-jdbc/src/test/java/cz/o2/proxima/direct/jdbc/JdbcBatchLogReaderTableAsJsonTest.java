@@ -26,6 +26,7 @@ import cz.o2.proxima.direct.core.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.internal.com.google.gson.JsonObject;
 import cz.o2.proxima.internal.com.google.gson.JsonParser;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -125,5 +126,11 @@ public class JdbcBatchLogReaderTableAsJsonTest extends JdbcBaseTest {
         JsonParser.parseString(observed.get(0).getParsed().get().toString()).getAsJsonObject();
     assertEquals("value", obj.get("ATTRIBUTE").getAsString());
     assertEquals("1", obj.get("ID").getAsString());
+  }
+
+  @Test
+  public void testConvertedDateParsing() {
+    assertEquals(
+        "2009-02-13 23:31:30.123+00", RowAsJsonConverter.formatDate(new Date(1234567890123L)));
   }
 }

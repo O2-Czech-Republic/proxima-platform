@@ -16,17 +16,28 @@
 package cz.o2.proxima.direct.jdbc;
 
 import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.internal.com.google.gson.JsonObject;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
 public class RowAsJsonConverter implements Converter<String> {
+
+  private static final DateTimeFormatter DATE_FORMAT =
+      DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS+00");
+
+  private static final ZoneId UTC = ZoneId.of("UTC");
 
   @FunctionalInterface
   private interface JsonFormatter {
@@ -70,7 +81,16 @@ public class RowAsJsonConverter implements Converter<String> {
           .put(
               Types.LONGNVARCHAR,
               (columnName, result, obj, i) -> obj.addProperty(columnName, result.getString(i)))
+          .put(
+              Types.DATE,
+              (columnName, result, obj, i) ->
+                  obj.addProperty(columnName, formatDate(result.getDate(i))))
           .build();
+
+  @VisibleForTesting
+  static String formatDate(Date date) {
+    return DATE_FORMAT.format(LocalDateTime.ofInstant(Instant.ofEpochMilli(date.getTime()), UTC));
+  }
 
   private static final JsonFormatter DEFAULT_FORMATTER =
       (columnName, result, obj, i) -> {

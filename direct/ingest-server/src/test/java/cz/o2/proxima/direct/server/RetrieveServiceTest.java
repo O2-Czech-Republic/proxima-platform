@@ -31,6 +31,7 @@ import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.GetRequest;
 import cz.o2.proxima.direct.server.test.Test.ExtendedMessage;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1401,6 +1402,11 @@ public class RetrieveServiceTest {
 
     retrieve.scan(request, responseObserver);
     assertNotNull(error.get());
-    assertTrue(error.get() instanceof IllegalArgumentException);
+    assertTrue(error.get() instanceof StatusRuntimeException);
+    StatusRuntimeException ex = (StatusRuntimeException) error.get();
+    assertTrue(ex.getCause() instanceof IllegalArgumentException);
+    assertEquals(
+        "INVALID_ARGUMENT: Missing batch-snapshot family for attribute AttributeDescriptor(entity=dummy, name=data)",
+        ex.getMessage());
   }
 }

@@ -15,8 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -43,7 +42,7 @@ public class ConsoleRandomReaderTest {
 
   @Test(timeout = 10000)
   public void testConsoleRandomReaderRead() throws InterruptedException {
-    console.put(proxied, ints, "key", "ints.1", 1);
+    console.put(proxied, ints, "key", "ints.1", "1");
     KeyValue<Integer> result =
         console.getRandomAccessReader(proxied.getName()).get("key", "ints.1");
     assertNotNull(result.getValue());
@@ -59,5 +58,12 @@ public class ConsoleRandomReaderTest {
     assertEquals(
         Collections.singletonList("key"),
         keys.stream().map(Pair::getSecond).collect(Collectors.toList()));
+  }
+
+  @Test
+  public void testConsolePut() throws InterruptedException {
+    console.put(proxied, ints, "key", "ints.1", "1");
+    assertThrows(
+        NumberFormatException.class, () -> console.put(proxied, ints, "key", "ints.2", "\"2\""));
   }
 }

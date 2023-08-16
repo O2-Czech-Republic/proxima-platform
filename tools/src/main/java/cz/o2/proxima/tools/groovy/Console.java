@@ -307,7 +307,7 @@ public class Console implements AutoCloseable {
       AttributeDescriptor<?> attrDesc,
       String key,
       String attribute,
-      Object value)
+      String value)
       throws InterruptedException {
 
     put(entityDesc, attrDesc, key, attribute, System.currentTimeMillis(), value);
@@ -319,7 +319,7 @@ public class Console implements AutoCloseable {
       String key,
       String attribute,
       long stamp,
-      Object value)
+      String value)
       throws InterruptedException {
 
     Preconditions.checkState(
@@ -328,7 +328,7 @@ public class Console implements AutoCloseable {
     @SuppressWarnings("unchecked")
     ValueSerializer<Object> valueSerializer =
         (ValueSerializer<Object>) attrDesc.getValueSerializer();
-    byte[] payload = valueSerializer.serialize(valueSerializer.fromJsonValue(value.toString()));
+    byte[] payload = valueSerializer.serialize(valueSerializer.fromJsonValue(value));
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attrDesc));
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> exc = new AtomicReference<>();

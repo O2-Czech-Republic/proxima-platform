@@ -413,24 +413,24 @@ def publishArtifacts(project, scope) {
             }
 
             configurations.compileClasspath.allDependencies
-                .findAll {!configurations.intoShadow.dependencies.contains(it) }
+                .findAll { isExplicitScope(configurations, it) }
                 .each {
 
               processDependency(dependenciesNode, it, "compile")
             }
 
             configurations.runtimeClasspath.allDependencies
-                .findAll {!configurations.intoShadow.allDependencies.contains(it) }
-                .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
+                .findAll { !configurations.compileClasspath.allDependencies.contains(it) }
+                .findAll { isExplicitScope(configurations, it) }
                 .each {
 
               processDependency(dependenciesNode, it, "runtime")
             }
 
             configurations.testRuntimeClasspath.allDependencies
-                .findAll {!configurations.intoShadow.allDependencies.contains(it) }
-                .findAll {!configurations.compileClasspath.allDependencies.contains(it) }
-                .findAll {!configurations.runtimeClasspath.allDependencies.contains(it) }
+                .findAll { !configurations.compileClasspath.allDependencies.contains(it)
+                    && !configurations.runtimeClasspath.allDependencies.contains(it) }
+                .findAll { isExplicitScope(configurations, it) }
                 .each {
 
               processDependency(dependenciesNode, it, "test")
@@ -500,4 +500,11 @@ def publishArtifacts(project, scope) {
       }
     }
   }
+}
+
+def isExplicitScope(configurations, dependency) {
+  !configurations.intoShadow.allDependencies.contains(dependency)
+    && !configurations.compileOnly.allDependencies.contains(dependency)
+    && !configurations.compileAnnotationProcessor.allDependencies.contains(dependency)
+    && !configurations.provided.allDependencies.contains(dependency)
 }

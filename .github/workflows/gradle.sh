@@ -28,7 +28,10 @@ fi
 ./gradlew publishToMavenLocal -Pvendor -PnoSigning
 
 if [[ "${IS_PR}" != "false" ]] || [[ "${BRANCH}" == "master" ]]; then
-  ./gradlew build -x test && ./gradlew test -Pwith-coverage && JAVA_HOME=${JAVA_HOME_17_X64} ./gradlew sonar --no-parallel
+  ./gradlew spotlessCheck \
+      && ./gradlew build -x test \
+      && ./gradlew test -Pwith-coverage \
+      && JAVA_HOME=${JAVA_HOME_17_X64} ./gradlew sonar --no-parallel
   exit $?
 fi
 

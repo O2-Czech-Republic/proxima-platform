@@ -1182,7 +1182,10 @@ public final class ConfigRepository extends Repository {
       log.info("Skipping load of disabled family {}", name);
       return;
     }
-    final String entity = Objects.requireNonNull(cfg.get(ENTITY)).toString();
+    final String entity =
+        Objects.requireNonNull(
+                cfg.get(ENTITY), () -> String.format("Missing required field 'entity' in %s", name))
+            .toString();
     final String filter = toString(cfg.get(FILTER));
     final boolean isTransactional = entity.equals(TRANSACTION_ENTITY);
     final StorageType type = getStorageType(cfg, isTransactional);

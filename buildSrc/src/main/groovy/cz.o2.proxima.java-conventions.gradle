@@ -200,6 +200,7 @@ spotless {
     trimTrailingWhitespace()
     endWithNewline()
     license(delegate)
+    targetExclude('**/generated/**')
   }
 }
 

@@ -42,8 +42,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -134,7 +134,7 @@ public class LocalCachedPartitionedView implements CachedView {
 
     close();
     this.updateCallback = Objects.requireNonNull(updateCallback);
-    BlockingQueue<Optional<Throwable>> errorDuringPrefetch = new SynchronousQueue<>();
+    BlockingQueue<Optional<Throwable>> errorDuringPrefetch = new ArrayBlockingQueue<>(1);
     AtomicLong prefetchedCount = new AtomicLong();
     final long prefetchStartTime = getCurrentTimeMillis();
 

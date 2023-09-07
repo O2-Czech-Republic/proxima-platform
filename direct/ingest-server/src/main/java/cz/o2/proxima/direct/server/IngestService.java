@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -476,10 +477,11 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
           : StreamElement.delete(
               entity, attr, request.getUuid(), request.getKey(), request.getAttribute(), stamp);
     }
+    String uuid = request.getUuid().isEmpty() ? UUID.randomUUID().toString() : request.getUuid();
     return StreamElement.upsert(
         entity,
         attr,
-        request.getUuid(),
+        uuid,
         request.getKey(),
         request.getAttribute(),
         stamp,

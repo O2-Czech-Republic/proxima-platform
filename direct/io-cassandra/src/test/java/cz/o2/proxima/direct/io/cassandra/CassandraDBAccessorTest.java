@@ -58,6 +58,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -288,7 +289,13 @@ public class CassandraDBAccessorTest {
       AtomicBoolean success = new AtomicBoolean(false);
       writer.write(
           StreamElement.upsert(
-              entity, attr, "", "key", attr.getName(), System.currentTimeMillis(), new byte[0]),
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key",
+              attr.getName(),
+              System.currentTimeMillis(),
+              new byte[0]),
           (status, exc) -> success.set(status));
       assertTrue(success.get());
     }
@@ -307,7 +314,13 @@ public class CassandraDBAccessorTest {
       AtomicBoolean success = new AtomicBoolean(true);
       writer.write(
           StreamElement.upsert(
-              entity, attr, "", "key", attr.getName(), System.currentTimeMillis(), new byte[0]),
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key",
+              attr.getName(),
+              System.currentTimeMillis(),
+              new byte[0]),
           (status, exc) -> success.set(status));
       assertFalse(success.get());
     }
@@ -326,7 +339,13 @@ public class CassandraDBAccessorTest {
     try (CassandraWriter writer = accessor.newWriter()) {
       AtomicBoolean success = new AtomicBoolean(false);
       writer.write(
-          StreamElement.delete(entity, attr, "", "key", attr.getName(), System.currentTimeMillis()),
+          StreamElement.delete(
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key",
+              attr.getName(),
+              System.currentTimeMillis()),
           (status, exc) -> success.set(status));
       assertTrue(success.get());
     }
@@ -344,7 +363,13 @@ public class CassandraDBAccessorTest {
     try (CassandraWriter writer = accessor.newWriter()) {
       AtomicBoolean success = new AtomicBoolean(true);
       writer.write(
-          StreamElement.delete(entity, attr, "", "key", attr.getName(), System.currentTimeMillis()),
+          StreamElement.delete(
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key",
+              attr.getName(),
+              System.currentTimeMillis()),
           (status, exc) -> success.set(status));
       assertFalse(success.get());
     }

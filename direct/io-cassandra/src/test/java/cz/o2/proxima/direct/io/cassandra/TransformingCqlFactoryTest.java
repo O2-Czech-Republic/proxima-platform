@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -89,7 +90,8 @@ public class TransformingCqlFactoryTest {
   public void testApply() {
     long now = System.currentTimeMillis();
     StreamElement ingest =
-        StreamElement.upsert(entity, attr, "", "123", "first", now, "value".getBytes());
+        StreamElement.upsert(
+            entity, attr, UUID.randomUUID().toString(), "123", "first", now, "value".getBytes());
     Session session = mock(Session.class);
     PreparedStatement statement = mock(PreparedStatement.class);
     BoundStatement bound = mock(BoundStatement.class);
@@ -108,7 +110,8 @@ public class TransformingCqlFactoryTest {
   public void testApplyWithTtl() {
     final long now = System.currentTimeMillis();
     final StreamElement ingest =
-        StreamElement.upsert(entity, attr, "", "123", "first", now, "value".getBytes());
+        StreamElement.upsert(
+            entity, attr, UUID.randomUUID().toString(), "123", "first", now, "value".getBytes());
     final Session session = mock(Session.class);
     final PreparedStatement statement = mock(PreparedStatement.class);
 
@@ -131,7 +134,14 @@ public class TransformingCqlFactoryTest {
   @Test
   public void testApplyWithDelete() {
     StreamElement ingest =
-        StreamElement.upsert(entity, attr, "", "123", "first", System.currentTimeMillis(), null);
+        StreamElement.upsert(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "123",
+            "first",
+            System.currentTimeMillis(),
+            null);
     Session session = mock(Session.class);
     PreparedStatement statement = mock(PreparedStatement.class);
     when(session.prepare((String) any())).thenReturn(statement);

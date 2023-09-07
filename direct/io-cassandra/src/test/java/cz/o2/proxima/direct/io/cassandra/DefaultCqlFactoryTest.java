@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -162,7 +163,14 @@ public class DefaultCqlFactoryTest {
   public void testIngest() {
     long now = System.currentTimeMillis();
     StreamElement ingest =
-        StreamElement.upsert(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
+        StreamElement.upsert(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            "myAttribute",
+            now,
+            "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
@@ -185,7 +193,14 @@ public class DefaultCqlFactoryTest {
         URI.create("cassandra://wherever/my_table?data=my_col&primary=hgw&ttl=86400"),
         StringConverter.getDefault());
     StreamElement ingest =
-        StreamElement.upsert(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
+        StreamElement.upsert(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            "myAttribute",
+            now,
+            "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
@@ -206,7 +221,14 @@ public class DefaultCqlFactoryTest {
   public void testIngestWildcard() {
     long now = System.currentTimeMillis();
     StreamElement ingest =
-        StreamElement.upsert(entity, attrWildcard, "", "key", "device.1", now, "value".getBytes());
+        StreamElement.upsert(
+            entity,
+            attrWildcard,
+            UUID.randomUUID().toString(),
+            "key",
+            "device.1",
+            now,
+            "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", "1", ByteBuffer.wrap("value".getBytes()), now * 1000L))
         .thenReturn(bound);
@@ -230,7 +252,13 @@ public class DefaultCqlFactoryTest {
     long now = System.currentTimeMillis();
     StreamElement ingest =
         StreamElement.upsert(
-            entity, attrWildcard, "", "key", "device.1.2", now, "value".getBytes());
+            entity,
+            attrWildcard,
+            UUID.randomUUID().toString(),
+            "key",
+            "device.1.2",
+            now,
+            "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", "1.2", ByteBuffer.wrap("value".getBytes()), now * 1000L))
         .thenReturn(bound);
@@ -252,7 +280,8 @@ public class DefaultCqlFactoryTest {
   @Test
   public void testIngestDeleteSimple() {
     long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.delete(entity, attr, "", "key", "myAttribute", now);
+    StreamElement ingest =
+        StreamElement.delete(entity, attr, UUID.randomUUID().toString(), "key", "myAttribute", now);
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind(now * 1000L, "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
@@ -270,7 +299,9 @@ public class DefaultCqlFactoryTest {
   @Test
   public void testIngestDeleteWildcard() {
     long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.delete(entity, attrWildcard, "", "key", "device.1", now);
+    StreamElement ingest =
+        StreamElement.delete(
+            entity, attrWildcard, UUID.randomUUID().toString(), "key", "device.1", now);
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind(now * 1000L, "1", "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
@@ -288,7 +319,9 @@ public class DefaultCqlFactoryTest {
   @Test
   public void testIngestDeleteWildcardAll() {
     long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.deleteWildcard(entity, attrWildcard, "", "key", now);
+    StreamElement ingest =
+        StreamElement.deleteWildcard(
+            entity, attrWildcard, UUID.randomUUID().toString(), "key", now);
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind(now * 1000L, "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);

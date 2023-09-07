@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.io.kafka;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -23,8 +24,10 @@ import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.io.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import java.util.Collections;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.record.TimestampType;
 import org.junit.Test;
 
@@ -69,6 +72,21 @@ public class KafkaStreamElementSerializerTest {
     ConsumerRecord<String, byte[]> read = asConsumer(record, 0);
     StreamElement readElement = serializer.read(read, gateway);
     assertEquals(elem, readElement);
+  }
+
+  @Test
+  public void testInvalidUuidHeader() {
+    ProducerRecord<String, byte[]> record =
+        new ProducerRecord<>(
+            "topic",
+            0,
+            System.currentTimeMillis(),
+            "key#status",
+            new byte[0],
+            Collections.singletonList(new RecordHeader(KafkaAccessor.UUID_HEADER, "".getBytes())));
+    StreamElement read = serializer.read(asConsumer(record, 0), gateway);
+    assertEquals("key", read.getKey());
+    assertFalse(read.getUuid().isEmpty());
   }
 
   private <K, V> ConsumerRecord<K, V> asConsumer(ProducerRecord<K, V> record, long offset) {

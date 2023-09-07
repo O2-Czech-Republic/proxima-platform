@@ -71,6 +71,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
   public void encode(StreamElement value, OutputStream outStream) throws IOException {
 
     final DataOutput output = new DataOutputStream(outStream);
+
     output.writeUTF(value.getEntityDescriptor().getName());
     if (value.hasSequentialId()) {
       output.writeUTF("");

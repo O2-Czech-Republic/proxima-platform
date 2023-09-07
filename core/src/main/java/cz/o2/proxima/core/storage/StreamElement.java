@@ -268,6 +268,8 @@ public class StreamElement implements Serializable {
     this.stamp = stamp;
     this.value = value;
     this.deleteWildcard = deleteWildcard;
+
+    Preconditions.checkArgument(this.uuid.length() > 0, "UUID must not be empty");
   }
 
   protected StreamElement(

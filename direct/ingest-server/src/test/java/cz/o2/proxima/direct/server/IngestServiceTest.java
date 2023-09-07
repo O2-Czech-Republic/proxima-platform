@@ -227,7 +227,6 @@ public class IngestServiceTest {
 
   @Test(timeout = 10000)
   public void testIngestBulkWildcardEntityAttribute() throws Exception {
-
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
     result.onNext(
         bulk(

@@ -72,6 +72,7 @@ public class KafkaStreamElement extends StreamElement {
           final String uuid =
               Optional.ofNullable(record.headers().lastHeader(KafkaAccessor.UUID_HEADER))
                   .map(v -> new String(v.value(), StandardCharsets.UTF_8))
+                  .filter(s -> !s.isEmpty())
                   .orElse(record.topic() + "#" + record.partition() + "#" + record.offset());
           if (sequenceIdHeader != null) {
             try {

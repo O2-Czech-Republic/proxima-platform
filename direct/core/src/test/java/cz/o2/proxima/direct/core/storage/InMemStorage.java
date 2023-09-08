@@ -352,6 +352,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     private ObserveHandle observe(
         String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
+
       return observe(
           name,
           position,
@@ -439,7 +440,9 @@ public class InMemStorage implements DataAccessorFactory {
           stopAtCurrent,
           observer);
       final int id = createConsumerId(stopAtCurrent);
-      observer.onRepartition(asRepartitionContext(getPartitions()));
+      observer.onRepartition(
+          asRepartitionContext(
+              offsets.stream().map(Offset::getPartition).collect(Collectors.toList())));
       AtomicReference<Future<?>> observeFuture = new AtomicReference<>();
       AtomicBoolean killSwitch = new AtomicBoolean();
       Supplier<List<Offset>> offsetSupplier =
@@ -1229,17 +1232,16 @@ public class InMemStorage implements DataAccessorFactory {
     if (numPartitions > 1) {
       randomAccessReaderFactory = null;
       batchLogReaderFactory = null;
-      cachedViewFactory = null;
     } else {
       final ReaderFactory readerFactory =
           new Reader(entity, uri, op.getContext().getExecutorFactory()).asFactory();
       randomAccessReaderFactory = readerFactory;
       batchLogReaderFactory = readerFactory;
-      cachedViewFactory =
-          new LocalCachedPartitionedView(
-                  entity, commitLogReaderFactory.apply(opRepo), writerFactory.apply(opRepo))
-              .asFactory();
     }
+    cachedViewFactory =
+        new LocalCachedPartitionedView(
+                entity, commitLogReaderFactory.apply(opRepo), writerFactory.apply(opRepo))
+            .asFactory();
 
     return new DataAccessor() {
 

@@ -24,6 +24,7 @@ import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.core.view.CachedView;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
@@ -228,7 +229,9 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
 
   private CachedView cachedView() {
     if (cachedView == null) {
-      cachedView = Objects.requireNonNull(cachedViewFactory).apply(repo());
+      Preconditions.checkArgument(
+          cachedViewFactory != null, "Family %s cannot create cached view.", getDesc().getName());
+      cachedView = cachedViewFactory.apply(repo());
     }
     return cachedView;
   }

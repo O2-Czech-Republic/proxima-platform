@@ -54,6 +54,7 @@ import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.core.storage.InMemStorage.ConsumedOffset;
+import cz.o2.proxima.direct.core.view.CachedView;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
@@ -66,6 +67,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -642,29 +644,14 @@ public class InMemStorageTest implements Serializable {
     final ConcurrentMap<Partition, Long> partitionHistogram = new ConcurrentHashMap<>();
     final CountDownLatch elementsReceived = new CountDownLatch(numElements);
     // Start observer.
-    final ObserveHandle observeHandle =
+    final ObserveHandle observeHandle1 =
         reader.observePartitions(
-            reader.getPartitions(),
-            new CommitLogObserver() {
-
-              @Override
-              public void onRepartition(OnRepartitionContext context) {
-                assertEquals(numPartitions, context.partitions().size());
-              }
-
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                partitionHistogram.merge(context.getPartition(), 1L, Long::sum);
-                context.confirm();
-                elementsReceived.countDown();
-                return elementsReceived.getCount() > 0;
-              }
-
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-            });
+            reader.getPartitions().subList(0, numPartitions - 1),
+            createObserver(numPartitions - 1, partitionHistogram, elementsReceived));
+    final ObserveHandle observeHandle2 =
+        reader.observePartitions(
+            reader.getPartitions().subList(numPartitions - 1, numPartitions),
+            createObserver(1, partitionHistogram, elementsReceived));
     // Write data.
     for (int i = 0; i < numElements; i++) {
       writer
@@ -684,7 +671,33 @@ public class InMemStorageTest implements Serializable {
     elementsReceived.await();
 
     assertEquals(3, partitionHistogram.size());
-    assertEquals(3, observeHandle.getCurrentOffsets().size());
+    assertEquals(2, observeHandle1.getCurrentOffsets().size());
+  }
+
+  private static CommitLogObserver createObserver(
+      int expectedPartitions,
+      ConcurrentMap<Partition, Long> partitionHistogram,
+      CountDownLatch elementsReceived) {
+    return new CommitLogObserver() {
+
+      @Override
+      public void onRepartition(OnRepartitionContext context) {
+        assertEquals(expectedPartitions, context.partitions().size());
+      }
+
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        partitionHistogram.merge(context.getPartition(), 1L, Long::sum);
+        context.confirm();
+        elementsReceived.countDown();
+        return elementsReceived.getCount() > 0;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    };
   }
 
   @Test
@@ -709,7 +722,7 @@ public class InMemStorageTest implements Serializable {
 
               @Override
               public void onRepartition(OnRepartitionContext context) {
-                assertEquals(numPartitions, context.partitions().size());
+                assertEquals(1, context.partitions().size());
               }
 
               @Override
@@ -783,7 +796,24 @@ public class InMemStorageTest implements Serializable {
     final DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
-    assertFalse(accessor.getCachedView(direct.getContext()).isPresent());
+    Optional<CachedView> maybeView = accessor.getCachedView(direct.getContext());
+    assertTrue(maybeView.isPresent());
+    CachedView view = maybeView.get();
+    assertEquals(3, view.getPartitions().size());
+    view.assign(view.getPartitions());
+    StreamElement element =
+        StreamElement.upsert(
+            entity,
+            data,
+            UUID.randomUUID().toString(),
+            "key",
+            data.getName(),
+            System.currentTimeMillis(),
+            new byte[0]);
+    view.write(element, (succ, exc) -> assertTrue(succ));
+    Optional<? extends KeyValue<?>> written = view.get("key", data);
+    assertTrue(written.isPresent());
+    assertEquals("key", written.get().getKey());
   }
 
   @Test(timeout = 10000)
@@ -914,7 +944,7 @@ public class InMemStorageTest implements Serializable {
   private AttributeFamilyDescriptor createFamilyDescriptor(URI storageUri, int numPartitions) {
     final Map<String, Object> config = new HashMap<>();
     if (numPartitions > 1) {
-      config.put(InMemStorage.NUM_PARTITIONS, 3);
+      config.put(InMemStorage.NUM_PARTITIONS, numPartitions);
     }
     return AttributeFamilyDescriptor.newBuilder()
         .setName("test")

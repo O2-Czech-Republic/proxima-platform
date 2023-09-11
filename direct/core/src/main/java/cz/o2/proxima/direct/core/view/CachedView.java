@@ -20,6 +20,7 @@ import cz.o2.proxima.core.functional.BiConsumer;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
@@ -128,6 +129,12 @@ public interface CachedView extends RandomAccessReader, OnlineAttributeWriter {
 
   /** Retrieve underlying {@link CommitLogReader}. */
   CommitLogReader getUnderlyingReader();
+
+  /**
+   * Retrieve underlying {@link OnlineAttributeWriter}. Note that using this write might not update
+   * the cache. In most cases, use {@link #write(StreamElement, CommitCallback)} directly.
+   */
+  OnlineAttributeWriter getUnderlyingWriter();
 
   /** Retrieve a running handle (if present). */
   Optional<ObserveHandle> getRunningHandle();

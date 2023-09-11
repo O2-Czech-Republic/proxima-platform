@@ -243,11 +243,11 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
-      int dolarSign = data.getAttributeDescriptor().toAttributePrefix().indexOf('$');
+      int dollarSign = data.getAttributeDescriptor().toAttributePrefix().indexOf('$');
       String requiredPrefix =
-          dolarSign < 0
+          dollarSign < 0
               ? data.getAttributeDescriptor().toAttributePrefix()
-              : data.getAttributeDescriptor().toAttributePrefix().substring(dolarSign + 1);
+              : data.getAttributeDescriptor().toAttributePrefix().substring(dollarSign + 1);
       Preconditions.checkArgument(
           data.getAttribute().startsWith(requiredPrefix)
               || data.getAttribute().startsWith(data.getAttributeDescriptor().toAttributePrefix()),
@@ -431,15 +431,16 @@ public class InMemStorage implements DataAccessorFactory {
         CommitLogObserver observer,
         @Nullable String name) {
 
+      final int id = createConsumerId(stopAtCurrent);
       log.debug(
-          "Observing {} as {} from offset {} with position {} and stopAtCurrent {} using observer {}",
+          "Observing {} as {} from offset {} with position {} and stopAtCurrent {} using observer {} as id {}",
           getUri(),
           name,
           offsets,
           position,
           stopAtCurrent,
-          observer);
-      final int id = createConsumerId(stopAtCurrent);
+          observer,
+          id);
       observer.onRepartition(
           asRepartitionContext(
               offsets.stream().map(Offset::getPartition).collect(Collectors.toList())));
@@ -452,8 +453,8 @@ public class InMemStorage implements DataAccessorFactory {
       return createHandle(id, observer, offsetSupplier, killSwitch, observeFuture);
     }
 
-    private int createConsumerId(boolean stopAtCurrent) {
-      if (!stopAtCurrent) {
+    private int createConsumerId(boolean isBatch) {
+      if (!isBatch) {
         try (Locker ignore = holder().lockRead()) {
           final NavigableMap<Integer, InMemIngestWriter> uriObservers = getObservers(getUri());
           final int id = uriObservers.isEmpty() ? 0 : uriObservers.lastKey() + 1;
@@ -485,6 +486,7 @@ public class InMemStorage implements DataAccessorFactory {
 
         @Override
         public void close() {
+          log.debug("Closing consumer {}", consumerId);
           getObservers(getUri()).remove(consumerId);
           killSwitch.set(true);
           observeFuture.get().cancel(true);

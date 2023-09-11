@@ -428,6 +428,11 @@ public class LocalCachedPartitionedView implements CachedView {
   }
 
   @Override
+  public OnlineAttributeWriter getUnderlyingWriter() {
+    return writer;
+  }
+
+  @Override
   public Optional<ObserveHandle> getRunningHandle() {
     return Optional.ofNullable(handle.get());
   }

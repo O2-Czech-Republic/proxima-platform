@@ -221,7 +221,7 @@ class TimeBoundedVersionedCache implements Serializable {
             }
           }
           long first;
-          while ((first = valueMap.firstKey()) + keepDuration < stamp) {
+          while (!valueMap.isEmpty() && (first = valueMap.firstKey()) + keepDuration < stamp) {
             valueMap.remove(first);
           }
           return attrMap;

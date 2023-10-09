@@ -541,36 +541,51 @@ public interface WindowedStream<T> extends Stream<T> {
   // overrides of Stream methods with fixed return types
 
   @Override
-  default <X> WindowedStream<X> flatMap(Closure<Iterable<X>> mapper) {
+  default <X> WindowedStream<X> flatMap(
+      @ClosureParams(value = FromString.class, options = "T") Closure<Iterable<X>> mapper) {
     return flatMap(null, mapper);
   }
 
   @Override
-  <X> WindowedStream<X> flatMap(@Nullable String name, Closure<Iterable<X>> mapper);
+  <X> WindowedStream<X> flatMap(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<Iterable<X>> mapper);
 
   @Override
-  default <X> WindowedStream<X> map(Closure<X> mapper) {
+  default <X> WindowedStream<X> map(
+      @ClosureParams(value = FromString.class, options = "T") Closure<X> mapper) {
+
     return map(null, mapper);
   }
 
   @Override
-  <X> WindowedStream<X> map(@Nullable String name, Closure<X> mapper);
+  <X> WindowedStream<X> map(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<X> mapper);
 
   @Override
-  default WindowedStream<T> filter(Closure<Boolean> predicate) {
+  default WindowedStream<T> filter(
+      @ClosureParams(value = FromString.class, options = "T") Closure<Boolean> predicate) {
+
     return filter(null, predicate);
   }
 
   @Override
-  WindowedStream<T> filter(@Nullable String name, Closure<Boolean> predicate);
+  WindowedStream<T> filter(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<Boolean> predicate);
 
   @Override
-  default WindowedStream<T> assignEventTime(Closure<Long> assigner) {
+  default WindowedStream<T> assignEventTime(
+      @ClosureParams(value = FromString.class, options = "T") Closure<Long> assigner) {
+
     return assignEventTime(null, assigner);
   }
 
   @Override
-  WindowedStream<T> assignEventTime(@Nullable String name, Closure<Long> assigner);
+  WindowedStream<T> assignEventTime(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<Long> assigner);
 
   @Override
   default WindowedStream<Pair<Object, T>> withWindow() {

@@ -393,9 +393,11 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
               name == null
                   ? Join.innerJoin(leftKv, rightKv)
                   : Join.innerJoin(name + ".join", leftKv, rightKv);
-          return joined.apply(
-              MapElements.into(resultCoder.getEncodedTypeDescriptor())
-                  .via(kv -> Pair.of(kv.getValue().getKey(), kv.getValue().getValue())));
+          return joined
+              .apply(
+                  MapElements.into(resultCoder.getEncodedTypeDescriptor())
+                      .via(kv -> Pair.of(kv.getValue().getKey(), kv.getValue().getValue())))
+              .setCoder(resultCoder);
         });
   }
 

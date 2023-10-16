@@ -54,7 +54,6 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
 
   @Override
   public void encode(Pair<K, V> value, OutputStream outStream) throws IOException {
-
     keyCoder.encode(value.getFirst(), outStream);
     valueCoder.encode(value.getSecond(), outStream);
   }

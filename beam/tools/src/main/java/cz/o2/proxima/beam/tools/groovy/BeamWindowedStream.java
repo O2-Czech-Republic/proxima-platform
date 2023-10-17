@@ -717,27 +717,26 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       }
       if (!windowingStrategy.equals(rightTmp.getWindowingStrategy())) {
         rightTmp =
-            (PCollection)
-                rightTmp.apply(
-                    createWindowTransform(
-                        (WindowingStrategy<RIGHT, ?>) windowingStrategy, triggerSupplier.get()));
+            rightTmp.apply(
+                createWindowTransform(
+                    (WindowingStrategy<RIGHT, ?>) windowingStrategy, triggerSupplier.get()));
       }
       TypeDescriptor<K> keyType = TypeDescriptor.of(Types.returnClass(leftKeyDehydrated));
       Coder<K> keyCoder = getCoder(pipeline, keyType);
+      this.leftCoder = leftTmp.getCoder();
+      this.rightCoder = rightTmp.getCoder();
       this.leftKv =
           leftTmp
               .apply(
                   MapElements.into(TypeDescriptors.kvs(keyType, leftTmp.getTypeDescriptor()))
                       .via(e -> KV.of(leftKeyDehydrated.call(e), e)))
-              .setCoder(KvCoder.of(keyCoder, leftTmp.getCoder()));
+              .setCoder(KvCoder.of(keyCoder, leftCoder));
       this.rightKv =
           rightTmp
               .apply(
                   MapElements.into(TypeDescriptors.kvs(keyType, rightTmp.getTypeDescriptor()))
                       .via(e -> KV.of(rightKeyDehydrated.call(e), e)))
-              .setCoder(KvCoder.of(keyCoder, rightTmp.getCoder()));
-      this.leftCoder = leftTmp.getCoder();
-      this.rightCoder = rightTmp.getCoder();
+              .setCoder(KvCoder.of(keyCoder, rightCoder));
     }
   }
 

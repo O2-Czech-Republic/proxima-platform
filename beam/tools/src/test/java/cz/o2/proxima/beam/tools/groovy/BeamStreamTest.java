@@ -74,9 +74,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.runners.direct.DirectOptions;
+import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.runners.spark.SparkRunner;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
@@ -143,6 +145,10 @@ public class BeamStreamTest extends StreamTest {
   }
 
   static TestStreamProvider provider(boolean stream) {
+    return provider(stream, DirectRunner.class);
+  }
+
+  static TestStreamProvider provider(boolean stream, Class<? extends PipelineRunner<?>> runner) {
     return new TestStreamProvider() {
       @SuppressWarnings("unchecked")
       @Override
@@ -167,6 +173,11 @@ public class BeamStreamTest extends StreamTest {
                 () -> {
                   LockSupport.park();
                   return false;
+                },
+                () -> {
+                  Pipeline p = BeamStream.createPipelineDefault();
+                  p.getOptions().setRunner(runner);
+                  return p;
                 }));
       }
     };

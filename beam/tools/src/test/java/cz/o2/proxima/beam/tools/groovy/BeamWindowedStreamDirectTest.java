@@ -16,10 +16,16 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.tools.groovy.WindowedStreamTest;
+import org.apache.beam.runners.direct.DirectRunner;
+import org.apache.beam.sdk.PipelineRunner;
 
-public class BeamWindowedStreamTest extends WindowedStreamTest {
+public class BeamWindowedStreamDirectTest extends WindowedStreamTest {
 
-  public BeamWindowedStreamTest() {
-    super(BeamStreamTest.provider(true));
+  public BeamWindowedStreamDirectTest() {
+    this(DirectRunner.class);
+  }
+
+  protected BeamWindowedStreamDirectTest(Class<? extends PipelineRunner<?>> runner) {
+    super(BeamStreamTest.provider(true, runner));
   }
 }

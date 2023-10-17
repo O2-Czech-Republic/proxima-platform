@@ -316,7 +316,7 @@ public interface WindowedStream<T> extends Stream<T> {
   default <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
       WindowedStream<OTHER> right,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> leftKey,
-      @ClosureParams(value = FromString.class, options = "T") Closure<K> rightKey) {
+      @ClosureParams(value = FromString.class, options = "OTHER") Closure<K> rightKey) {
 
     return join(null, right, leftKey, rightKey);
   }
@@ -336,7 +336,7 @@ public interface WindowedStream<T> extends Stream<T> {
       @Nullable String name,
       WindowedStream<OTHER> right,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> leftKey,
-      @ClosureParams(value = FromString.class, options = "T") Closure<K> rightKey);
+      @ClosureParams(value = FromString.class, options = "OTHER") Closure<K> rightKey);
 
   /**
    * Left join with other stream.
@@ -351,7 +351,7 @@ public interface WindowedStream<T> extends Stream<T> {
   default <K, OTHER> WindowedStream<Pair<T, OTHER>> leftJoin(
       WindowedStream<OTHER> right,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> leftKey,
-      @ClosureParams(value = FromString.class, options = "T") Closure<K> rightKey) {
+      @ClosureParams(value = FromString.class, options = "OTHER") Closure<K> rightKey) {
 
     return leftJoin(null, right, leftKey, rightKey);
   }
@@ -371,7 +371,7 @@ public interface WindowedStream<T> extends Stream<T> {
       @Nullable String name,
       WindowedStream<OTHER> right,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> leftKey,
-      @ClosureParams(value = FromString.class, options = "T") Closure<K> rightKey);
+      @ClosureParams(value = FromString.class, options = "OTHER") Closure<K> rightKey);
 
   /**
    * Sort stream.

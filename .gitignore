@@ -32,3 +32,4 @@ server/log
 **/*_pb2.py
 **/*_pb2_grpc.py
 **/.DS_Store
+docs/src/resources/_gen/**

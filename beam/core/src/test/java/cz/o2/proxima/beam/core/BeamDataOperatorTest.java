@@ -24,6 +24,7 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.ReplicationRunner;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -55,6 +56,7 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PDone;
 import org.apache.beam.sdk.values.PValue;
+import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
 import org.junit.Before;
 import org.junit.Test;
@@ -68,6 +70,7 @@ public class BeamDataOperatorTest {
               .withFallback(ConfigFactory.load("test-reference.conf")));
   final EntityDescriptor gateway = repo.getEntity("gateway");
   final AttributeDescriptor<?> armed = gateway.getAttribute("armed");
+  final AttributeDescriptor<?> status = gateway.getAttribute("status");
   final EntityDescriptor proxied = repo.getEntity("proxied");
   final AttributeDescriptor<?> event = proxied.getAttribute("event.*");
 
@@ -358,6 +361,64 @@ public class BeamDataOperatorTest {
     second = beam.getBatchSnapshot(p, armed);
     terminatePipeline(first, second);
     checkHasSingleInput(p);
+  }
+
+  @Test
+  public void testDifferentAttributesFromSameFamily() {
+    Pipeline p = Pipeline.create();
+    PCollection<StreamElement> first = beam.getStream(p, Position.OLDEST, true, true, armed);
+    PCollection<StreamElement> second = beam.getStream(p, Position.OLDEST, true, true, status);
+    // validate that we have used cached PCollection
+    terminatePipeline(first, second);
+    checkHasSingleInput(p);
+
+    p = Pipeline.create();
+    first = beam.getBatchUpdates(p, armed);
+    second = beam.getBatchUpdates(p, status);
+    terminatePipeline(first, second);
+    checkHasSingleInput(p);
+
+    p = Pipeline.create();
+    first = beam.getBatchSnapshot(p, armed);
+    second = beam.getBatchSnapshot(p, status);
+    terminatePipeline(first, second);
+    checkHasSingleInput(p);
+  }
+
+  @Test
+  public void testConsumptionFromDifferentAttributesFromSameFamily() {
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(armed));
+    long now = System.currentTimeMillis();
+    writer.write(
+        StreamElement.upsert(
+            gateway,
+            armed,
+            UUID.randomUUID().toString(),
+            "key",
+            armed.getName(),
+            now,
+            new byte[] {}),
+        (succ, exc) -> {});
+    writer.write(
+        StreamElement.upsert(
+            gateway,
+            status,
+            UUID.randomUUID().toString(),
+            "key",
+            status.getName(),
+            now,
+            new byte[] {}),
+        (succ, exc) -> {});
+    Pipeline p = Pipeline.create();
+    PCollection<StreamElement> first = beam.getBatchSnapshot(p, armed);
+    PCollection<StreamElement> second = beam.getBatchSnapshot(p, status);
+    PCollectionList<StreamElement> input = PCollectionList.of(first).and(second);
+    PCollection<KV<String, Long>> counted =
+        input
+            .apply(Flatten.pCollections())
+            .apply(WithKeys.of(StreamElement::getKey).withKeyType(TypeDescriptors.strings()))
+            .apply(Count.perKey());
+    PAssert.that(counted).containsInAnyOrder(KV.of("key", 2L));
   }
 
   @Test

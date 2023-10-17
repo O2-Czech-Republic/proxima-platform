@@ -21,6 +21,7 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import org.apache.beam.sdk.Pipeline;
@@ -55,10 +56,7 @@ public class AttributeFamilyProxyDataDescriptorTest {
   public void testReadingFromProxy() {
     EntityDescriptor proxied = repo.getEntity("proxied");
     AttributeDescriptor<byte[]> event = proxied.getAttribute("event.*");
-    direct
-        .getWriter(event)
-        .orElseThrow(() -> new IllegalArgumentException("Missing writer for " + event))
-        .write(newEvent(proxied, event), (succ, exc) -> {});
+    Optionals.get(direct.getWriter(event)).write(newEvent(proxied, event), (succ, exc) -> {});
     Pipeline p = Pipeline.create();
     PCollection<StreamElement> input = beam.getBatchSnapshot(p, event);
     PCollection<Long> result = input.apply(Count.globally());

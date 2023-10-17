@@ -93,8 +93,9 @@ public class BeamDataOperator implements DataOperator {
     long startStamp;
     long endStamp;
     boolean asStream;
+    List<AttributeDescriptor<?>> attrList;
 
-    PCollection<StreamElement> createBatchUpdates(List<AttributeDescriptor<?>> attrList) {
+    PCollection<StreamElement> createBatchUpdates() {
       return asStream
           ? dataAccessor.createStreamFromUpdates(pipeline, attrList, startStamp, endStamp, -1)
           : dataAccessor.createBatch(pipeline, attrList, startStamp, endStamp);
@@ -107,8 +108,9 @@ public class BeamDataOperator implements DataOperator {
     DataAccessor dataAccessor;
     long fromStamp;
     long untilStamp;
+    List<AttributeDescriptor<?>> attrList;
 
-    PCollection<StreamElement> createBatchUpdates(List<AttributeDescriptor<?>> attrList) {
+    PCollection<StreamElement> createBatchUpdates() {
       return dataAccessor.createBatch(pipeline, attrList, fromStamp, untilStamp);
     }
   }
@@ -285,13 +287,7 @@ public class BeamDataOperator implements DataOperator {
 
     Preconditions.checkArgument(
         attrs.length > 0, "Cannot create PCollection from empty attribute list");
-    List<AttributeDescriptor<?>> attrClosure =
-        findSuitableFamilies(af -> af.getAccess().canReadBatchUpdates(), attrs)
-            .filter(p -> p.getSecond().isPresent())
-            .map(p -> p.getSecond().get())
-            .flatMap(d -> d.getAttributes().stream())
-            .distinct()
-            .collect(Collectors.toList());
+    List<AttributeDescriptor<?>> attrClosure = createAttributeClosure(attrs);
     Preconditions.checkArgument(
         !attrClosure.isEmpty(),
         "Cannot find suitable family for attributes %s",
@@ -303,8 +299,9 @@ public class BeamDataOperator implements DataOperator {
         .map(
             da -> {
               BatchUpdatesDescriptor desc =
-                  new BatchUpdatesDescriptor(pipeline, da, startStamp, endStamp, asStream);
-              return getOrCreatePCollection(desc, true, d -> d.createBatchUpdates(attrClosure));
+                  new BatchUpdatesDescriptor(
+                      pipeline, da, startStamp, endStamp, asStream, attrClosure);
+              return getOrCreatePCollection(desc, true, BatchUpdatesDescriptor::createBatchUpdates);
             })
         .reduce(
             PCollectionList.<StreamElement>empty(pipeline),
@@ -348,8 +345,6 @@ public class BeamDataOperator implements DataOperator {
   public final PCollection<StreamElement> getBatchSnapshot(
       Pipeline pipeline, long fromStamp, long untilStamp, AttributeDescriptor<?>... attrs) {
 
-    List<AttributeDescriptor<?>> attrList = Arrays.stream(attrs).collect(Collectors.toList());
-
     List<Pair<AttributeDescriptor<?>, Optional<AttributeFamilyDescriptor>>> resolvedAttrs;
     resolvedAttrs =
         findSuitableFamilies(af -> af.getAccess().canReadBatchSnapshot(), attrs)
@@ -358,6 +353,12 @@ public class BeamDataOperator implements DataOperator {
     boolean unresolved = resolvedAttrs.stream().anyMatch(p -> p.getSecond().isEmpty());
 
     if (!unresolved) {
+      List<AttributeDescriptor<?>> attrList =
+          resolvedAttrs.stream()
+              .flatMap(p -> p.getSecond().stream())
+              .flatMap(af -> af.getAttributes().stream())
+              .distinct()
+              .collect(Collectors.toList());
       return resolvedAttrs.stream()
           // take all attributes from the same family
           // it will be filtered away then, this is needed to enable fusion of multiple reads from
@@ -373,8 +374,9 @@ public class BeamDataOperator implements DataOperator {
           .map(
               da -> {
                 BatchSnapshotDescriptor desc =
-                    new BatchSnapshotDescriptor(pipeline, da, fromStamp, untilStamp);
-                return getOrCreatePCollection(desc, true, d -> d.createBatchUpdates(attrList));
+                    new BatchSnapshotDescriptor(pipeline, da, fromStamp, untilStamp, attrList);
+                return getOrCreatePCollection(
+                    desc, true, BatchSnapshotDescriptor::createBatchUpdates);
               })
           .reduce(
               PCollectionList.<StreamElement>empty(pipeline),
@@ -392,6 +394,15 @@ public class BeamDataOperator implements DataOperator {
     return PCollectionTools.reduceAsSnapshot(
         "getBatchSnapshot:" + Arrays.toString(attrs),
         getBatchUpdates(pipeline, fromStamp, untilStamp, attrs));
+  }
+
+  private List<AttributeDescriptor<?>> createAttributeClosure(AttributeDescriptor<?>[] attrs) {
+    return findSuitableFamilies(af -> af.getAccess().canReadBatchUpdates(), attrs)
+        .filter(p -> p.getSecond().isPresent())
+        .map(p -> p.getSecond().get())
+        .flatMap(d -> d.getAttributes().stream())
+        .distinct()
+        .collect(Collectors.toList());
   }
 
   /**

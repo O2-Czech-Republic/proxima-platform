@@ -97,7 +97,7 @@ This adds `cz.o2.proxima:compiler-maven-plugin` as a plugin to the build and inv
 
 If you cannot use the maven plugin, you can incorporate generation of the model into your build using direct invocation of the generator.
 
-The generator can be invoked from `cz.o2.proxima:proxima-compiler-java-cli` artifact using class [ModelGenerator](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/generator/ModelGenerator.html).
+The generator can be invoked from `cz.o2.proxima:proxima-compiler-java-cli` artifact using class [ModelGenerator](https://datadrivencz.github.io/proxima-platform/apidocs/cz/o2/proxima/generator/ModelGenerator.html).
 
 Downloading the artifact and running the class, we get:
 ```shell

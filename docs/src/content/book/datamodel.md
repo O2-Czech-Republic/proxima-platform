@@ -19,7 +19,7 @@ A _key_ is unique string identification of any particular instance of an entity.
 
 Here we see two instances of a particular entity with attribute `Attribute1` and `Attribute2` with type `int`.
 
-The type and serialization of all attributes is defined by a _scheme_ and associated [ValueSerializer](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/scheme/ValueSerializer.html). Let's assume we have an eshop which sells some goods. A typical eshop will have a database of products and users and will want to track behavior of users on the website in order to provide some level of personification. Given such use case, we would define entities in HOCON configuration as follows:
+The type and serialization of all attributes is defined by a _scheme_ and associated [ValueSerializer](https://datadrivencz.github.io/proxima-platform/apidocs/cz/o2/proxima/core/scheme/ValueSerializer.html). Let's assume we have an eshop which sells some goods. A typical eshop will have a database of products and users and will want to track behavior of users on the website in order to provide some level of personification. Given such use case, we would define entities in HOCON configuration as follows:
 
 ```
 entities {
@@ -79,9 +79,9 @@ Each _attribute_ is of two possible types:
 
 ##### Scalar attributes
 
-`Details` and `preferences` are examples of a _scalar attribute_ of entity _user_. Such attribute may be present or missing (be null), but if present it can have only single value of given type. The type of the attribute is given by its _scheme_. _Scheme_ is [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier) which points to a [ValueSerializerFactory](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/scheme/ValueSerializerFactory.html), which creates instances of [ValueSerializer](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/scheme/ValueSerializer.html). This serializer is then used whenever the platform needs to convert the object representing the attribute's value to bytes and back.
+`Details` and `preferences` are examples of a _scalar attribute_ of entity _user_. Such attribute may be present or missing (be null), but if present it can have only single value of given type. The type of the attribute is given by its _scheme_. _Scheme_ is [URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier) which points to a [ValueSerializerFactory](https://datadrivencz.github.io/proxima-platform/apidocs/cz/o2/proxima/core/scheme/ValueSerializerFactory.html), which creates instances of [ValueSerializer](https://datadrivencz.github.io/proxima-platform/apidocs/cz/o2/proxima/core/scheme/ValueSerializer.html). This serializer is then used whenever the platform needs to convert the object representing the attribute's value to bytes and back.
 
-The scheme `proto:` used in the example above declares that the attribute will be serialized using [ProtoValueSerializer](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/scheme/proto/ProtoSerializerFactory.ProtoValueSerializer.html) and hold a corresponding class that was generated using `protoc` (and extends [Message](https://www.javadoc.io/doc/com.google.protobuf/protobuf-java/latest/com/google/protobuf/Message.html)). For details refer to [protocol buffers](https://developers.google.com/protocol-buffers) documentation.
+The scheme `proto:` used in the example above declares that the attribute will be serialized using [ProtoValueSerializer](https://datadrivencz.github.io/proxima-platform/apidocs/cz/o2/proxima/core/scheme/proto/ProtoSerializerFactory.ProtoValueSerializer.html) and hold a corresponding class that was generated using `protoc` (and extends [Message](https://www.javadoc.io/doc/com.google.protobuf/protobuf-java/latest/com/google/protobuf/Message.html)). For details refer to [protocol buffers](https://developers.google.com/protocol-buffers) documentation.
 
 
 ##### Wildcard attributes
@@ -95,12 +95,12 @@ We will see examples of all these uses throughout this book.
 
 ### StreamElement
 
-The platform handles all data as _data streams_ consisting of _upserts_ and _deletions_ of data. Each _upsert_ or _delete_ is an immutable event describing that a new data element was added, updated or removed. Every [StreamElement](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/storage/StreamElement.html) consists of the following parts:
+The platform handles all data as _data streams_ consisting of _upserts_ and _deletions_ of data. Each _upsert_ or _delete_ is an immutable event describing that a new data element was added, updated or removed. Every [StreamElement](https://datadrivencz.github.io/proxima-platform/apidocs/cz/o2/proxima/core/storage/StreamElement.html) consists of the following parts:
 
 |  entity   |  attribute  |  key  |  timestamp | value | delete wildcard flag |
 |-----------|-------------|-------|------------|-------|----------------------|
 
-Entity is represented by [EntityDescriptor](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/repository/EntityDescriptor.html), attribute is represented by its name (which is especially needed for wildcard attributes, because name of the attribute does not represent a specific instance of the attribute) and [AttributeDescriptor](https://proxima.datadriven.cz/javadoc/latest/cz/o2/proxima/core/repository/AttributeDescriptor.html).
+Entity is represented by [EntityDescriptor](https://datadrivencz.github.io/proxima-platform/apidocs/cz/o2/proxima/core/repository/EntityDescriptor.html), attribute is represented by its name (which is especially needed for wildcard attributes, because name of the attribute does not represent a specific instance of the attribute) and [AttributeDescriptor](https://datadrivencz.github.io/proxima-platform/apidocs/cz/o2/proxima/core/repository/AttributeDescriptor.html).
 
 Key, timestamp and value are the key of the entity (representing a "row"), timestamp is epoch timestamp in millis representing the instant at which the particular change (upsert or delete) happened and value is the new updated value (for upserts) or null (for deletes).
 

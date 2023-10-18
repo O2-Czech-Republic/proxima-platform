@@ -252,6 +252,15 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
           transformed.size() == 1 && !isGlobalTransaction ? delegate : commitDelegate;
       List<KeyAttribute> keyAttributes =
           transformed.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
+      boolean anyDisallowed = keyAttributes.stream().anyMatch(KeyAttribute::isWildcardQuery);
+      if (anyDisallowed) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Invalid output writes %s. Wildcards need to have suffixes.",
+                keyAttributes.stream()
+                    .filter(KeyAttribute::isWildcardQuery)
+                    .collect(Collectors.toList())));
+      }
       manager.commit(transactionId, keyAttributes);
       Response response = takeResponse();
       if (response.getFlags() != Response.Flags.COMMITTED) {

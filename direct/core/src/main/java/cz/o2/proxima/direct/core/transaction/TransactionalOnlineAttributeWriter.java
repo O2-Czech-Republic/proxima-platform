@@ -37,7 +37,6 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.transform.DirectElementWiseTransform;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
-import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -179,7 +178,6 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     @Getter private final String transactionId;
     private final BlockingQueue<Pair<String, Response>> responseQueue =
         new ArrayBlockingQueue<>(100);
-    private boolean isGlobalTransaction;
     private State.Flags state;
     private long sequenceId = -1L;
     private long stamp = Long.MIN_VALUE;
@@ -192,7 +190,6 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     void beginGlobal() throws TransactionRejectedException {
       Preconditions.checkArgument(
           !globalKeyAttributes.isEmpty(), "Cannot resolve global transactional attributes.");
-      this.isGlobalTransaction = true;
       update(globalKeyAttributes);
     }
 
@@ -247,9 +244,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       } catch (TransactionRejectedRuntimeException ex) {
         throw (TransactionRejectedException) ex.getCause();
       }
-      StreamElement toWrite = getSingleOrCommit(transformed);
-      OnlineAttributeWriter writer =
-          transformed.size() == 1 && !isGlobalTransaction ? delegate : commitDelegate;
+      StreamElement toWrite = getCommit(transformed);
+      OnlineAttributeWriter writer = commitDelegate;
       List<KeyAttribute> keyAttributes =
           transformed.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
       boolean anyDisallowed = keyAttributes.stream().anyMatch(KeyAttribute::isWildcardQuery);
@@ -275,10 +271,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
               rollback();
             }
             log.debug(
-                "Committed outputs {} (via {}) of transaction {}",
+                "Committed outputs {} (via {}) of transaction {}: ({}, {})",
                 transformed,
                 toWrite,
-                transactionId);
+                transactionId,
+                succ,
+                (Object) exc);
             callback.commit(succ, exc);
           };
       state = State.Flags.COMMITTED;
@@ -351,10 +349,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       }
     }
 
-    private StreamElement getSingleOrCommit(Collection<StreamElement> outputs) {
-      if (outputs.size() == 1 && !isGlobalTransaction) {
-        return Iterables.getOnlyElement(outputs);
-      }
+    private StreamElement getCommit(Collection<StreamElement> outputs) {
       return manager
           .getCommitDesc()
           .upsert(transactionId, stamp, Commit.of(sequenceId, stamp, outputs));

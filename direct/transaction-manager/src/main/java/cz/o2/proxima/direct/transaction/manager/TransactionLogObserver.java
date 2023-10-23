@@ -510,7 +510,8 @@ public class TransactionLogObserver implements CommitLogObserver {
                     (a, b) -> a.getSequenceId() < b.getSequenceId() ? a : b));
     outputAttributes.forEach(
         ka -> {
-          Preconditions.checkArgument(!ka.isWildcardQuery());
+          Preconditions.checkArgument(
+              !ka.isWildcardQuery(), "Got KeyAttribute %s, which is not allowed output.", ka);
           KeyWithAttribute kwa = KeyWithAttribute.of(ka);
           if (!ka.getAttributeSuffix().isPresent()) {
             mapOfInputs.putIfAbsent(kwa, ka);

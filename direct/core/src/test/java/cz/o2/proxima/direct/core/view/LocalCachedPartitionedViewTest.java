@@ -43,6 +43,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -116,6 +118,16 @@ public class LocalCachedPartitionedViewTest {
     assertEquals(now, (long) updated.get().getSecond().getFirst());
     assertFalse(view.get("key", armed, now + 1).isPresent());
     assertTrue(view.get("key", armed, now).isPresent());
+  }
+
+  @Test
+  public void testWriteSimpleWithCallbackCalledOnce() throws InterruptedException {
+    AtomicInteger updated = new AtomicInteger();
+    view.assign(singlePartition(), (update, old) -> updated.incrementAndGet());
+    CountDownLatch latch = new CountDownLatch(1);
+    view.write(update("key", armed, now), (succ, exc) -> latch.countDown());
+    latch.await();
+    assertEquals(1, updated.get());
   }
 
   @Test

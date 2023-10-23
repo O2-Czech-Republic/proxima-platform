@@ -95,7 +95,6 @@ public class LocalCachedPartitionedView implements CachedView {
   }
 
   protected void onCache(StreamElement ingest, boolean overwrite) {
-
     final Optional<Object> parsed = ingest.isDelete() ? Optional.empty() : ingest.getParsed();
     if (ingest.isDelete() || parsed.isPresent()) {
       final String attrName;

@@ -64,7 +64,8 @@ public class KafkaStreamElement extends StreamElement {
         Optional<AttributeDescriptor<Object>> attr =
             entityDesc.findAttribute(attribute, true /* allow reading protected */);
         if (!attr.isPresent()) {
-          log.error("Invalid attribute {} in kafka key {}", attribute, key);
+          log.error(
+              "Invalid attribute {} in kafka key {} for entity {}", attribute, key, entityDesc);
         } else {
           @Nullable
           final Header sequenceIdHeader =

@@ -545,7 +545,7 @@ public class TransactionLogObserver implements CommitLogObserver {
       log.info("Transaction {} seqId {} is now {}", transactionId, seqId, proposedState.getFlags());
       return proposedState;
     }
-    log.info("Transaction {} seqId {} aborted", seqId, transactionId);
+    log.info("Transaction {} seqId {} aborted", transactionId, seqId);
     return proposedState.aborted();
   }
 

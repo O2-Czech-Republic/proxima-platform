@@ -603,7 +603,7 @@ public class BeamStreamTest extends StreamTest {
                 timestamped(upsertRandom(event, data, now - 1))));
 
     SerializableScopedValue<Integer, List<StreamElement>> output =
-        new SerializableScopedValue<>(Lists::newArrayList);
+        new SerializableScopedValue<>(() -> Collections.synchronizedList(Lists.newArrayList()));
     SerializableScopedValue<Integer, OnlineAttributeWriter> writer =
         new SerializableScopedValue<>(() -> rejectingOnlineWriter(output.get(0)));
 
@@ -846,11 +846,11 @@ public class BeamStreamTest extends StreamTest {
 
   private static OnlineAttributeWriter rejectingOnlineWriter(List<StreamElement> written) {
     return new OnlineAttributeWriter() {
-      int attempt = 0;
+      AtomicInteger attempt = new AtomicInteger(0);
 
       @Override
       public void write(StreamElement data, CommitCallback statusCallback) {
-        if (attempt++ < 1) {
+        if (attempt.getAndIncrement() < 1) {
           statusCallback.commit(
               false, new TransactionRejectedException("transaction", Flags.ABORTED) {});
         } else {

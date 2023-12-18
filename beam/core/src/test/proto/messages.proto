@@ -1,0 +1,19 @@
+
+syntax = "proto3";
+
+package cz.o2.proxima.beam.core.testing;
+
+message User {
+  string name = 1;
+  repeated string phone = 2;  
+}
+
+message Status {
+  bool alive = 1;
+  repeated string user = 2;
+}
+
+message Device {
+  string name = 1;
+  bytes raw = 2;
+}

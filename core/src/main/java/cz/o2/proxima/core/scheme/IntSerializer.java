@@ -41,7 +41,7 @@ public class IntSerializer implements ValueSerializerFactory {
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer)
-        new ValueSerializer<Integer>() {
+        new PrimitiveValueSerializer<Integer>() {
 
           private static final long serialVersionUID = 1L;
 

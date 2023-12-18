@@ -41,7 +41,7 @@ public class FloatSerializer implements ValueSerializerFactory {
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer)
-        new ValueSerializer<Float>() {
+        new PrimitiveValueSerializer<Float>() {
 
           private static final long serialVersionUID = 1L;
 

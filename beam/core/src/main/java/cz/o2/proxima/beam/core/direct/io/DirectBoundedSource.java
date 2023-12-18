@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.core.direct.io;
 
+import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -26,6 +27,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 
@@ -67,6 +69,11 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
     this.limit = limit;
     this.partition = partition;
     this.reader = reader;
+  }
+
+  @Override
+  public Coder<StreamElement> getOutputCoder() {
+    return StreamElementCoder.of(factory);
   }
 
   @Override

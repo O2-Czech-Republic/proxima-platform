@@ -45,7 +45,7 @@ public class RetryableLogObserverTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return true;
               }
             });
@@ -106,7 +106,7 @@ public class RetryableLogObserverTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 throw new UnsupportedOperationException("Not implemented.");
               }
             });
@@ -143,7 +143,7 @@ public class RetryableLogObserverTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 throw new UnsupportedOperationException("Not implemented.");
               }
             });
@@ -171,7 +171,7 @@ public class RetryableLogObserverTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return true;
               }
             });
@@ -225,7 +225,7 @@ public class RetryableLogObserverTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return true;
               }
             });

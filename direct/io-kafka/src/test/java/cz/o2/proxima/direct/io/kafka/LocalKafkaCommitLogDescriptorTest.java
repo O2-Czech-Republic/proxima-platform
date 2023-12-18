@@ -757,7 +757,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 context.confirm();
                 latch.countDown();
                 return true;
@@ -809,7 +809,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return true;
               }
 
@@ -860,7 +860,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 watermark.set(context.getWatermark());
                 latch.countDown();
                 return true;
@@ -919,7 +919,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 watermark.set(context.getWatermark());
                 latch.countDown();
                 return true;
@@ -973,7 +973,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return true;
               }
 
@@ -1025,7 +1025,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return true;
               }
 
@@ -1135,8 +1135,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               new CommitLogObserver() {
 
                 @Override
-                public boolean onNext(StreamElement ingest, OnNextContext context) {
-                  log.debug("Received element {} on watermark {}", ingest, context.getWatermark());
+                public boolean onNext(StreamElement element, OnNextContext context) {
+                  log.debug("Received element {} on watermark {}", element, context.getWatermark());
                   return true;
                 }
 
@@ -1218,7 +1218,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               int processed = 0;
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 if (++processed == 100) {
                   context.confirm();
                 }
@@ -1280,7 +1280,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     CommitLogObserver observer =
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             switch (consumed.getAndIncrement()) {
               case 0:
                 // we must confirm the first message to create a committed position
@@ -1365,7 +1365,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 restarts.incrementAndGet();
                 throw new RuntimeException("FAIL!");
               }
@@ -1427,7 +1427,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 restarts.incrementAndGet();
                 throw new RuntimeException("FAIL!");
               }
@@ -1495,7 +1495,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext confirm) {
+              public boolean onNext(StreamElement element, OnNextContext confirm) {
                 restarts.incrementAndGet();
                 throw new RuntimeException("FAIL!");
               }
@@ -1549,8 +1549,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                input.set(ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                input.set(element);
                 context.confirm();
                 latch.countDown();
                 return true;
@@ -1620,7 +1620,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           public void onRepartition(OnRepartitionContext context) {}
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             consumed.incrementAndGet();
             context.confirm();
             return true;
@@ -1673,8 +1673,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                input.set(ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                input.set(element);
                 context.confirm();
                 latch.countDown();
                 return true;
@@ -1744,8 +1744,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                input.set(ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                input.set(element);
                 context.confirm();
                 latch.get().countDown();
                 return true;
@@ -1832,8 +1832,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            input.add((KafkaStreamElement) ingest);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            input.add((KafkaStreamElement) element);
             context.confirm();
             latch.get().countDown();
             // terminate after reading first record
@@ -1905,8 +1905,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            input.add((KafkaStreamElement) ingest);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            input.add((KafkaStreamElement) element);
             latch.get().countDown();
             // terminate after reading first record
             return false;
@@ -1976,7 +1976,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return false;
               }
             });
@@ -2680,7 +2680,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 watermark.set(context.getWatermark());
                 latch.countDown();
                 return true;
@@ -2737,7 +2737,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 watermark.set(context.getWatermark());
                 latch.countDown();
                 return true;
@@ -2808,7 +2808,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             context.confirm();
             latch.countDown();
             return true;
@@ -2913,7 +2913,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             context.confirm();
             return false;
           }
@@ -2988,7 +2988,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             context.confirm();
             return false;
           }
@@ -3045,7 +3045,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             "dummy",
             new CommitLogObserver() {
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return false;
               }
 
@@ -3117,10 +3117,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             "dummy",
             new CommitLogObserver() {
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                observedAfterRepartition.put(ingest.getKey(), ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                observedAfterRepartition.put(element.getKey(), element);
                 context.confirm();
-                if (ingest.getKey().equals("last-key")) {
+                if (element.getKey().equals("last-key")) {
                   latch.countDown();
                   return false;
                 }
@@ -3186,7 +3186,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     CommitLogObserver observer =
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             long now = System.nanoTime();
             long last = lastOnNext.getAndSet(now);
             if (last > 0) {

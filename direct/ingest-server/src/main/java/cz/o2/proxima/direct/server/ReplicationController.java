@@ -105,27 +105,27 @@ public class ReplicationController {
     private final AttributeWriterBase writer;
 
     @Override
-    public boolean onNext(StreamElement ingest, OnNextContext context) {
-      final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
+    public boolean onNext(StreamElement element, OnNextContext context) {
+      final boolean allowed = allowedAttributes.contains(element.getAttributeDescriptor());
       log.debug(
           "Consumer {}: received new ingest element {} at watermark {}",
           consumerName,
-          ingest,
+          element,
           context.getWatermark());
-      if (allowed && filter.apply(ingest)) {
-        Metrics.ingestsForAttribute(ingest.getAttributeDescriptor()).increment();
-        if (!ingest.isDelete()) {
-          Metrics.sizeForAttribute(ingest.getAttributeDescriptor())
-              .increment(ingest.getValue().length);
+      if (allowed && filter.apply(element)) {
+        Metrics.ingestsForAttribute(element.getAttributeDescriptor()).increment();
+        if (!element.isDelete()) {
+          Metrics.sizeForAttribute(element.getAttributeDescriptor())
+              .increment(element.getValue().length);
         }
-        Failsafe.with(retryPolicy).run(() -> ingestElement(ingest, context));
+        Failsafe.with(retryPolicy).run(() -> ingestElement(element, context));
       } else {
         Metrics.COMMIT_UPDATE_DISCARDED.increment();
         log.debug(
             "Consumer {}: discarding write of {} to {} because of {}, "
                 + "with allowedAttributes {} and filter class {}",
             consumerName,
-            ingest,
+            element,
             writer.getUri(),
             allowed ? "applied filter" : "invalid attribute",
             allowedAttributes,

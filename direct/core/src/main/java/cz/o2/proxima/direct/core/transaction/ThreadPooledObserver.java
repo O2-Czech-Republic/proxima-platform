@@ -101,12 +101,12 @@ public class ThreadPooledObserver implements CommitLogObserver {
   }
 
   @Override
-  public boolean onNext(StreamElement ingest, OnNextContext context) {
+  public boolean onNext(StreamElement element, OnNextContext context) {
     return !ExceptionUtils.ignoringInterrupted(
         () ->
             workQueues
-                .get((ingest.getKey().hashCode() & Integer.MAX_VALUE) % workQueues.size())
-                .put(Pair.of(ingest, context)));
+                .get((element.getKey().hashCode() & Integer.MAX_VALUE) % workQueues.size())
+                .put(Pair.of(element, context)));
   }
 
   @Override

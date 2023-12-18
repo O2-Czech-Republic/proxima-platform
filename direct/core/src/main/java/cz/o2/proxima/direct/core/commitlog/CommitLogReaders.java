@@ -254,12 +254,12 @@ public class CommitLogReaders {
         long watermark = Long.MIN_VALUE;
 
         @Override
-        public boolean onNext(StreamElement ingest, OnNextContext context) {
+        public boolean onNext(StreamElement element, OnNextContext context) {
           if (ExceptionUtils.ignoringInterrupted(this::waitIfNecessary)) {
             return false;
           }
           watermark = context.getWatermark();
-          return super.onNext(ingest, context);
+          return super.onNext(element, context);
         }
 
         private void waitIfNecessary() throws InterruptedException {

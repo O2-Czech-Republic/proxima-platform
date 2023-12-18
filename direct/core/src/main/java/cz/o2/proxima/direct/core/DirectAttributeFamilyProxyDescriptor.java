@@ -218,15 +218,15 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     return new CommitLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
+      public boolean onNext(StreamElement element, OnNextContext context) {
         try {
-          return lookup.lookupRead(ingest.getAttributeDescriptor().getName()).stream()
-              .map(attr -> observer.onNext(transformToProxy(ingest, attr), context))
+          return lookup.lookupRead(element.getAttributeDescriptor().getName()).stream()
+              .map(attr -> observer.onNext(transformToProxy(element, attr), context))
               .filter(c -> !c)
               .findFirst()
               .orElse(true);
         } catch (Exception ex) {
-          log.error("Failed to transform ingest {}", ingest, ex);
+          log.error("Failed to transform ingest {}", element, ex);
           context.fail(ex);
           return false;
         }
@@ -264,16 +264,16 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     return new BatchLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
+      public boolean onNext(StreamElement element, OnNextContext context) {
 
         try {
-          return lookup.lookupRead(ingest.getAttributeDescriptor().getName()).stream()
-              .map(attr -> observer.onNext(transformToProxy(ingest, attr), context))
+          return lookup.lookupRead(element.getAttributeDescriptor().getName()).stream()
+              .map(attr -> observer.onNext(transformToProxy(element, attr), context))
               .filter(c -> !c)
               .findFirst()
               .orElse(true);
         } catch (Exception ex) {
-          log.error("Failed to transform ingest {}", ingest, ex);
+          log.error("Failed to transform ingest {}", element, ex);
           return true;
         }
       }

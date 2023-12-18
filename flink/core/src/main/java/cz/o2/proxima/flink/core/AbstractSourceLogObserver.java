@@ -93,13 +93,13 @@ abstract class AbstractSourceLogObserver<
   }
 
   @Override
-  public boolean onNext(StreamElement ingest, ContextT context) {
+  public boolean onNext(StreamElement element, ContextT context) {
     final boolean skipElement =
         skipFirstElementFromEachPartition.contains(context.getPartition())
             && seenPartitions.add(context.getPartition());
     if (!skipElement) {
       synchronized (sourceContext.getCheckpointLock()) {
-        sourceContext.collectWithTimestamp(resultExtractor.toResult(ingest), ingest.getStamp());
+        sourceContext.collectWithTimestamp(resultExtractor.toResult(element), element.getStamp());
         markOffsetAsConsumed(context);
       }
     }

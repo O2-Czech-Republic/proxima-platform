@@ -53,14 +53,14 @@ public abstract class TransformationObserver implements CommitLogObserver {
     }
 
     @Override
-    void doTransform(StreamElement ingest, OffsetCommitter committer) {
+    void doTransform(StreamElement element, OffsetCommitter committer) {
 
       AtomicInteger toConfirm = new AtomicInteger(0);
       try {
         ElementWiseTransformation.Collector<StreamElement> collector =
             elem -> collectWrittenElement(committer, toConfirm, elem);
 
-        if (toConfirm.addAndGet(transformation.apply(ingest, collector)) == 0) {
+        if (toConfirm.addAndGet(transformation.apply(element, collector)) == 0) {
           committer.confirm();
         }
       } catch (Exception ex) {
@@ -132,16 +132,16 @@ public abstract class TransformationObserver implements CommitLogObserver {
     }
 
     @Override
-    void doTransform(StreamElement ingest, OffsetCommitter context) {
-      log.debug("Transformation {}: processing input {}", name, ingest);
+    void doTransform(StreamElement element, OffsetCommitter context) {
+      log.debug("Transformation {}: processing input {}", name, element);
       CommitCallback commitCallback =
           (succ, exc) -> {
-            onReplicated(ingest);
+            onReplicated(element);
             context.commit(succ, exc);
           };
       for (int i = 0; ; i++) {
         try {
-          transformation.transform(ingest, commitCallback);
+          transformation.transform(element, commitCallback);
           break;
         } catch (TransactionRejectedRuntimeException ex) {
           log.info(
@@ -190,23 +190,23 @@ public abstract class TransformationObserver implements CommitLogObserver {
   }
 
   @Override
-  public boolean onNext(StreamElement ingest, OnNextContext context) {
+  public boolean onNext(StreamElement element, OnNextContext context) {
     log.debug(
-        "Transformation {}: Received ingest {} at watermark {}",
+        "Transformation {}: Received element {} at watermark {}",
         name,
-        ingest,
+        element,
         context.getWatermark());
-    reportConsumerWatermark(name, context.getWatermark(), ingest.getStamp());
-    if (!filter.apply(ingest)) {
-      log.debug("Transformation {}: skipping transformation of {} by filter", name, ingest);
+    reportConsumerWatermark(name, context.getWatermark(), element.getStamp());
+    if (!filter.apply(element)) {
+      log.debug("Transformation {}: skipping transformation of {} by filter", name, element);
       context.confirm();
     } else {
-      doTransform(ingest, context);
+      doTransform(element, context);
     }
     return true;
   }
 
-  abstract void doTransform(StreamElement ingest, OffsetCommitter committer);
+  abstract void doTransform(StreamElement element, OffsetCommitter committer);
 
   DirectDataOperator direct() {
     if (direct == null) {

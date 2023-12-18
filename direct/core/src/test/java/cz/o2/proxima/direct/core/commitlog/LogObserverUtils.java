@@ -39,10 +39,10 @@ public class LogObserverUtils {
       }
 
       @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        list.add(ingest);
+      public boolean onNext(StreamElement element, OnNextContext context) {
+        list.add(element);
         context.confirm();
-        return shouldContinue.apply(ingest);
+        return shouldContinue.apply(element);
       }
 
       @Override

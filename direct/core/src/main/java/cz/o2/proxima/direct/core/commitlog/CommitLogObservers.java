@@ -244,8 +244,8 @@ public class CommitLogObservers {
       }
 
       @Override
-      public synchronized boolean onNext(StreamElement ingest, OnNextContext context) {
-        return delegate.onNext(ingest, context);
+      public synchronized boolean onNext(StreamElement element, OnNextContext context) {
+        return delegate.onNext(element, context);
       }
 
       @Override
@@ -308,12 +308,12 @@ public class CommitLogObservers {
     }
 
     @Override
-    public boolean onNext(StreamElement ingest, OnNextContext context) {
+    public boolean onNext(StreamElement element, OnNextContext context) {
       long watermark = getWatermark(context);
-      if (watermark - allowedLatenessMs <= ingest.getStamp()) {
-        enqueue(ingest, context);
+      if (watermark - allowedLatenessMs <= element.getStamp()) {
+        enqueue(element, context);
       } else {
-        latecomerConsumer.accept(ingest, context);
+        latecomerConsumer.accept(element, context);
       }
       return onNextDrainQueue(context);
     }
@@ -330,7 +330,7 @@ public class CommitLogObservers {
       upstream.onIdle(context);
     }
 
-    abstract void enqueue(StreamElement ingest, OnNextContext context);
+    abstract void enqueue(StreamElement element, OnNextContext context);
 
     abstract void onCompletedDrainQueue();
 
@@ -373,8 +373,8 @@ public class CommitLogObservers {
     }
 
     @Override
-    void enqueue(StreamElement ingest, OnNextContext context) {
-      queue.add(Pair.of(ingest, context));
+    void enqueue(StreamElement element, OnNextContext context) {
+      queue.add(Pair.of(element, context));
     }
 
     boolean onNextDrainQueue(OnNextContext context) {
@@ -418,14 +418,14 @@ public class CommitLogObservers {
     }
 
     @Override
-    void enqueue(StreamElement ingest, OnNextContext context) {
+    void enqueue(StreamElement element, OnNextContext context) {
       // move global watermark
       watermarkMap.values().forEach(w -> w.accumulateAndGet(context.getWatermark(), Math::max));
       // move partition watermark
       watermarkMap
           .get(context.getPartition().getId())
-          .accumulateAndGet(ingest.getStamp(), Math::max);
-      queueMap.get(context.getPartition().getId()).add(Pair.of(ingest, context));
+          .accumulateAndGet(element.getStamp(), Math::max);
+      queueMap.get(context.getPartition().getId()).add(Pair.of(element, context));
     }
 
     @Override

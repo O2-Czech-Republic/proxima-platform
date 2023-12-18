@@ -112,10 +112,10 @@ public class InMemStorageTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
 
                 assertEquals(0, context.getPartition().getId());
-                assertEquals("key", ingest.getKey());
+                assertEquals("key", element.getKey());
                 context.confirm();
                 latch.get().countDown();
                 return false;
@@ -141,6 +141,46 @@ public class InMemStorageTest implements Serializable {
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
             (succ, exc) -> {});
+    latch.get().await();
+  }
+
+  @Test(timeout = 10000)
+  public void testObservePartitionsEmpty() throws InterruptedException {
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    AtomicReference<CountDownLatch> latch = new AtomicReference<>();
+    ObserveHandle handle =
+        reader.observePartitions(
+            reader.getPartitions(),
+            Position.OLDEST,
+            true,
+            new CommitLogObserver() {
+
+              @Override
+              public void onRepartition(OnRepartitionContext context) {
+                assertEquals(1, context.partitions().size());
+                latch.set(new CountDownLatch(1));
+              }
+
+              @Override
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+
+              @Override
+              public void onCompleted() {
+                latch.get().countDown();
+              }
+            });
+    assertTrue(ObserveHandleUtils.isAtHead(handle, reader));
     latch.get().await();
   }
 
@@ -182,8 +222,8 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            assertEquals("key", ingest.getKey());
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            assertEquals("key", element.getKey());
             context.confirm();
             count.incrementAndGet();
             return true;
@@ -226,11 +266,43 @@ public class InMemStorageTest implements Serializable {
         new BatchLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             assertEquals(0, context.getPartition().getId());
-            assertEquals("key", ingest.getKey());
+            assertEquals("key", element.getKey());
             latch.countDown();
             return false;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
+    latch.await();
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveBatchEmpty() throws InterruptedException {
+
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
+    BatchLogReader reader = Optionals.get(accessor.getBatchLogReader(direct.getContext()));
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observe(
+        reader.getPartitions(),
+        Collections.singletonList(data),
+        new BatchLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
           }
 
           @Override
@@ -279,9 +351,9 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             assertEquals(0, context.getPartition().getId());
-            assertEquals("key", ingest.getKey());
+            assertEquals("key", element.getKey());
             count.incrementAndGet();
             return true;
           }
@@ -315,12 +387,12 @@ public class InMemStorageTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, CommitLogObserver.OnNextContext context) {
+              public boolean onNext(StreamElement element, CommitLogObserver.OnNextContext context) {
 
                 assertEquals(0, context.getPartition().getId());
-                assertEquals("key", ingest.getKey());
+                assertEquals("key", element.getKey());
                 context.confirm();
-                received.add(ingest.getValue()[0]);
+                received.add(element.getValue()[0]);
                 return false;
               }
 
@@ -379,9 +451,9 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, CommitLogObserver.OnNextContext context) {
+          public boolean onNext(StreamElement element, CommitLogObserver.OnNextContext context) {
             assertEquals(0, context.getPartition().getId());
-            received.add(ingest.getValue()[0]);
+            received.add(element.getValue()[0]);
             return false;
           }
 
@@ -435,6 +507,46 @@ public class InMemStorageTest implements Serializable {
     assertEquals(
         0, ((ConsumedOffset) handle.getCurrentOffsets().get(0)).getConsumedKeyAttr().size());
     handle.close();
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveOffsetsEmpty() throws InterruptedException {
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    CountDownLatch latch = new CountDownLatch(1);
+    List<StreamElement> read = new ArrayList<>();
+    CommitLogObserver observer =
+        new CommitLogObserver() {
+
+          @Override
+          public void onRepartition(CommitLogObserver.OnRepartitionContext context) {
+            assertEquals(1, context.partitions().size());
+          }
+
+          @Override
+          public boolean onNext(StreamElement element, CommitLogObserver.OnNextContext context) {
+            read.add(element);
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        };
+
+    Map<Partition, Offset> offsets = reader.fetchOffsets(Position.OLDEST, reader.getPartitions());
+    try (ObserveHandle handle = reader.observeBulkOffsets(offsets.values(), true, observer)) {
+      latch.await();
+    }
   }
 
   @Test(timeout = 10000)
@@ -551,7 +663,7 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             return false;
           }
         });
@@ -583,7 +695,7 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             failingObserverMessages.incrementAndGet();
             throw new RuntimeException("Test exception.");
           }
@@ -606,7 +718,7 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             successObserverAllReceived.countDown();
             return true;
           }
@@ -686,7 +798,7 @@ public class InMemStorageTest implements Serializable {
       }
 
       @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
+      public boolean onNext(StreamElement element, OnNextContext context) {
         partitionHistogram.merge(context.getPartition(), 1L, Long::sum);
         context.confirm();
         elementsReceived.countDown();
@@ -726,7 +838,7 @@ public class InMemStorageTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 partitionHistogram.merge(context.getPartition(), 1L, Long::sum);
                 context.confirm();
                 elementsReceived.countDown();

@@ -247,7 +247,7 @@ public class KafkaLogReaderIT {
           int consumed = 0;
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             context.confirm();
             if (consumed == 0) {
               ExceptionUtils.ignoringInterrupted(firstLatch::await);

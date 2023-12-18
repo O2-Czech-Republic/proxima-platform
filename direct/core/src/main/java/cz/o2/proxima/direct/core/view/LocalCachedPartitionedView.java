@@ -94,32 +94,32 @@ public class LocalCachedPartitionedView implements CachedView {
     this.writer = Objects.requireNonNull(writer);
   }
 
-  protected void onCache(StreamElement ingest, boolean overwrite) {
-    final Optional<Object> parsed = ingest.isDelete() ? Optional.empty() : ingest.getParsed();
-    if (ingest.isDelete() || parsed.isPresent()) {
+  protected void onCache(StreamElement element, boolean overwrite) {
+    final Optional<Object> parsed = element.isDelete() ? Optional.empty() : element.getParsed();
+    if (element.isDelete() || parsed.isPresent()) {
       final String attrName;
-      if (ingest.isDeleteWildcard()) {
-        attrName = ingest.getAttributeDescriptor().toAttributePrefix();
+      if (element.isDeleteWildcard()) {
+        attrName = element.getAttributeDescriptor().toAttributePrefix();
       } else {
-        attrName = ingest.getAttribute();
+        attrName = element.getAttribute();
       }
       final boolean updated;
       final Pair<Long, Payload> oldVal;
       synchronized (cache) {
-        oldVal = cache.get(ingest.getKey(), attrName, Long.MAX_VALUE);
-        long sequenceId = ingest.hasSequentialId() ? ingest.getSequentialId() : 0L;
+        oldVal = cache.get(element.getKey(), attrName, Long.MAX_VALUE);
+        long sequenceId = element.hasSequentialId() ? element.getSequentialId() : 0L;
         updated =
             cache.put(
-                ingest.getKey(),
+                element.getKey(),
                 attrName,
-                ingest.getStamp(),
+                element.getStamp(),
                 sequenceId,
                 overwrite,
                 parsed.orElse(null));
       }
       if (updated) {
         updateCallback.accept(
-            ingest,
+            element,
             oldVal != null ? Pair.of(oldVal.getFirst(), oldVal.getSecond().getData()) : null);
       }
     }
@@ -142,17 +142,17 @@ public class LocalCachedPartitionedView implements CachedView {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            log.debug("Prefetched element {} with ttlMs {}", ingest, ttlMs);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            log.debug("Prefetched element {} with ttlMs {}", element, ttlMs);
             final long prefetched = prefetchedCount.incrementAndGet();
-            if (ttl == null || getCurrentTimeMillis() - ingest.getStamp() < ttlMs) {
+            if (ttl == null || getCurrentTimeMillis() - element.getStamp() < ttlMs) {
               if (prefetched % 10000 == 0) {
                 log.info(
                     "Prefetched so far {} elements in {} millis",
                     prefetched,
                     getCurrentTimeMillis() - prefetchStartTime);
               }
-              onCache(ingest, false);
+              onCache(element, false);
             }
             context.confirm();
             return true;
@@ -177,8 +177,8 @@ public class LocalCachedPartitionedView implements CachedView {
           private long lastCleanup = 0;
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            onCache(ingest, false);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            onCache(element, false);
             context.confirm();
             if (ttl != null) {
               lastCleanup = maybeDoCleanup(lastCleanup, ttlMs);

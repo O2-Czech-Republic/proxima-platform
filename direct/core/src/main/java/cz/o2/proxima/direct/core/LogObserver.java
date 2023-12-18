@@ -97,10 +97,10 @@ public interface LogObserver<
   /**
    * Process next record in the commit log.
    *
-   * @param ingest the ingested data written to the commit log
-   * @param context a context that the application must use to confirm processing of the ingest. If
+   * @param element the element written to the commit log
+   * @param context a context that the application must use to confirm processing of the element. If
    *     the application fails to do so, the result is undefined.
    * @return {@code true} if the processing should continue, {@code false} otherwise
    */
-  boolean onNext(StreamElement ingest, ContextT context);
+  boolean onNext(StreamElement element, ContextT context);
 }

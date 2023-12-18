@@ -52,8 +52,8 @@ public interface StorageFilter extends Serializable {
     }
 
     @Override
-    public boolean apply(StreamElement ingest) {
-      return filters.stream().anyMatch(f -> f.apply(ingest));
+    public boolean apply(StreamElement element) {
+      return filters.stream().anyMatch(f -> f.apply(element));
     }
   }
 
@@ -65,18 +65,18 @@ public interface StorageFilter extends Serializable {
     }
 
     @Override
-    public boolean apply(StreamElement ingest) {
-      return filters.stream().allMatch(f -> f.apply(ingest));
+    public boolean apply(StreamElement element) {
+      return filters.stream().allMatch(f -> f.apply(element));
     }
   }
 
   /**
    * When returns {@code false} the input element is not stored in the storage and is discarded.
    *
-   * @param ingest the input data
+   * @param element the input data
    * @return {@code false} to throw the element away
    */
-  boolean apply(StreamElement ingest);
+  boolean apply(StreamElement element);
 
   /**
    * Setup filter

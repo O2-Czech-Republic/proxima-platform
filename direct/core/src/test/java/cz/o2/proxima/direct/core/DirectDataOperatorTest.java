@@ -174,11 +174,11 @@ public class DirectDataOperatorTest {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                assertNotNull(ingest.getValue());
-                assertEquals("test", new String(ingest.getValue()));
-                assertEquals("event.abc", ingest.getAttribute());
-                assertEquals(source, ingest.getAttributeDescriptor());
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                assertNotNull(element.getValue());
+                assertEquals("test", new String(element.getValue()));
+                assertEquals("event.abc", element.getAttribute());
+                assertEquals(source, element.getAttributeDescriptor());
                 latch.countDown();
                 return false;
               }
@@ -446,8 +446,8 @@ public class DirectDataOperatorTest {
             "dummy",
             new CommitLogObserver() {
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                read.add(ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                read.add(element);
                 context.confirm();
                 return true;
               }
@@ -521,8 +521,8 @@ public class DirectDataOperatorTest {
             "dummy",
             new CommitLogObserver() {
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                read.add(ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                read.add(element);
                 context.confirm();
                 return true;
               }
@@ -762,8 +762,8 @@ public class DirectDataOperatorTest {
         "dummy",
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            assertEquals(ingest.getAttributeDescriptor(), armed);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            assertEquals(element.getAttributeDescriptor(), armed);
             latch.countDown();
             context.confirm();
             return true;
@@ -817,8 +817,8 @@ public class DirectDataOperatorTest {
         "dummy",
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            assertEquals(ingest.getAttributeDescriptor(), armed);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            assertEquals(element.getAttributeDescriptor(), armed);
             latch.countDown();
             context.confirm();
             return true;
@@ -870,8 +870,8 @@ public class DirectDataOperatorTest {
         "dummy",
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            assertEquals(ingest.getAttributeDescriptor(), data);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            assertEquals(element.getAttributeDescriptor(), data);
             latch.countDown();
             return true;
           }
@@ -1226,8 +1226,8 @@ public class DirectDataOperatorTest {
         "dummy",
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            assertEquals(ingest.getAttributeDescriptor(), data);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            assertEquals(element.getAttributeDescriptor(), data);
             latch.countDown();
             context.confirm();
             return true;
@@ -1434,8 +1434,8 @@ public class DirectDataOperatorTest {
         "dummy",
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            assertEquals(ingest.getAttributeDescriptor(), status);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            assertEquals(element.getAttributeDescriptor(), status);
             latch.countDown();
             context.confirm();
             return true;
@@ -1663,11 +1663,11 @@ public class DirectDataOperatorTest {
         "dummy",
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             if (!expectNonEmpty) {
               fail("No input was expected.");
             }
-            observed.add(ingest);
+            observed.add(element);
             return true;
           }
 

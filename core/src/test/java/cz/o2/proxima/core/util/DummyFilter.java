@@ -34,8 +34,8 @@ public class DummyFilter extends PassthroughFilter {
   }
 
   @Override
-  public boolean apply(StreamElement ingest) {
+  public boolean apply(StreamElement element) {
     Preconditions.checkState(setupCalled, "Filter setup should be called before apply!");
-    return super.apply(ingest);
+    return super.apply(element);
   }
 }

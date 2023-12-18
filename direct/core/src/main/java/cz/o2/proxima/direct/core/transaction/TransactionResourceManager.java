@@ -515,14 +515,14 @@ public class TransactionResourceManager
     return new ForwardingObserver(delegate) {
 
       @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
+      public boolean onNext(StreamElement element, OnNextContext context) {
         Preconditions.checkArgument(activeForFamily.get(stateFamily.getDesc()).get());
-        if (ingest.getStamp() > System.currentTimeMillis() - 2 * transactionTimeoutMs) {
-          super.onNext(ingest, context);
+        if (element.getStamp() > System.currentTimeMillis() - 2 * transactionTimeoutMs) {
+          super.onNext(element, context);
         } else {
           log.warn(
               "Skipping request {} due to timeout. Current timeout specified as {}",
-              ingest,
+              element,
               transactionTimeoutMs);
           context.confirm();
         }
@@ -608,19 +608,19 @@ public class TransactionResourceManager
     return new CommitLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        log.debug("Received transaction event {}", ingest);
-        if (ingest.getAttributeDescriptor().equals(responseDesc)) {
-          String transactionId = ingest.getKey();
-          Optional<Response> response = responseDesc.valueOf(ingest);
+      public boolean onNext(StreamElement element, OnNextContext context) {
+        log.debug("Received transaction event {}", element);
+        if (element.getAttributeDescriptor().equals(responseDesc)) {
+          String transactionId = element.getKey();
+          Optional<Response> response = responseDesc.valueOf(element);
           @Nullable
           BiConsumer<String, Response> consumer = transactionResponseConsumers.get(transactionId);
           if (consumer != null) {
             if (response.isPresent()) {
-              String suffix = responseDesc.extractSuffix(ingest.getAttribute());
+              String suffix = responseDesc.extractSuffix(element.getAttribute());
               consumer.accept(suffix, response.get());
             } else {
-              log.error("Failed to parse response from {}", ingest);
+              log.error("Failed to parse response from {}", element);
             }
           } else {
             log.debug(

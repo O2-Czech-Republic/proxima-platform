@@ -22,7 +22,7 @@ import cz.o2.proxima.core.storage.StreamElement;
 public class EventHistoryFilter implements StorageFilter {
 
   @Override
-  public boolean apply(StreamElement ingest) {
-    return !ingest.isDelete();
+  public boolean apply(StreamElement element) {
+    return !element.isDelete();
   }
 }

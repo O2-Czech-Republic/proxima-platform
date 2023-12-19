@@ -157,9 +157,9 @@ public class SingleTopicMultipleReplicationsTest {
             "dummy",
             new CommitLogObserver() {
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                assertEquals(wildcard, ingest.getAttributeDescriptor());
-                assertEquals("wildcard.1", ingest.getAttribute());
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                assertEquals(wildcard, element.getAttributeDescriptor());
+                assertEquals("wildcard.1", element.getAttribute());
                 latch.countDown();
                 context.confirm();
                 return false;
@@ -204,9 +204,9 @@ public class SingleTopicMultipleReplicationsTest {
             Position.CURRENT,
             new CommitLogObserver() {
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                assertEquals(wildcard, ingest.getAttributeDescriptor());
-                assertEquals("wildcard.1", ingest.getAttribute());
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                assertEquals(wildcard, element.getAttributeDescriptor());
+                assertEquals("wildcard.1", element.getAttribute());
                 latch.countDown();
                 return false;
               }

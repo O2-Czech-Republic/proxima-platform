@@ -92,8 +92,8 @@ public class ModelTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                Optional<BaseEvent> baseEvent = desc.valueOf(ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                Optional<BaseEvent> baseEvent = desc.valueOf(element);
                 users.add(baseEvent.get().getUserName());
                 return true;
               }

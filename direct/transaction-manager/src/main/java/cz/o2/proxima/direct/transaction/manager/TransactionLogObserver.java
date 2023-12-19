@@ -324,18 +324,18 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   @Override
-  public boolean onNext(StreamElement ingest, OnNextContext context) {
-    log.debug("Received element {} for transaction processing", ingest);
+  public boolean onNext(StreamElement element, OnNextContext context) {
+    log.debug("Received element {} for transaction processing", element);
     Wildcard<Request> requestDesc = manager.getRequestDesc();
-    if (ingest.getAttributeDescriptor().equals(requestDesc)) {
+    if (element.getAttributeDescriptor().equals(requestDesc)) {
       handleRequest(
-          ingest.getKey(),
-          requestDesc.extractSuffix(ingest.getAttribute()),
+          element.getKey(),
+          requestDesc.extractSuffix(element.getAttribute()),
           context,
-          requestDesc.valueOf(ingest).orElse(null));
+          requestDesc.valueOf(element).orElse(null));
     } else {
       // unknown attribute, probably own response or state update, can be safely ignored
-      log.debug("Unknown attribute {}. Ignored.", ingest.getAttributeDescriptor());
+      log.debug("Unknown attribute {}. Ignored.", element.getAttributeDescriptor());
       context.confirm();
     }
     return true;

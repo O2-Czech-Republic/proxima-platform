@@ -1108,7 +1108,7 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     static DataHolder get(InMemStorage storage) {
-      return Objects.requireNonNull(HOLDERS_MAP.get(storage.getId()));
+      return HOLDERS_MAP.computeIfAbsent(storage.getId(), k -> new DataHolder());
     }
 
     static WatermarkEstimator getWatermarkEstimator(
@@ -1297,15 +1297,15 @@ public class InMemStorage implements DataAccessorFactory {
 
   @SuppressWarnings("unchecked")
   private static <T> AttributeDescriptor<T> getAttributeOfEntity(
-      EntityDescriptor entity, StreamElement ingest) {
+      EntityDescriptor entity, StreamElement element) {
 
     return (AttributeDescriptor<T>)
         entity
-            .findAttribute(ingest.getAttribute(), true)
+            .findAttribute(element.getAttribute(), true)
             .orElseThrow(
                 () ->
                     new IllegalStateException(
-                        "Missing attribute " + ingest.getAttribute() + " in " + entity));
+                        "Missing attribute " + element.getAttribute() + " in " + entity));
   }
 
   private static StreamElement cloneAndUpdateAttribute(

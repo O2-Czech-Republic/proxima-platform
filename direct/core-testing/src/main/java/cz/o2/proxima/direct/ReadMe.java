@@ -54,8 +54,8 @@ class ReadMe {
           }
 
           @Override
-          public boolean onNext(StreamElement elem, OnNextContext context) {
-            log.info("Consumed element {}", elem);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            log.info("Consumed element {}", element);
             // commit processing, so that it is not redelivered
             context.confirm();
             // continue processing

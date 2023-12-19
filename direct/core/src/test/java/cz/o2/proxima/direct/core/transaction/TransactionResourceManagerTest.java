@@ -340,7 +340,7 @@ public class TransactionResourceManagerTest {
           "name",
           new CommitLogObserver() {
             @Override
-            public boolean onNext(StreamElement ingest, OnNextContext context) {
+            public boolean onNext(StreamElement element, OnNextContext context) {
               return true;
             }
 
@@ -403,7 +403,7 @@ public class TransactionResourceManagerTest {
   @DeclaredThreadSafe(allowedParallelism = 5)
   private static class ThreadSafeCommitLogObserver implements CommitLogObserver {
     @Override
-    public boolean onNext(StreamElement ingest, OnNextContext context) {
+    public boolean onNext(StreamElement element, OnNextContext context) {
       return false;
     }
   }

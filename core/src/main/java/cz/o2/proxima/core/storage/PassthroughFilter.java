@@ -24,7 +24,7 @@ public class PassthroughFilter implements StorageFilter {
   public static final PassthroughFilter INSTANCE = new PassthroughFilter();
 
   @Override
-  public boolean apply(StreamElement ingest) {
+  public boolean apply(StreamElement element) {
     return true;
   }
 }

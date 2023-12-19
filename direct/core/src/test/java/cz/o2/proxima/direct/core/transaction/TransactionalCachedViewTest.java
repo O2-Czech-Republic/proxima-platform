@@ -67,15 +67,15 @@ public class TransactionalCachedViewTest {
         "dummy",
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            if (ingest.getAttributeDescriptor().equals(server.getRequestDesc())) {
-              Optional<Request> maybeRequest = server.getRequestDesc().valueOf(ingest);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            if (element.getAttributeDescriptor().equals(server.getRequestDesc())) {
+              Optional<Request> maybeRequest = server.getRequestDesc().valueOf(element);
               if (maybeRequest.isPresent()) {
                 Request request = maybeRequest.get();
                 switch (request.getFlags()) {
                   case OPEN:
                     server.writeResponseAndUpdateState(
-                        ingest.getKey(),
+                        element.getKey(),
                         State.empty(),
                         "open",
                         Response.forRequest(request)
@@ -84,7 +84,7 @@ public class TransactionalCachedViewTest {
                     break;
                   case COMMIT:
                     server.writeResponseAndUpdateState(
-                        ingest.getKey(),
+                        element.getKey(),
                         State.empty(),
                         "commit",
                         Response.forRequest(request).committed(),
@@ -92,7 +92,7 @@ public class TransactionalCachedViewTest {
                     break;
                   case UPDATE:
                     server.writeResponseAndUpdateState(
-                        ingest.getKey(),
+                        element.getKey(),
                         State.empty(),
                         "update",
                         Response.forRequest(request).updated(),
@@ -100,7 +100,7 @@ public class TransactionalCachedViewTest {
                     break;
                   case ROLLBACK:
                     server.writeResponseAndUpdateState(
-                        ingest.getKey(),
+                        element.getKey(),
                         State.empty(),
                         "rollback",
                         Response.forRequest(request).aborted(),

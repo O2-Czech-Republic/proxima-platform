@@ -99,7 +99,7 @@ public class ListCommitLogTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 context.nack();
                 return false;
               }
@@ -141,7 +141,7 @@ public class ListCommitLogTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 watermarks.add(context.getWatermark());
                 if (++received == numElements) {
                   context.confirm();
@@ -264,7 +264,7 @@ public class ListCommitLogTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 context.confirm();
                 watermarks.add(context.getWatermark());
                 return true;

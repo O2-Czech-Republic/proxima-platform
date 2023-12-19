@@ -31,7 +31,7 @@ public class CommitLogObserverTest {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             return false;
           }
 

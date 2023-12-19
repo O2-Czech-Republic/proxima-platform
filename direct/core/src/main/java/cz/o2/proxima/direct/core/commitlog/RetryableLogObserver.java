@@ -64,8 +64,8 @@ class RetryableLogObserver implements CommitLogObserver {
   }
 
   @Override
-  public final boolean onNext(StreamElement ingest, OnNextContext context) {
-    boolean ret = delegate.onNext(ingest, context);
+  public final boolean onNext(StreamElement element, OnNextContext context) {
+    boolean ret = delegate.onNext(element, context);
     numFailures = 0;
     return ret;
   }

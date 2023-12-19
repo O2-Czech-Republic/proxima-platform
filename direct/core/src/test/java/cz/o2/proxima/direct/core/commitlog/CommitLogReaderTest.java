@@ -96,8 +96,8 @@ public class CommitLogReaderTest {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            received.add(ingest);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            received.add(element);
             latch.countDown();
             context.confirm();
             return true;
@@ -136,7 +136,7 @@ public class CommitLogReaderTest {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             throw new RuntimeException("fail");
           }
 
@@ -178,11 +178,11 @@ public class CommitLogReaderTest {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext confirm) {
+              public boolean onNext(StreamElement element, OnNextContext confirm) {
                 if (count.incrementAndGet() == 0) {
                   throw new RuntimeException("fail");
                 }
-                received.add(ingest);
+                received.add(element);
                 latch.countDown();
                 return true;
               }
@@ -220,8 +220,8 @@ public class CommitLogReaderTest {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            received.add(ingest);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            received.add(element);
             latch.countDown();
             if (received.size() == 2) {
               context.confirm();
@@ -265,8 +265,8 @@ public class CommitLogReaderTest {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                received.add(ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                received.add(element);
                 latch.countDown();
                 context.confirm();
                 return true;
@@ -327,8 +327,8 @@ public class CommitLogReaderTest {
             new CommitLogObserver() {
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                received.add(ingest);
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                received.add(element);
                 latch.countDown();
                 context.confirm();
                 return true;
@@ -411,7 +411,7 @@ public class CommitLogReaderTest {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             mask.updateAndGet(m -> m | 0x8);
             return true;
           }
@@ -496,7 +496,7 @@ public class CommitLogReaderTest {
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 return false;
               }
 
@@ -538,7 +538,7 @@ public class CommitLogReaderTest {
                     }
 
                     @Override
-                    public boolean onNext(StreamElement ingest, OnNextContext context) {
+                    public boolean onNext(StreamElement element, OnNextContext context) {
                       return false;
                     }
                   });
@@ -594,7 +594,7 @@ public class CommitLogReaderTest {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             if (throwOnNext.get()) {
               throw new RuntimeException("Fail");
             }
@@ -628,7 +628,7 @@ public class CommitLogReaderTest {
       }
 
       @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
+      public boolean onNext(StreamElement element, OnNextContext context) {
         onNext.run();
         return true;
       }

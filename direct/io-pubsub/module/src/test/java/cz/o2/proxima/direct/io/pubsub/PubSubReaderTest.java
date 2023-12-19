@@ -180,8 +180,8 @@ public class PubSubReaderTest {
     CommitLogObserver observer =
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            elems.add(ingest);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            elems.add(element);
             context.confirm();
             latch.countDown();
             return true;
@@ -247,7 +247,7 @@ public class PubSubReaderTest {
         "dummy",
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             timestampSupplier.addAndGet(1000);
             context.confirm();
             watermark.set(context.getWatermark());
@@ -289,7 +289,7 @@ public class PubSubReaderTest {
             "dummy",
             new CommitLogObserver() {
               @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+              public boolean onNext(StreamElement element, OnNextContext context) {
                 timestampSupplier.addAndGet(1000);
                 context.confirm();
                 latch.countDown();
@@ -322,7 +322,7 @@ public class PubSubReaderTest {
     CommitLogObserver observer =
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             context.confirm();
             return false;
           }
@@ -356,7 +356,7 @@ public class PubSubReaderTest {
     CommitLogObserver observer =
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             context.confirm();
             return false;
           }
@@ -397,7 +397,7 @@ public class PubSubReaderTest {
         new CommitLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+          public boolean onNext(StreamElement element, OnNextContext context) {
             throw new RuntimeException("Fail");
           }
 
@@ -444,8 +444,8 @@ public class PubSubReaderTest {
     CommitLogObserver observer =
         new CommitLogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            elems.add(ingest);
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            elems.add(element);
             commit.set(context);
             latch.countDown();
             return true;

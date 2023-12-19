@@ -200,7 +200,7 @@ First, let's introduce some glossary:
       <plugin>
         <groupId>cz.o2.proxima</groupId>
         <artifactId>proxima-compiler-java-maven-plugin</artifactId>
-        <version>0.12.0</version>
+        <version>0.13.0</version>
         <configuration>
           <outputDir>${project.build.directory}/generated-sources/model</outputDir>
           <javaPackage>cz.o2.proxima.testing.model</javaPackage>
@@ -222,7 +222,7 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-direct-compiler-plugin</artifactId>
-            <version>0.12.0</version>
+            <version>0.13.0</version>
           </dependency>
           <!--
             The following dependencies define additional
@@ -237,12 +237,12 @@ First, let's introduce some glossary:
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto</artifactId>
-            <version>0.12.0</version>
+            <version>0.13.0</version>
           </dependency>
           <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>proxima-scheme-proto-testing</artifactId>
-            <version>0.12.0</version>
+            <version>0.13.0</version>
           </dependency>
         </dependencies>
       </plugin>
@@ -259,7 +259,7 @@ First, let's introduce some glossary:
   ```
 
 ## Platform's _DataOperators_
- The platform offers various modes of access to data. As of version 0.12.0, these types are:
+ The platform offers various modes of access to data. As of version 0.13.0, these types are:
   * direct
   * Apache Beam
   * Apache Flink

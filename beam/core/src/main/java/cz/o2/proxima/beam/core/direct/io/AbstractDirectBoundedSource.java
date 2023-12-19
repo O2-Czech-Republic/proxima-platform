@@ -34,8 +34,8 @@ abstract class AbstractDirectBoundedSource extends BoundedSource<StreamElement> 
   }
 
   @Override
-  public long getEstimatedSizeBytes(PipelineOptions options) throws Exception {
-    return -1L;
+  public long getEstimatedSizeBytes(PipelineOptions options) {
+    return 0L;
   }
 
   @Override

@@ -53,6 +53,7 @@ ext.libraries = [
   beam_runners_direct: "org.apache.beam:beam-runners-direct-java:${beam_version}",
   beam_runners_flink: "org.apache.beam:beam-runners-flink-1.16:${beam_version}",
   beam_runners_spark: "org.apache.beam:beam-runners-spark-3:${beam_version}",
+  beam_sql: "org.apache.beam:beam-sdks-java-extensions-sql:${beam_version}",
   flink_clients: "org.apache.flink:flink-clients:${flink_version}",
   flink_runtime: "org.apache.flink:flink-runtime:${flink_version}",
   flink_streaming: "org.apache.flink:flink-streaming-java:${flink_version}",

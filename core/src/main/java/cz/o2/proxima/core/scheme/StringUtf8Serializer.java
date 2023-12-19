@@ -27,7 +27,7 @@ public class StringUtf8Serializer implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;
 
-  static class StringValueSerializer implements ValueSerializer<String> {
+  static class StringValueSerializer extends PrimitiveValueSerializer<String> {
 
     private static final long serialVersionUID = 1L;
 

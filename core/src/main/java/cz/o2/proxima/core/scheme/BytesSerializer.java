@@ -43,7 +43,7 @@ public class BytesSerializer implements ValueSerializerFactory {
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI scheme) {
     return (ValueSerializer)
-        new ValueSerializer<byte[]>() {
+        new PrimitiveValueSerializer<byte[]>() {
 
           private static final long serialVersionUID = 1L;
 

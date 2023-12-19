@@ -36,7 +36,7 @@ public class DoubleSerializer implements ValueSerializerFactory {
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer)
-        new ValueSerializer<Double>() {
+        new PrimitiveValueSerializer<Double>() {
           @Override
           public Optional<Double> deserialize(byte[] input) {
             try {

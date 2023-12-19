@@ -593,6 +593,35 @@ public class InMemStorage implements DataAccessorFactory {
         CountDownLatch latch,
         CommitLogObserver observer) {
 
+      try {
+        doHandleFlushDataBaseOnPosition(
+            position,
+            subscribedPartitions,
+            consumerId,
+            stopAtCurrent,
+            killSwitch,
+            consumedOffsets,
+            watermarkEstimator,
+            latch,
+            observer);
+      } catch (Throwable err) {
+        log.error("Error running observer", err);
+        observer.onError(err);
+        latch.countDown();
+      }
+    }
+
+    private void doHandleFlushDataBaseOnPosition(
+        Position position,
+        Set<Partition> subscribedPartitions,
+        int consumerId,
+        boolean stopAtCurrent,
+        AtomicBoolean killSwitch,
+        Set<String> consumedOffsets,
+        PartitionedWatermarkEstimator watermarkEstimator,
+        CountDownLatch latch,
+        CommitLogObserver observer) {
+
       AtomicReference<ScheduledFuture<?>> onIdleRef = new AtomicReference<>();
 
       Runnable onIdle =
@@ -687,14 +716,13 @@ public class InMemStorage implements DataAccessorFactory {
             if (!stopAtCurrent) {
               uriObservers.put(
                   consumerId,
-                  (partition, data) -> {
-                    consumer.accept(
-                        partition,
-                        data,
-                        (success, error) -> {
-                          // Noop.
-                        });
-                  });
+                  (partition, data) ->
+                      consumer.accept(
+                          partition,
+                          data,
+                          (success, error) -> {
+                            // Noop.
+                          }));
             } else {
               observer.onCompleted();
               onIdleFuture.cancel(true);
@@ -705,14 +733,13 @@ public class InMemStorage implements DataAccessorFactory {
         if (!stopAtCurrent) {
           uriObservers.put(
               consumerId,
-              (partition, data) -> {
-                consumer.accept(
-                    partition,
-                    data,
-                    (success, error) -> {
-                      // Noop.
-                    });
-              });
+              (partition, data) ->
+                  consumer.accept(
+                      partition,
+                      data,
+                      (success, error) -> {
+                        // Noop.
+                      }));
         } else {
           observer.onCompleted();
           onIdleFuture.cancel(true);
@@ -1180,7 +1207,8 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   private DataHolder holder() {
-    return DataHolders.get(this);
+    return Objects.requireNonNull(
+        DataHolders.get(this), () -> String.format("Missing holder for %s", this));
   }
 
   public NavigableMap<String, StreamElement> getData() {
@@ -1188,8 +1216,9 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   NavigableMap<Integer, InMemIngestWriter> getObservers(URI uri) {
-    return Objects.requireNonNull(
-        holder().observers.get(uri), () -> String.format("Missing observer for [%s]", uri));
+    return holder()
+        .observers
+        .computeIfAbsent(uri, tmp -> Collections.synchronizedNavigableMap(new TreeMap<>()));
   }
 
   @Override
@@ -1205,9 +1234,11 @@ public class InMemStorage implements DataAccessorFactory {
     final Map<String, Object> cfg = familyDescriptor.getCfg();
 
     log.info("Creating accessor {} for URI {}", getClass(), uri);
+    /*
     holder()
         .observers
         .computeIfAbsent(uri, k -> Collections.synchronizedNavigableMap(new TreeMap<>()));
+     */
 
     final int numPartitions =
         Optional.ofNullable(cfg.get(NUM_PARTITIONS))

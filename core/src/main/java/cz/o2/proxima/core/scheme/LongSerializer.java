@@ -41,7 +41,7 @@ public class LongSerializer implements ValueSerializerFactory {
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer)
-        new ValueSerializer<Long>() {
+        new PrimitiveValueSerializer<Long>() {
 
           private static final long serialVersionUID = 1L;
 

@@ -113,7 +113,6 @@ public class InMemStorageTest implements Serializable {
 
               @Override
               public boolean onNext(StreamElement element, OnNextContext context) {
-
                 assertEquals(0, context.getPartition().getId());
                 assertEquals("key", element.getKey());
                 context.confirm();
@@ -387,7 +386,8 @@ public class InMemStorageTest implements Serializable {
               }
 
               @Override
-              public boolean onNext(StreamElement element, CommitLogObserver.OnNextContext context) {
+              public boolean onNext(
+                  StreamElement element, CommitLogObserver.OnNextContext context) {
 
                 assertEquals(0, context.getPartition().getId());
                 assertEquals("key", element.getKey());
@@ -545,6 +545,44 @@ public class InMemStorageTest implements Serializable {
 
     Map<Partition, Offset> offsets = reader.fetchOffsets(Position.OLDEST, reader.getPartitions());
     try (ObserveHandle handle = reader.observeBulkOffsets(offsets.values(), true, observer)) {
+      latch.await();
+    }
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveBulkPartitionsEmpty() throws InterruptedException {
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    CountDownLatch latch = new CountDownLatch(1);
+    CommitLogObserver observer =
+        new CommitLogObserver() {
+
+          @Override
+          public void onRepartition(CommitLogObserver.OnRepartitionContext context) {
+            assertEquals(1, context.partitions().size());
+          }
+
+          @Override
+          public boolean onNext(StreamElement element, CommitLogObserver.OnNextContext context) {
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        };
+
+    try (ObserveHandle handle =
+        reader.observeBulkPartitions(reader.getPartitions(), Position.OLDEST, true, observer)) {
       latch.await();
     }
   }

@@ -113,11 +113,11 @@ public class BlockingQueueLogObserverTest {
             "name", Long.MAX_VALUE, Long.MIN_VALUE, capacity) {
           @Override
           public boolean onNext(
-              StreamElement ingest,
+              StreamElement element,
               cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext context) {
 
             elements.countDown();
-            return super.onNext(ingest, context);
+            return super.onNext(element, context);
           }
         };
     long now = System.currentTimeMillis();

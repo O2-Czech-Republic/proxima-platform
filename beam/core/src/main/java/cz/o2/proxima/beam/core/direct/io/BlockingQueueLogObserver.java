@@ -132,17 +132,17 @@ abstract class BlockingQueueLogObserver<
 
     @Override
     public boolean onNext(
-        StreamElement ingest,
+        StreamElement element,
         cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext context) {
       if (log.isDebugEnabled()) {
         log.debug(
             "{}: Received next element {} at watermark {} offset {}",
             getName(),
-            ingest,
+            element,
             context.getWatermark(),
             context.getOffset());
       }
-      return enqueue(ingest, new LogObserverUnifiedContext(context));
+      return enqueue(element, new LogObserverUnifiedContext(context));
     }
 
     @Override

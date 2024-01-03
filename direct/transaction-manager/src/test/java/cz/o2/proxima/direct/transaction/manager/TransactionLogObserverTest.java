@@ -358,6 +358,46 @@ public class TransactionLogObserverTest {
   }
 
   @Test(timeout = 10000)
+  public void testTransactionUpdateWithWildcardConflict() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    // discard this
+    responseQueue.take();
+    clientManager.updateTransaction(
+        transactionId,
+        KeyAttributes.ofWildcardQueryElements(user, "user", userGateways, Collections.emptyList()));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionUpdateWithWildcardConflict2() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        KeyAttributes.ofWildcardQueryElements(user, "user", userGateways, Collections.emptyList()));
+    // discard this
+    responseQueue.take();
+    clientManager.updateTransaction(
+        transactionId,
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+  }
+
+  @Test(timeout = 10000)
   public void testTransactionRollback() throws InterruptedException {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();

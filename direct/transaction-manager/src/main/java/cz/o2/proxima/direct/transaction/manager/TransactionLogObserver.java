@@ -477,7 +477,29 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private State transitionToUpdated(State currentState, Request request) {
+    if (!isCompatibleUpdate(currentState.getInputAttributes(), request.getInputAttributes())) {
+      return currentState.aborted();
+    }
     return currentState.update(request.getInputAttributes());
+  }
+
+  private boolean isCompatibleUpdate(
+      Collection<KeyAttribute> inputs, Collection<KeyAttribute> additionalAttributes) {
+
+    List<KeyAttribute> wildcards =
+        inputs.stream()
+            .filter(ka -> ka.isWildcardQuery() || ka.getAttributeDescriptor().isWildcard())
+            .collect(Collectors.toList());
+    return additionalAttributes.stream()
+        .filter(ka -> ka.isWildcardQuery() || ka.getAttributeDescriptor().isWildcard())
+        .allMatch(
+            ka -> {
+              // verify we didn't have any prior KeyAttributes matching the query
+              // or that this KeyAttribute does not contain any earlier versions of wildcard
+              KeyWithAttribute kwa = KeyWithAttribute.ofWildcard(ka);
+              return wildcards.stream()
+                  .noneMatch(inputKa -> KeyWithAttribute.ofWildcard(inputKa).equals(kwa));
+            });
   }
 
   private State transitionToCommitted(String transactionId, State currentState, Request request) {

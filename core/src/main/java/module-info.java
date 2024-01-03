@@ -23,10 +23,12 @@ module cz.o2.proxima.core {
   requires cz.o2.proxima.vendor;
   requires static com.google.auto.service;
   requires static lombok;
+  requires java.management;
 
   uses cz.o2.proxima.core.repository.DataOperatorFactory;
   uses cz.o2.proxima.core.scheme.ValueSerializerFactory;
   uses cz.o2.proxima.core.transaction.TransactionTransformProvider;
+  uses cz.o2.proxima.core.metrics.MetricsRegistrar;
 
   provides cz.o2.proxima.core.scheme.ValueSerializerFactory with
       cz.o2.proxima.core.scheme.BytesSerializer,
@@ -37,4 +39,6 @@ module cz.o2.proxima.core {
       cz.o2.proxima.core.scheme.JsonSerializer,
       cz.o2.proxima.core.scheme.LongSerializer,
       cz.o2.proxima.core.scheme.StringUtf8Serializer;
+  provides cz.o2.proxima.core.metrics.MetricsRegistrar with
+      cz.o2.proxima.core.metrics.JmxMetricsRegistrar;
 }

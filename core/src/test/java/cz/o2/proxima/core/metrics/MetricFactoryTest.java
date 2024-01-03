@@ -15,29 +15,23 @@
  */
 package cz.o2.proxima.core.metrics;
 
-/** A metric that holds value that is set to it. */
-public class GaugeMetric extends ScalarMetric {
+import static org.junit.Assert.assertNotNull;
 
-  private static final long serialVersionUID = 1L;
+import org.junit.Test;
 
-  double value = 0.0;
+public class MetricFactoryTest {
 
-  GaugeMetric(String group, String name) {
-    super(group, name);
-  }
+  private final MetricFactory factory = new MetricFactory();
 
-  @Override
-  public void increment(double increment) {
-    value = increment;
-  }
-
-  @Override
-  public Double getValue() {
-    return value;
-  }
-
-  @Override
-  public void reset() {
-    value = 0.0;
+  @Test
+  public void testMetricCreation() {
+    GaugeMetric gauge = factory.gauge("group", "name1");
+    assertNotNull(gauge);
+    ApproxPercentileMetric percentile = factory.percentile("group", "name2", 30_000, 1_000);
+    assertNotNull(percentile);
+    TimeAveragingMetric timeAveraging = factory.timeAveraging("group", "name3", 1_000);
+    assertNotNull(timeAveraging);
+    AbsoluteMetric absolute = factory.absolute("group", "name4");
+    assertNotNull(absolute);
   }
 }

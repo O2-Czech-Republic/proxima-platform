@@ -24,7 +24,7 @@ public class MetricsTest {
 
   @Test
   public void testAbsoluteMetric() {
-    ScalarMetric metric = AbsoluteMetric.of("group", "name");
+    ScalarMetric metric = new AbsoluteMetric("group", "name");
     metric.increment();
     assertEquals(1.0, metric.getValue(), 0.0001);
     metric.increment();
@@ -44,7 +44,7 @@ public class MetricsTest {
 
   @Test
   public void testGaugeMetric() {
-    ScalarMetric metric = GaugeMetric.of("group", "name");
+    ScalarMetric metric = new GaugeMetric("group", "name");
     metric.increment(100.0);
     assertEquals(100.0, metric.getValue(), 0.0001);
     metric.increment(50.0);

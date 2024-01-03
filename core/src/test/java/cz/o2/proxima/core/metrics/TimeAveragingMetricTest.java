@@ -27,7 +27,7 @@ public class TimeAveragingMetricTest {
 
   @Before
   public void setUp() {
-    metric = TimeAveragingMetric.of("test", "test", 1_000, 1_000, 1_000);
+    metric = new TimeAveragingMetric("test", "test", 1_000, 1_000, 1_000);
   }
 
   @Test

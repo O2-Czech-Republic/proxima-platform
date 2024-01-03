@@ -27,16 +27,6 @@ public class TimeAveragingMetric extends ScalarMetric {
 
   private static final long serialVersionUID = 1L;
 
-  public static TimeAveragingMetric of(
-      String group, String name, long windowLengthMs, long checkpointMs, long purgeMs) {
-    return new TimeAveragingMetric(group, name, windowLengthMs, checkpointMs, purgeMs);
-  }
-
-  public static TimeAveragingMetric of(String group, String name, long windowLengthMs) {
-    // by default, checkpoint every window length and purge after thirty windows
-    return of(group, name, windowLengthMs, windowLengthMs, 30 * windowLengthMs);
-  }
-
   private final long windowLengthNanos;
   private final long checkpointNanos;
   private final long purgeNanos;

@@ -25,10 +25,6 @@ public class AbsoluteMetric extends ScalarMetric {
 
   private static final long serialVersionUID = 1L;
 
-  public static AbsoluteMetric of(String group, String name) {
-    return new AbsoluteMetric(group, name);
-  }
-
   AtomicDouble value = new AtomicDouble();
 
   @ConstructorProperties({"group", "name"})

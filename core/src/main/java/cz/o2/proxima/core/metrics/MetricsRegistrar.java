@@ -15,29 +15,8 @@
  */
 package cz.o2.proxima.core.metrics;
 
-/** A metric that holds value that is set to it. */
-public class GaugeMetric extends ScalarMetric {
+@FunctionalInterface
+public interface MetricsRegistrar {
 
-  private static final long serialVersionUID = 1L;
-
-  double value = 0.0;
-
-  GaugeMetric(String group, String name) {
-    super(group, name);
-  }
-
-  @Override
-  public void increment(double increment) {
-    value = increment;
-  }
-
-  @Override
-  public Double getValue() {
-    return value;
-  }
-
-  @Override
-  public void reset() {
-    value = 0.0;
-  }
+  void register(Metric<?> metric);
 }

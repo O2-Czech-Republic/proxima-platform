@@ -27,20 +27,6 @@ public class ApproxPercentileMetric extends Metric<Stats> implements ApproxPerce
 
   private static final long serialVersionUID = 1L;
 
-  /**
-   * Construct the metric.
-   *
-   * @param group group name
-   * @param name metric name
-   * @param duration total duration of the statistic in ms
-   * @param window windowNs size in ms
-   * @return the metric
-   */
-  public static ApproxPercentileMetric of(String group, String name, long duration, long window) {
-
-    return new ApproxPercentileMetric(group, name, duration, window);
-  }
-
   Pair<TDigest, Long>[] digests;
   final long windowNs;
   final int maxDigests;

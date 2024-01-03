@@ -278,7 +278,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                   long cleanupInterval = manager.getCfg().getCleanupInterval();
                   long cleanup = now - cleanupInterval;
                   int cleaned;
-                  try (Locker l = Locker.of(lock.writeLock())) {
+                  try (var l = Locker.of(lock.writeLock())) {
                     List<Map.Entry<KeyWithAttribute, SeqIdWithTombstone>> toCleanUp =
                         lastUpdateSeqId.entries().stream()
                             .filter(e -> e.getValue().getTimestamp() < cleanup)
@@ -287,7 +287,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                     toCleanUp.forEach(e -> lastUpdateSeqId.remove(e.getKey(), e.getValue()));
                   }
                   // release and re-acquire lock to enable progress of any waiting threads
-                  try (Locker l = Locker.of(lock.writeLock())) {
+                  try (var l = Locker.of(lock.writeLock())) {
                     Iterator<Map<KeyWithAttribute, SeqIdWithTombstone>> it =
                         updatesToWildcard.values().iterator();
                     while (it.hasNext()) {
@@ -405,7 +405,7 @@ public class TransactionLogObserver implements CommitLogObserver {
   private void abortTransaction(String transactionId, State state) {
     long seqId = state.getSequentialId();
     // we need to rollback all updates to lastUpdateSeqId with the same seqId
-    try (Locker lock = Locker.of(this.lock.writeLock())) {
+    try (var l = Locker.of(this.lock.writeLock())) {
       state.getCommittedAttributes().stream()
           .map(KeyWithAttribute::ofWildcard)
           .map(updatesToWildcard::get)
@@ -553,7 +553,7 @@ public class TransactionLogObserver implements CommitLogObserver {
       long transactionSeqId, long commitStamp, Iterable<KeyAttribute> attributes) {
 
     final Set<KeyWithAttribute> requiredWildcards;
-    try (Locker lock = Locker.of(this.lock.readLock())) {
+    try (var l = Locker.of(this.lock.readLock())) {
       requiredWildcards =
           Streams.stream(attributes)
               .filter(KeyAttribute::isWildcardQuery)
@@ -580,7 +580,11 @@ public class TransactionLogObserver implements CommitLogObserver {
       }
     }
 
-    try (Locker lock = Locker.of(this.lock.readLock())) {
+    if (containsUnequalSeqIds(attributes)) {
+      return false;
+    }
+
+    try (var l = Locker.of(this.lock.readLock())) {
       return Streams.stream(attributes)
           .filter(ka -> !ka.isWildcardQuery())
           .noneMatch(
@@ -607,6 +611,17 @@ public class TransactionLogObserver implements CommitLogObserver {
                         && (!lastUpdated.last().isTombstone() || !ka.isDelete()));
               });
     }
+  }
+
+  private boolean containsUnequalSeqIds(Iterable<KeyAttribute> attributes) {
+    Map<KeyWithAttribute, Long> seqIds = new HashMap<>();
+    for (KeyAttribute ka : attributes) {
+      Long current = seqIds.putIfAbsent(KeyWithAttribute.of(ka), ka.getSequenceId());
+      if (current != null && current != ka.getSequenceId()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean lastIsNotTombstone(
@@ -642,7 +657,7 @@ public class TransactionLogObserver implements CommitLogObserver {
         state.getCommittedAttributes(),
         committedSeqId);
 
-    try (Locker lock = Locker.of(this.lock.writeLock())) {
+    try (var l = Locker.of(this.lock.writeLock())) {
       state
           .getCommittedAttributes()
           .forEach(

@@ -41,6 +41,7 @@ import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import cz.o2.proxima.typesafe.config.Config;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -177,6 +178,22 @@ public class TransactionLogObserverTest {
     clientManager.begin(
         t2, ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))), inputs);
     response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+  }
+
+  @Test(timeout = 10000)
+  public void testCreateTransactionCommitWithMultipleSeqIds() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String t1 = UUID.randomUUID().toString();
+    List<KeyAttribute> inputs =
+        Arrays.asList(
+            KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 1L, "1"),
+            KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 2L, "1"));
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        t1, ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))), inputs);
+    Pair<String, Response> response = responseQueue.take();
     assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
   }
 
@@ -338,6 +355,46 @@ public class TransactionLogObserverTest {
         break;
       }
     } while (true);
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionUpdateWithWildcardConflict() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    // discard this
+    responseQueue.take();
+    clientManager.updateTransaction(
+        transactionId,
+        KeyAttributes.ofWildcardQueryElements(user, "user", userGateways, Collections.emptyList()));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionUpdateWithWildcardConflict2() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        KeyAttributes.ofWildcardQueryElements(user, "user", userGateways, Collections.emptyList()));
+    // discard this
+    responseQueue.take();
+    clientManager.updateTransaction(
+        transactionId,
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
   }
 
   @Test(timeout = 10000)

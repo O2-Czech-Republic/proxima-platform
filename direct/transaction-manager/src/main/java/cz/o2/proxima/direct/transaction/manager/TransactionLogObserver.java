@@ -154,6 +154,7 @@ public class TransactionLogObserver implements CommitLogObserver {
   private static TransactionLogObserver INSTANCE = null;
 
   private final DirectDataOperator direct;
+  private final Metrics metrics;
   private final ServerTransactionManager unsynchronizedManager;
   private final ServerTransactionManager manager;
   private final AtomicLong sequenceId = new AtomicLong();
@@ -168,8 +169,9 @@ public class TransactionLogObserver implements CommitLogObserver {
   private final Map<KeyWithAttribute, Map<KeyWithAttribute, SeqIdWithTombstone>> updatesToWildcard =
       new HashMap<>();
 
-  public TransactionLogObserver(DirectDataOperator direct) {
+  public TransactionLogObserver(DirectDataOperator direct, Metrics metrics) {
     this.direct = direct;
+    this.metrics = metrics;
     this.unsynchronizedManager = getServerTransactionManager(direct);
     this.manager = synchronizedManager(unsynchronizedManager);
     sequenceId.set(unsynchronizedManager.getCfg().getInitialSeqIdPolicy().apply());
@@ -301,6 +303,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                   }
                   long duration = currentTimeMillis() - now;
                   log.info("Finished housekeeping in {} ms, removed {} records", duration, cleaned);
+                  metrics.getWritesCleaned().increment(cleaned);
                   if (duration < cleanupInterval) {
                     sleep(cleanupInterval - duration);
                   }
@@ -473,13 +476,16 @@ public class TransactionLogObserver implements CommitLogObserver {
   private State transitionToAborted(String transactionId, State state) {
     log.info("Transaction {} seqId {} rolled back", transactionId, state.getSequentialId());
     abortTransaction(transactionId, state);
+    metrics.getTransactionsRolledBack().increment();
     return state.aborted();
   }
 
   private State transitionToUpdated(State currentState, Request request) {
     if (!isCompatibleUpdate(currentState.getInputAttributes(), request.getInputAttributes())) {
+      metrics.getTransactionsRejected().increment();
       return currentState.aborted();
     }
+    metrics.getTransactionsUpdated().increment();
     return currentState.update(request.getInputAttributes());
   }
 
@@ -510,11 +516,13 @@ public class TransactionLogObserver implements CommitLogObserver {
           concatInputsAndOutputs(
               currentState.getInputAttributes(), request.getOutputAttributes()))) {
         log.info("Transaction {} seqId {} aborted", transactionId, currentState.getSequentialId());
+        metrics.getTransactionsRejected().increment();
         return currentState.aborted();
       }
       State proposedState = currentState.committed(request.getOutputAttributes());
       transactionPostCommit(proposedState);
       log.info("Transaction {} seqId {} committed", transactionId, currentState.getSequentialId());
+      metrics.getTransactionsCommitted().increment();
       return proposedState;
     }
   }
@@ -565,9 +573,11 @@ public class TransactionLogObserver implements CommitLogObserver {
     State proposedState = State.open(seqId, now, new HashSet<>(request.getInputAttributes()));
     if (verifyNotInConflict(seqId, now, request.getInputAttributes())) {
       log.info("Transaction {} seqId {} is now {}", transactionId, seqId, proposedState.getFlags());
+      metrics.getTransactionsOpen().increment();
       return proposedState;
     }
     log.info("Transaction {} seqId {} aborted", transactionId, seqId);
+    metrics.getTransactionsRejected().increment();
     return proposedState.aborted();
   }
 
@@ -700,6 +710,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                               : current);
                 }
               });
+      metrics.getNumWritesCached().increment(lastUpdateSeqId.size());
     }
   }
 

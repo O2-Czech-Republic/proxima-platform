@@ -32,11 +32,8 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 /**
  * Log observer that writes consumed elements to {@link SourceFunction.SourceContext}.
  *
- * @see <a href="https://github.com/O2-Czech-Republic/proxima-platform/issues/220">PROXIMA-220</a>
- *     to explain {@code java:S1948} suppression.
  * @param <OutputT> Type of extracted element.
  */
-@SuppressWarnings("java:S1948")
 abstract class AbstractSourceLogObserver<
         OffsetT extends Serializable, ContextT extends LogObserver.OnNextContext<OffsetT>, OutputT>
     implements LogObserver<OffsetT, ContextT> {

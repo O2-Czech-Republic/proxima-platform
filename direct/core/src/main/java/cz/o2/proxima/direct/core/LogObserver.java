@@ -24,8 +24,7 @@ import java.io.Serializable;
 /** Base interface for bulk and online observers. */
 @Stable
 public interface LogObserver<
-        OffsetT extends Serializable, ContextT extends LogObserver.OnNextContext<OffsetT>>
-    extends Serializable {
+    OffsetT extends Serializable, ContextT extends LogObserver.OnNextContext<OffsetT>> {
 
   /** Context passed to {@link #onNext}. */
   @Stable

@@ -32,11 +32,11 @@ public class TimeAveragingMetricTest {
 
   @Test
   public void testMetric() {
-    long now = System.nanoTime();
+    long now = System.currentTimeMillis();
 
     // increment 2 times a second for 4 seconds
     for (int i = 0; i < 8; i++) {
-      while (System.nanoTime() - now < 500_000_000L * (i + 1)) {
+      while (System.currentTimeMillis() - now < 495 * (i + 1)) {
         // no-op
       }
       if (i < 1) {
@@ -47,10 +47,10 @@ public class TimeAveragingMetricTest {
 
     // check this just roughly
     assertEquals(2.0, metric.getValue(), 0.5);
-    now = System.nanoTime();
+    now = System.currentTimeMillis();
 
     for (int i = 0; i < 4; i++) {
-      while (System.nanoTime() - now < 500_000_000L * (i + 1)) {
+      while (System.currentTimeMillis() - now < 495 * (i + 1)) {
         // no-op
       }
       if (i > 2) {

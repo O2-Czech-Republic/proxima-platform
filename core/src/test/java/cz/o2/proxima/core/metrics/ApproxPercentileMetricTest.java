@@ -75,7 +75,7 @@ public class ApproxPercentileMetricTest {
       for (int j = 0; j < 10; j++) {
         m.increment(10 * i + j);
       }
-      TimeUnit.MILLISECONDS.sleep(100);
+      TimeUnit.MILLISECONDS.sleep(105);
     }
     assertEquals(150.0, m.getValue().get50(), 1.0);
   }

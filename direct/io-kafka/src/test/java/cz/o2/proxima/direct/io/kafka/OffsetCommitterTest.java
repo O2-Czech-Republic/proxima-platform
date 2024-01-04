@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.io.kafka;
 
 import static org.junit.Assert.*;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
@@ -116,12 +117,13 @@ public class OffsetCommitterTest {
   }
 
   @Test
-  public void testAutoCommit() {
+  public void testAutoCommit() throws InterruptedException {
     committer = new OffsetCommitter<>(Long.MAX_VALUE, 1);
     String id = "dummy-0";
     AtomicBoolean committed = new AtomicBoolean();
     long offset = 1;
     committer.register(id, offset, 5, () -> committed.set(true));
+    TimeUnit.MILLISECONDS.sleep(10);
     assertFalse(committed.get());
     committer.confirm(id, offset);
     assertTrue(committed.get());

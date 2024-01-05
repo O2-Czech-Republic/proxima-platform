@@ -47,7 +47,7 @@ public class OffsetCommitter<ID> {
 
     @Getter Callback commit; // the associated commit callback
 
-    @Getter final long createdNanos = System.nanoTime();
+    @Getter final long createdMs = System.currentTimeMillis();
 
     OffsetMeta(int actions, Callback commit) {
       this.actions = new AtomicInteger(actions);
@@ -58,8 +58,8 @@ public class OffsetCommitter<ID> {
       return actions.get();
     }
 
-    long getNanoAge() {
-      return System.nanoTime() - createdNanos;
+    long getMillisAge() {
+      return System.currentTimeMillis() - createdMs;
     }
 
     void decrement() {
@@ -74,16 +74,16 @@ public class OffsetCommitter<ID> {
 
   private final Map<ID, NavigableMap<Long, OffsetMeta>> waitingOffsets;
   private final long stateCommitWarningNanos;
-  private final long autoCommitNanos;
+  private final long autoCommitMs;
 
   public OffsetCommitter() {
     this(60000000000L, Long.MAX_VALUE);
   }
 
-  public OffsetCommitter(long staleCommitWarningNanos, long autoCommitNanos) {
+  public OffsetCommitter(long staleCommitWarningNanos, long autoCommitMs) {
     this.waitingOffsets = Collections.synchronizedMap(new HashMap<>());
     this.stateCommitWarningNanos = staleCommitWarningNanos;
-    this.autoCommitNanos = autoCommitNanos;
+    this.autoCommitMs = autoCommitMs;
   }
 
   /**
@@ -128,8 +128,8 @@ public class OffsetCommitter<ID> {
     synchronized (current) {
       List<Map.Entry<Long, OffsetMeta>> committable = new ArrayList<>();
       for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
-        long age = e.getValue().getNanoAge();
-        if (age > autoCommitNanos) {
+        long age = e.getValue().getMillisAge();
+        if (age > autoCommitMs) {
           committable.add(e);
           log.warn(
               "Auto adding offset {} of ID {} to comittable map due to age {} ns. "

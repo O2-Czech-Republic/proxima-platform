@@ -74,6 +74,7 @@ public class TransactionManagerServer {
   private final ServerTransactionManager manager;
   private final TransactionLogObserverFactory observerFactory;
   private final AtomicBoolean closed = new AtomicBoolean();
+  private final Metrics metrics = new Metrics();
 
   @VisibleForTesting
   TransactionManagerServer(Config conf, Repository repo) {
@@ -115,7 +116,7 @@ public class TransactionManagerServer {
   }
 
   private TransactionLogObserver newTransactionLogObserver() {
-    return observerFactory.create(direct);
+    return observerFactory.create(direct, metrics);
   }
 
   public void stop() {

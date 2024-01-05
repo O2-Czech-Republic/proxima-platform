@@ -26,8 +26,8 @@ public interface TransactionLogObserverFactory {
 
   class Default implements TransactionLogObserverFactory {
     @Override
-    public TransactionLogObserver create(DirectDataOperator direct) {
-      return new TransactionLogObserver(direct);
+    public TransactionLogObserver create(DirectDataOperator direct, Metrics metrics) {
+      return new TransactionLogObserver(direct, metrics);
     }
   }
 
@@ -40,8 +40,8 @@ public interface TransactionLogObserverFactory {
     }
 
     @Override
-    public TransactionLogObserver create(DirectDataOperator direct) {
-      return new TransactionLogObserver(direct) {
+    public TransactionLogObserver create(DirectDataOperator direct, Metrics metrics) {
+      return new TransactionLogObserver(direct, metrics) {
         @Override
         public boolean onError(Throwable error) {
           errorHandler.accept(error);
@@ -55,7 +55,8 @@ public interface TransactionLogObserverFactory {
    * A factory for {@link CommitLogObserver} responsible for transaction management.
    *
    * @param direct the direct operator for the observer
+   * @param metrics the metrics to use for reporting
    * @return the {@link CommitLogObserver}
    */
-  TransactionLogObserver create(DirectDataOperator direct);
+  TransactionLogObserver create(DirectDataOperator direct, Metrics metrics);
 }

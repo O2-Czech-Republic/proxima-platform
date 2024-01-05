@@ -596,7 +596,7 @@ public class TransactionIT {
   @DeclaredThreadSafe(allowedParallelism = 4)
   private static class LimitedParallelismTransactionLogObserver extends TransactionLogObserver {
     public LimitedParallelismTransactionLogObserver(DirectDataOperator direct) {
-      super(direct);
+      super(direct, new Metrics());
     }
 
     @Override

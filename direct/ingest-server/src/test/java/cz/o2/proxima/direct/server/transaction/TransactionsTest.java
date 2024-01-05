@@ -40,6 +40,7 @@ import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.IngestBulk;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.StatusBulk;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitResponse;
+import cz.o2.proxima.direct.transaction.manager.Metrics;
 import cz.o2.proxima.direct.transaction.manager.TransactionLogObserver;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
@@ -87,7 +88,7 @@ public class TransactionsTest {
             repo.getTransformations().get("_transaction-commit"),
             ign -> {});
     observer =
-        new TransactionLogObserver(direct) {
+        new TransactionLogObserver(direct, new Metrics()) {
           @Override
           protected void assertSingleton() {}
         };

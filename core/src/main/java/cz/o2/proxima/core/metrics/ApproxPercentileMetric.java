@@ -28,7 +28,7 @@ public class ApproxPercentileMetric extends Metric<Stats> implements ApproxPerce
   private static final long serialVersionUID = 1L;
 
   Pair<TDigest, Long>[] digests;
-  final long windowNs;
+  final long window;
   final int maxDigests;
   int current = 0;
 
@@ -46,7 +46,7 @@ public class ApproxPercentileMetric extends Metric<Stats> implements ApproxPerce
     this.maxDigests = (int) (duration / window);
     Preconditions.checkArgument(
         maxDigests > 0, "Duration must be at least of length of the window");
-    this.windowNs = window * 1_000_000L;
+    this.window = window;
     _reset();
   }
 
@@ -56,7 +56,7 @@ public class ApproxPercentileMetric extends Metric<Stats> implements ApproxPerce
 
   @Override
   public synchronized void increment(double d) {
-    if (System.nanoTime() - digests[current].getSecond() > windowNs) {
+    if (System.currentTimeMillis() - digests[current].getSecond() > window) {
       addDigest();
     }
     digests[current].getFirst().add(d);
@@ -84,19 +84,24 @@ public class ApproxPercentileMetric extends Metric<Stats> implements ApproxPerce
   }
 
   private void addDigest() {
+    Pair<TDigest, Long> newDigest = createNewDigest();
     if (current + 1 < maxDigests) {
-      digests[++current] = Pair.of(createDigest(), System.nanoTime());
+      digests[++current] = newDigest;
     } else {
       // move the array
       System.arraycopy(digests, 1, digests, 0, maxDigests - 1);
-      digests[current] = Pair.of(createDigest(), System.nanoTime());
+      digests[current] = newDigest;
     }
   }
 
   @SuppressWarnings("unchecked")
   private synchronized void _reset() {
     this.digests = new Pair[maxDigests];
-    this.digests[0] = Pair.of(createDigest(), System.nanoTime());
+    this.digests[0] = createNewDigest();
     this.current = 0;
+  }
+
+  private Pair<TDigest, Long> createNewDigest() {
+    return Pair.of(createDigest(), System.currentTimeMillis());
   }
 }

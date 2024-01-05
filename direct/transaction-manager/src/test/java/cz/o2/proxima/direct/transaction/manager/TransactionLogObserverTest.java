@@ -83,11 +83,12 @@ public class TransactionLogObserverTest {
       Wildcard.of(transaction, transaction.getAttribute("response.*"));
   private long now;
   private TransactionLogObserver observer;
+  private Metrics metrics;
 
   public void createObserver() {
     createObserver(
-        direct ->
-            new TransactionLogObserver(direct) {
+        (direct, metrics) ->
+            new TransactionLogObserver(direct, metrics) {
               @Override
               protected void assertSingleton() {}
             });
@@ -95,7 +96,8 @@ public class TransactionLogObserverTest {
 
   private void createObserver(TransactionLogObserverFactory factory) {
     now = System.currentTimeMillis();
-    observer = factory.create(direct);
+    metrics = new Metrics();
+    observer = factory.create(direct, metrics);
     observer.run(getClass().getSimpleName());
   }
 
@@ -112,7 +114,7 @@ public class TransactionLogObserverTest {
   @Test
   public void testErrorExits() {
     try {
-      new Rethrowing().create(direct).onError(new RuntimeException("error"));
+      new Rethrowing().create(direct, new Metrics()).onError(new RuntimeException("error"));
       fail("Should have thrown exception");
     } catch (RuntimeException ex) {
       assertEquals("System.exit(1)", ex.getMessage());
@@ -133,6 +135,8 @@ public class TransactionLogObserverTest {
     Pair<String, Response> response = responseQueue.take();
     assertTrue(response.getFirst().startsWith("open."));
     assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
+    TimeUnit.SECONDS.sleep(1);
+    assertTrue(metrics.getTransactionsOpen().getValue() > 0.0);
   }
 
   @Test(timeout = 10000)
@@ -154,6 +158,8 @@ public class TransactionLogObserverTest {
     Pair<String, Response> response = responseQueue.take();
     assertEquals("commit", response.getFirst());
     assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+    TimeUnit.SECONDS.sleep(1);
+    assertTrue(metrics.getTransactionsCommitted().getValue() > 0.0);
   }
 
   @Test(timeout = 10000)
@@ -179,6 +185,8 @@ public class TransactionLogObserverTest {
         t2, ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))), inputs);
     response = responseQueue.take();
     assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    TimeUnit.SECONDS.sleep(1);
+    assertTrue(metrics.getTransactionsRejected().getValue() > 0.0);
   }
 
   @Test(timeout = 10000)
@@ -745,8 +753,8 @@ public class TransactionLogObserverTest {
     }
 
     @Override
-    public TransactionLogObserver create(DirectDataOperator direct) {
-      return new TransactionLogObserver(direct) {
+    public TransactionLogObserver create(DirectDataOperator direct, Metrics metrics) {
+      return new TransactionLogObserver(direct, metrics) {
         @Override
         ServerTransactionManager getServerTransactionManager(DirectDataOperator direct) {
           TransactionResourceManager manager =
@@ -782,8 +790,8 @@ public class TransactionLogObserverTest {
 
   static class Rethrowing implements TransactionLogObserverFactory {
     @Override
-    public TransactionLogObserver create(DirectDataOperator direct) {
-      return new TransactionLogObserver(direct) {
+    public TransactionLogObserver create(DirectDataOperator direct, Metrics metrics) {
+      return new TransactionLogObserver(direct, metrics) {
         @Override
         void exit(int status) {
           throw new RuntimeException("System.exit(" + status + ")");
@@ -803,8 +811,8 @@ public class TransactionLogObserverTest {
     }
 
     @Override
-    public TransactionLogObserver create(DirectDataOperator direct) {
-      return new TransactionLogObserver(direct) {
+    public TransactionLogObserver create(DirectDataOperator direct, Metrics metrics) {
+      return new TransactionLogObserver(direct, metrics) {
         @Override
         long currentTimeMillis() {
           return time;

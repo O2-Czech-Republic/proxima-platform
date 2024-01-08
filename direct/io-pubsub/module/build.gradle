@@ -61,7 +61,7 @@ shadowJar {
 
   ["io.grpc", "io.opencensus", "com.google", "com.fasterxml",
    "org.apache.commons", "org.codehaus", "org.apache", "org.threeten",
-   "io.perfmark"].each {
+   "io.perfmark", "org.conscrypt"].each {
 
     relocate it, "cz.o2.proxima.pubsub.shaded.${it}"
   }

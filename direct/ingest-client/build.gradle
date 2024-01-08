@@ -30,6 +30,8 @@ dependencies {
     exclude group: "com.google.j2objc", module: "j2objc-annotations"
     exclude group: "com.google.code.findbugs", module: "jsr305"
   }
+  testImplementation libraries.grpc_inprocess
+  testImplementation libraries.grpc_util
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   testImplementation libraries.slf4j_log4j

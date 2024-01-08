@@ -533,7 +533,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals("key3", resultMap.get("key3"));
   }
 
-  @Test
+  @Test(timeout = 60_000)
   public void testGroupReduceConsumed() throws Exception {
     final Script compiled =
         compile(

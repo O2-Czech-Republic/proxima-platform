@@ -24,10 +24,10 @@ plugins {
 java.sourceCompatibility = JavaVersion.VERSION_11
 
 def auto_service_version = "1.0.1"
-def beam_version = "2.52.0"
+def beam_version = "2.53.0"
 def errorprone_version = "2.18.0"
 def flink_version = "1.16.2"
-def grpc_version = "1.56.1"
+def grpc_version = "1.59.1"
 def groovy_version = "4.0.17"
 def guava_version = "32.1.2-jre"
 def hadoop_version = "3.2.4"
@@ -38,10 +38,12 @@ def junit4_version = "4.13.2"
 def lombok_version = "1.18.28"
 def log4j_version = "2.19.0"
 def mockito_version = "5.3.0"
-def protobuf_version = "3.23.2"
+def protobuf_version = "3.25.1"
 def scala_version = "2.12"
 def spark_version = "3.1.2"
 def slf4j_version = "2.0.7"
+
+ext.grpc_version = grpc_version
 
 ext.libraries = [
   auto_service: "com.google.auto.service:auto-service:${auto_service_version}",
@@ -67,10 +69,12 @@ ext.libraries = [
   grpc_all: "io.grpc:grpc-all:${grpc_version}",
   grpc_api: "io.grpc:grpc-api:${grpc_version}",
   grpc_core: "io.grpc:grpc-core:${grpc_version}",
+  grpc_inprocess: "io.grpc:grpc-inprocess:${grpc_version}",
   grpc_netty: "io.grpc:grpc-netty:${grpc_version}",
   grpc_netty_shaded: "io.grpc:grpc-netty-shaded:${grpc_version}",
   grpc_protobuf: "io.grpc:grpc-protobuf:${grpc_version}",
   grpc_stub: "io.grpc:grpc-stub:${grpc_version}",
+  grpc_util: "io.grpc:grpc-util:${grpc_version}",
   guava: "com.google.guava:guava:${guava_version}",
   hadoop_common: "org.apache.hadoop:hadoop-common:${hadoop_version}",
   hadoop_auth: "org.apache.hadoop:hadoop-auth:${hadoop_version}",

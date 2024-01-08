@@ -80,7 +80,7 @@ shadowJar {
    "org.jboss", "org.codehaus", "org.objectweb", "org.eclipse", "org.threeten",
    "net.minidev", "com.thoughtworks", "com.jcraft", "org.w3c", "com.nimbusds",
    "net.jcip", "edu.umd", "org.xbill", "com.ctc", "org.xml", "jersey.repackaged",
-   "com.codahale"].each {
+   "com.codahale", "org.conscrypt", "io.perfmark"].each {
 
     relocate it, "cz.o2.proxima.bigtable.shaded.${it}"
   }

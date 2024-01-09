@@ -17,7 +17,6 @@ package cz.o2.proxima.core.metrics;
 
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
-
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,7 +49,9 @@ public class MetricFactory {
       String group, String name, long windowLength, long checkpointMs, long purgeMs) {
 
     return getOrCreate(
-        group, name, () -> new TimeAveragingMetric(group, name, windowLength, checkpointMs, purgeMs));
+        group,
+        name,
+        () -> new TimeAveragingMetric(group, name, windowLength, checkpointMs, purgeMs));
   }
 
   public TimeAveragingMetric timeAveraging(String group, String name, long windowLengthMs) {

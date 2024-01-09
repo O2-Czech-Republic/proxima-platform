@@ -16,6 +16,7 @@
 package cz.o2.proxima.core.metrics;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -27,11 +28,15 @@ public class MetricFactoryTest {
   public void testMetricCreation() {
     GaugeMetric gauge = factory.gauge("group", "name1");
     assertNotNull(gauge);
+    assertTrue(factory.isRegistered(gauge));
     ApproxPercentileMetric percentile = factory.percentile("group", "name2", 30_000, 1_000);
     assertNotNull(percentile);
+    assertTrue(factory.isRegistered(percentile));
     TimeAveragingMetric timeAveraging = factory.timeAveraging("group", "name3", 1_000);
     assertNotNull(timeAveraging);
+    assertTrue(factory.isRegistered(timeAveraging));
     AbsoluteMetric absolute = factory.absolute("group", "name4");
     assertNotNull(absolute);
+    assertTrue(factory.isRegistered(absolute));
   }
 }

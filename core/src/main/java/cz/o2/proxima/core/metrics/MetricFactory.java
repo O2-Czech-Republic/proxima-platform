@@ -16,6 +16,8 @@
 package cz.o2.proxima.core.metrics;
 
 import cz.o2.proxima.core.functional.Factory;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,7 +49,8 @@ public class MetricFactory {
   public TimeAveragingMetric timeAveraging(
       String group, String name, long windowLength, long checkpointMs, long purgeMs) {
 
-    return new TimeAveragingMetric(group, name, windowLength, checkpointMs, purgeMs);
+    return getOrCreate(
+        group, name, () -> new TimeAveragingMetric(group, name, windowLength, checkpointMs, purgeMs));
   }
 
   public TimeAveragingMetric timeAveraging(String group, String name, long windowLengthMs) {
@@ -84,10 +87,15 @@ public class MetricFactory {
     registrar.register(metric);
   }
 
+  @VisibleForTesting
+  boolean isRegistered(Metric<?> metric) {
+    return metricCache.get(asMetricName(metric.getGroup(), metric.getName())) != null;
+  }
+
   @SuppressWarnings("unchecked")
   private <T, M extends Metric<T>> M getOrCreate(String group, String name, Factory<M> factory) {
 
-    String metricName = group + "." + name;
+    String metricName = asMetricName(group, name);
     return (M)
         metricCache.computeIfAbsent(
             metricName,
@@ -96,5 +104,9 @@ public class MetricFactory {
               register(metric);
               return metric;
             });
+  }
+
+  private static String asMetricName(String group, String name) {
+    return group + "." + name;
   }
 }

@@ -21,6 +21,7 @@ import cz.o2.proxima.core.repository.TransactionMode;
 import cz.o2.proxima.core.repository.TransformationDescriptor;
 import cz.o2.proxima.core.repository.TransformationDescriptor.InputTransactionMode;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.transaction.Commit;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.KeyAttributes;
@@ -114,22 +115,10 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     public final void transform(StreamElement input, CommitCallback commit)
         throws TransactionRejectedRuntimeException {
 
-      TransactionRejectedException caught = null;
-      for (int i = 0; ; i++) {
-        try {
-          validate(input, currentTransaction());
-          break;
-        } catch (TransactionRejectedException ex) {
-          if (caught == null) {
-            caught = ex;
-          } else {
-            caught.addSuppressed(ex);
-          }
-          if (i == 4) {
-            // this needs to be delegated to the caller
-            throw new TransactionRejectedRuntimeException(caught);
-          }
-        }
+      try {
+        validate(input, currentTransaction());
+      } catch (TransactionRejectedException e) {
+        throw new TransactionRejectedRuntimeException(e);
       }
     }
 
@@ -469,7 +458,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
                     data.getEntityDescriptor(),
                     data.getKey(),
                     data.getAttributeDescriptor(),
-                    Long.MAX_VALUE,
+                    Watermarks.MAX_WATERMARK,
                     suffix);
             t.update(Collections.singletonList(outputKeyAttribute));
             t.commitWrite(Collections.singletonList(data), statusCallback);

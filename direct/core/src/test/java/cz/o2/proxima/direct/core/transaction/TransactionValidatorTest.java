@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.core.transaction;
 
 import static cz.o2.proxima.direct.core.transaction.TransactionResourceManagerTest.runObservations;
 import static org.junit.Assert.*;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import cz.o2.proxima.core.functional.UnaryFunction;
@@ -46,7 +45,6 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.After;
 import org.junit.Before;
@@ -135,8 +133,7 @@ public class TransactionValidatorTest {
   }
 
   @Test
-  public void testTransactionValidatorRetryOk() {
-    AtomicInteger retries = new AtomicInteger();
+  public void testTransactionValidatorRejected() {
     StreamElement element = intField.upsert("key", System.currentTimeMillis(), 1);
     TransactionValidator validator =
         new TransactionValidator() {
@@ -144,9 +141,7 @@ public class TransactionValidatorTest {
           public void validate(StreamElement element, Transaction transaction)
               throws TransactionPreconditionFailedException, TransactionRejectedException {
 
-            if (retries.incrementAndGet() < 4) {
-              throw new TransactionRejectedException("t", Flags.ABORTED) {};
-            }
+            throw new TransactionRejectedException("t", Flags.ABORTED) {};
           }
 
           @Override
@@ -159,9 +154,9 @@ public class TransactionValidatorTest {
 
     try (Transaction t = mock(Transaction.class)) {
       validator.setTransaction(t);
-      validator.transform(element, CommitCallback.noop());
-      // does not throw
-      assertTrue(true);
+      assertThrows(
+          TransactionRejectedRuntimeException.class,
+          () -> validator.transform(element, CommitCallback.noop()));
     }
   }
 

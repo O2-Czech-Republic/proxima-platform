@@ -22,6 +22,7 @@ import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.transaction.Commit;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.KeyAttributes;
@@ -494,6 +495,7 @@ public class TransactionLogObserver implements CommitLogObserver {
 
     List<KeyAttribute> wildcards =
         inputs.stream()
+            .filter(ka -> ka.getSequenceId() < Watermarks.MAX_WATERMARK)
             .filter(ka -> ka.isWildcardQuery() || ka.getAttributeDescriptor().isWildcard())
             .collect(Collectors.toList());
     return additionalAttributes.stream()

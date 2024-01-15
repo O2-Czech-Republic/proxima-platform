@@ -109,7 +109,7 @@ if (!startParameter.projectProperties.containsKey("vendor")) {
   project(":proxima-scheme-confluent").projectDir = file('scheme/confluent')
   project(":proxima-scheme-proto").projectDir = file('scheme/proto')
   project(":proxima-scheme-proto-testing").projectDir = file('scheme/proto-testing')
-  project(":proxima-server-rpc-proto").projectDir = file('direct/rpc')
+  project(":proxima-server-rpc-proto").projectDir = file('rpc')
   project(":proxima-tools").projectDir = file('tools')
   project(":proxima-utils-zookeeper").projectDir = file('utils-zookeeper')
   

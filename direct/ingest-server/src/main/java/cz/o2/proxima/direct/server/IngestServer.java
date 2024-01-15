@@ -32,6 +32,7 @@ import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.typesafe.config.Config;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import dev.failsafe.RetryPolicy;
 import io.grpc.BindableService;
 import io.grpc.Metadata;
 import io.grpc.Server;
@@ -40,6 +41,7 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCall.Listener;
 import io.grpc.ServerCallHandler;
 import java.io.File;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -52,7 +54,6 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.jodah.failsafe.RetryPolicy;
 
 /** The ingestion server. */
 @Slf4j
@@ -89,8 +90,11 @@ public class IngestServer {
   @Getter @Nullable final TransactionContext transactionContext;
 
   @Getter
-  RetryPolicy retryPolicy =
-      new RetryPolicy().withMaxRetries(3).withBackoff(3000, 20000, TimeUnit.MILLISECONDS, 2.0);
+  RetryPolicy<Void> retryPolicy =
+      RetryPolicy.<Void>builder()
+          .withMaxRetries(3)
+          .withBackoff(Duration.ofSeconds(3), Duration.ofSeconds(20), 2.0)
+          .build();
 
   protected IngestServer(Config cfg) {
     this(cfg, false);

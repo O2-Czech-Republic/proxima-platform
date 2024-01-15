@@ -24,7 +24,7 @@ dependencies {
   api project(path: ':proxima-direct-core')
   api project(path: ':proxima-server-rpc-proto')
   implementation "cz.o2.proxima:proxima-vendor:${project.version}"
-  implementation 'net.jodah:failsafe:1.0.4'
+  implementation 'dev.failsafe:failsafe:3.3.2'
   implementation project(path: ':proxima-scheme-proto')
   implementation libraries.slf4j_api
   implementation libraries.grpc_netty_shaded

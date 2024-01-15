@@ -41,7 +41,10 @@ import cz.o2.proxima.direct.server.metrics.Metrics;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import java.io.File;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -60,8 +63,6 @@ import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 
 /** Server that controls replications of primary commit logs to replica attribute families. */
 @Slf4j
@@ -175,8 +176,11 @@ public class ReplicationController {
   }
 
   @Getter
-  RetryPolicy retryPolicy =
-      new RetryPolicy().withMaxRetries(3).withBackoff(3000, 20000, TimeUnit.MILLISECONDS, 2.0);
+  RetryPolicy<Void> retryPolicy =
+      RetryPolicy.<Void>builder()
+          .withMaxRetries(3)
+          .withBackoff(Duration.ofSeconds(3), Duration.ofSeconds(20), 2.0)
+          .build();
 
   private final Repository repository;
   private final DirectDataOperator dataOperator;

@@ -25,7 +25,7 @@ def get_version():
 
 def build_ingest_rpc(name):
   
-  proto_dir = os.path.split(os.path.abspath(sys.argv[0]))[0] + "/direct/rpc/src/main/proto/"
+  proto_dir = os.path.split(os.path.abspath(sys.argv[0]))[0] + "/rpc/src/main/proto/"
   protos = filter(lambda x: x.endswith(".proto"), os.listdir(proto_dir))
   protos = list(map(lambda x: proto_dir + "/" + x, protos))
 

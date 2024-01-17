@@ -51,9 +51,9 @@ public class IngestClient implements AutoCloseable {
   @Value
   private class Request {
 
-    final Consumer<Rpc.Status> consumer;
-    final ScheduledFuture<?> timeoutFuture;
-    final Rpc.Ingest payload;
+    Consumer<Rpc.Status> consumer;
+    ScheduledFuture<?> timeoutFuture;
+    Rpc.Ingest payload;
 
     /**
      * Confirm the status and remove the timeout schedule
@@ -137,16 +137,17 @@ public class IngestClient implements AutoCloseable {
     Thread ret =
         new Thread(
             () -> {
+              log.info("Flush thread started.");
               try {
                 long flushTimeMs = options.getFlushUsec() / 1_000L;
                 while (!Thread.currentThread().isInterrupted()) {
                   flushLoop(flushTimeMs);
                 }
-                flushThread.set(null);
               } catch (Throwable thwbl) {
                 log.error("Error in flush thread", thwbl);
-                flushThread.set(null);
                 flushThreadExc.set(thwbl);
+              } finally {
+                flushThread.set(null);
               }
             });
     ret.setDaemon(true);
@@ -174,7 +175,7 @@ public class IngestClient implements AutoCloseable {
 
   private StreamObserver<Rpc.StatusBulk> newStatusObserver() {
 
-    return new StreamObserver<Rpc.StatusBulk>() {
+    return new StreamObserver<>() {
       @Override
       public void onNext(Rpc.StatusBulk bulk) {
         for (Rpc.Status status : bulk.getStatusList()) {
@@ -258,6 +259,7 @@ public class IngestClient implements AutoCloseable {
       String attribute,
       ByteString value,
       Consumer<Rpc.Status> statusConsumer) {
+
     ingest(
         UUID.randomUUID().toString(),
         key,
@@ -285,6 +287,7 @@ public class IngestClient implements AutoCloseable {
       String attribute,
       ByteString value,
       Consumer<Rpc.Status> statusConsumer) {
+
     ingest(uuid, key, entity, attribute, value, System.currentTimeMillis(), statusConsumer);
   }
 
@@ -307,6 +310,7 @@ public class IngestClient implements AutoCloseable {
       @Nullable ByteString value,
       long stamp,
       Consumer<Rpc.Status> statusConsumer) {
+
     Rpc.Ingest.Builder requestBuilder =
         Rpc.Ingest.newBuilder()
             .setUuid(uuid)
@@ -376,6 +380,7 @@ public class IngestClient implements AutoCloseable {
       String entity,
       String attribute,
       Consumer<Rpc.Status> statusConsumer) {
+
     delete(uuid, key, entity, attribute, System.currentTimeMillis(), statusConsumer);
   }
 

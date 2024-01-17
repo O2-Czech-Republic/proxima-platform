@@ -27,9 +27,10 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.server.metrics.Metrics;
 import cz.o2.proxima.direct.server.rpc.proto.service.IngestServiceGrpc;
-import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.Ingest;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.IngestBulk;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.Status;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.StatusBulk;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitResponse;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
@@ -75,19 +76,19 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     this.scheduler = scheduler;
   }
 
-  private class IngestObserver implements StreamObserver<Rpc.Ingest> {
+  private class IngestObserver implements StreamObserver<Ingest> {
 
-    final StreamObserver<Rpc.Status> responseObserver;
+    final StreamObserver<Status> responseObserver;
     final Object inflightRequestsLock = new Object();
     final AtomicInteger inflightRequests = new AtomicInteger(0);
     final Object responseObserverLock = new Object();
 
-    IngestObserver(StreamObserver<Rpc.Status> responseObserver) {
+    IngestObserver(StreamObserver<Status> responseObserver) {
       this.responseObserver = responseObserver;
     }
 
     @Override
-    public void onNext(Rpc.Ingest request) {
+    public void onNext(Ingest request) {
       Metrics.INGEST_SINGLE.increment();
       inflightRequests.incrementAndGet();
       if (!Strings.isNullOrEmpty(request.getTransactionId())) {
@@ -145,15 +146,15 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     }
   }
 
-  private class IngestBulkObserver implements StreamObserver<Rpc.IngestBulk> {
+  private class IngestBulkObserver implements StreamObserver<IngestBulk> {
 
-    final StreamObserver<Rpc.StatusBulk> responseObserver;
-    final Queue<Rpc.Status> statusQueue = new ConcurrentLinkedQueue<>();
+    final StreamObserver<StatusBulk> responseObserver;
+    final Queue<Status> statusQueue = new ConcurrentLinkedQueue<>();
     final AtomicBoolean completed = new AtomicBoolean(false);
     final Object inflightRequestsLock = new Object();
     final AtomicInteger inflightRequests = new AtomicInteger();
     final AtomicLong lastFlushMs = new AtomicLong(System.currentTimeMillis());
-    final Rpc.StatusBulk.Builder builder = Rpc.StatusBulk.newBuilder();
+    final StatusBulk.Builder builder = StatusBulk.newBuilder();
     static final long MAX_SLEEP_MILLIS = 100;
     static final int MAX_QUEUED_STATUSES = 500;
 
@@ -162,7 +163,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
         scheduler.scheduleAtFixedRate(
             this::flush, MAX_SLEEP_MILLIS, MAX_SLEEP_MILLIS, TimeUnit.MILLISECONDS);
 
-    IngestBulkObserver(StreamObserver<Rpc.StatusBulk> responseObserver) {
+    IngestBulkObserver(StreamObserver<StatusBulk> responseObserver) {
       this.responseObserver = responseObserver;
     }
 
@@ -204,7 +205,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     private void flushBuilder() {
       synchronized (builder) {
         lastFlushMs.set(System.currentTimeMillis());
-        Rpc.StatusBulk bulk = builder.build();
+        StatusBulk bulk = builder.build();
         if (bulk.getStatusCount() > 0) {
           responseObserver.onNext(bulk);
         }
@@ -213,21 +214,21 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     }
 
     @Override
-    public void onNext(Rpc.IngestBulk bulk) {
+    public void onNext(IngestBulk bulk) {
       Metrics.INGEST_BULK.increment();
       Metrics.BULK_SIZE.increment(bulk.getIngestCount());
       inflightRequests.addAndGet(bulk.getIngestCount());
       Map<String, List<Ingest>> groupedByTransaction =
           bulk.getIngestList().stream().collect(Collectors.groupingBy(Ingest::getTransactionId));
 
-      List<Rpc.Ingest> nonTransactionalWrites =
+      List<Ingest> nonTransactionalWrites =
           MoreObjects.firstNonNull(groupedByTransaction.remove(""), Collections.emptyList());
 
       handleNonTransactionalWrites(nonTransactionalWrites);
       groupedByTransaction.forEach(this::handleTransactionalWrites);
     }
 
-    private void handleTransactionalWrites(String transactionId, List<Rpc.Ingest> writes) {
+    private void handleTransactionalWrites(String transactionId, List<Ingest> writes) {
       List<Pair<Ingest, StreamElement>> outputs =
           writes.stream()
               .map(r -> Pair.of(r, validateAndConvertToStreamElement(r, createRpcConsumer(r))))
@@ -258,7 +259,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       writes.forEach(r -> processSingleIngest(r, createRpcConsumer(r)));
     }
 
-    private Consumer<Status> createRpcConsumer(Rpc.Ingest request) {
+    private Consumer<Status> createRpcConsumer(Ingest request) {
       boolean needsCommit = !request.getTransactionId().isEmpty();
       return status -> {
         if (needsCommit) {
@@ -282,7 +283,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
           scheduler.execute(this::flush);
         }
         if (inflightRequests.decrementAndGet() == 0) {
-          // there is no more inflight requests
+          // there are no more in-flight requests
           synchronized (inflightRequestsLock) {
             inflightRequestsLock.notifyAll();
           }
@@ -322,7 +323,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     }
   }
 
-  private void processSingleIngest(Rpc.Ingest request, Consumer<Rpc.Status> consumer) {
+  private void processSingleIngest(Ingest request, Consumer<Status> consumer) {
     if (log.isDebugEnabled()) {
       log.debug("Processing input ingest {}", TextFormat.shortDebugString(request));
     }
@@ -341,7 +342,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
    * Ingest the given request and return {@code true} if successfully ingested and {@code false} if
    * the request is invalid.
    */
-  private boolean writeRequest(Rpc.Ingest request, Consumer<Rpc.Status> consumer) {
+  private boolean writeRequest(Ingest request, Consumer<Status> consumer) {
     StreamElement element = validateAndConvertToStreamElement(request, consumer);
     if (element == null) {
       return false;
@@ -351,7 +352,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
   @Nullable
   private StreamElement validateAndConvertToStreamElement(
-      Ingest request, Consumer<Rpc.Status> consumer) {
+      Ingest request, Consumer<Status> consumer) {
 
     if (Strings.isNullOrEmpty(request.getKey())
         || Strings.isNullOrEmpty(request.getEntity())
@@ -396,7 +397,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   }
 
   @Override
-  public void ingest(Rpc.Ingest request, StreamObserver<Rpc.Status> responseObserver) {
+  public void ingest(Ingest request, StreamObserver<Status> responseObserver) {
 
     Metrics.INGEST_SINGLE.increment();
     processSingleIngest(
@@ -408,14 +409,13 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   }
 
   @Override
-  public StreamObserver<Rpc.Ingest> ingestSingle(StreamObserver<Rpc.Status> responseObserver) {
+  public StreamObserver<Ingest> ingestSingle(StreamObserver<Status> responseObserver) {
 
     return new IngestObserver(responseObserver);
   }
 
   @Override
-  public StreamObserver<Rpc.IngestBulk> ingestBulk(
-      StreamObserver<Rpc.StatusBulk> responseObserver) {
+  public StreamObserver<IngestBulk> ingestBulk(StreamObserver<StatusBulk> responseObserver) {
 
     // the responseObserver doesn't have to be synchronized in this
     // case, because the communication with the observer is done
@@ -467,7 +467,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   }
 
   private static StreamElement toStreamElement(
-      Rpc.Ingest request, EntityDescriptor entity, AttributeDescriptor<?> attr) {
+      Ingest request, EntityDescriptor entity, AttributeDescriptor<?> attr) {
 
     long stamp = request.getStamp() == 0 ? System.currentTimeMillis() : request.getStamp();
 

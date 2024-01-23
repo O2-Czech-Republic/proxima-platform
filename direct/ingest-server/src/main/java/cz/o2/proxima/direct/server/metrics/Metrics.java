@@ -85,6 +85,9 @@ public class Metrics {
 
   public static final GaugeMetric LIVENESS = FACTORY.gauge(GROUP, "liveness");
 
+  public static final ApproxPercentileMetric INGEST_LATENCY =
+      FACTORY.percentile(GROUP, "ingest-latency", 60_000, 1_000);
+
   private static final Map<String, Pair<Boolean, GaugeMetric>> consumerMetrics =
       Collections.synchronizedMap(new HashMap<>());
 

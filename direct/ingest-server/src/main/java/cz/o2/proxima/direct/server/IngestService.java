@@ -357,6 +357,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     if (Strings.isNullOrEmpty(request.getKey())
         || Strings.isNullOrEmpty(request.getEntity())
         || Strings.isNullOrEmpty(request.getAttribute())) {
+
       consumer.accept(status(request.getUuid(), 400, "Missing required fields in input message"));
       return null;
     }
@@ -398,7 +399,6 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
   @Override
   public void ingest(Ingest request, StreamObserver<Status> responseObserver) {
-
     Metrics.INGEST_SINGLE.increment();
     processSingleIngest(
         request,
@@ -410,17 +410,14 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
   @Override
   public StreamObserver<Ingest> ingestSingle(StreamObserver<Status> responseObserver) {
-
     return new IngestObserver(responseObserver);
   }
 
   @Override
   public StreamObserver<IngestBulk> ingestBulk(StreamObserver<StatusBulk> responseObserver) {
-
     // the responseObserver doesn't have to be synchronized in this
     // case, because the communication with the observer is done
     // in single flush thread
-
     return new IngestBulkObserver(responseObserver);
   }
 
@@ -431,13 +428,17 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
     log.debug("Committing transaction {}", request.getTransactionId());
     try {
+      long start = System.currentTimeMillis();
       transactionContext
           .get(request.getTransactionId())
           .commit(
               (succ, exc) -> {
+                Metrics.INGEST_LATENCY.increment(System.currentTimeMillis() - start);
                 if (exc != null) {
                   log.warn(
                       "Error during committing transaction {}", request.getTransactionId(), exc);
+                } else {
+                  log.info("Transaction {} committed", request.getTransactionId());
                 }
                 responseObserver.onNext(
                     TransactionCommitResponse.newBuilder()
@@ -448,7 +449,6 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
                         .build());
                 responseObserver.onCompleted();
               });
-      log.info("Transaction {} committed", request.getTransactionId());
     } catch (TransactionRejectedException e) {
       log.info("Transaction {} rejected.", request.getTransactionId());
       responseObserver.onNext(

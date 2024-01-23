@@ -134,6 +134,7 @@ public class IngestServer {
       String uuid,
       Consumer<Rpc.Status> responseConsumer) {
 
+    long start = System.currentTimeMillis();
     AttributeDescriptor<?> attributeDesc = ingest.getAttributeDescriptor();
 
     OnlineAttributeWriter writer = getWriterForAttributeInTransform(direct, attributeDesc);
@@ -156,11 +157,12 @@ public class IngestServer {
     }
 
     Metrics.COMMIT_LOG_APPEND.increment();
-    // write the ingest into the commit log and confirm to the client
+    // write the element into the commit log and confirm to the client
     log.debug("Writing {} to commit log {}", ingest, writer.getUri());
     writer.write(
         ingest,
         (s, exc) -> {
+          Metrics.INGEST_LATENCY.increment(System.currentTimeMillis() - start);
           if (s) {
             responseConsumer.accept(ok(uuid));
           } else {

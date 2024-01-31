@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.core.transaction;
 
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.repository.TransactionMode;
 import cz.o2.proxima.core.repository.TransformationDescriptor;
 import cz.o2.proxima.core.repository.TransformationDescriptor.InputTransactionMode;
@@ -46,16 +47,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /** A {@link OnlineAttributeWriter} that enforces transactions for each write. */
@@ -99,7 +101,15 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   public abstract static class TransactionValidator
       implements TransactionAware, DirectElementWiseTransform {
 
-    transient Transaction transaction;
+    private transient ExecutorService executor;
+    private transient Transaction transaction;
+
+    @Override
+    public void setup(
+        Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {
+
+      this.executor = Objects.requireNonNull(directDataOperator.getContext().getExecutorService());
+    }
 
     @Override
     public final Transaction currentTransaction() {
@@ -107,19 +117,21 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
 
     @Override
-    public void setTransaction(Transaction transaction) {
+    public final void setTransaction(Transaction transaction) {
       this.transaction = transaction;
     }
 
     @Override
-    public final void transform(StreamElement input, CommitCallback commit)
-        throws TransactionRejectedRuntimeException {
-
-      try {
-        validate(input, currentTransaction());
-      } catch (TransactionRejectedException e) {
-        throw new TransactionRejectedRuntimeException(e);
-      }
+    public final void transform(StreamElement input, CommitCallback commit) {
+      executor.submit(
+          () -> {
+            try {
+              validate(input, currentTransaction());
+              commit.commit(true, null);
+            } catch (Throwable err) {
+              commit.commit(false, err);
+            }
+          });
     }
 
     /**
@@ -139,12 +151,16 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
   }
 
+  @Getter
   public static class TransactionRejectedException extends Exception {
-    @Getter private final String transactionId;
-    @Getter private final Response.Flags responseFlags;
+    private final String transactionId;
+    private final Response.Flags responseFlags;
 
     protected TransactionRejectedException(String transactionId, Response.Flags flags) {
-      super("Transaction " + transactionId + " rejected. Please restart the transaction.");
+      super(
+          String.format(
+              "Transaction %s rejected with flags %s. Please restart the transaction.",
+              transactionId, flags));
       this.transactionId = transactionId;
       this.responseFlags = flags;
     }
@@ -165,43 +181,169 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   public class Transaction implements AutoCloseable {
 
     @Getter private final String transactionId;
-    private final BlockingQueue<Pair<String, Response>> responseQueue =
-        new ArrayBlockingQueue<>(100);
-    private State.Flags state;
+    private boolean commitAttempted = false;
+    @Getter private State.Flags state;
     private long sequenceId = -1L;
     private long stamp = Long.MIN_VALUE;
+    private final List<CompletableFuture<?>> runningUpdates =
+        Collections.synchronizedList(new ArrayList<>());
+    private final List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<>());
 
     private Transaction(String transactionId) {
       this.transactionId = transactionId;
       this.state = State.Flags.UNKNOWN;
     }
 
-    void beginGlobal() throws TransactionRejectedException {
+    void beginGlobal() {
       Preconditions.checkArgument(
           !globalKeyAttributes.isEmpty(), "Cannot resolve global transactional attributes.");
       update(globalKeyAttributes);
     }
 
-    public void update(List<KeyAttribute> addedInputs) throws TransactionRejectedException {
-      final Response.Flags expectedResponse;
+    public void update(List<KeyAttribute> addedInputs) {
+      final CompletableFuture<Response> future;
       switch (state) {
         case UNKNOWN:
-          manager.begin(
-              transactionId,
-              ExceptionUtils.uncheckedBiConsumer(this::enqueueResponse),
-              addedInputs);
-          expectedResponse = Response.Flags.OPEN;
+          future = manager.begin(transactionId, addedInputs);
           break;
         case OPEN:
-          manager.updateTransaction(transactionId, addedInputs);
-          expectedResponse = Response.Flags.UPDATED;
+          future = manager.updateTransaction(transactionId, addedInputs);
           break;
         default:
-          throw new TransactionRejectedException(transactionId, Flags.ABORTED);
+          future =
+              CompletableFuture.failedFuture(
+                  new TransactionRejectedException(transactionId, Flags.ABORTED));
       }
-      Response response = takeResponse();
-      if (response.getFlags() != expectedResponse) {
-        throw new TransactionRejectedException(transactionId, response.getFlags());
+      runningUpdates.add(future);
+      future.whenComplete((response, exc) -> processArrivedResponse(future, response, exc));
+    }
+
+    public void commitWrite(List<StreamElement> outputs, CommitCallback callback) {
+      // FIXME: this should be removed once we write through coordinator
+      final CommitContext commitContext = new CommitContext(outputs);
+      this.commitAttempted = true;
+      waitForInflight()
+          .thenCompose(ign -> runTransforms(commitContext))
+          // need to wait for any requests added during transforms
+          .thenCompose(ign -> waitForInflight())
+          .thenCompose(ign -> sendCommitRequest(commitContext))
+          .thenCompose(response -> handleCommitResponse(response, commitContext))
+          .whenComplete(
+              (ign, err) -> {
+                manager.release(transactionId);
+                if (err instanceof CompletionException) {
+                  callback.commit(false, err.getCause());
+                } else {
+                  callback.commit(err == null, err);
+                }
+              });
+    }
+
+    private CompletableFuture<?> waitForInflight() {
+      final CompletableFuture<?> unfinished;
+      synchronized (runningUpdates) {
+        unfinished = CompletableFuture.allOf(runningUpdates.toArray(new CompletableFuture<?>[] {}));
+      }
+      return unfinished;
+    }
+
+    private CompletableFuture<?> runTransforms(CommitContext context) {
+      if (state != State.Flags.OPEN) {
+        return CompletableFuture.failedFuture(
+            new TransactionRejectedException(
+                transactionId, state == State.Flags.COMMITTED ? Flags.DUPLICATE : Flags.ABORTED));
+      }
+      List<StreamElement> injected =
+          context.getOutputs().stream()
+              .map(this::injectSequenceIdAndStamp)
+              .collect(Collectors.toList());
+      CompletableFuture<?> transformedFuture = applyTransforms(injected, context);
+      runningUpdates.add(transformedFuture);
+      CompletableFuture<StreamElement> commitFuture =
+          transformedFuture.thenCompose(
+              ign ->
+                  CompletableFuture.completedFuture(getCommit(context.getTransformedElements())));
+      context.setToWriteFuture(commitFuture);
+      return commitFuture;
+    }
+
+    private CompletableFuture<Response> sendCommitRequest(CommitContext context) {
+      if (state != State.Flags.OPEN) {
+        return CompletableFuture.completedFuture(Response.empty().aborted());
+      }
+      Collection<StreamElement> transformed = context.getTransformedElements();
+      List<KeyAttribute> keyAttributes =
+          transformed.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
+      return manager
+          .commit(transactionId, keyAttributes)
+          .completeOnTimeout(
+              Response.empty().aborted(),
+              manager.getCfg().getTransactionTimeoutMs(),
+              TimeUnit.MILLISECONDS);
+    }
+
+    private CompletableFuture<Void> handleCommitResponse(Response response, CommitContext context) {
+      if (response.getFlags() != Flags.COMMITTED) {
+        if (response.getFlags() == Flags.ABORTED) {
+          state = State.Flags.ABORTED;
+        }
+        return CompletableFuture.failedFuture(
+            new TransactionRejectedException(transactionId, response.getFlags()));
+      }
+      Collection<StreamElement> transformed = context.getTransformedElements();
+      StreamElement toWrite = context.getToWrite();
+      CompletableFuture<Void> result = new CompletableFuture<>();
+      CommitCallback compositeCallback =
+          (succ, exc) -> {
+            if (!succ) {
+              // FIXME: will be unnecessary on coordinator write
+              rollback();
+            }
+            log.debug(
+                "Committed outputs {} (via {}) of transaction {}: ({}, {})",
+                transformed,
+                toWrite,
+                transactionId,
+                succ,
+                (Object) exc);
+            if (exc != null) {
+              result.completeExceptionally(exc);
+            } else {
+              result.complete(null);
+            }
+          };
+      state = State.Flags.COMMITTED;
+      commitDelegate.write(toWrite, compositeCallback);
+      return result;
+    }
+
+    private void processArrivedResponse(
+        CompletableFuture<?> finished, @Nullable Response response, @Nullable Throwable err) {
+
+      Preconditions.checkState(runningUpdates.remove(finished));
+      if (err != null) {
+        TransactionRejectedException thrown =
+            new TransactionRejectedException(transactionId, Flags.ABORTED);
+        thrown.addSuppressed(err);
+        exceptions.add(thrown);
+        state = State.Flags.ABORTED;
+      }
+      if (state == State.Flags.ABORTED || state == State.Flags.COMMITTED) {
+        return;
+      }
+      Objects.requireNonNull(response);
+      if (response.getFlags() == Flags.ABORTED || response.getFlags() == Flags.DUPLICATE) {
+        if (response.getFlags() == Flags.ABORTED) {
+          state = State.Flags.ABORTED;
+          exceptions.add(new TransactionRejectedException(transactionId, response.getFlags()));
+        } else {
+          state = State.Flags.COMMITTED;
+        }
+        return;
+      }
+      if (state == State.Flags.UNKNOWN
+          && (response.getFlags() == Flags.UPDATED || response.getFlags() == Flags.OPEN)) {
+        state = State.Flags.OPEN;
       }
       if (response.hasSequenceId()) {
         Preconditions.checkState(
@@ -219,69 +361,14 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
             response.getStamp());
         stamp = response.getStamp();
       }
-      state = State.Flags.OPEN;
     }
 
-    public void commitWrite(List<StreamElement> outputs, CommitCallback callback)
-        throws TransactionRejectedException {
+    private CompletableFuture<Void> applyTransforms(
+        List<StreamElement> outputs, CommitContext context) {
 
-      List<StreamElement> injected =
-          outputs.stream().map(this::injectSequenceIdAndStamp).collect(Collectors.toList());
-      Collection<StreamElement> transformed;
-      try {
-        transformed = applyTransforms(injected);
-      } catch (TransactionRejectedRuntimeException ex) {
-        throw (TransactionRejectedException) ex.getCause();
-      }
-      StreamElement toWrite = getCommit(transformed);
-      OnlineAttributeWriter writer = commitDelegate;
-      List<KeyAttribute> keyAttributes =
-          transformed.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
-      boolean anyDisallowed = keyAttributes.stream().anyMatch(KeyAttribute::isWildcardQuery);
-      if (anyDisallowed) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Invalid output writes %s. Wildcards need to have suffixes.",
-                keyAttributes.stream()
-                    .filter(KeyAttribute::isWildcardQuery)
-                    .collect(Collectors.toList())));
-      }
-      manager.commit(transactionId, keyAttributes);
-      Response response = takeResponse();
-      if (response.getFlags() != Response.Flags.COMMITTED) {
-        if (response.getFlags() == Response.Flags.ABORTED) {
-          state = State.Flags.ABORTED;
-        }
-        throw new TransactionRejectedException(transactionId, response.getFlags());
-      }
-      CommitCallback compositeCallback =
-          (succ, exc) -> {
-            if (!succ) {
-              rollback();
-            }
-            log.debug(
-                "Committed outputs {} (via {}) of transaction {}: ({}, {})",
-                transformed,
-                toWrite,
-                transactionId,
-                succ,
-                (Object) exc);
-            callback.commit(succ, exc);
-          };
-      state = State.Flags.COMMITTED;
-      writer.write(toWrite, compositeCallback);
-    }
-
-    private Response takeResponse() {
-      return Optional.ofNullable(
-              ExceptionUtils.uncheckedFactory(() -> responseQueue.poll(5, TimeUnit.SECONDS)))
-          .map(Pair::getSecond)
-          .orElse(Response.empty());
-    }
-
-    private Collection<StreamElement> applyTransforms(List<StreamElement> outputs) {
       Set<StreamElement> elements = new HashSet<>();
       List<StreamElement> currentElements = outputs;
+      List<CompletableFuture<?>> futures = new ArrayList<>();
       do {
         List<StreamElement> newElements = new ArrayList<>();
         for (StreamElement el : currentElements) {
@@ -292,60 +379,69 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
               applicableTransforms.stream()
                   .filter(t -> !(t.getTransformation() instanceof TransactionValidator))
                   .filter(t -> t.getFilter().apply(el))
-                  .forEach(td -> applyTransform(newElements, el, td));
+                  .forEach(td -> futures.add(applyTransform(newElements, el, td)));
             }
           }
         }
         currentElements = newElements;
       } while (!currentElements.isEmpty());
-      applyValidations(elements);
-      return elements;
+      futures.addAll(applyValidations(elements));
+      context.setTransformedElements(elements);
+      return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[] {}));
     }
 
-    private void applyValidations(Set<StreamElement> elements) {
+    private List<CompletableFuture<?>> applyValidations(Set<StreamElement> elements) {
       for (StreamElement el : elements) {
         List<TransformationDescriptor> applicableTransforms =
             attributeTransforms.get(el.getAttributeDescriptor());
         if (applicableTransforms != null) {
-          applicableTransforms.stream()
+          return applicableTransforms.stream()
               .filter(t -> t.getTransformation() instanceof TransactionValidator)
               .filter(t -> t.getFilter().apply(el))
-              .forEach(td -> applyTransform(Collections.emptyList(), el, td));
+              .map(td -> applyTransform(Collections.emptyList(), el, td))
+              .collect(Collectors.toList());
         }
       }
+      return Collections.emptyList();
     }
 
-    private void applyTransform(
+    private CompletableFuture<Void> applyTransform(
         List<StreamElement> newElements, StreamElement el, TransformationDescriptor td) {
 
       if (td.getTransformation() instanceof TransactionValidator) {
         TransactionValidator transform = (TransactionValidator) td.getTransformation();
         transform.setTransaction(this);
-        transform.transform(el, CommitCallback.noop());
-      } else {
-        ElementWiseTransformation transform = td.getTransformation().asElementWiseTransform();
-        if (transform instanceof TransactionAware) {
-          ((TransactionAware) transform).setTransaction(this);
-        }
-        int currentSize = newElements.size();
-        int add =
-            transform.apply(
-                el, transformed -> newElements.add(injectSequenceIdAndStamp(transformed)));
-        Preconditions.checkState(
-            newElements.size() == currentSize + add,
-            "Transformation %s is asynchronous which not currently supported in transaction mode.",
-            transform.getClass());
+        CompletableFuture<Void> res = new CompletableFuture<>();
+        transform.transform(
+            el,
+            (succ, exc) -> {
+              if (exc != null) {
+                res.completeExceptionally(exc);
+              } else {
+                res.complete(null);
+              }
+            });
+        return res;
       }
+      ElementWiseTransformation transform = td.getTransformation().asElementWiseTransform();
+      if (transform instanceof TransactionAware) {
+        ((TransactionAware) transform).setTransaction(this);
+      }
+      int currentSize = newElements.size();
+      int add =
+          transform.apply(
+              el, transformed -> newElements.add(injectSequenceIdAndStamp(transformed)));
+      Preconditions.checkState(
+          newElements.size() == currentSize + add,
+          "Transformation %s is asynchronous which not currently supported in transaction mode.",
+          transform.getClass());
+      return CompletableFuture.completedFuture(null);
     }
 
     private StreamElement getCommit(Collection<StreamElement> outputs) {
       return manager
           .getCommitDesc()
           .upsert(transactionId, stamp, Commit.of(sequenceId, stamp, outputs));
-    }
-
-    private void enqueueResponse(String responseId, Response response) {
-      ExceptionUtils.unchecked(() -> responseQueue.put(Pair.of(responseId, response)));
     }
 
     private StreamElement injectSequenceIdAndStamp(StreamElement in) {
@@ -364,21 +460,51 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     @Override
     public void close() {
-      if (state == State.Flags.OPEN) {
+      if (state == State.Flags.OPEN && !commitAttempted) {
         rollback();
       }
-      manager.release(transactionId);
     }
 
-    public void rollback() {
-      manager.rollback(transactionId);
+    public CompletableFuture<Void> rollback() {
+      return manager.rollback(transactionId).thenAccept(ign -> manager.release(transactionId));
+    }
+
+    public void sync() throws TransactionRejectedException {
+      try {
+        waitForInflight().get();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new TransactionRejectedException(getTransactionId(), Flags.ABORTED);
+      } catch (ExecutionException e) {
+        if (e.getCause() instanceof TransactionRejectedException) {
+          throw (TransactionRejectedException) e.getCause();
+        }
+        TransactionRejectedException exc =
+            new TransactionRejectedException(getTransactionId(), Flags.ABORTED);
+        exc.addSuppressed(e);
+        throw exc;
+      }
+    }
+
+    private class CommitContext {
+
+      @Getter private final List<StreamElement> outputs;
+      @Setter CompletableFuture<StreamElement> toWriteFuture;
+      @Setter @Getter Collection<StreamElement> transformedElements;
+
+      public CommitContext(List<StreamElement> outputs) {
+        this.outputs = outputs;
+      }
+
+      public StreamElement getToWrite() {
+        return ExceptionUtils.uncheckedFactory(toWriteFuture::get);
+      }
     }
   }
 
   @Getter private final OnlineAttributeWriter delegate;
   private final OnlineAttributeWriter commitDelegate;
   private final ClientTransactionManager manager;
-  private final ExecutorService executor;
   private final List<KeyAttribute> globalKeyAttributes;
   private final Map<AttributeDescriptor<?>, List<TransformationDescriptor>> attributeTransforms;
 
@@ -387,7 +513,6 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     this.delegate = delegate;
     this.manager = direct.getClientTransactionManager();
-    this.executor = direct.getContext().getExecutorService();
     this.commitDelegate = Optionals.get(direct.getWriter(manager.getCommitDesc()));
     // FIXME: this should be removed and resolved automatically as empty input
     // to be fixed in https://github.com/O2-Czech-Republic/proxima-platform/issues/216
@@ -437,35 +562,31 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   public synchronized void close() {
     manager.close();
     delegate.close();
-    commitDelegate.close();
   }
 
   @Override
   public synchronized void write(StreamElement data, CommitCallback statusCallback) {
     // this means start transaction with the single KeyAttribute as input and then
     // commit that transaction right away
-    executor.execute(
-        () -> {
-          try (Transaction t = begin()) {
-            @Nullable
-            String suffix =
-                data.getAttributeDescriptor().isWildcard()
-                    ? data.getAttribute()
-                        .substring(data.getAttributeDescriptor().toAttributePrefix().length())
-                    : null;
-            KeyAttribute outputKeyAttribute =
-                KeyAttributes.ofAttributeDescriptor(
-                    data.getEntityDescriptor(),
-                    data.getKey(),
-                    data.getAttributeDescriptor(),
-                    Watermarks.MAX_WATERMARK,
-                    suffix);
-            t.update(Collections.singletonList(outputKeyAttribute));
-            t.commitWrite(Collections.singletonList(data), statusCallback);
-          } catch (Throwable e) {
-            statusCallback.commit(false, e);
-          }
-        });
+    try (Transaction t = begin()) {
+      @Nullable
+      String suffix =
+          data.getAttributeDescriptor().isWildcard()
+              ? data.getAttribute()
+                  .substring(data.getAttributeDescriptor().toAttributePrefix().length())
+              : null;
+      KeyAttribute outputKeyAttribute =
+          KeyAttributes.ofAttributeDescriptor(
+              data.getEntityDescriptor(),
+              data.getKey(),
+              data.getAttributeDescriptor(),
+              Watermarks.MAX_WATERMARK,
+              suffix);
+      t.update(Collections.singletonList(outputKeyAttribute));
+      t.commitWrite(Collections.singletonList(data), statusCallback);
+    } catch (Throwable e) {
+      statusCallback.commit(false, e);
+    }
   }
 
   @Override

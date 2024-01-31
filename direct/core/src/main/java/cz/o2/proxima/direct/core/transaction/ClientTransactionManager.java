@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.core.transaction;
 
-import cz.o2.proxima.core.functional.BiConsumer;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.Response;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface ClientTransactionManager extends AutoCloseable, TransactionManager {
 
@@ -27,36 +27,40 @@ public interface ClientTransactionManager extends AutoCloseable, TransactionMana
    * its current state is returned, otherwise the transaction is opened.
    *
    * @param transactionId ID of the transaction
-   * @param responseConsumer consumer of responses related to the transaction
    * @param attributes attributes affected by this transaction (both input and output)
+   * @return asynchronous response
    */
-  void begin(
-      String transactionId,
-      BiConsumer<String, Response> responseConsumer,
-      List<KeyAttribute> attributes);
+  CompletableFuture<Response> begin(String transactionId, List<KeyAttribute> attributes);
 
   /**
    * Update the transaction with additional attributes related to the transaction.
    *
    * @param transactionId ID of the transaction
    * @param newAttributes attributes to be added to the transaction
+   * @return asynchronous response
    */
-  void updateTransaction(String transactionId, List<KeyAttribute> newAttributes);
+  CompletableFuture<Response> updateTransaction(
+      String transactionId, List<KeyAttribute> newAttributes);
 
   /**
    * Commit the transaction with given output KeyAttributes being written.
    *
    * @param transactionId ID of the transaction
    * @param outputAttributes attributes to be written to the output
+   * @return asynchronous response
    */
-  void commit(String transactionId, List<KeyAttribute> outputAttributes);
+  // FIXME: this must consume complete ouptut StreamElements!
+  // the output must be delegated to TransactionCommitTransformation atomically with state update
+  // to committed
+  CompletableFuture<Response> commit(String transactionId, List<KeyAttribute> outputAttributes);
 
   /**
    * Rollback transaction with given ID.
    *
    * @param transactionId ID of the transaction to rollback.
+   * @return asynchronous response
    */
-  void rollback(String transactionId);
+  CompletableFuture<Response> rollback(String transactionId);
 
   @Override
   void close();

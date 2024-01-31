@@ -26,7 +26,6 @@ import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionPreconditionFailedException;
-import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionValidator;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,6 +43,8 @@ public class TransactionUniqueConstraintValidator extends TransactionValidator {
   @Override
   public void setup(
       Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {
+
+    super.setup(repo, directDataOperator, cfg);
     op = directDataOperator;
     gateway = repo.getEntity("gateway");
     intField = Regular.of(gateway, gateway.getAttribute("intField"));
@@ -51,7 +52,7 @@ public class TransactionUniqueConstraintValidator extends TransactionValidator {
 
   @Override
   public void validate(StreamElement element, Transaction transaction)
-      throws TransactionPreconditionFailedException, TransactionRejectedException {
+      throws TransactionPreconditionFailedException {
 
     if (element.getAttributeDescriptor().equals(intField)) {
       Optional<Integer> intValue = intField.valueOf(element);

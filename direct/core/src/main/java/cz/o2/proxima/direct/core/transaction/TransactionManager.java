@@ -30,6 +30,8 @@ public interface TransactionManager {
   interface TransactionConfig {
     /** Get cleanup interval in milliseconds. */
     long getCleanupInterval();
+
+    long getTransactionTimeoutMs();
   }
 
   EntityDescriptor getTransaction();

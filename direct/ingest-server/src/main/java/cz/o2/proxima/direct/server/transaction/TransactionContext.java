@@ -19,6 +19,8 @@ import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.transaction.KeyAttribute;
+import cz.o2.proxima.core.transaction.Response;
+import cz.o2.proxima.core.transaction.State.Flags;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -33,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -168,6 +172,14 @@ public class TransactionContext implements AutoCloseable {
       public void update(List<KeyAttribute> keyAttributes) throws TransactionRejectedException {
         lastUpdated = currentTimeMillis();
         delegate.update(keyAttributes);
+        delegate.sync();
+        if (delegate.getState() == Flags.ABORTED) {
+          throw new TransactionRejectedException(getTransactionId(), Response.Flags.ABORTED) {};
+        }
+        if (delegate.getState() == Flags.COMMITTED) {
+          // committed after update is only possible for duplicates
+          throw new TransactionRejectedException(getTransactionId(), Response.Flags.DUPLICATE) {};
+        }
       }
 
       @Override
@@ -178,14 +190,31 @@ public class TransactionContext implements AutoCloseable {
 
       @Override
       public void rollback() {
-        delegate.rollback();
+        ExceptionUtils.unchecked(() -> delegate.rollback().get());
         close();
       }
 
       @Override
       public void commit(CommitCallback callback) throws TransactionRejectedException {
-        delegate.commitWrite(allOutputs, callback);
+        BlockingQueue<Optional<Throwable>> err = new ArrayBlockingQueue<>(1);
+        delegate.commitWrite(allOutputs, (succ, exc) -> err.add(Optional.ofNullable(exc)));
         close();
+        try {
+          Optional<Throwable> res = err.take();
+          if (res.isEmpty()) {
+            callback.commit(true, null);
+          } else if (!(res.get() instanceof TransactionRejectedException)) {
+            callback.commit(false, res.get());
+          } else {
+            throw (TransactionRejectedException) res.get();
+          }
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          TransactionRejectedException exc =
+              new TransactionRejectedException(getTransactionId(), Response.Flags.ABORTED) {};
+          exc.addSuppressed(e);
+          callback.commit(false, exc);
+        }
       }
 
       @Override

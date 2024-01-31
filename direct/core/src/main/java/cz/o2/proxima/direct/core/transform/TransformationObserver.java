@@ -27,9 +27,9 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
-import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 
 /** Observer of source data performing transformation to another entity/attribute. */
@@ -139,21 +139,24 @@ public abstract class TransformationObserver implements CommitLogObserver {
             onReplicated(element);
             context.commit(succ, exc);
           };
-      for (int i = 0; ; i++) {
-        try {
-          transformation.transform(element, commitCallback);
-          break;
-        } catch (TransactionRejectedRuntimeException ex) {
-          log.info(
-              "Caught {}. Retries so far {}. {}",
-              ex.getClass().getSimpleName(),
-              i,
-              i < 2 ? "Retrying." : "Rethrowing.");
-          if (i == 2) {
-            throw ex;
-          }
-        }
-      }
+      AtomicInteger round = new AtomicInteger();
+      AtomicReference<CommitCallback> retryableCommit = new AtomicReference<>();
+      retryableCommit.set(
+          (succ, exc) -> {
+            if (exc instanceof TransactionRejectedException) {
+              boolean shouldRetry = round.incrementAndGet() < 3;
+              log.info(
+                  "Caught TransactionRejectedException. Retries so far {}. {}",
+                  round.get(),
+                  shouldRetry ? "Retrying." : "Giving up.");
+              if (shouldRetry) {
+                transformation.transform(element, retryableCommit.get());
+                return;
+              }
+            }
+            commitCallback.commit(succ, exc);
+          });
+      transformation.transform(element, retryableCommit.get());
     }
   }
 

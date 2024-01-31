@@ -66,12 +66,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -102,6 +102,11 @@ public class TransactionResourceManager
     @Override
     public long getCleanupInterval() {
       return cleanupIntervalMs;
+    }
+
+    @Override
+    public long getTransactionTimeoutMs() {
+      return transactionTimeoutMs;
     }
 
     @Override
@@ -153,65 +158,87 @@ public class TransactionResourceManager
     @Getter final long created = System.currentTimeMillis();
     final Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> attributeToFamily =
         new HashMap<>();
-    final @Nullable BiConsumer<String, Response> responseConsumer;
+    final Map<String, CompletableFuture<Response>> requestFutures = new ConcurrentHashMap<>();
     @Nullable OnlineAttributeWriter requestWriter;
     @Nullable OnlineAttributeWriter commitWriter;
     @Nullable CachedView stateView;
     int requestId = 1;
 
-    CachedTransaction(
-        String transactionId,
-        Collection<KeyAttribute> attributes,
-        @Nullable BiConsumer<String, Response> responseConsumer) {
-
+    CachedTransaction(String transactionId, Collection<KeyAttribute> attributes) {
       this.transactionId = transactionId;
       this.attributeToFamily.putAll(
           findFamilyForTransactionalAttribute(
               attributes.stream()
                   .map(KeyAttribute::getAttributeDescriptor)
                   .collect(Collectors.toList())));
-      this.responseConsumer = responseConsumer;
     }
 
-    void open(List<KeyAttribute> inputAttrs) {
-      log.debug("Opening transaction {} with inputAttrs {}", transactionId, inputAttrs);
-      Preconditions.checkState(responseConsumer != null);
+    CompletableFuture<Response> open(List<KeyAttribute> inputAttrs) {
+      String request = "open." + (requestId++);
+      log.debug(
+          "Opening transaction {} with inputAttrs {} using {}", transactionId, inputAttrs, request);
+      CompletableFuture<Response> res =
+          requestFutures.compute(request, (k, v) -> new CompletableFuture<>());
       addTransactionResponseConsumer(
-          transactionId, attributeToFamily.get(responseDesc), responseConsumer);
-      sendRequest(
-          Request.builder().flags(Flags.OPEN).inputAttributes(inputAttrs).build(),
-          "open." + (requestId++));
+          transactionId,
+          attributeToFamily.get(responseDesc),
+          (reqId, response) ->
+              Objects.requireNonNull(requestFutures.remove(reqId)).complete(response));
+      return sendRequest(
+              Request.builder().flags(Flags.OPEN).inputAttributes(inputAttrs).build(), request)
+          .thenCompose(ign -> res);
     }
 
-    public void commit(List<KeyAttribute> outputAttributes) {
+    public CompletableFuture<Response> commit(List<KeyAttribute> outputAttributes) {
+      String request = "commit";
       log.debug(
           "Committing transaction {} with outputAttributes {}", transactionId, outputAttributes);
-      sendRequest(
-          Request.builder().flags(Request.Flags.COMMIT).outputAttributes(outputAttributes).build(),
-          "commit");
+      CompletableFuture<Response> res =
+          requestFutures.compute(request, (k, v) -> new CompletableFuture<>());
+      return sendRequest(
+              Request.builder()
+                  .flags(Request.Flags.COMMIT)
+                  .outputAttributes(outputAttributes)
+                  .build(),
+              request)
+          .thenCompose(ign -> res);
     }
 
-    public void update(List<KeyAttribute> addedAttributes) {
-      log.debug("Updating transaction {} with addedAttributes {}", transactionId, addedAttributes);
-      sendRequest(
-          Request.builder().flags(Request.Flags.UPDATE).inputAttributes(addedAttributes).build(),
-          "update." + (requestId++));
+    public CompletableFuture<Response> update(List<KeyAttribute> addedAttributes) {
+      String request = "update." + (requestId++);
+      log.debug(
+          "Updating transaction {} with addedAttributes {} using {}",
+          transactionId,
+          addedAttributes,
+          request);
+      CompletableFuture<Response> res =
+          requestFutures.compute(request, (k, v) -> new CompletableFuture<>());
+      return sendRequest(
+              Request.builder()
+                  .flags(Request.Flags.UPDATE)
+                  .inputAttributes(addedAttributes)
+                  .build(),
+              request)
+          .thenCompose(ign -> res);
     }
 
-    public void rollback() {
+    public CompletableFuture<Response> rollback() {
       log.debug("Rolling back transaction {} (cached {})", transactionId, this);
-      sendRequest(Request.builder().flags(Flags.ROLLBACK).build(), "rollback");
+      String request = "rollback";
+      CompletableFuture<Response> res =
+          requestFutures.compute(request, (k, v) -> new CompletableFuture<>());
+      return sendRequest(Request.builder().flags(Flags.ROLLBACK).build(), request)
+          .thenCompose(ign -> res);
     }
 
-    private void sendRequest(Request request, String requestId) {
-      CountDownLatch latch = new CountDownLatch(1);
-      AtomicReference<Throwable> error = new AtomicReference<>();
+    private CompletableFuture<?> sendRequest(Request request, String requestId) {
       Pair<List<Integer>, OnlineAttributeWriter> writerWithAssignedPartitions = getRequestWriter();
       Preconditions.checkState(
           !writerWithAssignedPartitions.getFirst().isEmpty(),
           "Received empty partitions to observe for responses to transactional "
               + "requests. Please see if you have enough partitions and if your clients can correctly "
               + "resolve hostnames");
+      CompletableFuture<?> res = new CompletableFuture<>();
       writerWithAssignedPartitions
           .getSecond()
           .write(
@@ -222,13 +249,13 @@ public class TransactionResourceManager
                   request.withResponsePartitionId(
                       pickOneAtRandom(writerWithAssignedPartitions.getFirst()))),
               (succ, exc) -> {
-                error.set(exc);
-                latch.countDown();
+                if (exc != null) {
+                  res.completeExceptionally(exc);
+                } else {
+                  res.complete(null);
+                }
               });
-      ExceptionUtils.ignoringInterrupted(latch::await);
-      if (error.get() != null) {
-        throw new IllegalStateException(error.get());
-      }
+      return res;
     }
 
     private int pickOneAtRandom(List<Integer> partitions) {
@@ -649,19 +676,14 @@ public class TransactionResourceManager
    * its current state is returned, otherwise the transaction is opened.
    *
    * @param transactionId ID of transaction
-   * @param responseConsumer consumer of responses related to the transaction
    * @param attributes attributes affected by this transaction (both input and output)
    */
   @Override
-  public void begin(
-      String transactionId,
-      BiConsumer<String, Response> responseConsumer,
-      List<KeyAttribute> attributes) {
-
+  public CompletableFuture<Response> begin(String transactionId, List<KeyAttribute> attributes) {
     CachedTransaction cachedTransaction =
         openTransactionMap.computeIfAbsent(
-            transactionId, k -> new CachedTransaction(transactionId, attributes, responseConsumer));
-    cachedTransaction.open(attributes);
+            transactionId, k -> new CachedTransaction(transactionId, attributes));
+    return cachedTransaction.open(attributes);
   }
 
   /**
@@ -671,25 +693,32 @@ public class TransactionResourceManager
    * @param newAttributes attributes to be added to the transaction
    */
   @Override
-  public void updateTransaction(String transactionId, List<KeyAttribute> newAttributes) {
+  public CompletableFuture<Response> updateTransaction(
+      String transactionId, List<KeyAttribute> newAttributes) {
     @Nullable CachedTransaction cachedTransaction = openTransactionMap.get(transactionId);
     Preconditions.checkArgument(
         cachedTransaction != null, "Transaction %s is not open", transactionId);
-    cachedTransaction.update(newAttributes);
+    return cachedTransaction.update(newAttributes);
   }
 
   @Override
-  public void commit(String transactionId, List<KeyAttribute> outputAttributes) {
+  public CompletableFuture<Response> commit(
+      String transactionId, List<KeyAttribute> outputAttributes) {
     @Nullable CachedTransaction cachedTransaction = openTransactionMap.get(transactionId);
     Preconditions.checkArgument(
         cachedTransaction != null, "Transaction %s is not open", transactionId);
-    cachedTransaction.commit(outputAttributes);
+    return cachedTransaction.commit(outputAttributes);
   }
 
   @Override
-  public void rollback(String transactionId) {
-    Optional.ofNullable(openTransactionMap.get(transactionId))
-        .ifPresent(CachedTransaction::rollback);
+  public CompletableFuture<Response> rollback(String transactionId) {
+    return Optional.ofNullable(openTransactionMap.get(transactionId))
+        .map(CachedTransaction::rollback)
+        .orElseGet(
+            () ->
+                CompletableFuture.completedFuture(
+                    Response.forRequest(Request.builder().flags(Flags.ROLLBACK).build())
+                        .aborted()));
   }
 
   @Override
@@ -721,13 +750,6 @@ public class TransactionResourceManager
 
   @VisibleForTesting
   CachedTransaction createCachedTransaction(String transactionId, State state) {
-    return createCachedTransaction(transactionId, state, null);
-  }
-
-  @VisibleForTesting
-  CachedTransaction createCachedTransaction(
-      String transactionId, State state, BiConsumer<String, Response> responseConsumer) {
-
     final Collection<KeyAttribute> attributes;
     if (!state.getCommittedAttributes().isEmpty()) {
       HashSet<KeyAttribute> committedSet = Sets.newHashSet(state.getCommittedAttributes());
@@ -736,7 +758,7 @@ public class TransactionResourceManager
     } else {
       attributes = state.getInputAttributes();
     }
-    return new CachedTransaction(transactionId, attributes, responseConsumer);
+    return new CachedTransaction(transactionId, attributes);
   }
 
   @Override

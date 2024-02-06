@@ -77,7 +77,7 @@ public class TransactionalCachedViewTest {
                     server.writeResponseAndUpdateState(
                         element.getKey(),
                         State.empty(),
-                        "open",
+                        server.getRequestDesc().extractSuffix(element.getAttribute()),
                         Response.forRequest(request)
                             .open(seqId.getAndIncrement(), System.currentTimeMillis()),
                         context::commit);
@@ -86,7 +86,7 @@ public class TransactionalCachedViewTest {
                     server.writeResponseAndUpdateState(
                         element.getKey(),
                         State.empty(),
-                        "commit",
+                        server.getRequestDesc().extractSuffix(element.getAttribute()),
                         Response.forRequest(request).committed(),
                         context::commit);
                     break;
@@ -94,7 +94,7 @@ public class TransactionalCachedViewTest {
                     server.writeResponseAndUpdateState(
                         element.getKey(),
                         State.empty(),
-                        "update",
+                        server.getRequestDesc().extractSuffix(element.getAttribute()),
                         Response.forRequest(request).updated(),
                         context::commit);
                     break;
@@ -102,7 +102,7 @@ public class TransactionalCachedViewTest {
                     server.writeResponseAndUpdateState(
                         element.getKey(),
                         State.empty(),
-                        "rollback",
+                        server.getRequestDesc().extractSuffix(element.getAttribute()),
                         Response.forRequest(request).aborted(),
                         context::commit);
                     break;

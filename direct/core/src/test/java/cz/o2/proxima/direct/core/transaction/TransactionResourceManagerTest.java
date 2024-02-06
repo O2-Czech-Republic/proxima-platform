@@ -30,7 +30,6 @@ import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
-import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.core.util.TransformationRunner;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -38,14 +37,14 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.transaction.TransactionResourceManager.CachedTransaction;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -80,10 +79,9 @@ public class TransactionResourceManagerTest {
   }
 
   @Test(timeout = 10000)
-  public void testTransactionRequestResponse() {
+  public void testTransactionRequestResponse() throws ExecutionException, InterruptedException {
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
-      List<Pair<String, Response>> receivedResponses = new ArrayList<>();
 
       // create a simple ping-pong communication
       runObservations(
@@ -108,14 +106,13 @@ public class TransactionResourceManagerTest {
             return true;
           });
 
-      manager.begin(
-          transactionId,
-          (k, v) -> receivedResponses.add(Pair.of(k, v)),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+      Future<Response> response =
+          manager.begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
 
-      assertEquals(1, receivedResponses.size());
-      assertEquals(Response.Flags.OPEN, receivedResponses.get(0).getSecond().getFlags());
+      assertEquals(Response.Flags.OPEN, response.get().getFlags());
 
       State state = manager.getCurrentState(transactionId);
       assertNotNull(state);
@@ -124,11 +121,9 @@ public class TransactionResourceManagerTest {
   }
 
   @Test(timeout = 10000)
-  public void testTransactionRequestCommit() throws InterruptedException {
+  public void testTransactionRequestCommit() throws InterruptedException, ExecutionException {
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
-
       // create a simple ping-pong communication
       runObservations(
           manager,
@@ -168,29 +163,27 @@ public class TransactionResourceManagerTest {
             return true;
           });
 
-      manager.begin(
-          transactionId,
-          (k, v) -> receivedResponses.add(Pair.of(k, v)),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+      Future<Response> response =
+          manager.begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
 
-      receivedResponses.take();
-      manager.commit(
-          transactionId,
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+      response.get();
+      response =
+          manager.commit(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
 
-      Pair<String, Response> response = receivedResponses.take();
-      assertEquals("commit", response.getFirst());
-      assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+      assertEquals(Response.Flags.COMMITTED, response.get().getFlags());
     }
   }
 
   @Test(timeout = 10000)
-  public void testTransactionRequestRollback() throws InterruptedException {
+  public void testTransactionRequestRollback() throws InterruptedException, ExecutionException {
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
 
       // create a simple ping-pong communication
       runObservations(
@@ -226,19 +219,20 @@ public class TransactionResourceManagerTest {
             return true;
           });
 
-      manager.begin(
-          transactionId,
-          (k, v) -> receivedResponses.add(Pair.of(k, v)),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+      BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
 
-      receivedResponses.take();
-      manager.rollback(transactionId);
+      manager
+          .begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)))
+          .thenApply(responseQueue::add);
 
-      Pair<String, Response> response = receivedResponses.take();
-      assertEquals("rollback", response.getFirst());
-      assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+      // discard
+      responseQueue.take();
+      manager.rollback(transactionId).thenAccept(responseQueue::add);
 
+      assertEquals(Response.Flags.ABORTED, responseQueue.take().getFlags());
       State currentState = manager.getCurrentState(transactionId);
       assertEquals(State.Flags.UNKNOWN, currentState.getFlags());
     }
@@ -248,7 +242,7 @@ public class TransactionResourceManagerTest {
   public void testTransactionRequestUpdate() throws InterruptedException {
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
+      BlockingQueue<Response> receivedResponses = new ArrayBlockingQueue<>(5);
 
       // create a simple ping-pong communication
       runObservations(
@@ -289,21 +283,23 @@ public class TransactionResourceManagerTest {
             return true;
           });
 
-      manager.begin(
-          transactionId,
-          (k, v) -> receivedResponses.add(Pair.of(k, v)),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+      manager
+          .begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)))
+          .whenComplete((response, err) -> receivedResponses.add(response));
 
       receivedResponses.take();
-      manager.updateTransaction(
-          transactionId,
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(gateway, "gw2", status, 1L)));
+      manager
+          .updateTransaction(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw2", status, 1L)))
+          .whenComplete((response, err) -> receivedResponses.add(response));
 
-      Pair<String, Response> response = receivedResponses.take();
-      assertTrue(response.getFirst().startsWith("update."));
-      assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
+      Response response = receivedResponses.take();
+      assertEquals(Response.Flags.UPDATED, response.getFlags());
       State currentState = manager.getCurrentState(transactionId);
       assertEquals("gw2", Iterables.getOnlyElement(currentState.getInputAttributes()).getKey());
     }
@@ -353,8 +349,7 @@ public class TransactionResourceManagerTest {
           manager.createCachedTransaction(
               "transaction",
               State.open(2L, stamp + 1, Collections.emptyList())
-                  .committed(Collections.singletonList(ka)),
-              (a, b) -> {});
+                  .committed(Collections.singletonList(ka)));
       transaction.open(Collections.singletonList(ka));
       repartitionLatch.await();
       assertEquals(

@@ -33,15 +33,13 @@ import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.core.util.TransformationRunner;
-import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionPreconditionFailedException;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
-import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionValidator;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
-import java.util.Map;
+import java.util.Collections;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -101,14 +99,14 @@ public class TransactionValidatorTest {
   }
 
   @Test
-  public void testWriteNonDuplicate() throws Throwable {
+  public void testWriteNonDuplicate() {
     this.toReturn = this::getResponse;
-    write("k1", 1);
-    write("k2", 2);
+    assertNull(write("k1", 1));
+    assertNull(write("k2", 2));
   }
 
-  @Test
-  public void testWriteNonDuplicateRejected() throws Throwable {
+  @Test(timeout = 10_000)
+  public void testWriteNonDuplicateRejected() {
     AtomicBoolean oneCommitted = new AtomicBoolean();
     this.toReturn =
         request -> {
@@ -121,19 +119,19 @@ public class TransactionValidatorTest {
           }
           return getRejectedResponse(request);
         };
-    write("k1", 1);
-    assertThrows(TransactionRejectedException.class, () -> write("k2", 2));
+    assertNull(write("k1", 1));
+    assertTrue(write("k2", 2) instanceof TransactionRejectedException);
   }
 
   @Test
-  public void testWriteDuplicate() throws Throwable {
+  public void testWriteDuplicate() {
     this.toReturn = this::getResponse;
-    write("k1", 1);
-    assertThrows(TransactionPreconditionFailedException.class, () -> write("k2", 1));
+    assertNull(write("k1", 1));
+    assertTrue(write("k2", 1) instanceof TransactionPreconditionFailedException);
   }
 
   @Test
-  public void testTransactionValidatorRejected() {
+  public void testTransactionValidatorRejected() throws InterruptedException {
     StreamElement element = intField.upsert("key", System.currentTimeMillis(), 1);
     TransactionValidator validator =
         new TransactionValidator() {
@@ -145,23 +143,22 @@ public class TransactionValidatorTest {
           }
 
           @Override
-          public void setup(
-              Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {}
-
-          @Override
           public void close() {}
         };
+    validator.setup(repo, direct, Collections.emptyMap());
 
     try (Transaction t = mock(Transaction.class)) {
       validator.setTransaction(t);
-      assertThrows(
-          TransactionRejectedRuntimeException.class,
-          () -> validator.transform(element, CommitCallback.noop()));
+      BlockingQueue<Throwable> err = new ArrayBlockingQueue<>(1);
+      validator.transform(element, (succ, exc) -> err.add(exc));
+      Throwable thrown = err.take();
+      assertNotNull(thrown);
+      assertTrue(thrown instanceof TransactionRejectedException);
     }
   }
 
   @Test
-  public void testTransactionValidatorRetryFailed() {
+  public void testTransactionValidatorRetryFailed() throws InterruptedException {
     StreamElement element = intField.upsert("key", System.currentTimeMillis(), 1);
     TransactionValidator validator =
         new TransactionValidator() {
@@ -173,18 +170,17 @@ public class TransactionValidatorTest {
           }
 
           @Override
-          public void setup(
-              Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {}
-
-          @Override
           public void close() {}
         };
+    validator.setup(repo, direct, Collections.emptyMap());
 
     try (Transaction t = mock(Transaction.class)) {
       validator.setTransaction(t);
-      assertThrows(
-          TransactionRejectedRuntimeException.class,
-          () -> validator.transform(element, CommitCallback.noop()));
+      BlockingQueue<Throwable> err = new ArrayBlockingQueue<>(1);
+      validator.transform(element, (succ, exc) -> err.add(exc));
+      Throwable thrown = err.take();
+      assertNotNull(thrown);
+      assertTrue(thrown instanceof TransactionRejectedException);
     }
   }
 
@@ -214,16 +210,17 @@ public class TransactionValidatorTest {
     throw new IllegalArgumentException("Invalid request " + request);
   }
 
-  private void write(String key, int value) throws Throwable {
+  private Throwable write(String key, int value) {
     assertEquals(TransactionMode.ALL, intField.getTransactionMode());
     BlockingQueue<Pair<Boolean, Throwable>> err = new ArrayBlockingQueue<>(1);
     Optionals.get(direct.getWriter(intField))
         .write(
             intField.upsert(key, System.currentTimeMillis(), value),
-            (succ, exc) -> ExceptionUtils.unchecked(() -> err.put(Pair.of(succ, exc))));
+            (succ, exc) -> ExceptionUtils.unchecked(() -> err.add(Pair.of(succ, exc))));
     Pair<Boolean, Throwable> status = ExceptionUtils.uncheckedFactory(err::take);
     if (!status.getFirst()) {
-      throw status.getSecond();
+      return status.getSecond();
     }
+    return null;
   }
 }

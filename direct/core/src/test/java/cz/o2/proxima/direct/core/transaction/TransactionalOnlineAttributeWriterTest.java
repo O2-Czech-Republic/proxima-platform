@@ -45,6 +45,8 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
@@ -121,8 +123,8 @@ public class TransactionalOnlineAttributeWriterTest {
             System.currentTimeMillis(),
             new byte[] {1, 2, 3}),
         (succ, exc) -> {
+          assertNull("Exception should be null, got " + exc, exc);
           assertTrue(succ);
-          assertNull(exc);
           latch.countDown();
         });
     latch.await();
@@ -135,7 +137,7 @@ public class TransactionalOnlineAttributeWriterTest {
   }
 
   @Test(timeout = 10_000)
-  public void testTransactionCreateUpdateCommit() throws TransactionRejectedException {
+  public void testTransactionCreateUpdateCommit() throws InterruptedException {
     CachedView view = Optionals.get(direct.getCachedView(status));
     view.assign(view.getPartitions());
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
@@ -146,6 +148,7 @@ public class TransactionalOnlineAttributeWriterTest {
     toReturn.add(Response.forRequest(anyRequest()).updated());
     toReturn.add(Response.forRequest(anyRequest()).committed());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
+    CountDownLatch latch = new CountDownLatch(1);
     try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
       t.update(Collections.singletonList(ka));
       t.update(Collections.singletonList(ka));
@@ -162,8 +165,10 @@ public class TransactionalOnlineAttributeWriterTest {
           (succ, exc) -> {
             assertTrue(succ);
             assertNull(exc);
+            latch.countDown();
           });
     }
+    latch.await();
     Optional<KeyValue<byte[]>> res = view.get("key", status);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
@@ -235,8 +240,8 @@ public class TransactionalOnlineAttributeWriterTest {
     assertEquals(stamp, res.get().getStamp());
   }
 
-  @Test(timeout = 10_000, expected = TransactionRejectedException.class)
-  public void testTransactionCreateUpdateCommitRejected() throws TransactionRejectedException {
+  @Test(timeout = 10_000)
+  public void testTransactionCreateUpdateCommitRejected() throws InterruptedException {
     CachedView view = Optionals.get(direct.getCachedView(status));
     view.assign(view.getPartitions());
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
@@ -247,6 +252,7 @@ public class TransactionalOnlineAttributeWriterTest {
     toReturn.add(Response.forRequest(anyRequest()).updated());
     toReturn.add(Response.forRequest(anyRequest()).aborted());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
+    BlockingQueue<TransactionRejectedException> ex = new ArrayBlockingQueue<>(1);
     try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
       t.update(Collections.singletonList(ka));
       t.update(Collections.singletonList(ka));
@@ -261,10 +267,11 @@ public class TransactionalOnlineAttributeWriterTest {
                   System.currentTimeMillis(),
                   new byte[] {1, 2, 3})),
           (succ, exc) -> {
-            assertTrue(succ);
-            assertNull(exc);
+            assertFalse(succ);
+            ex.add((TransactionRejectedException) exc);
           });
     }
+    assertNotNull(ex.take());
   }
 
   @Test(timeout = 10_000)
@@ -341,17 +348,18 @@ public class TransactionalOnlineAttributeWriterTest {
   }
 
   @Test(timeout = 10000)
-  public void testTransactionReopen() {
+  public void testTransactionReopen() throws InterruptedException {
     TransactionalOnlineAttributeWriter writer = direct.getGlobalTransactionWriter();
     assertTrue(user.isTransactional());
     toReturn.add(Response.forRequest(anyRequest()).duplicate(1L));
     String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<TransactionRejectedException> res = new ArrayBlockingQueue<>(1);
     try (Transaction t = writer.begin(transactionId)) {
       t.beginGlobal();
-      fail("Should have thrown exception");
-    } catch (TransactionRejectedException ex) {
-      assertEquals(Flags.DUPLICATE, ex.getResponseFlags());
+      t.commitWrite(
+          Collections.emptyList(), (succ, exc) -> res.add((TransactionRejectedException) exc));
     }
+    assertEquals(Flags.DUPLICATE, res.take().getResponseFlags());
   }
 
   @Test(timeout = 10_000)

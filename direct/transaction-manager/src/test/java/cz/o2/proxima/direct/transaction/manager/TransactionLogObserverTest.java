@@ -28,8 +28,6 @@ import cz.o2.proxima.core.transaction.KeyAttributes;
 import cz.o2.proxima.core.transaction.Request;
 import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.State;
-import cz.o2.proxima.core.util.ExceptionUtils;
-import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.core.util.TransformationRunner;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.transaction.ClientTransactionManager;
@@ -126,15 +124,15 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-    Pair<String, Response> response = responseQueue.take();
-    assertTrue(response.getFirst().startsWith("open."));
-    assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.OPEN, response.getFlags());
     TimeUnit.SECONDS.sleep(1);
     assertTrue(metrics.getTransactionsOpen().getValue() > 0.0);
   }
@@ -144,20 +142,22 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
     responseQueue.take();
-    clientManager.commit(
-        transactionId,
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-    Pair<String, Response> response = responseQueue.take();
-    assertEquals("commit", response.getFirst());
-    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+    clientManager
+        .commit(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.COMMITTED, response.getFlags());
     TimeUnit.SECONDS.sleep(1);
     assertTrue(metrics.getTransactionsCommitted().getValue() > 0.0);
   }
@@ -171,20 +171,20 @@ public class TransactionLogObserverTest {
     List<KeyAttribute> inputs =
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 1L, "1"));
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        t1, ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))), inputs);
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager.begin(t1, inputs).thenAccept(responseQueue::add);
     responseQueue.take();
-    clientManager.commit(
-        t1,
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 2L, "1")));
-    Pair<String, Response> response = responseQueue.take();
-    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
-    clientManager.begin(
-        t2, ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))), inputs);
+    clientManager
+        .commit(
+            t1,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 2L, "1")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.COMMITTED, response.getFlags());
+    clientManager.begin(t2, inputs).thenAccept(responseQueue::add);
     response = responseQueue.take();
-    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
     TimeUnit.SECONDS.sleep(1);
     assertTrue(metrics.getTransactionsRejected().getValue() > 0.0);
   }
@@ -198,11 +198,10 @@ public class TransactionLogObserverTest {
         Arrays.asList(
             KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 1L, "1"),
             KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 2L, "1"));
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        t1, ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))), inputs);
-    Pair<String, Response> response = responseQueue.take();
-    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager.begin(t1, inputs).thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
   }
 
   @Test(timeout = 10000)
@@ -211,36 +210,36 @@ public class TransactionLogObserverTest {
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String t1 = UUID.randomUUID().toString();
     String t2 = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        t1,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "u1", userGateways, 1L, "1")));
-    Pair<String, Response> t1OpenResponse = responseQueue.take();
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            t1,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "u1", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response t1OpenResponse = responseQueue.take();
     List<KeyAttribute> t1Outputs =
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(
-                user, "user", userGateways, t1OpenResponse.getSecond().getSeqId(), "1"));
-    clientManager.begin(
-        t2,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        // not conflicting with the previous one
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "u2", userGateways, 1L, "1")));
-    Pair<String, Response> t2OpenResponse = responseQueue.take();
+                user, "user", userGateways, t1OpenResponse.getSeqId(), "1"));
+    clientManager
+        .begin(
+            t2,
+            // not conflicting with the previous one
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "u2", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response t2OpenResponse = responseQueue.take();
     List<KeyAttribute> t2Outputs =
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(
-                user, "user", userGateways, t2OpenResponse.getSecond().getSeqId(), "1"));
-    clientManager.commit(t2, t2Outputs);
-    Pair<String, Response> response = responseQueue.take();
-    assertEquals("commit", response.getFirst());
-    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
-    clientManager.commit(t1, t1Outputs);
+                user, "user", userGateways, t2OpenResponse.getSeqId(), "1"));
+    clientManager.commit(t2, t2Outputs).thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.COMMITTED, response.getFlags());
+    clientManager.commit(t1, t1Outputs).thenAccept(responseQueue::add);
     response = responseQueue.take();
-    assertEquals("commit", response.getFirst());
-    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
   }
 
   @Test(timeout = 10000)
@@ -251,38 +250,38 @@ public class TransactionLogObserverTest {
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String t1 = UUID.randomUUID().toString();
     String t2 = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        t1,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "u1", userGateways, 1L, "1")));
-    Pair<String, Response> t1OpenResponse = responseQueue.take();
-    assertEquals(stamp, t1OpenResponse.getSecond().getStamp());
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            t1,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "u1", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response t1OpenResponse = responseQueue.take();
+    assertEquals(stamp, t1OpenResponse.getStamp());
     List<KeyAttribute> t1Outputs =
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(
-                user, "user", userGateways, t1OpenResponse.getSecond().getSeqId(), "1"));
-    clientManager.begin(
-        t2,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        // not conflicting with the previous one
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "u2", userGateways, 1L, "1")));
-    Pair<String, Response> t2OpenResponse = responseQueue.take();
-    assertEquals(stamp, t2OpenResponse.getSecond().getStamp());
+                user, "user", userGateways, t1OpenResponse.getSeqId(), "1"));
+    clientManager
+        .begin(
+            t2,
+            // not conflicting with the previous one
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "u2", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response t2OpenResponse = responseQueue.take();
+    assertEquals(stamp, t2OpenResponse.getStamp());
     List<KeyAttribute> t2Outputs =
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(
-                user, "user", userGateways, t2OpenResponse.getSecond().getSeqId(), "1"));
-    clientManager.commit(t1, t1Outputs);
-    Pair<String, Response> response = responseQueue.take();
-    assertEquals("commit", response.getFirst());
-    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
-    clientManager.commit(t2, t2Outputs);
+                user, "user", userGateways, t2OpenResponse.getSeqId(), "1"));
+    clientManager.commit(t1, t1Outputs).thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.COMMITTED, response.getFlags());
+    clientManager.commit(t2, t2Outputs).thenAccept(responseQueue::add);
     response = responseQueue.take();
-    assertEquals("commit", response.getFirst());
-    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
   }
 
   @Test(timeout = 10000)
@@ -290,22 +289,23 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-    Pair<String, Response> firstResponse = responseQueue.take();
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-    Pair<String, Response> response = responseQueue.take();
-    assertTrue(response.getFirst().startsWith("open."));
-    assertEquals(Response.Flags.DUPLICATE, response.getSecond().getFlags());
-    assertEquals(firstResponse.getSecond().getSeqId(), response.getSecond().getSeqId());
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response firstResponse = responseQueue.take();
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.DUPLICATE, response.getFlags());
+    assertEquals(firstResponse.getSeqId(), response.getSeqId());
   }
 
   @Test(timeout = 10000)
@@ -313,24 +313,25 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-    Pair<String, Response> firstResponse = responseQueue.take();
-    clientManager.commit(transactionId, Collections.emptyList());
-    assertEquals(Response.Flags.COMMITTED, responseQueue.take().getSecond().getFlags());
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-    Pair<String, Response> response = responseQueue.take();
-    assertTrue(response.getFirst().startsWith("open."));
-    assertEquals(Response.Flags.DUPLICATE, response.getSecond().getFlags());
-    assertEquals(firstResponse.getSecond().getSeqId(), response.getSecond().getSeqId());
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response firstResponse = responseQueue.take();
+    clientManager.commit(transactionId, Collections.emptyList()).thenAccept(responseQueue::add);
+    assertEquals(Response.Flags.COMMITTED, responseQueue.take().getFlags());
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.DUPLICATE, response.getFlags());
+    assertEquals(firstResponse.getSeqId(), response.getSeqId());
   }
 
   @Test(timeout = 10000)
@@ -338,22 +339,24 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
     // discard this
     responseQueue.take();
-    clientManager.updateTransaction(
-        transactionId,
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
-    Pair<String, Response> response = responseQueue.take();
-    assertTrue(response.getFirst().startsWith("update."));
-    assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
-    assertFalse(response.getSecond().hasStamp());
+    clientManager
+        .updateTransaction(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.UPDATED, response.getFlags());
+    assertFalse(response.hasStamp());
     do {
       State currentState = direct.getServerTransactionManager().getCurrentState(transactionId);
       assertNotNull(currentState);
@@ -370,19 +373,23 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
     // discard this
     responseQueue.take();
-    clientManager.updateTransaction(
-        transactionId,
-        KeyAttributes.ofWildcardQueryElements(user, "user", userGateways, Collections.emptyList()));
-    Pair<String, Response> response = responseQueue.take();
-    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    clientManager
+        .updateTransaction(
+            transactionId,
+            KeyAttributes.ofWildcardQueryElements(
+                user, "user", userGateways, Collections.emptyList()))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
   }
 
   @Test(timeout = 10000)
@@ -390,19 +397,23 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        KeyAttributes.ofWildcardQueryElements(user, "user", userGateways, Collections.emptyList()));
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            KeyAttributes.ofWildcardQueryElements(
+                user, "user", userGateways, Collections.emptyList()))
+        .thenAccept(responseQueue::add);
     // discard this
     responseQueue.take();
-    clientManager.updateTransaction(
-        transactionId,
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-    Pair<String, Response> response = responseQueue.take();
-    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    clientManager
+        .updateTransaction(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
   }
 
   @Test(timeout = 10000)
@@ -410,25 +421,26 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
     // discard this
     responseQueue.take();
-    clientManager.updateTransaction(
-        transactionId,
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
-    Pair<String, Response> response = responseQueue.take();
-    assertTrue(response.getFirst().startsWith("update."));
-    assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
-    clientManager.rollback(transactionId);
+    clientManager
+        .updateTransaction(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.UPDATED, response.getFlags());
+    clientManager.rollback(transactionId).thenAccept(responseQueue::add);
     response = responseQueue.take();
-    assertEquals("rollback", response.getFirst());
-    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
   }
 
   @Test(timeout = 10000)
@@ -441,50 +453,58 @@ public class TransactionLogObserverTest {
         new TransactionResourceManager(direct, Collections.emptyMap())) {
       serverManager.houseKeeping();
       String transactionId = "t1";
-      BlockingQueue<Pair<String, Response>> queue = new ArrayBlockingQueue<>(10);
-      clientManager.begin(
-          transactionId,
-          (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
-          KeyAttributes.ofWildcardQueryElements(
-              this.user, "user", userGateways, Collections.emptyList()));
-      Pair<String, Response> response = queue.take();
-      assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
+      BlockingQueue<Response> queue = new ArrayBlockingQueue<>(10);
+      clientManager
+          .begin(
+              transactionId,
+              KeyAttributes.ofWildcardQueryElements(
+                  this.user, "user", userGateways, Collections.emptyList()))
+          .thenAccept(queue::add);
+      Response response = queue.take();
+      assertEquals(Response.Flags.OPEN, response.getFlags());
       assertTrue("Expected empty queue, got " + queue, queue.isEmpty());
       StreamElement wildcardUpsert =
-          userGateways.upsert(response.getSecond().getSeqId(), "user", "1", now, new byte[] {});
-      clientManager.commit(
-          transactionId, Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)));
-      assertEquals(Response.Flags.COMMITTED, queue.take().getSecond().getFlags());
+          userGateways.upsert(response.getSeqId(), "user", "1", now, new byte[] {});
+      clientManager
+          .commit(
+              transactionId,
+              Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)))
+          .thenAccept(queue::add);
+      assertEquals(Response.Flags.COMMITTED, queue.take().getFlags());
       assertTrue(queue.isEmpty());
 
       // wait till housekeeping time expires
       stamp.addAndGet(200L);
 
       transactionId = "t2";
-      clientManager.begin(
-          transactionId,
-          (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
-          KeyAttributes.ofWildcardQueryElements(
-              user, "user", userGateways, Collections.singletonList(wildcardUpsert)));
+      clientManager
+          .begin(
+              transactionId,
+              KeyAttributes.ofWildcardQueryElements(
+                  user, "user", userGateways, Collections.singletonList(wildcardUpsert)))
+          .thenAccept(queue::add);
       response = queue.take();
-      assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
+      assertEquals(Response.Flags.OPEN, response.getFlags());
       assertTrue(queue.isEmpty());
-      wildcardUpsert =
-          userGateways.upsert(response.getSecond().getSeqId(), "user", "1", now, new byte[] {});
-      clientManager.commit(
-          transactionId, Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)));
-      assertEquals(Response.Flags.COMMITTED, queue.take().getSecond().getFlags());
+      wildcardUpsert = userGateways.upsert(response.getSeqId(), "user", "1", now, new byte[] {});
+      clientManager
+          .commit(
+              transactionId,
+              Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)))
+          .thenAccept(queue::add);
+      assertEquals(Response.Flags.COMMITTED, queue.take().getFlags());
       assertTrue(queue.isEmpty());
 
       TimeUnit.MILLISECONDS.sleep(150);
 
       transactionId = "t3";
-      clientManager.begin(
-          transactionId,
-          (s, r) -> ExceptionUtils.unchecked(() -> queue.put(Pair.of(s, r))),
-          KeyAttributes.ofWildcardQueryElements(
-              this.user, "user", userGateways, Collections.emptyList()));
-      assertEquals(Response.Flags.ABORTED, queue.take().getSecond().getFlags());
+      clientManager
+          .begin(
+              transactionId,
+              KeyAttributes.ofWildcardQueryElements(
+                  this.user, "user", userGateways, Collections.emptyList()))
+          .thenAccept(queue::add);
+      assertEquals(Response.Flags.ABORTED, queue.take().getFlags());
       assertTrue(queue.isEmpty());
     }
   }
@@ -492,24 +512,27 @@ public class TransactionLogObserverTest {
   @Test(timeout = 10000)
   public void testCreateTransactionCommitAfterFailover() throws InterruptedException {
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
     try (ClientTransactionManager clientManager =
         new TransactionResourceManager(direct, Collections.emptyMap())) {
       createObserver();
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      takeResponseFor(responseQueue, "open.1");
+      clientManager
+          .begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+          .thenAccept(responseQueue::add);
+      responseQueue.take();
       observer.getRawManager().close();
       createObserver();
-      clientManager.commit(
-          transactionId,
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-      Pair<String, Response> response = takeResponseFor(responseQueue, "commit");
-      assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+      clientManager
+          .commit(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+          .thenAccept(responseQueue::add);
+      Response response = responseQueue.take();
+      assertEquals(Response.Flags.COMMITTED, response.getFlags());
     }
   }
 
@@ -517,43 +540,48 @@ public class TransactionLogObserverTest {
   public void testCreateTransactionRollbackAfterFailover() throws InterruptedException {
     String t1 = "t1-" + UUID.randomUUID();
     String t2 = "t2-" + UUID.randomUUID();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
     try (ClientTransactionManager clientManager =
         new TransactionResourceManager(direct, Collections.emptyMap())) {
       createObserver();
-      clientManager.begin(
-          t1,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      Pair<String, Response> t1openResponse = takeResponseFor(responseQueue, "open.1");
-      clientManager.begin(
-          t2,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      Pair<String, Response> t2openResponse = takeResponseFor(responseQueue, "open.1");
-      assertTrue(t2openResponse.getSecond().getSeqId() > t1openResponse.getSecond().getSeqId());
-      clientManager.commit(
-          t2,
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-      Pair<String, Response> t2commitResponse = takeResponseFor(responseQueue, "commit");
-      assertEquals("commit", t2commitResponse.getFirst());
+      clientManager
+          .begin(
+              t1,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+          .thenAccept(responseQueue::add);
+      Response t1openResponse = responseQueue.take();
+      clientManager
+          .begin(
+              t2,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+          .thenAccept(responseQueue::add);
+      Response t2openResponse = responseQueue.take();
+      assertTrue(t2openResponse.getSeqId() > t1openResponse.getSeqId());
+      clientManager
+          .commit(
+              t2,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+          .thenAccept(responseQueue::add);
+      Response t2commitResponse = responseQueue.take();
       observer.getRawManager().close();
       createObserver();
-      clientManager.commit(
-          t1,
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-      Pair<String, Response> response = takeResponseFor(responseQueue, "commit");
+      clientManager
+          .commit(
+              t1,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+          .thenAccept(responseQueue::add);
+      Response response = responseQueue.take();
       assertTrue(
           "Expected exactly one committed transaction, got "
-              + t2commitResponse.getSecond()
+              + t2commitResponse
               + " and "
-              + response.getSecond(),
-          t2commitResponse.getSecond().getFlags() == Response.Flags.COMMITTED
-              ^ response.getSecond().getFlags() == Response.Flags.COMMITTED);
+              + response,
+          t2commitResponse.getFlags() == Response.Flags.COMMITTED
+              ^ response.getFlags() == Response.Flags.COMMITTED);
       tearDown();
     }
   }
@@ -563,30 +591,30 @@ public class TransactionLogObserverTest {
       throws InterruptedException {
 
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
     try (ClientTransactionManager clientManager =
         new TransactionResourceManager(direct, Collections.emptyMap())) {
       createObserver();
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      Pair<String, Response> firstResponse = takeResponseFor(responseQueue, "open.1");
-      clientManager.commit(transactionId, Collections.emptyList());
-      assertEquals(
-          Response.Flags.COMMITTED,
-          takeResponseFor(responseQueue, "commit").getSecond().getFlags());
+      clientManager
+          .begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+          .thenAccept(responseQueue::add);
+      Response firstResponse = responseQueue.take();
+      clientManager.commit(transactionId, Collections.emptyList()).thenAccept(responseQueue::add);
+      assertEquals(Response.Flags.COMMITTED, responseQueue.take().getFlags());
       observer.getRawManager().close();
       createObserver();
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      Pair<String, Response> secondResponse = takeResponseFor(responseQueue, "open.2");
-      assertEquals(firstResponse.getSecond().getSeqId(), secondResponse.getSecond().getSeqId());
-      assertEquals(Response.Flags.DUPLICATE, secondResponse.getSecond().getFlags());
+      clientManager
+          .begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+          .thenAccept(responseQueue::add);
+      Response secondResponse = responseQueue.take();
+      assertEquals(firstResponse.getSeqId(), secondResponse.getSeqId());
+      assertEquals(Response.Flags.DUPLICATE, secondResponse.getFlags());
     }
   }
 
@@ -595,36 +623,43 @@ public class TransactionLogObserverTest {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();
     String transactionId = UUID.randomUUID().toString();
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
     responseQueue.take();
-    clientManager.commit(
-        transactionId,
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
+    clientManager
+        .commit(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+        .thenAccept(responseQueue::add);
     responseQueue.take();
-    clientManager.rollback(transactionId);
-    Pair<String, Response> response = responseQueue.take();
-    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    clientManager.rollback(transactionId).thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
 
     // now, when we start new transaction, it must be let through
     transactionId = UUID.randomUUID().toString();
     responseQueue.clear();
-    clientManager.begin(
-        transactionId,
-        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-        KeyAttributes.ofWildcardQueryElements(user, "user", userGateways, Collections.emptyList()));
+    clientManager
+        .begin(
+            transactionId,
+            KeyAttributes.ofWildcardQueryElements(
+                user, "user", userGateways, Collections.emptyList()))
+        .thenAccept(responseQueue::add);
     responseQueue.take();
-    clientManager.commit(
-        transactionId,
-        Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
+    clientManager
+        .commit(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+        .thenAccept(responseQueue::add);
     response = responseQueue.take();
-    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
+    assertEquals(Response.Flags.COMMITTED, response.getFlags());
   }
 
   @Test(timeout = 10000)
@@ -632,19 +667,20 @@ public class TransactionLogObserverTest {
     createObserver();
     try (ClientTransactionManager clientManager = direct.getClientTransactionManager()) {
       String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+      BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(1);
+      clientManager
+          .begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+          .thenAccept(responseQueue::add);
       responseQueue.take();
-      clientManager.rollback(transactionId);
-      Pair<String, Response> rollbackResponse1 = responseQueue.take();
-      assertEquals(Response.Flags.ABORTED, rollbackResponse1.getSecond().getFlags());
-      clientManager.rollback(transactionId);
-      Pair<String, Response> rollbackResponse2 = responseQueue.take();
-      assertEquals(Response.Flags.ABORTED, rollbackResponse2.getSecond().getFlags());
+      clientManager.rollback(transactionId).thenAccept(responseQueue::add);
+      Response rollbackResponse1 = responseQueue.take();
+      assertEquals(Response.Flags.ABORTED, rollbackResponse1.getFlags());
+      clientManager.rollback(transactionId).thenAccept(responseQueue::add);
+      Response rollbackResponse2 = responseQueue.take();
+      assertEquals(Response.Flags.ABORTED, rollbackResponse2.getFlags());
     }
   }
 
@@ -664,16 +700,17 @@ public class TransactionLogObserverTest {
                     KeyAttributes.ofStreamElement(
                         userGateways.delete(1001L, "user", "1", now - 1))));
     observer.transactionPostCommit(committed2);
-    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
     try (ClientTransactionManager clientManager = direct.getClientTransactionManager()) {
       String t = "t";
-      clientManager.begin(
-          t,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          KeyAttributes.ofWildcardQueryElements(
-              user, "user", userGateways, Collections.emptyList()));
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+      clientManager
+          .begin(
+              t,
+              KeyAttributes.ofWildcardQueryElements(
+                  user, "user", userGateways, Collections.emptyList()))
+          .thenAccept(responseQueue::add);
+      Response response = responseQueue.take();
+      assertEquals(Response.Flags.ABORTED, response.getFlags());
     }
   }
 
@@ -691,39 +728,31 @@ public class TransactionLogObserverTest {
               Collections.singletonList(
                   userGateways.upsert(100L, "user", "1", now, new byte[] {})));
 
-      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-      clientManager.begin(
-          t1,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          inputs);
-      Pair<String, Response> t1OpenResponse = responseQueue.take();
-      clientManager.begin(
-          t2,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          inputs);
-      Pair<String, Response> t2OpenResponse = responseQueue.take();
+      BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+      clientManager.begin(t1, inputs).thenAccept(responseQueue::add);
+      Response t1OpenResponse = responseQueue.take();
+      clientManager.begin(t2, inputs).thenAccept(responseQueue::add);
+      Response t2OpenResponse = responseQueue.take();
 
-      assertEquals(Response.Flags.OPEN, t1OpenResponse.getSecond().getFlags());
-      assertEquals(Response.Flags.OPEN, t2OpenResponse.getSecond().getFlags());
+      assertEquals(Response.Flags.OPEN, t1OpenResponse.getFlags());
+      assertEquals(Response.Flags.OPEN, t2OpenResponse.getFlags());
 
       List<KeyAttribute> t1Outputs =
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(
-                  user, "user", userGateways, t1OpenResponse.getSecond().getSeqId(), "1"));
+                  user, "user", userGateways, t1OpenResponse.getSeqId(), "1"));
 
       List<KeyAttribute> t2Outputs =
           Collections.singletonList(
               KeyAttributes.ofAttributeDescriptor(
-                  user, "user", userGateways, t2OpenResponse.getSecond().getSeqId(), "1"));
+                  user, "user", userGateways, t2OpenResponse.getSeqId(), "1"));
 
-      clientManager.commit(t1, t1Outputs);
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals("commit", response.getFirst());
-      assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
-      clientManager.commit(t2, t2Outputs);
+      clientManager.commit(t1, t1Outputs).thenAccept(responseQueue::add);
+      Response response = responseQueue.take();
+      assertEquals(Response.Flags.COMMITTED, response.getFlags());
+      clientManager.commit(t2, t2Outputs).thenAccept(responseQueue::add);
       response = responseQueue.take();
-      assertEquals("commit", response.getFirst());
-      assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+      assertEquals(Response.Flags.ABORTED, response.getFlags());
     }
   }
 
@@ -773,18 +802,6 @@ public class TransactionLogObserverTest {
           super.sleep(timeout);
         }
       };
-    }
-  }
-
-  private Pair<String, Response> takeResponseFor(
-      BlockingQueue<Pair<String, Response>> responseQueue, String responseId)
-      throws InterruptedException {
-
-    for (; ; ) {
-      Pair<String, Response> res = responseQueue.take();
-      if (res.getFirst().equals(responseId)) {
-        return res;
-      }
     }
   }
 

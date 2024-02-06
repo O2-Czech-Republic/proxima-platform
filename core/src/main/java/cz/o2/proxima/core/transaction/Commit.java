@@ -58,7 +58,7 @@ public class Commit implements Serializable {
     Preconditions.checkArgument(
         updates.stream().noneMatch(StreamElement::isDeleteWildcard),
         "Wildcard deletes not currently supported.");
-    Preconditions.checkArgument(seqId > 0, "SequenceId must be positive, for %s", seqId);
+    Preconditions.checkArgument(seqId > 0, "SequenceId must be positive, got %s", seqId);
     return new Commit(seqId, stamp, updates);
   }
 

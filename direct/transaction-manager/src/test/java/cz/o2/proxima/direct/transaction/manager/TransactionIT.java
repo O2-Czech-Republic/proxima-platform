@@ -347,7 +347,7 @@ public class TransactionIT {
     long retrySleep = 1;
     do {
       String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Response> responses = new ArrayBlockingQueue<>(1);
+      BlockingQueue<Response> responses = new ArrayBlockingQueue<>(5);
       Optional<KeyValue<byte[]>> valA = view.get(key, attrA, device);
       Optional<KeyValue<byte[]>> valB = view.get(key, attrB, device);
       final List<KeyAttribute> fetched =
@@ -361,14 +361,10 @@ public class TransactionIT {
                   : KeyAttributes.ofMissingAttribute(
                       user, key, device, device.extractSuffix(attrB)));
 
-      client.begin(
-          transactionId,
-          (id, resp) -> ExceptionUtils.unchecked(() -> responses.put(resp)),
-          fetched);
+      client.begin(transactionId, fetched).thenApply(responses::add);
 
       Response response = responses.take();
       if (response.getFlags() != Flags.OPEN) {
-        ;
         TimeUnit.MILLISECONDS.sleep(Math.min(8, retrySleep *= 2));
         continue;
       }
@@ -383,9 +379,11 @@ public class TransactionIT {
         updates = updateAttributeAndRemove(sequentialId, key, attrA, attrB, currentVal);
       }
 
-      client.commit(
-          transactionId,
-          updates.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList()));
+      client
+          .commit(
+              transactionId,
+              updates.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList()))
+          .thenApply(responses::add);
 
       response = responses.take();
       if (response.getFlags() != Flags.COMMITTED) {
@@ -460,15 +458,18 @@ public class TransactionIT {
         StreamElement deviceUpdate = device.delete(userId, name, stamp);
         StreamElement numDevicesUpdate =
             numDevices.upsert(userId, "all", stamp, devices.size() - 1);
-        CountDownLatch latch = new CountDownLatch(1);
+        BlockingQueue<Optional<Throwable>> err = new ArrayBlockingQueue<>(1);
         t.commitWrite(
-            Arrays.asList(deviceUpdate, numDevicesUpdate), (succ, exc) -> latch.countDown());
-        latch.await();
-        break;
-      } catch (TransactionRejectedException e) {
-        // repeat
+            Arrays.asList(deviceUpdate, numDevicesUpdate),
+            (succ, exc) -> err.add(Optional.ofNullable(exc)));
+        Optional<Throwable> res = err.take();
+        if (res.isEmpty()) {
+          break;
+        }
+        if (!(res.get() instanceof TransactionRejectedException)) {
+          throw new IllegalStateException(res.get());
+        }
       }
-
     } while (true);
   }
 
@@ -494,18 +495,23 @@ public class TransactionIT {
         final StreamElement numDevicesUpdate;
         int count = devices.size() + 1;
         if (intoAll) {
+
           numDevicesUpdate = numDevices.upsert(userId, "all", stamp, count);
         } else {
           numDevicesUpdate = numDevices.upsert(userId, String.valueOf(count), stamp, count);
         }
 
-        CountDownLatch latch = new CountDownLatch(1);
+        BlockingQueue<Optional<Throwable>> err = new ArrayBlockingQueue<>(1);
         t.commitWrite(
-            Arrays.asList(deviceUpdate, numDevicesUpdate), (succ, exc) -> latch.countDown());
-        latch.await();
-        break;
-      } catch (TransactionRejectedException e) {
-        // repeat
+            Arrays.asList(deviceUpdate, numDevicesUpdate),
+            (succ, exc) -> err.add(Optional.ofNullable(exc)));
+        Optional<Throwable> res = err.take();
+        if (res.isEmpty()) {
+          break;
+        }
+        if (!(res.get() instanceof TransactionRejectedException)) {
+          throw new IllegalStateException(res.get());
+        }
       }
     } while (true);
   }
@@ -578,14 +584,19 @@ public class TransactionIT {
             Arrays.asList(
                 amount.upsert(userFirst, System.currentTimeMillis(), firstWillHave),
                 amount.upsert(userSecond, System.currentTimeMillis(), secondWillHave));
-        CountDownLatch latch = new CountDownLatch(1);
-        t.commitWrite(outputs, (succ, exc) -> latch.countDown());
-        latch.await();
-        break;
-      } catch (TransactionRejectedException e) {
-        if (e.getResponseFlags() == Flags.DUPLICATE) {
+        BlockingQueue<Optional<Throwable>> err = new ArrayBlockingQueue<>(1);
+        t.commitWrite(outputs, (succ, exc) -> err.add(Optional.ofNullable(exc)));
+        Optional<Throwable> res = err.take();
+        if (res.isEmpty()) {
+          break;
+        }
+        if (!(res.get() instanceof TransactionRejectedException)) {
+          throw new IllegalStateException(res.get());
+        }
+        TransactionRejectedException ex = (TransactionRejectedException) res.get();
+        if (ex.getResponseFlags() == Flags.DUPLICATE) {
           return;
-        } else if (e.getResponseFlags() == Flags.ABORTED) {
+        } else if (ex.getResponseFlags() == Flags.ABORTED) {
           transactionId = UUID.randomUUID().toString();
         }
         // repeat

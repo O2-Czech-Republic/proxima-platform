@@ -96,8 +96,9 @@ public class TransformationObserverTest {
           @Override
           public void transform(StreamElement input, CommitCallback commit) {
             if (failedCnt.incrementAndGet() < 3) {
-              throw new TransactionRejectedRuntimeException(
-                  new TransactionRejectedException("t", Flags.ABORTED) {});
+              commit.commit(false, new TransactionRejectedException("t", Flags.ABORTED) {});
+            } else {
+              commit.commit(true, null);
             }
           }
 
@@ -107,9 +108,7 @@ public class TransformationObserverTest {
     Contextual observer = new Contextual(direct, "name", transform, true, new PassthroughFilter());
     observer.doTransform(
         armed.upsert("key", System.currentTimeMillis(), new byte[] {}),
-        (succ, exc) -> {
-          assertTrue(succ);
-        });
+        (succ, exc) -> assertTrue(succ));
   }
 
   @Test

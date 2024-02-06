@@ -126,7 +126,7 @@ public class InMemStorage implements DataAccessorFactory {
   private static final Partition SINGLE_PARTITION = Partition.of(0);
   private static final OnNextContext CONTEXT = BatchLogObservers.defaultContext(SINGLE_PARTITION);
   private static final long IDLE_FLUSH_TIME = 500L;
-  private static final long BOUNDED_OUT_OF_ORDERNESS = 5000L;
+  private static final long BOUNDED_OUT_OF_ORDERNESS = 2000L;
 
   public static class ConsumedOffset implements Offset {
 

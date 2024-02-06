@@ -51,8 +51,6 @@ import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -183,7 +182,8 @@ public class TransactionResourceManager
           transactionId,
           attributeToFamily.get(responseDesc),
           (reqId, response) ->
-              Objects.requireNonNull(requestFutures.remove(reqId)).complete(response));
+              Optional.ofNullable(requestFutures.remove(reqId))
+                  .ifPresent(c -> c.complete(response)));
       return sendRequest(
               Request.builder().flags(Flags.OPEN).inputAttributes(inputAttrs).build(), request)
           .thenCompose(ign -> res);
@@ -333,6 +333,7 @@ public class TransactionResourceManager
   @Getter private final Wildcard<Response> responseDesc;
   @Getter private final Regular<State> stateDesc;
   @Getter private final Regular<Commit> commitDesc;
+  private final Random random = new Random();
   private final Map<String, CachedTransaction> openTransactionMap = new ConcurrentHashMap<>();
   private final Map<AttributeFamilyDescriptor, CachedWriters> cachedAccessors =
       new ConcurrentHashMap<>();
@@ -450,6 +451,7 @@ public class TransactionResourceManager
               getDeclaredParallelism(requestObserver)
                   .orElse(Runtime.getRuntime().availableProcessors()));
     }
+    log.debug("Running transaction observation with observer {}", effectiveObserver);
 
     List<Set<String>> families =
         direct
@@ -609,25 +611,15 @@ public class TransactionResourceManager
         k -> {
           log.debug("Starting to observe family {} with URI {}", k, k.getDesc().getStorageUri());
           HandleWithAssignment assignment = new HandleWithAssignment();
+          CommitLogReader reader = Optionals.get(k.getCommitLogReader());
+          List<Partition> partitions = reader.getPartitions();
+          Partition partition = partitions.get(random.nextInt(partitions.size()));
           assignment.withHandle(
-              Optionals.get(k.getCommitLogReader())
-                  .observe(
-                      newResponseObserverNameFor(k), newTransactionResponseObserver(assignment)));
+              reader.observePartitions(
+                  Collections.singleton(partition), newTransactionResponseObserver(assignment)));
           ExceptionUtils.ignoringInterrupted(() -> assignment.getObserveHandle().waitUntilReady());
           return assignment;
         });
-  }
-
-  protected String newResponseObserverNameFor(DirectAttributeFamilyDescriptor k) {
-    String localhost = "localhost";
-    try {
-      localhost = InetAddress.getLocalHost().getHostAddress();
-    } catch (UnknownHostException e) {
-      log.warn("Error getting name of localhost, using {} instead.", localhost, e);
-    }
-    return "transaction-response-observer-"
-        + k.getDesc().getName()
-        + (localhost.hashCode() & Integer.MAX_VALUE);
   }
 
   private CommitLogObserver newTransactionResponseObserver(HandleWithAssignment assignment) {
@@ -814,7 +806,9 @@ public class TransactionResourceManager
 
     TransactionMode mode = attributes.get(0).getTransactionMode();
     Preconditions.checkArgument(
-        attributes.stream().allMatch(a -> a.getTransactionMode() == mode),
+        attributes.stream()
+            .filter(a -> a.getTransactionMode() != TransactionMode.NONE)
+            .allMatch(a -> a.getTransactionMode() == mode),
         "All passed attributes must have the same transaction mode. Got attributes %s.",
         attributes);
 

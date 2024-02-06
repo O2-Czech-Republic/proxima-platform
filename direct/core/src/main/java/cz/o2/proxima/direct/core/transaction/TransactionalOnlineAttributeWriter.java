@@ -156,11 +156,17 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private final String transactionId;
     private final Response.Flags responseFlags;
 
-    protected TransactionRejectedException(String transactionId, Response.Flags flags) {
+    public TransactionRejectedException(String transactionId, Response.Flags flags) {
+      this(transactionId, flags, null);
+    }
+
+    public TransactionRejectedException(
+        String transactionId, Response.Flags flags, Throwable cause) {
       super(
           String.format(
               "Transaction %s rejected with flags %s. Please restart the transaction.",
-              transactionId, flags));
+              transactionId, flags),
+          cause);
       this.transactionId = transactionId;
       this.responseFlags = flags;
     }
@@ -205,6 +211,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       switch (state) {
         case UNKNOWN:
           future = manager.begin(transactionId, addedInputs);
+          // update to open, though technically will be open after receiving response
+          state = State.Flags.OPEN;
           break;
         case OPEN:
           future = manager.updateTransaction(transactionId, addedInputs);
@@ -222,24 +230,29 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       // FIXME: this should be removed once we write through coordinator
       final CommitContext commitContext = new CommitContext(outputs);
       this.commitAttempted = true;
-      waitForInflight()
+      waitForInFlight()
           .thenCompose(ign -> runTransforms(commitContext))
           // need to wait for any requests added during transforms
-          .thenCompose(ign -> waitForInflight())
+          .thenCompose(ign -> waitForInFlight())
           .thenCompose(ign -> sendCommitRequest(commitContext))
           .thenCompose(response -> handleCommitResponse(response, commitContext))
+          .completeOnTimeout(
+              false, manager.getCfg().getTransactionTimeoutMs(), TimeUnit.MILLISECONDS)
           .whenComplete(
-              (ign, err) -> {
-                manager.release(transactionId);
-                if (err instanceof CompletionException) {
+              (finished, err) -> {
+                if (err instanceof CompletionException && err.getCause() != null) {
                   callback.commit(false, err.getCause());
-                } else {
+                } else if (Boolean.TRUE.equals(finished)) {
                   callback.commit(err == null, err);
+                } else {
+                  // timeout
+                  callback.commit(
+                      false, new TransactionRejectedException(transactionId, Flags.ABORTED));
                 }
               });
     }
 
-    private CompletableFuture<?> waitForInflight() {
+    private CompletableFuture<?> waitForInFlight() {
       final CompletableFuture<?> unfinished;
       synchronized (runningUpdates) {
         unfinished = CompletableFuture.allOf(runningUpdates.toArray(new CompletableFuture<?>[] {}));
@@ -274,15 +287,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       Collection<StreamElement> transformed = context.getTransformedElements();
       List<KeyAttribute> keyAttributes =
           transformed.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
-      return manager
-          .commit(transactionId, keyAttributes)
-          .completeOnTimeout(
-              Response.empty().aborted(),
-              manager.getCfg().getTransactionTimeoutMs(),
-              TimeUnit.MILLISECONDS);
+      return manager.commit(transactionId, keyAttributes);
     }
 
-    private CompletableFuture<Void> handleCommitResponse(Response response, CommitContext context) {
+    private CompletableFuture<Boolean> handleCommitResponse(
+        Response response, CommitContext context) {
+
       if (response.getFlags() != Flags.COMMITTED) {
         if (response.getFlags() == Flags.ABORTED) {
           state = State.Flags.ABORTED;
@@ -292,7 +302,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       }
       Collection<StreamElement> transformed = context.getTransformedElements();
       StreamElement toWrite = context.getToWrite();
-      CompletableFuture<Void> result = new CompletableFuture<>();
+      CompletableFuture<Boolean> result = new CompletableFuture<>();
       CommitCallback compositeCallback =
           (succ, exc) -> {
             if (!succ) {
@@ -309,7 +319,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
             if (exc != null) {
               result.completeExceptionally(exc);
             } else {
-              result.complete(null);
+              // true = completed without timeout
+              result.complete(true);
             }
           };
       state = State.Flags.COMMITTED;
@@ -466,12 +477,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
 
     public CompletableFuture<Void> rollback() {
-      return manager.rollback(transactionId).thenAccept(ign -> manager.release(transactionId));
+      return manager.rollback(transactionId).thenApply(r -> null);
     }
 
     public void sync() throws TransactionRejectedException {
       try {
-        waitForInflight().get();
+        waitForInFlight().get();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new TransactionRejectedException(getTransactionId(), Flags.ABORTED);
@@ -479,10 +490,11 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         if (e.getCause() instanceof TransactionRejectedException) {
           throw (TransactionRejectedException) e.getCause();
         }
-        TransactionRejectedException exc =
-            new TransactionRejectedException(getTransactionId(), Flags.ABORTED);
-        exc.addSuppressed(e);
-        throw exc;
+        if (e.getCause() != null) {
+          throw new TransactionRejectedException(getTransactionId(), Flags.ABORTED, e.getCause());
+        } else {
+          throw new TransactionRejectedException(getTransactionId(), Flags.ABORTED, e);
+        }
       }
     }
 

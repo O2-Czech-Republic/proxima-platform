@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -130,22 +131,26 @@ class ElementConsumers {
             asOnNextContext(
                 (succ, exc) -> {
                   if (succ) {
-                    committed.compute(tp, (k, v) -> v == null || v <= offset ? offset + 1 : v);
-                    committer.confirm(tp, offset);
-                  } else if (exc != null) {
-                    errorHandler.accept(exc);
+                    confirmOffset(tp, offset);
                   } else {
                     errorHandler.accept(
-                        new IllegalStateException(
-                            "Either confirm processing or return exception."));
+                        Objects.requireNonNullElseGet(
+                            exc,
+                            () ->
+                                new IllegalStateException(
+                                    "Either confirm processing or return exception.")));
                   }
                 },
                 new TopicOffset(
                     new PartitionWithTopic(tp.topic(), tp.partition()), offset, watermark)));
       }
+      confirmOffset(tp, offset);
+      return watermark < Watermarks.MAX_WATERMARK;
+    }
+
+    private void confirmOffset(TopicPartition tp, long offset) {
       committed.compute(tp, (k, v) -> v == null || v <= offset ? offset + 1 : v);
       committer.confirm(tp, offset);
-      return watermark < Watermarks.MAX_WATERMARK;
     }
 
     @Override

@@ -127,7 +127,7 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
   private long autoCommitIntervalMs = Long.MAX_VALUE;
 
   @Getter(AccessLevel.PACKAGE)
-  private long logStaleCommitIntervalNs = Long.MAX_VALUE;
+  private long logStaleCommitIntervalMs = 60_000L;
 
   @Getter(AccessLevel.PACKAGE)
   private long assignmentTimeoutMillis = 10_000L;
@@ -184,10 +184,10 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
             .map(v -> Long.parseLong(v.toString()))
             .orElse(autoCommitIntervalMs);
 
-    this.logStaleCommitIntervalNs =
+    this.logStaleCommitIntervalMs =
         Optional.ofNullable(cfg.get(LOG_STALE_COMMIT_INTERVAL_MS))
-            .map(v -> Long.parseLong(v.toString()) * 1_000_000L)
-            .orElse(logStaleCommitIntervalNs);
+            .map(v -> Long.parseLong(v.toString()))
+            .orElse(logStaleCommitIntervalMs);
 
     this.assignmentTimeoutMillis =
         Optional.ofNullable(cfg.get(ASSIGNMENT_TIMEOUT_MS))
@@ -212,7 +212,7 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
             + "watermarkConfiguration {}, "
             + "maxPollRecords {}, "
             + "autoCommitIntervalNs {}, "
-            + "logStaleCommitIntervalNs {}, "
+            + "logStaleCommitIntervalMs {}, "
             + "serializerClass {},"
             + "for URI {}",
         consumerPollInterval,
@@ -221,7 +221,7 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
         watermarkConfiguration,
         maxPollRecords,
         autoCommitIntervalMs,
-        logStaleCommitIntervalNs,
+        logStaleCommitIntervalMs,
         serializerClass,
         getUri());
   }

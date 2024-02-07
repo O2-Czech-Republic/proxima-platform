@@ -298,7 +298,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               () -> {
                 OffsetAndMetadata mtd = new OffsetAndMetadata(offset + 1);
                 if (commitToKafka) {
-                  kafkaCommitMap.put(tp, mtd);
+                  kafkaCommitMap.compute(tp, (k, v) -> v == null || v.offset() <= offset ? mtd : v);
                 }
               });
         };
@@ -472,6 +472,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                       .get()
                       .update(Objects.requireNonNull(topicPartitionToId.get(tp)), ingest);
                 }
+                log.debug(
+                    "Processing element {} with {}",
+                    ingest,
+                    ingest == null ? null : ingest.getParsed());
                 boolean cont =
                     consumer.consumeWithConfirm(
                         ingest, tp, r.offset(), watermarkEstimator.get(), error::set);
@@ -852,8 +856,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   }
 
   private OffsetCommitter<TopicPartition> createOffsetCommitter() {
-    return new OffsetCommitter<>(
-        accessor.getLogStaleCommitIntervalNs(), accessor.getAutoCommitIntervalMs());
+    return new OffsetCommitter<>(accessor.getLogStaleCommitIntervalMs(), accessor.getAutoCommitIntervalMs());
   }
 
   // create rebalance listener from consumer

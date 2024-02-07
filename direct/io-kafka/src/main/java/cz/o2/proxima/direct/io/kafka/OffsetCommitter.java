@@ -73,16 +73,16 @@ public class OffsetCommitter<ID> {
   }
 
   private final Map<ID, NavigableMap<Long, OffsetMeta>> waitingOffsets;
-  private final long stateCommitWarningNanos;
+  private final long stateCommitWarningMillis;
   private final long autoCommitMs;
 
   public OffsetCommitter() {
-    this(60000000000L, Long.MAX_VALUE);
+    this(60000L, Long.MAX_VALUE);
   }
 
-  public OffsetCommitter(long staleCommitWarningNanos, long autoCommitMs) {
+  public OffsetCommitter(long staleCommitWarningMillis, long autoCommitMs) {
     this.waitingOffsets = Collections.synchronizedMap(new HashMap<>());
-    this.stateCommitWarningNanos = staleCommitWarningNanos;
+    this.stateCommitWarningMillis = staleCommitWarningMillis;
     this.autoCommitMs = autoCommitMs;
   }
 
@@ -132,7 +132,7 @@ public class OffsetCommitter<ID> {
         if (age > autoCommitMs) {
           committable.add(e);
           log.warn(
-              "Auto adding offset {} of ID {} to comittable map due to age {} ns. "
+              "Auto adding offset {} of ID {} to comittable map due to age {} ms. "
                   + "The commit might have been lost. Verify your commit logic to remove this warning.",
               e.getKey(),
               id,
@@ -141,9 +141,9 @@ public class OffsetCommitter<ID> {
           committable.add(e);
           log.debug("Added offset {} of ID {} to committable map.", e.getKey(), id);
         } else {
-          if (age > stateCommitWarningNanos) {
+          if (age > stateCommitWarningMillis) {
             log.warn(
-                "Offset {} ID {} was not committed in {} ns ({} actions missing). Please verify your commit logic!",
+                "Offset {} ID {} was not committed in {} ms ({} actions missing). Please verify your commit logic!",
                 e.getKey(),
                 id,
                 age,

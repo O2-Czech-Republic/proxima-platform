@@ -56,11 +56,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Test {@link IngestService} and {@link RetrieveService} with regards to transactions. */
+/** Test {@link IngestService} and {@link RetrieveService} regarding transactions. */
+@Slf4j
 public class TransactionsTest {
 
   private final Repository repo =
@@ -161,7 +163,7 @@ public class TransactionsTest {
     assertEquals(3, getResponse.getValue().size());
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 20000)
   public void testTransactionCommitRejected() {
     // we need two simultaneous transactions
     String firstTransaction = begin().getTransactionId();

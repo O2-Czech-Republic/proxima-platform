@@ -191,6 +191,7 @@ public class TransactionalOnlineAttributeWriterTest {
     toReturn.add(Response.forRequest(anyRequest()).updated());
     toReturn.add(Response.forRequest(anyRequest()).committed());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
+    CountDownLatch latch = new CountDownLatch(1);
     try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
       t.update(Collections.singletonList(ka));
       t.update(Collections.singletonList(ka));
@@ -215,8 +216,10 @@ public class TransactionalOnlineAttributeWriterTest {
           (succ, exc) -> {
             assertTrue(succ);
             assertNull(exc);
+            latch.countDown();
           });
     }
+    latch.await();
     while (!view.get("key", status).isPresent()) {
       // need to wait for the transformation
       TimeUnit.MILLISECONDS.sleep(100);

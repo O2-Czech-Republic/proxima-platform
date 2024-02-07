@@ -856,7 +856,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   }
 
   private OffsetCommitter<TopicPartition> createOffsetCommitter() {
-    return new OffsetCommitter<>(accessor.getLogStaleCommitIntervalMs(), accessor.getAutoCommitIntervalMs());
+    return new OffsetCommitter<>(
+        accessor.getLogStaleCommitIntervalMs(), accessor.getAutoCommitIntervalMs());
   }
 
   // create rebalance listener from consumer

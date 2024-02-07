@@ -43,8 +43,10 @@ import cz.o2.proxima.internal.com.google.common.collect.MultimapBuilder;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import cz.o2.proxima.internal.com.google.common.collect.SortedSetMultimap;
 import cz.o2.proxima.internal.com.google.common.collect.Streams;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -52,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.TimeUnit;
@@ -160,7 +163,12 @@ public class TransactionLogObserver implements CommitLogObserver {
   private final ServerTransactionManager manager;
   private final AtomicLong sequenceId = new AtomicLong();
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+  private final ReentrantReadWriteLock timerLock = new ReentrantReadWriteLock();
   private final Object commitLock = new Object();
+
+  @GuardedBy("timerLock")
+  private PriorityQueue<Pair<Long, Runnable>> timers =
+      new PriorityQueue<>(Comparator.comparing(Pair::getFirst));
 
   @GuardedBy("lock")
   private final SortedSetMultimap<KeyWithAttribute, SeqIdWithTombstone> lastUpdateSeqId =
@@ -332,17 +340,39 @@ public class TransactionLogObserver implements CommitLogObserver {
     log.debug("Received element {} for transaction processing", element);
     Wildcard<Request> requestDesc = manager.getRequestDesc();
     if (element.getAttributeDescriptor().equals(requestDesc)) {
-      handleRequest(
-          element.getKey(),
-          requestDesc.extractSuffix(element.getAttribute()),
-          context,
-          requestDesc.valueOf(element).orElse(null));
+      handleRequest(element, context);
     } else {
       // unknown attribute, probably own response or state update, can be safely ignored
       log.debug("Unknown attribute {}. Ignored.", element.getAttributeDescriptor());
       context.confirm();
     }
+    handleWatermark(context.getWatermark());
     return true;
+  }
+
+  @Override
+  public void onIdle(OnIdleContext context) {
+    handleWatermark(context.getWatermark());
+  }
+
+  private void handleWatermark(long watermark) {
+    List<Runnable> process = new ArrayList<>();
+    final boolean canFireTimer;
+    try (var read = Locker.of(timerLock.readLock())) {
+      if (log.isDebugEnabled()) {
+        log.debug("Processing watermark {} with {} timers", watermark, timers);
+      }
+      canFireTimer = !timers.isEmpty() && timers.peek().getFirst() < watermark;
+    }
+    if (canFireTimer) {
+      try (var writeLock = Locker.of(timerLock.writeLock())) {
+        while (!timers.isEmpty() && timers.peek().getFirst() < watermark) {
+          process.add(timers.poll().getSecond());
+        }
+      }
+      // fire the timers outside the lock
+      process.forEach(Runnable::run);
+    }
   }
 
   @Override
@@ -357,14 +387,13 @@ public class TransactionLogObserver implements CommitLogObserver {
     System.exit(status);
   }
 
-  private void handleRequest(
-      String transactionId,
-      String requestId,
-      OnNextContext context,
-      @Nullable Request maybeRequest) {
-
-    if (maybeRequest != null) {
-      processTransactionRequest(transactionId, requestId, maybeRequest, context);
+  private void handleRequest(StreamElement element, OnNextContext context) {
+    String transactionId = element.getKey();
+    String requestId = manager.getRequestDesc().extractSuffix(element.getAttribute());
+    Optional<Request> maybeRequest = manager.getRequestDesc().valueOf(element);
+    if (maybeRequest.isPresent()) {
+      processTransactionRequest(
+          transactionId, requestId, maybeRequest.get(), context, element.getStamp());
     } else {
       log.error("Unable to parse request at offset {}", context.getOffset());
       context.confirm();
@@ -372,37 +401,64 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private void processTransactionRequest(
+      String transactionId,
+      String requestId,
+      Request request,
+      OnNextContext context,
+      long requestTimestamp) {
+
+    if (request.getFlags() == Flags.COMMIT) {
+      // enqueue this for processing after watermark
+      try (var l = Locker.of(timerLock.writeLock())) {
+        timers.add(
+            Pair.of(
+                requestTimestamp,
+                () -> processTransactionUpdateRequest(transactionId, requestId, request, context)));
+      }
+      log.debug(
+          "Scheduled transaction {} commit for watermark {}", transactionId, requestTimestamp);
+    } else {
+      processTransactionUpdateRequest(transactionId, requestId, request, context);
+    }
+  }
+
+  private void processTransactionUpdateRequest(
       String transactionId, String requestId, Request request, OnNextContext context) {
 
-    log.debug(
-        "Processing request to {} with {} for transaction {}", requestId, request, transactionId);
-    State currentState = manager.getCurrentState(transactionId);
-    @Nullable State newState = transitionState(transactionId, currentState, request);
-    if (newState != null) {
-      // we have successfully computed new state, produce response
-      Response response = getResponseForNewState(request, currentState, newState);
-      manager.ensureTransactionOpen(transactionId, newState);
-      manager.writeResponseAndUpdateState(
-          transactionId, newState, requestId, response, context::commit);
-    } else if (request.getFlags() == Request.Flags.OPEN
-        && (currentState.getFlags() == State.Flags.OPEN
-            || currentState.getFlags() == State.Flags.COMMITTED)) {
+    try {
+      log.debug(
+          "Processing request to {} with {} for transaction {}", requestId, request, transactionId);
+      State currentState = manager.getCurrentState(transactionId);
+      @Nullable State newState = transitionState(transactionId, currentState, request);
+      if (newState != null) {
+        // we have successfully computed new state, produce response
+        Response response = getResponseForNewState(request, currentState, newState);
+        manager.ensureTransactionOpen(transactionId, newState);
+        manager.writeResponseAndUpdateState(
+            transactionId, newState, requestId, response, context::commit);
+      } else if (request.getFlags() == Request.Flags.OPEN
+          && (currentState.getFlags() == State.Flags.OPEN
+              || currentState.getFlags() == State.Flags.COMMITTED)) {
 
-      manager.writeResponseAndUpdateState(
-          transactionId,
-          currentState,
-          requestId,
-          Response.forRequest(request).duplicate(currentState.getSequentialId()),
-          context::commit);
-    } else {
-      log.warn(
-          "Unexpected {} request for transaction {} seqId {} when the state is {}. "
-              + "Refusing to respond, because the correct response is unknown.",
-          request.getFlags(),
-          transactionId,
-          currentState.getSequentialId(),
-          currentState.getFlags());
-      context.confirm();
+        manager.writeResponseAndUpdateState(
+            transactionId,
+            currentState,
+            requestId,
+            Response.forRequest(request).duplicate(currentState.getSequentialId()),
+            context::commit);
+      } else {
+        log.warn(
+            "Unexpected {} request for transaction {} seqId {} when the state is {}. "
+                + "Refusing to respond, because the correct response is unknown.",
+            request.getFlags(),
+            transactionId,
+            currentState.getSequentialId(),
+            currentState.getFlags());
+        context.confirm();
+      }
+    } catch (Throwable err) {
+      log.warn("Error during processing transaction {} request {}", transactionId, request, err);
+      context.commit(false, err);
     }
   }
 
@@ -466,10 +522,8 @@ public class TransactionLogObserver implements CommitLogObserver {
         }
         break;
       case ABORTED:
-        if (request.getFlags() == Request.Flags.ROLLBACK) {
-          return currentState;
-        }
-        break;
+        // aborted always stays aborted
+        return currentState;
     }
     return null;
   }

@@ -35,6 +35,7 @@ dependencies {
   testImplementation project(path: ':proxima-scheme-proto-testing')
   testImplementation project(path: ':proxima-direct-transaction-manager')
   testImplementation libraries.slf4j_log4j
+  testImplementation libraries.log4j_core
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   compileAnnotationProcessor libraries.lombok

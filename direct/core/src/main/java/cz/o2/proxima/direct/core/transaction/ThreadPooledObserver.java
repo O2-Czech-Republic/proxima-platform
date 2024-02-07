@@ -102,6 +102,9 @@ public class ThreadPooledObserver implements CommitLogObserver {
 
   @Override
   public boolean onNext(StreamElement element, OnNextContext context) {
+    if (log.isDebugEnabled()) {
+      log.debug("Processing input element {} at watermark {}", element, context.getWatermark());
+    }
     return !ExceptionUtils.ignoringInterrupted(
         () ->
             workQueues

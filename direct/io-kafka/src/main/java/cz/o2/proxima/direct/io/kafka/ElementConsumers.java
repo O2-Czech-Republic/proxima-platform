@@ -134,6 +134,10 @@ class ElementConsumers {
                     committer.confirm(tp, offset);
                   } else if (exc != null) {
                     errorHandler.accept(exc);
+                  } else {
+                    errorHandler.accept(
+                        new IllegalStateException(
+                            "Either confirm processing or return exception."));
                   }
                 },
                 new TopicOffset(

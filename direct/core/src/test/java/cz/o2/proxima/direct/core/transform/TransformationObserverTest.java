@@ -24,24 +24,30 @@ import cz.o2.proxima.core.storage.PassthroughFilter;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.transaction.Response.Flags;
 import cz.o2.proxima.core.transform.ElementWiseTransformation;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedRuntimeException;
 import cz.o2.proxima.direct.core.transform.TransformationObserver.Contextual;
 import cz.o2.proxima.direct.core.transform.TransformationObserver.NonContextual;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
+@Slf4j
 public class TransformationObserverTest {
 
   private final Repository repo =
@@ -50,9 +56,46 @@ public class TransformationObserverTest {
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final Regular<byte[]> armed = Regular.of(gateway, gateway.getAttribute("armed"));
 
+  @Test(timeout = 10000)
+  public void testContextualRestarted() throws InterruptedException {
+    CountDownLatch restartsLatch = new CountDownLatch(1);
+    DirectElementWiseTransform transform =
+        new DirectElementWiseTransform() {
+          @Override
+          public void setup(
+              Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {}
+
+          @Override
+          public void transform(StreamElement input, CommitCallback commit) {
+            commit.commit(true, null);
+          }
+
+          @Override
+          public void onRestart() {
+            restartsLatch.countDown();
+          }
+
+          @Override
+          public void close() {}
+        };
+
+    CommitLogReader reader = Optionals.get(direct.getCommitLogReader(armed));
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(armed));
+    try (var handle =
+        reader.observe(
+            "dummy", new Contextual(direct, "dummy", transform, false, new PassthroughFilter()))) {
+
+      writer.write(
+          armed.upsert("dummy", Instant.now(), new byte[] {}),
+          (succ, exc) -> {
+            assertTrue(succ);
+          });
+      restartsLatch.await();
+    }
+  }
+
   @Test
   public void testContextualTransformCallsOnReplicated() {
-    AtomicInteger failedCnt = new AtomicInteger();
     DirectElementWiseTransform transform =
         new DirectElementWiseTransform() {
           @Override
@@ -138,6 +181,7 @@ public class TransformationObserverTest {
   @Test
   public void testNonContextualTransactionRejectedExceptionHandlingFailed()
       throws InterruptedException {
+
     StreamElement element = armed.upsert("key", System.currentTimeMillis(), new byte[] {});
     ElementWiseTransformation transform =
         new ElementWiseTransformation() {
@@ -169,6 +213,7 @@ public class TransformationObserverTest {
   @Test
   public void testNonContextualTransactionRejectedExceptionHandlingSuccess()
       throws InterruptedException {
+
     AtomicInteger fails = new AtomicInteger();
     StreamElement element = armed.upsert("key", System.currentTimeMillis(), new byte[] {});
     ElementWiseTransformation transform =

@@ -145,7 +145,10 @@ public abstract class TransformationObserver implements CommitLogObserver {
           (succ, exc) -> {
             if (exc instanceof TransactionRejectedException) {
               boolean shouldRetry = round.incrementAndGet() < 3;
-              log.info(
+              if (exc.getCause() != null) {
+                log.warn("Error in transformation {}", name, exc.getCause());
+              }
+              log.debug(
                   "Caught TransactionRejectedException. Retries so far {}. {}",
                   round.get(),
                   shouldRetry ? "Retrying." : "Giving up.");
@@ -157,6 +160,11 @@ public abstract class TransformationObserver implements CommitLogObserver {
             commitCallback.commit(succ, exc);
           });
       transformation.transform(element, retryableCommit.get());
+    }
+
+    @Override
+    public void onRepartition(OnRepartitionContext context) {
+      transformation.onRestart();
     }
   }
 

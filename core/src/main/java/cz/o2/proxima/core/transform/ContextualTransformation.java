@@ -37,4 +37,11 @@ public interface ContextualTransformation<OP extends DataOperator>
    * @param cfg transformation config map
    */
   void setup(Repository repo, OP op, Map<String, Object> cfg);
+
+  /**
+   * Called before starting processing after fresh start of processing or after recovery from error
+   */
+  default void onRestart() {
+    // nop
+  }
 }

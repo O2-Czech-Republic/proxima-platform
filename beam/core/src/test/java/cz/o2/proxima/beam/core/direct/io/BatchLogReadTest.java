@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -56,7 +57,9 @@ import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.Sum;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
+import org.apache.beam.sdk.transforms.windowing.PaneInfo;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PBegin;
@@ -231,7 +234,7 @@ public class BatchLogReadTest {
     List<PartitionList> output = new ArrayList<>();
     readFn.splitRestriction(
         list,
-        new OutputReceiver<PartitionList>() {
+        new OutputReceiver<>() {
           @Override
           public void output(PartitionList part) {
             output.add(part);
@@ -240,6 +243,16 @@ public class BatchLogReadTest {
           @Override
           public void outputWithTimestamp(PartitionList part, org.joda.time.Instant timestamp) {
             output(part);
+          }
+
+          @Override
+          public void outputWindowedValue(
+              PartitionList output,
+              org.joda.time.Instant timestamp,
+              Collection<? extends BoundedWindow> windows,
+              PaneInfo paneInfo) {
+
+            outputWithTimestamp(output, timestamp);
           }
         });
     assertEquals(100, output.size());

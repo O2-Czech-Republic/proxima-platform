@@ -24,8 +24,6 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.time.PartitionedWatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimator;
-import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
-import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.Context;
@@ -945,11 +943,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       }
 
       private WatermarkEstimator createWatermarkEstimator() {
-        final WatermarkIdlePolicyFactory idlePolicyFactory =
-            accessor.getWatermarkConfiguration().getWatermarkIdlePolicyFactory();
-        final WatermarkEstimatorFactory estimatorFactory =
-            accessor.getWatermarkConfiguration().getWatermarkEstimatorFactory();
-        return estimatorFactory.create(cfg, idlePolicyFactory);
+        return accessor.getWatermarkConfiguration().getWatermarkEstimatorFactory().create();
       }
     };
   }

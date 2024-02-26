@@ -39,7 +39,6 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.time.WatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
-import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.time.WatermarkSupplier;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
@@ -58,7 +57,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -151,28 +149,26 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   private final PubSubAccessor accessor;
-  private final Map<String, Object> cfg;
   private final Context context;
   private final String project;
   private final String topic;
   private final int maxAckDeadline;
   private final int subscriptionAckDeadline;
   private final boolean subscriptionAutoCreate;
-  private final PubSubWatermarkConfiguration watermarkConfiguration;
+  private final WatermarkEstimatorFactory watermarkFactory;
 
   private transient ExecutorService executor;
 
   PubSubReader(PubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
-    this.cfg = accessor.getCfg();
     this.context = context;
     this.project = accessor.getProject();
     this.topic = accessor.getTopic();
     this.maxAckDeadline = accessor.getMaxAckDeadline();
     this.subscriptionAckDeadline = accessor.getSubscriptionAckDeadline();
     this.subscriptionAutoCreate = accessor.isSubscriptionAutoCreate();
-    this.watermarkConfiguration = accessor.getWatermarkConfiguration();
+    this.watermarkFactory = accessor.getWatermarkConfiguration().getWatermarkEstimatorFactory();
   }
 
   @Override
@@ -421,13 +417,9 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   WatermarkEstimator createWatermarkEstimator(long minWatermark) {
-    final WatermarkIdlePolicyFactory idlePolicyFactory =
-        watermarkConfiguration.getWatermarkIdlePolicyFactory();
-    final WatermarkEstimatorFactory estimatorFactory =
-        watermarkConfiguration.getWatermarkEstimatorFactory();
-    final WatermarkEstimator estimator = estimatorFactory.create(cfg, idlePolicyFactory);
-    estimator.setMinWatermark(minWatermark);
-    return estimator;
+    WatermarkEstimator res = watermarkFactory.create();
+    res.setMinWatermark(minWatermark);
+    return res;
   }
 
   private void createSubscription(

@@ -76,8 +76,8 @@ public class SkewedProcessingTimeIdlePolicyTest {
   @Test
   public void testFactory() {
     WatermarkIdlePolicyFactory factory = new SkewedProcessingTimeIdlePolicy.Factory();
-    SkewedProcessingTimeIdlePolicy policy =
-        (SkewedProcessingTimeIdlePolicy) factory.create(Collections.emptyMap());
+    factory.setup(Collections.emptyMap());
+    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create();
     assertNotNull(policy);
     assertEquals(DEFAULT_TIMESTAMP_SKEW, policy.getTimestampSkew());
   }
@@ -88,7 +88,8 @@ public class SkewedProcessingTimeIdlePolicyTest {
         ImmutableMap.of(prefixedKey(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW), TIMESTAMP_SKEW);
 
     WatermarkIdlePolicyFactory factory = new SkewedProcessingTimeIdlePolicy.Factory();
-    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create(cfg);
+    factory.setup(cfg);
+    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create();
     assertEquals(TIMESTAMP_SKEW, policy.getTimestampSkew());
   }
 
@@ -98,7 +99,8 @@ public class SkewedProcessingTimeIdlePolicyTest {
         ImmutableMap.of(SkewedProcessingTimeIdlePolicy.TIMESTAMP_SKEW, TIMESTAMP_SKEW);
 
     WatermarkIdlePolicyFactory factory = new SkewedProcessingTimeIdlePolicy.Factory();
-    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create(cfg);
+    factory.setup(cfg);
+    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create();
     assertEquals(TIMESTAMP_SKEW, policy.getTimestampSkew());
   }
 
@@ -115,7 +117,8 @@ public class SkewedProcessingTimeIdlePolicyTest {
             legacyTimestampSkew);
 
     WatermarkIdlePolicyFactory factory = new SkewedProcessingTimeIdlePolicy.Factory();
-    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create(cfg);
+    factory.setup(cfg);
+    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) factory.create();
     // Legacy config has higher priority
     assertEquals(legacyTimestampSkew, policy.getTimestampSkew());
   }

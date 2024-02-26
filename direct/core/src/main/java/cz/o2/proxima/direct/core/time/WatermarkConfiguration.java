@@ -68,7 +68,7 @@ public abstract class WatermarkConfiguration implements Serializable {
    */
   protected abstract WatermarkEstimatorFactory getDefaultEstimatorFactory();
 
-  protected void configure() {
+  protected final void configure() {
     watermarkIdlePolicyFactory =
         Optional.ofNullable(cfg.get(prefixedKey(CFG_IDLE_POLICY_FACTORY)))
             .map(Object::toString)
@@ -81,9 +81,7 @@ public abstract class WatermarkConfiguration implements Serializable {
             .map(cls -> Classpath.newInstance(cls, WatermarkEstimatorFactory.class))
             .orElse(getDefaultEstimatorFactory());
 
-    log.debug(
-        "Configured watermark with watermarkEstimatorFactory {}, idlePolicyFactory {}",
-        watermarkEstimatorFactory,
-        watermarkIdlePolicyFactory);
+    watermarkIdlePolicyFactory.setup(cfg);
+    watermarkEstimatorFactory.setup(cfg, watermarkIdlePolicyFactory);
   }
 }

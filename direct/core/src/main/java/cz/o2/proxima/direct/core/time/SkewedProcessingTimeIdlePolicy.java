@@ -20,6 +20,7 @@ import static cz.o2.proxima.direct.core.time.WatermarkConfiguration.prefixedKey;
 import cz.o2.proxima.core.time.WatermarkIdlePolicy;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.util.Map;
 import java.util.Optional;
 import lombok.Getter;
@@ -47,10 +48,10 @@ public class SkewedProcessingTimeIdlePolicy implements WatermarkIdlePolicy {
 
   public static class Factory implements WatermarkIdlePolicyFactory {
 
-    @Override
-    public WatermarkIdlePolicy create(Map<String, Object> cfg) {
-      long timestampSkew;
+    @Getter long timestampSkew;
 
+    @Override
+    public void setup(Map<String, Object> cfg) {
       // Check for legacy configuration outside watermark config
       if (cfg.containsKey(TIMESTAMP_SKEW)) {
         log.warn(
@@ -68,8 +69,16 @@ public class SkewedProcessingTimeIdlePolicy implements WatermarkIdlePolicy {
                 .map(v -> Long.valueOf(v.toString()))
                 .orElse(DEFAULT_TIMESTAMP_SKEW);
       }
+    }
 
+    @Override
+    public WatermarkIdlePolicy create() {
       return new SkewedProcessingTimeIdlePolicy(timestampSkew);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("timestampSkew", timestampSkew).toString();
     }
   }
 
@@ -81,5 +90,13 @@ public class SkewedProcessingTimeIdlePolicy implements WatermarkIdlePolicy {
   @Override
   public void idle(long currentWatermark) {
     this.currentWatermark = timestampSupplier.get() - timestampSkew;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("timestampSkew", timestampSkew)
+        .add("timestampSupplier", timestampSupplier)
+        .toString();
   }
 }

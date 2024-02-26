@@ -168,7 +168,7 @@ public class CommitLogReadTest {
               direct,
               createTestFamily(
                   event,
-                  URI.create("kafka-test://brokers/topic-" + UUID.randomUUID().toString()),
+                  URI.create("kafka-test://brokers/topic-" + UUID.randomUUID()),
                   ImmutableMap.of(
                       LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
                       numPartitions,
@@ -346,15 +346,21 @@ public class CommitLogReadTest {
     private static final Map<String, Map<Integer, Boolean>> CONSUMED_ELEMENTS =
         new ConcurrentHashMap<>();
 
+    String name;
+    int numElements;
+
     @Override
-    public WatermarkEstimator create(
-        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+    public void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+      name = cfg.get(WatermarkConfiguration.prefixedKey("name")).toString();
+      numElements =
+          Integer.parseInt(cfg.get(WatermarkConfiguration.prefixedKey("numElements")).toString());
+    }
+
+    @Override
+    public WatermarkEstimator create() {
 
       return new WatermarkEstimator() {
 
-        final String name = cfg.get(WatermarkConfiguration.prefixedKey("name")).toString();
-        final int numElements =
-            Integer.parseInt(cfg.get(WatermarkConfiguration.prefixedKey("numElements")).toString());
         long watermark = Watermarks.MIN_WATERMARK;
         final Map<Integer, Boolean> selfElements =
             CONSUMED_ELEMENTS.computeIfAbsent(name, k -> new ConcurrentHashMap<>());

@@ -24,6 +24,7 @@ import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.direct.core.time.SkewedProcessingTimeIdlePolicy;
 import cz.o2.proxima.direct.core.time.UnboundedOutOfOrdernessWatermarkEstimator;
+import cz.o2.proxima.direct.core.time.UnboundedOutOfOrdernessWatermarkEstimator.Factory;
 import cz.o2.proxima.direct.core.time.WatermarkConfiguration;
 import java.util.HashMap;
 import java.util.Map;
@@ -63,6 +64,8 @@ public class PubSubWatermarkConfiguration extends WatermarkConfiguration {
     private final long defaultEstimateDuration;
     private final long defaultAllowedTimestampSkew;
 
+    private UnboundedOutOfOrdernessWatermarkEstimator.Factory wrappedFactory;
+
     PubSubWatermarkEstimatorFactory(
         long defaultEstimateDuration, long defaultAllowedTimestampSkew) {
       this.defaultEstimateDuration = defaultEstimateDuration;
@@ -70,8 +73,7 @@ public class PubSubWatermarkConfiguration extends WatermarkConfiguration {
     }
 
     @Override
-    public WatermarkEstimator create(
-        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+    public void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
       // Preserves backward compatible behaviour by adding default values to config.
       HashMap<String, Object> newConfig = new HashMap<>(cfg);
 
@@ -88,8 +90,14 @@ public class PubSubWatermarkConfiguration extends WatermarkConfiguration {
       newConfig.putIfAbsent(prefixedKey(ESTIMATE_DURATION_MS), defaultEstimateDuration);
       newConfig.putIfAbsent(prefixedKey(ALLOWED_TIMESTAMP_SKEW), defaultAllowedTimestampSkew);
 
-      return new UnboundedOutOfOrdernessWatermarkEstimator.Factory()
-          .create(newConfig, idlePolicyFactory);
+      idlePolicyFactory.setup(newConfig);
+      this.wrappedFactory = new Factory();
+      wrappedFactory.setup(newConfig, idlePolicyFactory);
+    }
+
+    @Override
+    public WatermarkEstimator create() {
+      return wrappedFactory.create();
     }
   }
 }

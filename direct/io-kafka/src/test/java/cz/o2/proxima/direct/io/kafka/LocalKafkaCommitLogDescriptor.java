@@ -201,7 +201,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     public <K, V> KafkaConsumerFactory<K, V> createConsumerFactory() {
 
       ElementSerializer<K, V> serializer = getSerializer();
-      return new KafkaConsumerFactory<K, V>(
+      return new KafkaConsumerFactory<>(
           getUri(), new Properties(), serializer.keySerde(), serializer.valueSerde()) {
 
         @Override
@@ -239,8 +239,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         private List<Partition> allPartitions() {
           List<Partition> ret = new ArrayList<>();
           for (int i = 0; i < numPartitions; i++) {
-            int id = i;
-            ret.add(new PartitionWithTopic(getTopic(), id));
+            ret.add(new PartitionWithTopic(getTopic(), i));
           }
           return ret;
         }

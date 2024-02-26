@@ -15,24 +15,19 @@
  */
 package cz.o2.proxima.direct.core.time;
 
-import cz.o2.proxima.core.storage.StreamElement;
-import cz.o2.proxima.core.time.AbstractWatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
-import cz.o2.proxima.core.time.WatermarkIdlePolicy;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.time.Watermarks;
 import java.util.Map;
 
 /** Estimates watermark as processing time. */
-public class ProcessingTimeWatermarkEstimator extends AbstractWatermarkEstimator {
+public class ProcessingTimeWatermarkEstimator implements WatermarkEstimator {
   private static final long serialVersionUID = 1L;
   private final TimestampSupplier timestampSupplier;
   private long minWatermark;
 
-  ProcessingTimeWatermarkEstimator(
-      long minWatermark, TimestampSupplier timestampSupplier, WatermarkIdlePolicy idlePolicy) {
-    super(idlePolicy);
+  ProcessingTimeWatermarkEstimator(long minWatermark, TimestampSupplier timestampSupplier) {
     this.minWatermark = minWatermark;
     this.timestampSupplier = timestampSupplier;
   }
@@ -41,14 +36,15 @@ public class ProcessingTimeWatermarkEstimator extends AbstractWatermarkEstimator
    * Creates an instance of {@link cz.o2.proxima.direct.core.time.ProcessingTimeWatermarkEstimator}.
    */
   public static class Factory implements WatermarkEstimatorFactory {
+
     private static final long serialVersionUID = 1L;
 
     @Override
-    public WatermarkEstimator create(
-        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
-      return ProcessingTimeWatermarkEstimator.newBuilder()
-          .withWatermarkIdlePolicy(idlePolicyFactory.create(cfg))
-          .build();
+    public void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {}
+
+    @Override
+    public WatermarkEstimator create() {
+      return ProcessingTimeWatermarkEstimator.newBuilder().build();
     }
   }
 
@@ -56,42 +52,28 @@ public class ProcessingTimeWatermarkEstimator extends AbstractWatermarkEstimator
   public static class Builder {
     private final long minWatermark;
     private final TimestampSupplier timestampSupplier;
-    private final WatermarkIdlePolicy watermarkIdlePolicy;
 
     Builder() {
-      this(
-          Watermarks.MIN_WATERMARK,
-          System::currentTimeMillis,
-          new NotProgressingWatermarkIdlePolicy());
+      this(Watermarks.MIN_WATERMARK, System::currentTimeMillis);
     }
 
-    private Builder(
-        long minWatermark, TimestampSupplier timestampSupplier, WatermarkIdlePolicy idlePolicy) {
+    private Builder(long minWatermark, TimestampSupplier timestampSupplier) {
       this.minWatermark = minWatermark;
       this.timestampSupplier = timestampSupplier;
-      this.watermarkIdlePolicy = idlePolicy;
     }
 
     public ProcessingTimeWatermarkEstimator.Builder withMinWatermark(long minWatermark) {
-      return new ProcessingTimeWatermarkEstimator.Builder(
-          minWatermark, timestampSupplier, watermarkIdlePolicy);
+      return new ProcessingTimeWatermarkEstimator.Builder(minWatermark, timestampSupplier);
     }
 
     public ProcessingTimeWatermarkEstimator.Builder withTimestampSupplier(
         TimestampSupplier timestampSupplier) {
-      return new ProcessingTimeWatermarkEstimator.Builder(
-          minWatermark, timestampSupplier, watermarkIdlePolicy);
-    }
 
-    public ProcessingTimeWatermarkEstimator.Builder withWatermarkIdlePolicy(
-        WatermarkIdlePolicy watermarkIdlePolicy) {
-      return new ProcessingTimeWatermarkEstimator.Builder(
-          minWatermark, timestampSupplier, watermarkIdlePolicy);
+      return new ProcessingTimeWatermarkEstimator.Builder(minWatermark, timestampSupplier);
     }
 
     public ProcessingTimeWatermarkEstimator build() {
-      return new ProcessingTimeWatermarkEstimator(
-          minWatermark, timestampSupplier, watermarkIdlePolicy);
+      return new ProcessingTimeWatermarkEstimator(minWatermark, timestampSupplier);
     }
   }
 
@@ -100,12 +82,9 @@ public class ProcessingTimeWatermarkEstimator extends AbstractWatermarkEstimator
   }
 
   @Override
-  protected long estimateWatermark() {
+  public long getWatermark() {
     return Math.max(timestampSupplier.get(), minWatermark);
   }
-
-  @Override
-  protected void updateWatermark(StreamElement element) {}
 
   @Override
   public void setMinWatermark(long minWatermark) {

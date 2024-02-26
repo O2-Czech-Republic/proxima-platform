@@ -58,7 +58,7 @@ public class UnboundedOutOfOrdernessWatermarkEstimatorTest {
     for (int i = 0; i < 3; i++) {
       assertEquals(
           UnboundedOutOfOrdernessWatermarkEstimator.DEFAULT_MIN_WATERMARK, est.getWatermark());
-      stamp.accumulateAndGet(250, (a, b) -> a + b);
+      stamp.accumulateAndGet(250, Long::sum);
       est.add(stamp.get());
     }
     assertEquals(550, est.getWatermark());
@@ -74,7 +74,7 @@ public class UnboundedOutOfOrdernessWatermarkEstimatorTest {
   public void testCreateBacklog() {
     UnboundedOutOfOrdernessWatermarkEstimator est = createEstimator();
     testTimestampIncreaseInitializes(est);
-    stamp.accumulateAndGet(250, (a, b) -> a + b);
+    stamp.accumulateAndGet(250, Long::sum);
     est.add(stamp.get() - 1000);
     assertEquals(stamp.get() - 450, est.getWatermark());
     testTimestampIncreaseInitializes(est);
@@ -83,7 +83,7 @@ public class UnboundedOutOfOrdernessWatermarkEstimatorTest {
   private UnboundedOutOfOrdernessWatermarkEstimator testTimestampIncreaseInitializes(
       UnboundedOutOfOrdernessWatermarkEstimator est) {
     for (int i = 0; i < 10; i++) {
-      stamp.accumulateAndGet(250, (a, b) -> a + b);
+      stamp.accumulateAndGet(250, Long::sum);
       est.add(stamp.get() - i * 5);
     }
     assertEquals(stamp.get() - 200, est.getWatermark());
@@ -130,16 +130,17 @@ public class UnboundedOutOfOrdernessWatermarkEstimatorTest {
             prefixedKey(ALLOWED_TIMESTAMP_SKEW), allowedTimestampSkew);
 
     WatermarkIdlePolicyFactory idlePolicyFactory = mock(WatermarkIdlePolicyFactory.class);
-    when(idlePolicyFactory.create(cfg)).thenReturn(mock(WatermarkIdlePolicy.class));
+    when(idlePolicyFactory.create()).thenReturn(mock(WatermarkIdlePolicy.class));
 
     WatermarkEstimatorFactory factory = new UnboundedOutOfOrdernessWatermarkEstimator.Factory();
+    factory.setup(cfg, idlePolicyFactory);
     UnboundedOutOfOrdernessWatermarkEstimator watermarkEstimator =
-        (UnboundedOutOfOrdernessWatermarkEstimator) factory.create(cfg, idlePolicyFactory);
+        (UnboundedOutOfOrdernessWatermarkEstimator) factory.create();
 
     assertEquals(estimateDurationMs, watermarkEstimator.getEstimateDurationMs());
     assertEquals(stepMs, watermarkEstimator.getStepMs());
     assertEquals(allowedTimestampSkew, watermarkEstimator.getAllowedTimestampSkew());
-    verify(idlePolicyFactory, times(1)).create(cfg);
+    verify(idlePolicyFactory, times(1)).create();
   }
 
   private UnboundedOutOfOrdernessWatermarkEstimator createEstimator() {

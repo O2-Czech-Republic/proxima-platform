@@ -25,6 +25,7 @@ import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicy;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.Arrays;
 import java.util.Map;
@@ -54,22 +55,30 @@ public class UnboundedOutOfOrdernessWatermarkEstimator extends AbstractWatermark
 
   public static class Factory implements WatermarkEstimatorFactory {
 
+    private long durationMs;
+    private long stepMs;
+    private long allowedTimestampSkew;
+    private long minWatermark;
+    private WatermarkIdlePolicyFactory idlePolicyFactory;
+
     @Override
-    public WatermarkEstimator create(
-        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
-
-      long durationMs = getConfiguration(ESTIMATE_DURATION_MS, cfg, DEFAULT_ESTIMATE_DURATION_MS);
-      long stepMs = getConfiguration(STEP_MS, cfg, DEFAULT_STEP_MS);
-      long allowedTimestampSkew =
+    public void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+      this.durationMs = getConfiguration(ESTIMATE_DURATION_MS, cfg, DEFAULT_ESTIMATE_DURATION_MS);
+      this.stepMs = getConfiguration(STEP_MS, cfg, DEFAULT_STEP_MS);
+      this.allowedTimestampSkew =
           getConfiguration(ALLOWED_TIMESTAMP_SKEW, cfg, DEFAULT_ALLOWED_TIMESTAMP_SKEW);
-      long minWatermark = getConfiguration(MIN_WATERMARK, cfg, DEFAULT_MIN_WATERMARK);
+      this.minWatermark = getConfiguration(MIN_WATERMARK, cfg, DEFAULT_MIN_WATERMARK);
+      this.idlePolicyFactory = idlePolicyFactory;
+    }
 
+    @Override
+    public WatermarkEstimator create() {
       return UnboundedOutOfOrdernessWatermarkEstimator.newBuilder()
           .withAllowedTimestampSkew(allowedTimestampSkew)
           .withDurationMs(durationMs)
           .withStepMs(stepMs)
           .withMinWatermark(minWatermark)
-          .withWatermarkIdlePolicy(idlePolicyFactory.create(cfg))
+          .withWatermarkIdlePolicy(idlePolicyFactory.create())
           .build();
     }
 
@@ -78,6 +87,17 @@ public class UnboundedOutOfOrdernessWatermarkEstimator extends AbstractWatermark
       return Optional.ofNullable(cfg.get(prefixedKey(configuration)))
           .map(v -> Long.valueOf(v.toString()))
           .orElse(defaultValue);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("allowedTimestampSkew", this.allowedTimestampSkew)
+          .add("minWatermark", this.minWatermark)
+          .add("stepMs", this.stepMs)
+          .add("durationMs", this.durationMs)
+          .add("idlePolicyFactory", this.idlePolicyFactory)
+          .toString();
     }
   }
 

@@ -177,7 +177,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     AttributeFamilyDescriptor testFamily = createTestFamily(entity, storageUri, partitionsCfg(1));
     Accessor accessor = kafka.createAccessor(direct, testFamily);
     assertTrue(accessor.isAcceptable(testFamily));
-    LocalKafkaWriter writer = accessor.newWriter();
+    LocalKafkaWriter<?, ?> writer = accessor.newWriter();
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
     CountDownLatch latch = new CountDownLatch(1);
     writer.write(
@@ -3318,8 +3318,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     public static final long FIXED_WATERMARK = 333L;
 
     @Override
-    public WatermarkEstimator create(
-        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+    public void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {}
+
+    @Override
+    public WatermarkEstimator create() {
       return new WatermarkEstimator() {
         @Override
         public long getWatermark() {
@@ -3336,7 +3338,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     public static final long FIXED_IDLE_WATERMARK = 555L;
 
     @Override
-    public WatermarkIdlePolicy create(Map<String, Object> cfg) {
+    public void setup(Map<String, Object> cfg) {}
+
+    @Override
+    public WatermarkIdlePolicy create() {
       return () -> FIXED_IDLE_WATERMARK;
     }
   }

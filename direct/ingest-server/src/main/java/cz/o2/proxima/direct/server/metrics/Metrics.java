@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,7 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 public class Metrics {
   public static final String GROUP = "cz.o2.proxima.direct.server";
   private static final MetricFactory FACTORY = new MetricFactory();
-  private static final Map<String, Metric<?>> CACHED_METRICS = new HashMap<>();
+  private static final Map<String, Metric<?>> CACHED_METRICS = new ConcurrentHashMap<>();
 
   public static final TimeAveragingMetric INGEST_SINGLE =
       FACTORY.timeAveraging(GROUP, "ingest-single", 1_000);

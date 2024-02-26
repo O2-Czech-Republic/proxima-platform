@@ -38,9 +38,8 @@ public class PubSubWatermarkConfigurationTest {
     WatermarkIdlePolicyFactory policyFactory = configuration.getWatermarkIdlePolicyFactory();
     UnboundedOutOfOrdernessWatermarkEstimator estimator =
         (UnboundedOutOfOrdernessWatermarkEstimator)
-            configuration.getWatermarkEstimatorFactory().create(cfg, policyFactory);
-    SkewedProcessingTimeIdlePolicy policy =
-        (SkewedProcessingTimeIdlePolicy) policyFactory.create(cfg);
+            configuration.getWatermarkEstimatorFactory().create();
+    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) policyFactory.create();
 
     assertNotNull(estimator);
     assertNotNull(policy);

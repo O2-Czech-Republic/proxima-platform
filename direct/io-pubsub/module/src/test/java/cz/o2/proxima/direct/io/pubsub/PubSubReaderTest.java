@@ -112,8 +112,10 @@ public class PubSubReaderTest {
 
   public static class TestWatermarkEstimatorFactory implements WatermarkEstimatorFactory {
     @Override
-    public WatermarkEstimator create(
-        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+    public void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {}
+
+    @Override
+    public WatermarkEstimator create() {
       return UnboundedOutOfOrdernessWatermarkEstimator.newBuilder()
           .withDurationMs(1)
           .withStepMs(1)

@@ -89,9 +89,11 @@ public class WatermarkConfigurationTest {
     }
 
     public static class IdlePolicy implements WatermarkIdlePolicyFactory {
+      @Override
+      public void setup(Map<String, Object> cfg) {}
 
       @Override
-      public WatermarkIdlePolicy create(Map<String, Object> cfg) {
+      public WatermarkIdlePolicy create() {
         return null;
       }
     }
@@ -99,8 +101,10 @@ public class WatermarkConfigurationTest {
     public static class Estimator implements WatermarkEstimatorFactory {
 
       @Override
-      public WatermarkEstimator create(
-          Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+      public void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {}
+
+      @Override
+      public WatermarkEstimator create() {
         return null;
       }
     }
@@ -109,7 +113,10 @@ public class WatermarkConfigurationTest {
   public static class CustomIdlePolicyFactory implements WatermarkIdlePolicyFactory {
 
     @Override
-    public WatermarkIdlePolicy create(Map<String, Object> cfg) {
+    public void setup(Map<String, Object> cfg) {}
+
+    @Override
+    public WatermarkIdlePolicy create() {
       return null;
     }
   }
@@ -117,8 +124,10 @@ public class WatermarkConfigurationTest {
   public static class CustomWatermarkEstimatorFactory implements WatermarkEstimatorFactory {
 
     @Override
-    public WatermarkEstimator create(
-        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+    public void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {}
+
+    @Override
+    public WatermarkEstimator create() {
       return null;
     }
   }

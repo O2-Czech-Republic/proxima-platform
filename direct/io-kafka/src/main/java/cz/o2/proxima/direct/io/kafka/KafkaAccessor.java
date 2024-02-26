@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import javax.annotation.Nullable;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -108,34 +107,25 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   @Getter @Nullable private final String topicPattern;
 
-  @Getter(AccessLevel.PACKAGE)
-  private final Map<String, Object> cfg;
+  @Getter private final Map<String, Object> cfg;
 
-  @Getter(AccessLevel.PACKAGE)
-  private Partitioner partitioner = new KeyPartitioner();
+  @Getter private Partitioner partitioner = new KeyPartitioner();
 
-  @Getter(AccessLevel.PACKAGE)
-  private long consumerPollInterval = 100;
+  @Getter private long consumerPollInterval = 100;
 
-  @Getter(AccessLevel.PACKAGE)
-  private long maxBytesPerSec = Long.MAX_VALUE;
+  @Getter private long maxBytesPerSec = Long.MAX_VALUE;
 
-  @Getter(AccessLevel.PACKAGE)
-  private int maxPollRecords = 500;
+  @Getter private int maxPollRecords = 500;
 
-  @Getter(AccessLevel.PACKAGE)
-  private long autoCommitIntervalMs = Long.MAX_VALUE;
+  @Getter private long autoCommitIntervalMs = Long.MAX_VALUE;
 
-  @Getter(AccessLevel.PACKAGE)
-  private long logStaleCommitIntervalMs = 60_000L;
+  @Getter private long logStaleCommitIntervalMs = 60_000L;
 
-  @Getter(AccessLevel.PACKAGE)
-  private long assignmentTimeoutMillis = 10_000L;
+  @Getter private long assignmentTimeoutMillis = 10_000L;
 
-  @Getter(AccessLevel.PACKAGE)
-  private KafkaWatermarkConfiguration watermarkConfiguration;
+  @Getter private KafkaWatermarkConfiguration watermarkConfiguration;
 
-  Class<ElementSerializer<?, ?>> serializerClass;
+  @Getter Class<ElementSerializer<?, ?>> serializerClass;
 
   public KafkaAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 

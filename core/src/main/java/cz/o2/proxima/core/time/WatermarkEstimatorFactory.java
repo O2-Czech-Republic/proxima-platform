@@ -20,5 +20,14 @@ import java.util.Map;
 
 /** Factory creates watermark estimator instance. */
 public interface WatermarkEstimatorFactory extends Serializable {
-  WatermarkEstimator create(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory);
+
+  /**
+   * Configure the estimator factory based on provided configuration.
+   *
+   * @param cfg the confguration
+   * @param idlePolicyFactory the configured idle policy factory
+   */
+  void setup(Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory);
+
+  WatermarkEstimator create();
 }

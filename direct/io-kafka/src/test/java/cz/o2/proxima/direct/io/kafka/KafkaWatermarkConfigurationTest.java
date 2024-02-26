@@ -33,11 +33,11 @@ public class KafkaWatermarkConfigurationTest {
     Map<String, Object> cfg = ImmutableMap.of("timestamp-skew", 10L);
     KafkaWatermarkConfiguration configuration = new KafkaWatermarkConfiguration(cfg);
     WatermarkIdlePolicyFactory policyFactory = configuration.getWatermarkIdlePolicyFactory();
+    configuration.getWatermarkEstimatorFactory().setup(cfg, policyFactory);
     BoundedOutOfOrdernessWatermarkEstimator estimator =
         (BoundedOutOfOrdernessWatermarkEstimator)
-            configuration.getWatermarkEstimatorFactory().create(cfg, policyFactory);
-    SkewedProcessingTimeIdlePolicy policy =
-        (SkewedProcessingTimeIdlePolicy) policyFactory.create(cfg);
+            configuration.getWatermarkEstimatorFactory().create();
+    SkewedProcessingTimeIdlePolicy policy = (SkewedProcessingTimeIdlePolicy) policyFactory.create();
 
     assertNotNull(estimator);
     assertNotNull(policy);

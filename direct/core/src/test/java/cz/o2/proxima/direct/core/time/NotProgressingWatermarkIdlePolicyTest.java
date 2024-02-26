@@ -54,7 +54,6 @@ public class NotProgressingWatermarkIdlePolicyTest {
     for (int i = 0; i < 100; i++) {
       long previousWatermark = policy.getIdleWatermark();
       policy.idle(random.nextLong());
-
       assertTrue(previousWatermark <= policy.getIdleWatermark());
     }
   }
@@ -62,7 +61,8 @@ public class NotProgressingWatermarkIdlePolicyTest {
   @Test
   public void testFactory() {
     WatermarkIdlePolicyFactory factory = new NotProgressingWatermarkIdlePolicy.Factory();
-    WatermarkIdlePolicy policy = factory.create(Collections.emptyMap());
+    factory.setup(Collections.emptyMap());
+    WatermarkIdlePolicy policy = factory.create();
     assertNotNull(policy);
     assertEquals(NotProgressingWatermarkIdlePolicy.class, policy.getClass());
   }

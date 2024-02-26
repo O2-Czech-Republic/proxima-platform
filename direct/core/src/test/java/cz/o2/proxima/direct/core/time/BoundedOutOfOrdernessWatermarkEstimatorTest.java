@@ -159,14 +159,15 @@ public class BoundedOutOfOrdernessWatermarkEstimatorTest {
         ImmutableMap.of(prefixedKey(MAX_OUT_OF_ORDERNESS_MS), OUT_OF_ORDERNESS);
 
     WatermarkIdlePolicyFactory idlePolicyFactory = mock(WatermarkIdlePolicyFactory.class);
-    when(idlePolicyFactory.create(cfg)).thenReturn(mock(WatermarkIdlePolicy.class));
+    when(idlePolicyFactory.create()).thenReturn(mock(WatermarkIdlePolicy.class));
 
     WatermarkEstimatorFactory factory = new BoundedOutOfOrdernessWatermarkEstimator.Factory();
+    factory.setup(cfg, idlePolicyFactory);
     BoundedOutOfOrdernessWatermarkEstimator watermarkEstimator =
-        (BoundedOutOfOrdernessWatermarkEstimator) factory.create(cfg, idlePolicyFactory);
+        (BoundedOutOfOrdernessWatermarkEstimator) factory.create();
 
     assertEquals(OUT_OF_ORDERNESS, watermarkEstimator.getMaxOutOfOrderness());
-    verify(idlePolicyFactory, times(1)).create(cfg);
+    verify(idlePolicyFactory, times(1)).create();
   }
 
   private StreamElement element(long ts) {

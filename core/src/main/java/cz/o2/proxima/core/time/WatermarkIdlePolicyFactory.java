@@ -20,5 +20,9 @@ import java.util.Map;
 
 /** Factory creates watermark idle policy instance. */
 public interface WatermarkIdlePolicyFactory extends Serializable {
-  WatermarkIdlePolicy create(Map<String, Object> cfg);
+
+  /** Configure the factory based on the provided configuration. */
+  void setup(Map<String, Object> cfg);
+
+  WatermarkIdlePolicy create();
 }

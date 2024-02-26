@@ -28,7 +28,10 @@ public class NotProgressingWatermarkIdlePolicy implements WatermarkIdlePolicy {
   public static class Factory implements WatermarkIdlePolicyFactory {
 
     @Override
-    public WatermarkIdlePolicy create(Map<String, Object> cfg) {
+    public void setup(Map<String, Object> cfg) {}
+
+    @Override
+    public WatermarkIdlePolicy create() {
       return new NotProgressingWatermarkIdlePolicy();
     }
   }

@@ -75,6 +75,7 @@ public class OffsetCommitter<ID> {
   private final Map<ID, NavigableMap<Long, OffsetMeta>> waitingOffsets;
   private final long stateCommitWarningMillis;
   private final long autoCommitMs;
+  private long lastReportedStaleOffset = 0L;
 
   public OffsetCommitter() {
     this(60000L, Long.MAX_VALUE);
@@ -141,7 +142,10 @@ public class OffsetCommitter<ID> {
           committable.add(e);
           log.debug("Added offset {} of ID {} to committable map.", e.getKey(), id);
         } else {
-          if (age > stateCommitWarningMillis) {
+          long now;
+          if (age > stateCommitWarningMillis
+              && (now = System.currentTimeMillis()) - lastReportedStaleOffset > 5000) {
+            lastReportedStaleOffset = now;
             log.warn(
                 "Offset {} ID {} was not committed in {} ms ({} actions missing). Please verify your commit logic!",
                 e.getKey(),

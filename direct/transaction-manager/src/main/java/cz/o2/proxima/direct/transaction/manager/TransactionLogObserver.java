@@ -22,7 +22,6 @@ import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
-import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.transaction.Commit;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.KeyAttributes;
@@ -63,6 +62,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -167,7 +167,7 @@ public class TransactionLogObserver implements CommitLogObserver {
   private final Object commitLock = new Object();
 
   @GuardedBy("timerLock")
-  private PriorityQueue<Pair<Long, Runnable>> timers =
+  private final PriorityQueue<Pair<Long, Runnable>> timers =
       new PriorityQueue<>(Comparator.comparing(Pair::getFirst));
 
   @GuardedBy("lock")
@@ -432,6 +432,11 @@ public class TransactionLogObserver implements CommitLogObserver {
       @Nullable State newState = transitionState(transactionId, currentState, request);
       if (newState != null) {
         // we have successfully computed new state, produce response
+        log.info(
+            "Transaction {} transitioned to state {} from {}",
+            transactionId,
+            newState.getFlags(),
+            currentState.getFlags());
         Response response = getResponseForNewState(request, currentState, newState);
         manager.ensureTransactionOpen(transactionId, newState);
         manager.writeResponseAndUpdateState(
@@ -464,7 +469,7 @@ public class TransactionLogObserver implements CommitLogObserver {
 
   private void abortTransaction(String transactionId, State state) {
     long seqId = state.getSequentialId();
-    // we need to rollback all updates to lastUpdateSeqId with the same seqId
+    // we need to roll back all updates to lastUpdateSeqId with the same seqId
     try (var l = Locker.of(this.lock.writeLock())) {
       state.getCommittedAttributes().stream()
           .map(KeyWithAttribute::ofWildcard)
@@ -536,7 +541,7 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private State transitionToUpdated(State currentState, Request request) {
-    if (!isCompatibleUpdate(currentState.getInputAttributes(), request.getInputAttributes())) {
+    if (!isCompatibleWildcardUpdate(currentState, request.getInputAttributes())) {
       metrics.getTransactionsRejected().increment();
       return currentState.aborted();
     }
@@ -544,23 +549,55 @@ public class TransactionLogObserver implements CommitLogObserver {
     return currentState.update(request.getInputAttributes());
   }
 
-  private boolean isCompatibleUpdate(
-      Collection<KeyAttribute> inputs, Collection<KeyAttribute> additionalAttributes) {
+  private static Map<String, Set<KeyAttribute>> getPartitionedWildcards(
+      Stream<KeyAttribute> attributes) {
 
-    List<KeyAttribute> wildcards =
-        inputs.stream()
-            .filter(ka -> ka.getSequenceId() < Watermarks.MAX_WATERMARK)
-            .filter(ka -> ka.isWildcardQuery() || ka.getAttributeDescriptor().isWildcard())
-            .collect(Collectors.toList());
-    return additionalAttributes.stream()
+    return attributes
         .filter(ka -> ka.isWildcardQuery() || ka.getAttributeDescriptor().isWildcard())
+        .collect(
+            Collectors.groupingBy(TransactionLogObserver::getWildcardQueryId, Collectors.toSet()));
+  }
+
+  @Internal
+  private static String getWildcardQueryId(KeyAttribute ka) {
+    return ka.getKey()
+        + "/"
+        + ka.getEntity().getName()
+        + ":"
+        + ka.getAttributeDescriptor().getName();
+  }
+
+  private boolean isCompatibleWildcardUpdate(
+      State state, Collection<KeyAttribute> additionalAttributes) {
+
+    Map<String, Set<KeyAttribute>> existingWildcards =
+        getPartitionedWildcards(state.getInputAttributes().stream());
+    Map<String, Set<KeyAttribute>> updatesPartitioned =
+        getPartitionedWildcards(additionalAttributes.stream());
+
+    return updatesPartitioned.entrySet().stream()
         .allMatch(
-            ka -> {
-              // verify we didn't have any prior KeyAttributes matching the query
-              // or that this KeyAttribute does not contain any earlier versions of wildcard
-              KeyWithAttribute kwa = KeyWithAttribute.ofWildcard(ka);
-              return wildcards.stream()
-                  .noneMatch(inputKa -> KeyWithAttribute.ofWildcard(inputKa).equals(kwa));
+            e -> {
+              // either the wildcard has not been queried yet
+              // or both outcomes are the same
+              Set<KeyAttribute> currentKeyAttributes = existingWildcards.get(e.getKey());
+              Set<KeyAttribute> updatedKeyAttributes = e.getValue();
+              boolean currentContainQuery =
+                  currentKeyAttributes != null
+                      && currentKeyAttributes.stream().anyMatch(KeyAttribute::isWildcardQuery);
+              boolean updatesContainQuery =
+                  updatedKeyAttributes.stream().anyMatch(KeyAttribute::isWildcardQuery);
+
+              if (updatesContainQuery && currentKeyAttributes != null) {
+                // we either did not query the data previously, or we have the exact same results
+                if (!Sets.difference(currentKeyAttributes, updatedKeyAttributes).isEmpty()) {
+                  return false;
+                }
+              }
+              if (currentContainQuery) {
+                return Sets.difference(updatedKeyAttributes, currentKeyAttributes).isEmpty();
+              }
+              return true;
             });
   }
 
@@ -599,7 +636,7 @@ public class TransactionLogObserver implements CommitLogObserver {
           Preconditions.checkArgument(
               !ka.isWildcardQuery(), "Got KeyAttribute %s, which is not allowed output.", ka);
           KeyWithAttribute kwa = KeyWithAttribute.of(ka);
-          if (!ka.getAttributeSuffix().isPresent()) {
+          if (ka.getAttributeSuffix().isEmpty()) {
             mapOfInputs.putIfAbsent(kwa, ka);
           } else {
             // we can add wildcard output only if the inputs do not contain wildcard query

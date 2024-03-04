@@ -417,6 +417,98 @@ public class TransactionLogObserverTest {
   }
 
   @Test(timeout = 10000)
+  public void testTransactionUpdateWithWildcardConflict3() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    // first read "userGateways.1"
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    // discard this
+    responseQueue.take();
+    // then read "userGateways.2"
+    clientManager
+        .updateTransaction(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "2")))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.UPDATED, response.getFlags());
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionUpdateWithWildcardConflict4() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    // first read "userGateways.1"
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    // discard this
+    responseQueue.take();
+    // then query "userGateways.*"
+    clientManager
+        .updateTransaction(
+            transactionId,
+            KeyAttributes.ofWildcardQueryElements(
+                user,
+                "user",
+                userGateways,
+                Arrays.asList(
+                    // one update matches the previous query
+                    userGateways.upsert(1L, "user", "1", now, new byte[] {}),
+                    // one is added due to the query
+                    userGateways.upsert(2L, "user", "2", now, new byte[] {}))))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.UPDATED, response.getFlags());
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionUpdateWithWildcardConflict5() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    // first read "userGateways.1"
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
+        .thenAccept(responseQueue::add);
+    // discard this
+    responseQueue.take();
+    // then query "userGateways.*", but get different results
+    clientManager
+        .updateTransaction(
+            transactionId,
+            KeyAttributes.ofWildcardQueryElements(
+                user,
+                "user",
+                userGateways,
+                Arrays.asList(
+                    // one update DOES NOT match the previous query
+                    userGateways.upsert(3L, "user", "1", now, new byte[] {}),
+                    // one is added due to the query
+                    userGateways.upsert(2L, "user", "2", now, new byte[] {}))))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
+  }
+
+  @Test(timeout = 10000)
   public void testTransactionRollback() throws InterruptedException {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();

@@ -470,10 +470,12 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                       .get()
                       .update(Objects.requireNonNull(topicPartitionToId.get(tp)), ingest);
                 }
-                log.debug(
-                    "Processing element {} with {}",
-                    ingest,
-                    ingest == null ? null : ingest.getParsed());
+                if (log.isDebugEnabled()) {
+                  log.debug(
+                      "Processing element {} with {}",
+                      ingest,
+                      ingest == null ? null : ingest.getParsed());
+                }
                 boolean cont =
                     consumer.consumeWithConfirm(
                         ingest, tp, r.offset(), watermarkEstimator.get(), error::set);

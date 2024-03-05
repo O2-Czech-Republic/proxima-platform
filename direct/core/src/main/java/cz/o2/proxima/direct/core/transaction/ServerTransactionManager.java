@@ -47,6 +47,8 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
   interface ServerTransactionConfig extends TransactionConfig {
     /** Get initial sequential ID policy. */
     InitialSequenceIdPolicy getInitialSeqIdPolicy();
+
+    TransactionMonitoringPolicy getTransactionMonitoringPolicy();
   }
 
   /**

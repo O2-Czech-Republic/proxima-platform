@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.transaction.manager;
 
 import static org.junit.Assert.*;
 
-import cz.o2.proxima.core.repository.AttributeDescriptor;
+import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -25,7 +25,6 @@ import cz.o2.proxima.core.repository.config.ConfigUtils;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.KeyAttributes;
-import cz.o2.proxima.core.transaction.Request;
 import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.util.TransformationRunner;
@@ -64,21 +63,18 @@ public class TransactionLogObserverTest {
   private final Config conf =
       ConfigUtils.withStorageReplacement(
           ConfigFactory.defaultApplication()
+              .withFallback(
+                  ConfigFactory.parseMap(
+                      ImmutableMap.of(
+                          "transactions.monitoring-policy", TestMonitoringPolicy.class.getName())))
               .withFallback(ConfigFactory.load("test-transactions.conf"))
               .resolve(),
           transactionFamilies::contains,
           name -> URI.create("kafka-test://broker/topic_" + name));
   private final Repository repo = Repository.ofTest(conf);
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
-  private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final EntityDescriptor user = repo.getEntity("user");
-  private final AttributeDescriptor<byte[]> gatewayStatus = gateway.getAttribute("status");
   private final Wildcard<byte[]> userGateways = Wildcard.of(user, user.getAttribute("gateway.*"));
-  private final EntityDescriptor transaction = repo.getEntity("_transaction");
-  private final Wildcard<Request> request =
-      Wildcard.of(transaction, transaction.getAttribute("request.*"));
-  private final Wildcard<Response> response =
-      Wildcard.of(transaction, transaction.getAttribute("response.*"));
   private long now;
   private TransactionLogObserver observer;
   private Metrics metrics;
@@ -160,6 +156,14 @@ public class TransactionLogObserverTest {
     assertEquals(Response.Flags.COMMITTED, response.getFlags());
     TimeUnit.SECONDS.sleep(1);
     assertTrue(metrics.getTransactionsCommitted().getValue() > 0.0);
+  }
+
+  @Test(timeout = 10000)
+  public void testCreateTransactionCommitWithMonitoring() throws InterruptedException {
+    TestMonitoringPolicy.clear();
+    assertTrue(TestMonitoringPolicy.isEmpty());
+    testCreateTransactionCommit();
+    assertFalse(TestMonitoringPolicy.isEmpty());
   }
 
   @Test(timeout = 10000)

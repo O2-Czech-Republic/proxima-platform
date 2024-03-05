@@ -35,6 +35,7 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
+import cz.o2.proxima.direct.core.transaction.TransactionMonitoringPolicy;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Iterators;
@@ -178,11 +179,14 @@ public class TransactionLogObserver implements CommitLogObserver {
   private final Map<KeyWithAttribute, Map<KeyWithAttribute, SeqIdWithTombstone>> updatesToWildcard =
       new HashMap<>();
 
+  private final TransactionMonitoringPolicy monitoringPolicy;
+
   public TransactionLogObserver(DirectDataOperator direct, Metrics metrics) {
     this.direct = direct;
     this.metrics = metrics;
     this.unsynchronizedManager = getServerTransactionManager(direct);
     this.manager = synchronizedManager(unsynchronizedManager);
+    this.monitoringPolicy = unsynchronizedManager.getCfg().getTransactionMonitoringPolicy();
     sequenceId.set(unsynchronizedManager.getCfg().getInitialSeqIdPolicy().apply());
     assertSingleton();
     startHouseKeeping();
@@ -392,6 +396,8 @@ public class TransactionLogObserver implements CommitLogObserver {
     String requestId = manager.getRequestDesc().extractSuffix(element.getAttribute());
     Optional<Request> maybeRequest = manager.getRequestDesc().valueOf(element);
     if (maybeRequest.isPresent()) {
+      monitoringPolicy.incomingRequest(
+          transactionId, maybeRequest.get(), element.getStamp(), context.getWatermark());
       processTransactionRequest(
           transactionId, requestId, maybeRequest.get(), context, element.getStamp());
     } else {
@@ -431,6 +437,7 @@ public class TransactionLogObserver implements CommitLogObserver {
       State currentState = manager.getCurrentState(transactionId);
       @Nullable State newState = transitionState(transactionId, currentState, request);
       if (newState != null) {
+        monitoringPolicy.stateUpdate(transactionId, currentState, newState);
         // we have successfully computed new state, produce response
         log.info(
             "Transaction {} transitioned to state {} from {}",
@@ -439,18 +446,18 @@ public class TransactionLogObserver implements CommitLogObserver {
             currentState.getFlags());
         Response response = getResponseForNewState(request, currentState, newState);
         manager.ensureTransactionOpen(transactionId, newState);
+        monitoringPolicy.outgoingResponse(transactionId, response);
         manager.writeResponseAndUpdateState(
             transactionId, newState, requestId, response, context::commit);
       } else if (request.getFlags() == Request.Flags.OPEN
           && (currentState.getFlags() == State.Flags.OPEN
               || currentState.getFlags() == State.Flags.COMMITTED)) {
 
+        Response response = Response.forRequest(request).duplicate(currentState.getSequentialId());
+        monitoringPolicy.stateUpdate(transactionId, currentState, currentState);
+        monitoringPolicy.outgoingResponse(transactionId, response);
         manager.writeResponseAndUpdateState(
-            transactionId,
-            currentState,
-            requestId,
-            Response.forRequest(request).duplicate(currentState.getSequentialId()),
-            context::commit);
+            transactionId, currentState, requestId, response, context::commit);
       } else {
         log.warn(
             "Unexpected {} request for transaction {} seqId {} when the state is {}. "

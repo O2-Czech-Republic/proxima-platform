@@ -112,6 +112,11 @@ public class TransactionResourceManager
     public InitialSequenceIdPolicy getInitialSeqIdPolicy() {
       return initialSequenceIdPolicy;
     }
+
+    @Override
+    public TransactionMonitoringPolicy getTransactionMonitoringPolicy() {
+      return transactionMonitoringPolicy;
+    }
   }
 
   private class CachedWriters implements AutoCloseable {
@@ -358,6 +363,9 @@ public class TransactionResourceManager
   @Getter(AccessLevel.PACKAGE)
   private final InitialSequenceIdPolicy initialSequenceIdPolicy;
 
+  @Getter(AccessLevel.PACKAGE)
+  private final TransactionMonitoringPolicy transactionMonitoringPolicy;
+
   @VisibleForTesting
   public TransactionResourceManager(DirectDataOperator direct, Map<String, Object> cfg) {
     this.direct = direct;
@@ -369,6 +377,7 @@ public class TransactionResourceManager
     this.transactionTimeoutMs = getTransactionTimeout(cfg);
     this.cleanupIntervalMs = getCleanupInterval(cfg);
     this.initialSequenceIdPolicy = getInitialSequenceIdPolicy(cfg);
+    this.transactionMonitoringPolicy = getTransactionMonitoringPolicy(cfg);
 
     log.info(
         "Created {} with transaction timeout {} ms",
@@ -400,6 +409,15 @@ public class TransactionResourceManager
         .map(Object::toString)
         .map(c -> Classpath.newInstance(c, InitialSequenceIdPolicy.class))
         .orElse(new InitialSequenceIdPolicy.Default());
+  }
+
+  private static TransactionMonitoringPolicy getTransactionMonitoringPolicy(
+      Map<String, Object> cfg) {
+
+    return Optional.ofNullable(cfg.get("monitoring-policy"))
+        .map(Object::toString)
+        .map(c -> Classpath.newInstance(c, TransactionMonitoringPolicy.class))
+        .orElse(TransactionMonitoringPolicy.nop());
   }
 
   @Override

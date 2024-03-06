@@ -313,6 +313,37 @@ public class TransactionLogObserverTest {
   }
 
   @Test(timeout = 10000)
+  public void testCreateTransactionReopenAfterAbort() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String t1 = UUID.randomUUID().toString();
+    String t2 = UUID.randomUUID().toString();
+    List<KeyAttribute> inputs =
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 1L, "1"));
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager.begin(t1, inputs).thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    long t1SeqId = response.getSeqId();
+    clientManager
+        .commit(
+            t1,
+            Collections.singletonList(
+                KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 2L, "1")))
+        .thenAccept(responseQueue::add);
+    responseQueue.take();
+    clientManager.begin(t2, inputs).thenAccept(responseQueue::add);
+    // t2 is aborted
+    responseQueue.take();
+    inputs =
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, t1SeqId, "1"));
+    clientManager.begin(t2, inputs).thenApply(responseQueue::add);
+    response = responseQueue.take();
+    assertEquals(Response.Flags.OPEN, response.getFlags());
+  }
+
+  @Test(timeout = 10000)
   public void testCreateTransactionDuplicateAfterCommit() throws InterruptedException {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();

@@ -308,8 +308,7 @@ public class TransactionLogObserverTest {
                 KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
         .thenAccept(responseQueue::add);
     Response response = responseQueue.take();
-    assertEquals(Response.Flags.DUPLICATE, response.getFlags());
-    assertEquals(firstResponse.getSeqId(), response.getSeqId());
+    assertEquals(Response.Flags.ABORTED, response.getFlags());
   }
 
   @Test(timeout = 10000)

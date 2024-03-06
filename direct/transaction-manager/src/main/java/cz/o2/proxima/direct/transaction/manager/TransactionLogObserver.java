@@ -435,46 +435,26 @@ public class TransactionLogObserver implements CommitLogObserver {
       log.debug(
           "Processing request to {} with {} for transaction {}", requestId, request, transactionId);
       State currentState = manager.getCurrentState(transactionId);
-      @Nullable State newState = transitionState(transactionId, currentState, request);
-      if (newState != null) {
-        monitoringPolicy.stateUpdate(transactionId, currentState, newState);
-        // we have successfully computed new state, produce response
-        log.info(
-            "Transaction {} transitioned to state {} from {}",
-            transactionId,
-            newState.getFlags(),
-            currentState.getFlags());
-        Response response = getResponseForNewState(request, currentState, newState);
-        manager.ensureTransactionOpen(transactionId, newState);
-        monitoringPolicy.outgoingResponse(transactionId, response);
-        manager.writeResponseAndUpdateState(
-            transactionId, newState, requestId, response, context::commit);
-      } else if (request.getFlags() == Request.Flags.OPEN
-          && (currentState.getFlags() == State.Flags.OPEN
-              || currentState.getFlags() == State.Flags.COMMITTED)) {
-
-        Response response = Response.forRequest(request).duplicate(currentState.getSequentialId());
-        monitoringPolicy.stateUpdate(transactionId, currentState, currentState);
-        monitoringPolicy.outgoingResponse(transactionId, response);
-        manager.writeResponseAndUpdateState(
-            transactionId, currentState, requestId, response, context::commit);
-      } else {
-        log.warn(
-            "Unexpected {} request for transaction {} seqId {} when the state is {}. "
-                + "Refusing to respond, because the correct response is unknown.",
-            request.getFlags(),
-            transactionId,
-            currentState.getSequentialId(),
-            currentState.getFlags());
-        context.confirm();
-      }
+      State newState = transitionState(transactionId, currentState, request);
+      monitoringPolicy.stateUpdate(transactionId, currentState, newState);
+      // we have successfully computed new state, produce response
+      log.info(
+          "Transaction {} transitioned to state {} from {}",
+          transactionId,
+          newState.getFlags(),
+          currentState.getFlags());
+      Response response = getResponseForNewState(request, currentState, newState);
+      manager.ensureTransactionOpen(transactionId, newState);
+      monitoringPolicy.outgoingResponse(transactionId, response);
+      manager.writeResponseAndUpdateState(
+          transactionId, newState, requestId, response, context::commit);
     } catch (Throwable err) {
       log.warn("Error during processing transaction {} request {}", transactionId, request, err);
       context.commit(false, err);
     }
   }
 
-  private void abortTransaction(String transactionId, State state) {
+  private void abortTransaction(State state) {
     long seqId = state.getSequentialId();
     // we need to roll back all updates to lastUpdateSeqId with the same seqId
     try (var l = Locker.of(this.lock.writeLock())) {
@@ -502,6 +482,9 @@ public class TransactionLogObserver implements CommitLogObserver {
             ? Response.forRequest(request).open(state.getSequentialId(), state.getStamp())
             : Response.forRequest(request).updated();
       case COMMITTED:
+        if (request.getFlags() == Request.Flags.OPEN) {
+          return Response.forRequest(request).duplicate(state.getSequentialId());
+        }
         return Response.forRequest(request).committed();
       case ABORTED:
         return Response.forRequest(request).aborted();
@@ -510,7 +493,6 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   @VisibleForTesting
-  @Nullable
   State transitionState(String transactionId, State currentState, Request request) {
     switch (currentState.getFlags()) {
       case UNKNOWN:
@@ -525,13 +507,16 @@ public class TransactionLogObserver implements CommitLogObserver {
           case UPDATE:
             return transitionToUpdated(currentState, request);
           case ROLLBACK:
-            abortTransaction(transactionId, currentState);
+            abortTransaction(currentState);
             return currentState.aborted();
         }
         break;
       case COMMITTED:
         if (request.getFlags() == Request.Flags.ROLLBACK) {
           return transitionToAborted(transactionId, currentState);
+        }
+        if (request.getFlags() == Request.Flags.OPEN) {
+          return currentState;
         }
         break;
       case ABORTED:
@@ -540,12 +525,12 @@ public class TransactionLogObserver implements CommitLogObserver {
         }
         return currentState;
     }
-    return null;
+    return currentState.aborted();
   }
 
   private State transitionToAborted(String transactionId, State state) {
     log.info("Transaction {} seqId {} rolled back", transactionId, state.getSequentialId());
-    abortTransaction(transactionId, state);
+    abortTransaction(state);
     metrics.getTransactionsRolledBack().increment();
     return state.aborted();
   }
@@ -777,7 +762,7 @@ public class TransactionLogObserver implements CommitLogObserver {
         if (state.getFlags() == State.Flags.COMMITTED) {
           transactionPostCommit(state);
         } else if (state.getFlags() == State.Flags.ABORTED) {
-          abortTransaction(newUpdate.getKey(), state);
+          abortTransaction(state);
         }
       }
     }

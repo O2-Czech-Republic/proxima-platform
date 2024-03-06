@@ -496,7 +496,8 @@ public class TransactionLogObserver implements CommitLogObserver {
     switch (state.getFlags()) {
       case OPEN:
         return (oldState.getFlags() == State.Flags.UNKNOWN
-                || oldState.getFlags() == State.Flags.OPEN
+                || (oldState.getFlags() == State.Flags.ABORTED
+                        || oldState.getFlags() == State.Flags.OPEN)
                     && request.getFlags() == Request.Flags.OPEN)
             ? Response.forRequest(request).open(state.getSequentialId(), state.getStamp())
             : Response.forRequest(request).updated();
@@ -534,7 +535,9 @@ public class TransactionLogObserver implements CommitLogObserver {
         }
         break;
       case ABORTED:
-        // aborted always stays aborted
+        if (request.getFlags() == Flags.OPEN) {
+          return transitionToOpen(transactionId, request);
+        }
         return currentState;
     }
     return null;
@@ -730,7 +733,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                 }
                 SortedSet<SeqIdWithTombstone> lastUpdated =
                     lastUpdateSeqId.get(KeyWithAttribute.of(ka));
-                if (lastUpdated == null || lastUpdated.isEmpty()) {
+                if (lastUpdated.isEmpty()) {
                   return false;
                 }
                 long lastUpdatedSeqId = lastUpdated.last().getSeqId();

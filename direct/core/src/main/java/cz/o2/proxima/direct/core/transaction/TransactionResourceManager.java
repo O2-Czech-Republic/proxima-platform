@@ -159,7 +159,7 @@ public class TransactionResourceManager
   class CachedTransaction implements AutoCloseable {
 
     @Getter final String transactionId;
-    @Getter final long created = System.currentTimeMillis();
+    long touched = System.currentTimeMillis();
     final Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> attributeToFamily =
         new HashMap<>();
     final Map<String, CompletableFuture<Response>> requestFutures = new ConcurrentHashMap<>();
@@ -314,6 +314,14 @@ public class TransactionResourceManager
           .map(KeyValue::getParsedRequired)
           .orElse(State.empty());
     }
+
+    public void touch(long stamp) {
+      this.touched = stamp;
+    }
+
+    public long getStamp() {
+      return touched;
+    }
   }
 
   private static class HandleWithAssignment {
@@ -440,7 +448,7 @@ public class TransactionResourceManager
     long now = System.currentTimeMillis();
     long releaseTime = now - cleanupIntervalMs;
     openTransactionMap.entrySet().stream()
-        .filter(e -> e.getValue().getCreated() < releaseTime)
+        .filter(e -> e.getValue().getStamp() < releaseTime)
         .map(Map.Entry::getKey)
         .collect(Collectors.toList())
         .forEach(this::release);
@@ -505,7 +513,8 @@ public class TransactionResourceManager
                   k -> {
                     CachedView view = Optionals.get(stateFamily.getCachedView());
                     Duration ttl = Duration.ofMillis(cleanupIntervalMs);
-                    view.assign(view.getPartitions(), updateConsumer, ttl);
+                    view.assign(
+                        view.getPartitions(), createTransactionUpdateConsumer(updateConsumer), ttl);
                     return view;
                   });
               initializedLatch.countDown();
@@ -518,6 +527,20 @@ public class TransactionResourceManager
                           stateFamily, reader.getPartitions().size(), effectiveObserver)));
             });
     ExceptionUtils.unchecked(initializedLatch::await);
+  }
+
+  private BiConsumer<StreamElement, Pair<Long, Object>> createTransactionUpdateConsumer(
+      BiConsumer<StreamElement, Pair<Long, Object>> delegate) {
+
+    return (element, cached) -> {
+      if (element.getAttributeDescriptor().equals(getStateDesc())) {
+        Optional<State> state = getStateDesc().valueOf(element);
+        if (state.isPresent()) {
+          getOrCreateCachedTransaction(element.getKey(), state.get()).touch(element.getStamp());
+        }
+      }
+      delegate.accept(element, cached);
+    };
   }
 
   @VisibleForTesting
@@ -682,18 +705,18 @@ public class TransactionResourceManager
   }
 
   /**
-   * Initialize (possibly) new transaction. If the transaction already existed prior to this call,
-   * its current state is returned, otherwise the transaction is opened.
+   * Initialize new transaction. If the transaction already existed prior to this call, the state is
+   * updated accordingly.
    *
    * @param transactionId ID of transaction
    * @param attributes attributes affected by this transaction (both input and output)
    */
   @Override
   public CompletableFuture<Response> begin(String transactionId, List<KeyAttribute> attributes) {
-    CachedTransaction cachedTransaction =
-        openTransactionMap.computeIfAbsent(
-            transactionId, k -> new CachedTransaction(transactionId, attributes));
-    return cachedTransaction.open(attributes);
+    // reopen transaction including expiration stamp
+    CachedTransaction transaction = new CachedTransaction(transactionId, attributes);
+    openTransactionMap.put(transactionId, transaction);
+    return transaction.open(attributes);
   }
 
   /**

@@ -306,6 +306,80 @@ public class TransactionResourceManagerTest {
   }
 
   @Test(timeout = 10000)
+  public void testTransactionRequestOpenAfterAbort() throws InterruptedException {
+    try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
+      String transactionId = UUID.randomUUID().toString();
+      BlockingQueue<Response> receivedResponses = new ArrayBlockingQueue<>(5);
+
+      // create a simple ping-pong communication
+      runObservations(
+          manager,
+          "requests",
+          (ingest, context) -> {
+            if (ingest.getAttributeDescriptor().equals(requestDesc)) {
+              String key = ingest.getKey();
+              String requestId = requestDesc.extractSuffix(ingest.getAttribute());
+              Request request = Optionals.get(requestDesc.valueOf(ingest));
+              CountDownLatch latch = new CountDownLatch(1);
+              CommitCallback commit =
+                  (succ, exc) -> {
+                    latch.countDown();
+                    context.commit(succ, exc);
+                  };
+              long stamp = System.currentTimeMillis();
+              if (request.getFlags() == Request.Flags.UPDATE) {
+                manager.writeResponseAndUpdateState(
+                    key,
+                    State.open(1L, stamp, Collections.emptyList()).aborted(),
+                    requestId,
+                    Response.forRequest(request).aborted(),
+                    commit);
+              } else {
+                manager.writeResponseAndUpdateState(
+                    key,
+                    State.open(1L, stamp, new HashSet<>(request.getInputAttributes())),
+                    requestId,
+                    Response.forRequest(request).open(1L, stamp),
+                    commit);
+              }
+              ExceptionUtils.ignoringInterrupted(latch::await);
+            } else {
+              context.confirm();
+            }
+            return true;
+          });
+
+      manager
+          .begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)))
+          .whenComplete((response, err) -> receivedResponses.add(response));
+
+      receivedResponses.take();
+      manager
+          .updateTransaction(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw2", status, 1L)))
+          .whenComplete((response, err) -> receivedResponses.add(response));
+
+      Response response = receivedResponses.take();
+      assertEquals(Response.Flags.ABORTED, response.getFlags());
+
+      manager
+          .begin(
+              transactionId,
+              Collections.singletonList(
+                  KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)))
+          .whenComplete((r, err) -> receivedResponses.add(r));
+
+      response = receivedResponses.take();
+      assertEquals(Response.Flags.OPEN, response.getFlags());
+    }
+  }
+
+  @Test(timeout = 10000)
   public void testCreateCachedTransactionWhenMissing() {
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "g", status, 1L);
     long stamp = System.currentTimeMillis();

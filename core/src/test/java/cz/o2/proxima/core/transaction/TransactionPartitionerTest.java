@@ -41,7 +41,7 @@ public class TransactionPartitionerTest {
 
   @Test
   public void testPartitioner() {
-    Request r = Request.builder().flags(Flags.OPEN).responsePartitionId(1).build();
+    Request r = Request.builder().flags(Flags.COMMIT).responsePartitionId(1).build();
     StreamElement responseUpsert =
         response.upsert(
             "t", "commit", System.currentTimeMillis(), Response.forRequest(r).committed());

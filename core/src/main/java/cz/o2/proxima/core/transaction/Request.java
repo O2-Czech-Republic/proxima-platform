@@ -16,6 +16,7 @@
 package cz.o2.proxima.core.transaction;
 
 import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
@@ -58,6 +59,12 @@ public class Request implements Serializable {
     this.outputAttributes = outputAttributes == null ? Collections.emptyList() : outputAttributes;
     this.flags = flags;
     this.responsePartitionId = responsePartitionId;
+
+    Preconditions.checkArgument(
+        (flags != Flags.UPDATE && flags != Flags.OPEN)
+            || (!this.inputAttributes.isEmpty() || !this.outputAttributes.isEmpty()),
+        "At least one of input or output attributes have to be non-empty wth flags %s.",
+        flags);
   }
 
   public Request withResponsePartitionId(int responsePartitionId) {

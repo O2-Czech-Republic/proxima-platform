@@ -34,6 +34,7 @@ import cz.o2.proxima.core.transaction.Commit.TransactionUpdate;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.KeyAttributes;
 import cz.o2.proxima.core.transaction.Request;
+import cz.o2.proxima.core.transaction.Request.Flags;
 import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.util.Optionals;
@@ -144,10 +145,9 @@ public class ProtoSerializerFactoryTest {
             "t",
             request,
             Arrays.asList(
+                request.upsert(1L, "t", "1", System.currentTimeMillis(), newRequest(Flags.COMMIT)),
                 request.upsert(
-                    1L, "t", "1", System.currentTimeMillis(), newRequest(Request.Flags.OPEN)),
-                request.upsert(
-                    2L, "t", "1", System.currentTimeMillis(), newRequest(Request.Flags.OPEN))));
+                    2L, "t", "1", System.currentTimeMillis(), newRequest(Flags.COMMIT))));
 
     assertTrue(request.getValueSerializer() instanceof TransactionProtoSerializer);
     assertTrue(request.getValueSerializer().isUsable());

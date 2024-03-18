@@ -211,6 +211,9 @@ public class TransactionResourceManager
     }
 
     public CompletableFuture<Response> update(List<KeyAttribute> addedAttributes) {
+      if (addedAttributes.isEmpty()) {
+        return CompletableFuture.completedFuture(Response.empty().updated());
+      }
       String request = "update." + (requestId++);
       log.debug(
           "Updating transaction {} with addedAttributes {} using {}",

@@ -724,7 +724,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                 long lastUpdatedSeqId = lastUpdated.last().getSeqId();
                 long lastUpdatedStamp = lastUpdated.last().getTimestamp();
                 return lastUpdatedSeqId > transactionSeqId
-                    || lastUpdatedStamp == commitStamp
+                    || lastUpdatedStamp > commitStamp
                     || (lastUpdatedSeqId > ka.getSequenceId()
                         // we can accept somewhat stale data if the state is equal => both agree
                         // that the field was deleted

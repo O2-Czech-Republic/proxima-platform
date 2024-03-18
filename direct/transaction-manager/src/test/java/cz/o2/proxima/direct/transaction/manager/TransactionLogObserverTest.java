@@ -247,7 +247,7 @@ public class TransactionLogObserverTest {
   }
 
   @Test(timeout = 10000)
-  public void testCreateTransactionCommitWithSameTimestampInOutputs() throws InterruptedException {
+  public void testCreateTransactionCommitWithOlderTimestampInOutputs() throws InterruptedException {
     long stamp = System.currentTimeMillis();
     WithFixedTime factory = new WithFixedTime(stamp);
     createObserver(factory);
@@ -267,6 +267,7 @@ public class TransactionLogObserverTest {
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(
                 user, "user", userGateways, t1OpenResponse.getSeqId(), "1"));
+    factory.updateStamp(stamp - 1);
     clientManager
         .begin(
             t2,
@@ -275,7 +276,7 @@ public class TransactionLogObserverTest {
                 KeyAttributes.ofAttributeDescriptor(user, "u2", userGateways, 1L, "1")))
         .thenAccept(responseQueue::add);
     Response t2OpenResponse = responseQueue.take();
-    assertEquals(stamp, t2OpenResponse.getStamp());
+    assertEquals(stamp - 1, t2OpenResponse.getStamp());
     List<KeyAttribute> t2Outputs =
         Collections.singletonList(
             KeyAttributes.ofAttributeDescriptor(
@@ -947,9 +948,13 @@ public class TransactionLogObserverTest {
   }
 
   static class WithFixedTime implements TransactionLogObserverFactory {
-    final long time;
+    long time;
 
     WithFixedTime(long stamp) {
+      this.time = stamp;
+    }
+
+    void updateStamp(long stamp) {
       this.time = stamp;
     }
 

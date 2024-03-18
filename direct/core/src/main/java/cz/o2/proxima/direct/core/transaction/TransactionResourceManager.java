@@ -49,6 +49,7 @@ import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.view.CachedView;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import java.time.Duration;
@@ -210,6 +211,9 @@ public class TransactionResourceManager
     }
 
     public CompletableFuture<Response> update(List<KeyAttribute> addedAttributes) {
+      if (addedAttributes.isEmpty()) {
+        return CompletableFuture.completedFuture(Response.empty().updated());
+      }
       String request = "update." + (requestId++);
       log.debug(
           "Updating transaction {} with addedAttributes {} using {}",
@@ -845,13 +849,17 @@ public class TransactionResourceManager
     Preconditions.checkArgument(
         !attributes.isEmpty(), "Cannot return families for empty attribute list");
 
-    TransactionMode mode = attributes.get(0).getTransactionMode();
-    Preconditions.checkArgument(
+    Set<TransactionMode> modes =
         attributes.stream()
             .filter(a -> a.getTransactionMode() != TransactionMode.NONE)
-            .allMatch(a -> a.getTransactionMode() == mode),
-        "All passed attributes must have the same transaction mode. Got attributes %s.",
-        attributes);
+            .map(AttributeDescriptor::getTransactionMode)
+            .collect(Collectors.toSet());
+    Preconditions.checkArgument(
+        modes.size() == 1,
+        "All passed attributes must have the same transaction mode. Got attributes %s with modes %s.",
+        attributes,
+        modes);
+    TransactionMode mode = Iterables.getOnlyElement(modes);
 
     List<DirectAttributeFamilyDescriptor> candidates =
         attributes.stream()

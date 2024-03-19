@@ -81,6 +81,8 @@ public class TransactionValidatorTest {
               state =
                   State.open(
                       response.getSeqId(), response.getStamp(), request.getInputAttributes());
+            } else if (response.getFlags() == Response.Flags.COMMITTED) {
+              state = state.committed(request.getOutputs());
             }
             manager.writeResponseAndUpdateState(
                 transactionId, state, responseId, response, context::commit);

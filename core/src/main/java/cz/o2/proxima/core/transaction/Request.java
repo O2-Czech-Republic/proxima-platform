@@ -16,8 +16,10 @@
 package cz.o2.proxima.core.transaction;
 
 import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import lombok.Builder;
@@ -26,6 +28,7 @@ import lombok.Getter;
 import lombok.ToString;
 
 /** A transactional request sent to coordinator. */
+@Getter
 @Internal
 @Builder
 @ToString
@@ -37,13 +40,13 @@ public class Request implements Serializable {
     OPEN,
     UPDATE,
     ROLLBACK,
-    COMMIT;
+    COMMIT
   }
 
-  @Getter private final List<KeyAttribute> inputAttributes;
-  @Getter private final List<KeyAttribute> outputAttributes;
-  @Getter private final Flags flags;
-  @Getter private final int responsePartitionId;
+  private final List<KeyAttribute> inputAttributes;
+  private final Collection<StreamElement> outputs;
+  private final Flags flags;
+  private final int responsePartitionId;
 
   public Request() {
     this(null, null, Flags.NONE, -1);
@@ -51,23 +54,27 @@ public class Request implements Serializable {
 
   public Request(
       List<KeyAttribute> inputAttributes,
-      List<KeyAttribute> outputAttributes,
+      Collection<StreamElement> outputs,
       Flags flags,
       int responsePartitionId) {
 
     this.inputAttributes = inputAttributes == null ? Collections.emptyList() : inputAttributes;
-    this.outputAttributes = outputAttributes == null ? Collections.emptyList() : outputAttributes;
+    this.outputs = outputs == null ? Collections.emptyList() : outputs;
     this.flags = flags;
     this.responsePartitionId = responsePartitionId;
 
     Preconditions.checkArgument(
-        (flags != Flags.UPDATE && flags != Flags.OPEN)
-            || (!this.inputAttributes.isEmpty() || !this.outputAttributes.isEmpty()),
-        "At least one of input or output attributes have to be non-empty wth flags %s.",
+        (flags != Flags.UPDATE && flags != Flags.OPEN) || !this.inputAttributes.isEmpty(),
+        "Input attributes have to be non-empty wth flags %s.",
         flags);
+
+    Preconditions.checkArgument(
+        this.outputs.stream().allMatch(el -> el.getSequentialId() > 0),
+        "Outputs of transaction must have associated sequential Id, got %s",
+        outputs);
   }
 
   public Request withResponsePartitionId(int responsePartitionId) {
-    return new Request(inputAttributes, outputAttributes, flags, responsePartitionId);
+    return new Request(inputAttributes, outputs, flags, responsePartitionId);
   }
 }

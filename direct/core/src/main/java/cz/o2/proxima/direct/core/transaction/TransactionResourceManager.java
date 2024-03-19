@@ -59,7 +59,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -195,18 +194,13 @@ public class TransactionResourceManager
           .thenCompose(ign -> res);
     }
 
-    public CompletableFuture<Response> commit(List<KeyAttribute> outputAttributes) {
+    public CompletableFuture<Response> commit(Collection<StreamElement> outputs) {
       String request = "commit";
-      log.debug(
-          "Committing transaction {} with outputAttributes {}", transactionId, outputAttributes);
+      log.debug("Committing transaction {} with outputs {}", transactionId, outputs);
       CompletableFuture<Response> res =
           requestFutures.compute(request, (k, v) -> new CompletableFuture<>());
       return sendRequest(
-              Request.builder()
-                  .flags(Request.Flags.COMMIT)
-                  .outputAttributes(outputAttributes)
-                  .build(),
-              request)
+              Request.builder().flags(Request.Flags.COMMIT).outputs(outputs).build(), request)
           .thenCompose(ign -> res);
     }
 
@@ -740,11 +734,11 @@ public class TransactionResourceManager
 
   @Override
   public CompletableFuture<Response> commit(
-      String transactionId, List<KeyAttribute> outputAttributes) {
+      String transactionId, Collection<StreamElement> outputs) {
     @Nullable CachedTransaction cachedTransaction = openTransactionMap.get(transactionId);
     Preconditions.checkArgument(
         cachedTransaction != null, "Transaction %s is not open", transactionId);
-    return cachedTransaction.commit(outputAttributes);
+    return cachedTransaction.commit(outputs);
   }
 
   @Override
@@ -787,15 +781,8 @@ public class TransactionResourceManager
 
   @VisibleForTesting
   CachedTransaction createCachedTransaction(String transactionId, State state) {
-    final Collection<KeyAttribute> attributes;
-    if (!state.getCommittedAttributes().isEmpty()) {
-      HashSet<KeyAttribute> committedSet = Sets.newHashSet(state.getCommittedAttributes());
-      committedSet.addAll(state.getInputAttributes());
-      attributes = committedSet;
-    } else {
-      attributes = state.getInputAttributes();
-    }
-    return new CachedTransaction(transactionId, attributes);
+    Preconditions.checkArgument(state.getCommittedOutputs().isEmpty());
+    return new CachedTransaction(transactionId, state.getInputAttributes());
   }
 
   @Override
@@ -814,8 +801,19 @@ public class TransactionResourceManager
       final CachedView stateView = cachedTransaction.getStateView();
       long now = System.currentTimeMillis();
       StreamElement stateUpsert = getStateDesc().upsert(transactionId, now, updateState);
-      Commit commit =
-          Commit.of(
+      final Commit initial;
+      if (!updateState.getCommittedOutputs().isEmpty()) {
+        initial =
+            Commit.of(
+                updateState.getSequentialId(),
+                updateState.getStamp(),
+                updateState.getCommittedOutputs());
+      } else {
+        initial = Commit.empty();
+      }
+      log.debug("Returning response {} for transaction {}", response, transactionId);
+      final Commit commit =
+          initial.and(
               Arrays.asList(
                   new Commit.TransactionUpdate(stateFamily.getDesc().getName(), stateUpsert),
                   new Commit.TransactionUpdate(

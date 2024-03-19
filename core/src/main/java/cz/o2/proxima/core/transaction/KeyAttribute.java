@@ -41,7 +41,7 @@ public class KeyAttribute implements Serializable {
   @Getter private final EntityDescriptor entity;
   @Getter private final String key;
   @Getter private final AttributeDescriptor<?> attributeDescriptor;
-  @Getter private final long sequenceId;
+  @Getter private final long sequentialId;
   @Getter private final boolean delete;
   @Nullable private final String attributeSuffix;
 
@@ -49,18 +49,19 @@ public class KeyAttribute implements Serializable {
       EntityDescriptor entity,
       String key,
       AttributeDescriptor<?> attributeDescriptor,
-      long sequenceId,
+      long sequentialId,
       boolean delete,
       @Nullable String attributeSuffix) {
 
     this.entity = entity;
     this.key = key;
     this.attributeDescriptor = attributeDescriptor;
-    this.sequenceId = sequenceId;
+    this.sequentialId = sequentialId;
     this.delete = delete;
     this.attributeSuffix = attributeSuffix;
 
-    Preconditions.checkArgument(sequenceId > 0, "Sequence ID must be positive, got %s", sequenceId);
+    Preconditions.checkArgument(
+        sequentialId > 0, "Sequential ID must be positive, got %s", sequentialId);
     Preconditions.checkArgument(
         attributeSuffix == null
             || !attributeSuffix.startsWith(attributeDescriptor.toAttributePrefix()),

@@ -16,6 +16,7 @@
 package cz.o2.proxima.core.transaction;
 
 import cz.o2.proxima.core.annotations.Internal;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;
@@ -53,7 +54,7 @@ public class State implements Serializable {
   @Getter private final long stamp;
   @Getter private final Flags flags;
   @Getter private final Collection<KeyAttribute> inputAttributes;
-  @Getter private final Collection<KeyAttribute> committedAttributes;
+  @Getter private final Collection<StreamElement> committedOutputs;
 
   public State() {
     this(-1L, Long.MIN_VALUE, Flags.UNKNOWN, Collections.emptySet(), Collections.emptySet());
@@ -64,28 +65,24 @@ public class State implements Serializable {
       long stamp,
       Flags flags,
       Collection<KeyAttribute> inputAttributes,
-      Collection<KeyAttribute> committedAttributes) {
+      Collection<StreamElement> committedOutputs) {
 
     this.sequentialId = sequentialId;
     this.stamp = stamp;
     this.flags = flags;
     this.inputAttributes = Lists.newArrayList(inputAttributes);
-    this.committedAttributes = Lists.newArrayList(committedAttributes);
+    this.committedOutputs = Lists.newArrayList(committedOutputs);
   }
 
   /**
    * Create new {@link State} that is marked as {@link Flags#COMMITTED}.
    *
-   * @param outputAttributes the attributes that are to be committed
+   * @param outputs the attributes that are to be committed
    * @return new {@link State} marked as {@link Flags#COMMITTED}.
    */
-  public State committed(Collection<KeyAttribute> outputAttributes) {
+  public State committed(Collection<StreamElement> outputs) {
     return new State(
-        sequentialId,
-        stamp,
-        Flags.COMMITTED,
-        getInputAttributes(),
-        Sets.newHashSet(outputAttributes));
+        sequentialId, stamp, Flags.COMMITTED, getInputAttributes(), Sets.newHashSet(outputs));
   }
 
   public State update(Collection<KeyAttribute> additionalAttributes) {

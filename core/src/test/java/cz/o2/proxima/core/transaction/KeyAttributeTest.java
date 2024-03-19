@@ -107,7 +107,7 @@ public class KeyAttributeTest {
     List<KeyAttribute> empty =
         KeyAttributes.ofWildcardQueryElements(gateway, "key", device, Collections.emptyList());
     assertEquals(1, empty.size());
-    assertEquals(1L, empty.get(0).getSequenceId());
+    assertEquals(1L, empty.get(0).getSequentialId());
     assertTrue(empty.get(0).isWildcardQuery());
   }
 }

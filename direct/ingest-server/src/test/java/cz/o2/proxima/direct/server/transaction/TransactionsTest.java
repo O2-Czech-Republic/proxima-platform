@@ -49,6 +49,7 @@ import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -80,6 +81,7 @@ public class TransactionsTest {
   private IngestService ingest;
   private RetrieveService retrieve;
   private TransactionLogObserver observer;
+  private @Nullable volatile CountDownLatch replicatedLatch = null;
 
   @Before
   public void setUp() {
@@ -88,7 +90,7 @@ public class TransactionsTest {
             direct,
             "_transaction-commit",
             repo.getTransformations().get("_transaction-commit"),
-            ign -> {});
+            ign -> Optional.ofNullable(replicatedLatch).ifPresent(CountDownLatch::countDown));
     observer =
         new TransactionLogObserver(direct, new Metrics()) {
           @Override
@@ -107,14 +109,16 @@ public class TransactionsTest {
     observer.onCancelled();
     transformationHandle.close();
     transactionContext.close();
+    replicatedLatch = null;
   }
 
   @Test(timeout = 10000)
-  public void testTransactionReadWrite() {
+  public void testTransactionReadWrite() throws InterruptedException {
     BeginTransactionResponse response = begin();
     String transactionId = response.getTransactionId();
     assertFalse(transactionId.isEmpty());
     long stamp = System.currentTimeMillis();
+    replicatedLatch = new CountDownLatch(1);
     StatusBulk status =
         ingestBulk(
             transactionId,
@@ -150,6 +154,7 @@ public class TransactionsTest {
 
     TransactionCommitResponse commitResponse = commit(transactionId);
     assertEquals(TransactionCommitResponse.Status.COMMITTED, commitResponse.getStatus());
+    replicatedLatch.await();
 
     // verify we can read the results
     getResponse =
@@ -164,11 +169,12 @@ public class TransactionsTest {
   }
 
   @Test(timeout = 20000)
-  public void testTransactionCommitRejected() {
+  public void testTransactionCommitRejected() throws InterruptedException {
     // we need two simultaneous transactions
     String firstTransaction = begin().getTransactionId();
     String secondTransaction = begin().getTransactionId();
     long stamp = System.currentTimeMillis();
+    replicatedLatch = new CountDownLatch(1);
     // we read some data in the first transaction, ignore the result, must be empty
     get(
         GetRequest.newBuilder()
@@ -189,6 +195,8 @@ public class TransactionsTest {
             stamp,
             new byte[] {1, 2, 3}));
     assertEquals(TransactionCommitResponse.Status.COMMITTED, commit(secondTransaction).getStatus());
+    replicatedLatch.await();
+
     // write the same in different transaction
     ingestBulk(
         firstTransaction,

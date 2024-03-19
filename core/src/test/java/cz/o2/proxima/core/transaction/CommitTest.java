@@ -21,6 +21,7 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,12 +53,8 @@ public class CommitTest {
     assertEquals(1L, commit.getSeqId());
     assertEquals(1234567890000L, commit.getStamp());
     assertEquals(2, commit.getUpdates().size());
-    assertFalse(commit.getUpdates().get(0).isDelete());
-    assertTrue(commit.getUpdates().get(1).isDelete());
-    for (int i = 0; i < 2; i++) {
-      assertEquals(1L, commit.getUpdates().get(i).getSequentialId());
-      assertEquals(1234567890000L, commit.getUpdates().get(i).getStamp());
-    }
+    assertFalse(Iterables.get(commit.getUpdates(), 0).isDelete());
+    assertTrue(Iterables.get(commit.getUpdates(), 1).isDelete());
   }
 
   @Test(expected = IllegalArgumentException.class)

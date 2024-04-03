@@ -59,6 +59,7 @@ class Utils {
 
   static void seekToOffsets(
       Collection<? extends Offset> offsets, final KafkaConsumer<?, ?> consumer) {
+
     // seek to given offsets
     offsets.forEach(
         o -> {

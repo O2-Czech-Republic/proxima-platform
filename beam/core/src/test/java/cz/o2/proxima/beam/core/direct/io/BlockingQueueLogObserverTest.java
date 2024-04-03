@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.core.direct.io;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
 
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -199,7 +200,7 @@ public class BlockingQueueLogObserverTest {
 
       @Override
       public Offset getOffset() {
-        return null;
+        return mock(Offset.class);
       }
     };
   }

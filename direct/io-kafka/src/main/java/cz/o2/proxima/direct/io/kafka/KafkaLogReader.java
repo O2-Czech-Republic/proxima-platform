@@ -145,7 +145,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   @Override
   public ObserveHandle observeBulkOffsets(
       Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
-
     return observeKafkaBulk(null, offsets, Position.CURRENT, stopAtCurrent, observer);
   }
 

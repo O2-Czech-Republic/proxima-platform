@@ -20,6 +20,7 @@ import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -55,10 +56,10 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     /**
      * @return restriction that reads from given offset (inclusive)
      */
-    public static OffsetRange startingFrom(
-        Partition partition, Position position, OffsetRange initialRestriction) {
-      return new OffsetRange(
-          partition, position, initialRestriction.getTotalLimit(), initialRestriction.isBounded());
+    public static OffsetRange readingPartition(
+        Partition partition, Position position, long limit, boolean bounded) {
+
+      return new OffsetRange(partition, position, limit, bounded);
     }
 
     @Nullable private final Partition partition;
@@ -77,10 +78,10 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
 
     // can a tryClaim modify the endOffset
     // this signalizes a running range
-    @Getter private boolean extensible;
+    @Getter private volatile boolean extensible;
 
     // true when the range has been all claimed
-    private transient boolean finished = false;
+    private transient volatile boolean finished = false;
 
     private OffsetRange(Partition partition, Position position, long totalLimit, boolean bounded) {
       this.partition = partition;
@@ -141,7 +142,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
         if (finished) {
           return false;
         }
-        finished = offset.equals(endOffsetInclusive);
+        finished = offset.equals(Preconditions.checkNotNull(endOffsetInclusive));
         return true;
       }
       if (totalLimit > consumed) {
@@ -170,25 +171,22 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
      * @return unmodifiable already processed split of the restriction
      */
     public OffsetRange asPrimary() {
+      this.finished = true;
+      this.extensible = false;
       return new OffsetRange(
           startOffset, endOffsetInclusive, totalLimit, bounded, totalLimit - consumed);
     }
 
     /**
      * @return residual of not-yet processed work Note that, at all times the primary + residual
-     *     should be equivalent to the original (unsplit) range.
+     *     should be equivalent to the original (non-split) range.
      */
     public OffsetRange asResidual() {
       return new OffsetRange(endOffsetInclusive, totalLimit, bounded, consumed);
     }
 
     public boolean isInitial() {
-      return startOffset == endOffsetInclusive && endOffsetInclusive == null;
-    }
-
-    private void terminate() {
-      this.extensible = false;
-      this.finished = true;
+      return startOffset == null && endOffsetInclusive == null;
     }
 
     @Override
@@ -262,15 +260,14 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
 
   @Override
   public @Nullable SplitResult<OffsetRange> trySplit(double fractionOfRemainder) {
-    synchronized (currentRestriction) {
-      if (currentRestriction.isFinished()) {
-        return null;
-      } else if (currentRestriction.isSplittable()) {
-        currentRestriction.terminate();
-        return SplitResult.of(currentRestriction.asPrimary(), currentRestriction.asResidual());
-      }
-      return SplitResult.of(null, currentRestriction);
+    if (currentRestriction.isFinished()) {
+      return null;
     }
+    if (currentRestriction.isSplittable()) {
+      OffsetRange primary = currentRestriction.asPrimary();
+      return SplitResult.of(primary, currentRestriction.asResidual());
+    }
+    return SplitResult.of(null, currentRestriction);
   }
 
   @Override

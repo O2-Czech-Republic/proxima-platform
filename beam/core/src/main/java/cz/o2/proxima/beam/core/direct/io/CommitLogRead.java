@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.core.direct.io;
 
+import cz.o2.proxima.beam.core.direct.io.BlockingQueueLogObserver.CommitLogObserver;
 import cz.o2.proxima.beam.core.direct.io.BlockingQueueLogObserver.UnifiedContext;
 import cz.o2.proxima.beam.core.direct.io.OffsetRestrictionTracker.OffsetRange;
 import cz.o2.proxima.core.repository.Repository;
@@ -30,6 +31,8 @@ import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.commitlog.Offset;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.cache.Cache;
+import cz.o2.proxima.internal.com.google.common.cache.CacheBuilder;
 import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,8 +41,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.InstantCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
@@ -60,6 +66,7 @@ import org.joda.time.Duration;
 import org.joda.time.Instant;
 
 /** A {@link PTransform} that reads from a {@link CommitLogReader} using splittable DoFn. */
+@Slf4j
 public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>> {
 
   /**
@@ -318,9 +325,10 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     protected final RepositoryFactory repositoryFactory;
     protected final Factory<?> readerFactory;
     protected final long limit;
-    protected transient Map<Integer, ObserveHandle> runningObserves;
-    protected transient Map<Integer, Offset> partitionToSeekedOffset;
-    protected transient Map<Integer, BlockingQueueLogObserver.CommitLogObserver> observers;
+    private transient CommitLogReader reader;
+    protected transient Cache<Integer, ObserveHandle> runningObserves;
+    protected transient Map<Integer, CommitLogObserver> observers;
+
     private transient boolean externalizableOffsets = false;
 
     public AbstractCommitLogReadFn(
@@ -351,31 +359,22 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       Partition part = tracker.currentRestriction().getPartition();
 
-      final BlockingQueueLogObserver.CommitLogObserver currentObserver =
-          observers.get(part.getId());
+      boolean canIgnoreFirstElement = false;
 
-      if (currentObserver != null && externalizableOffsets) {
-        closeHandleIfUnmatchingOffsets(tracker, part, currentObserver);
+      if (externalizableOffsets) {
+        canIgnoreFirstElement = seekToRequestedOffsetsIfNeeded(tracker, part);
       }
 
-      if (runningObserves.get(part.getId()) == null) {
+      BlockingQueueLogObserver.CommitLogObserver observer = observers.get(part.getId());
+
+      if (observer == null) {
         // start current restriction
         startObserve(this.name, part, tracker.currentRestriction());
         // start the consumption after the other restrictions are started
-        return ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
+        return ProcessContinuation.resume().withResumeDelay(Duration.millis(50));
       }
 
-      boolean canIgnoreFirstElement =
-          externalizableOffsets
-              && !tracker.currentRestriction().isStartInclusive()
-              && Objects.equals(
-                  partitionToSeekedOffset.get(part.getId()),
-                  tracker.currentRestriction().getStartOffset());
-
-      final BlockingQueueLogObserver.CommitLogObserver observer =
-          Objects.requireNonNull(observers.get(part.getId()));
-
-      watermarkEstimator.setWatermark(Instant.ofEpochMilli(observer.getWatermark()));
+      updateWatermark(watermarkEstimator, observer);
 
       while (!Thread.currentThread().isInterrupted()
           && observer.getWatermark() < Watermarks.MAX_WATERMARK
@@ -385,10 +384,12 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         Offset offset = Objects.requireNonNull(currentPeekContext.getOffset());
         if (canIgnoreFirstElement) {
           canIgnoreFirstElement = false;
-          // discard the peeked element
-          observer.take();
-          // skip the exclusive first offset
-          continue;
+          if (offset.equals(tracker.currentRestriction().getStartOffset())) {
+            // discard the peeked element
+            observer.take();
+            // skip the excluded first offset
+            continue;
+          }
         }
         if (!tracker.tryClaim(offset)) {
           return ProcessContinuation.stop();
@@ -396,7 +397,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         StreamElement element = Objects.requireNonNull(observer.take());
         output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
         ackContext.set(currentPeekContext);
-        watermarkEstimator.setWatermark(Instant.ofEpochMilli(observer.getWatermark()));
+        updateWatermark(watermarkEstimator, observer);
       }
 
       Optional.ofNullable(observer.getError())
@@ -405,44 +406,52 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       boolean terminated =
           tracker.currentRestriction().isLimitConsumed()
               || observer.getWatermark() >= Watermarks.MAX_WATERMARK;
+
       return terminated
           ? ProcessContinuation.stop()
           : ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
     }
 
-    private void closeHandleIfUnmatchingOffsets(
-        RestrictionTracker<OffsetRange, Offset> tracker,
-        Partition part,
-        BlockingQueueLogObserver.CommitLogObserver observer) {
+    /**
+     * Seek if necessary to start processing the retriction.
+     *
+     * @return true if the first element that will be consumed after the seek should be skipped
+     */
+    private boolean seekToRequestedOffsetsIfNeeded(
+        RestrictionTracker<OffsetRange, Offset> tracker, Partition part) {
 
-      final Offset currentOffset;
-      if (observer.getLastReadContext() != null) {
-        currentOffset = observer.getLastReadContext().getOffset();
-      } else {
-        currentOffset = partitionToSeekedOffset.get(part.getId());
+      final @Nullable BlockingQueueLogObserver.CommitLogObserver observer =
+          observers.get(part.getId());
+      if (observer != null) {
+        final @Nullable Offset currentOffset =
+            observer.getLastReadContext() == null
+                ? null
+                : Objects.requireNonNull(observer.getLastReadContext().getOffset());
+        if (!Objects.equals(currentOffset, tracker.currentRestriction().getStartOffset())) {
+          closeHandle(part.getId());
+          return !tracker.currentRestriction().isStartInclusive();
+        }
       }
-      if (!Objects.equals(currentOffset, tracker.currentRestriction().getStartOffset())) {
-        // there was existing handle with read context, which means we have already read some data
-        // and any commit (or nack) must wait till checkpoint
-        closeHandle(part.getId(), false);
-      }
+      return false;
     }
 
-    protected void closeHandle(int part, boolean nack) {
-      Optional.ofNullable(observers.remove(part)).ifPresent(observer -> observer.stop(nack));
-      Optional.ofNullable(runningObserves.remove(part)).ifPresent(ObserveHandle::close);
-      partitionToSeekedOffset.remove(part);
+    protected void closeHandle(int part) {
+      runningObserves.invalidate(part);
+      // should be already done
+      Optional.ofNullable(observers.remove(part)).ifPresent(observer -> observer.stop(true));
     }
 
     private void startObserve(@Nullable String name, Partition partition, OffsetRange restriction) {
-      CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
+      if (reader == null) {
+        reader = readerFactory.apply(repositoryFactory.apply());
+      }
       this.externalizableOffsets = reader.hasExternalizableOffsets();
       final BlockingQueueLogObserver.CommitLogObserver observer = newObserver(name, restriction);
-      observers.put(partition.getId(), observer);
+      CommitLogObserver previous = observers.put(partition.getId(), observer);
+      Preconditions.checkState(previous == null);
       final ObserveHandle handle;
       if (restriction.getStartOffset() != null) {
         handle = observeBulkOffsets(restriction, reader, observer);
-        partitionToSeekedOffset.put(partition.getId(), restriction.getStartOffset());
       } else {
         handle = observeBulkPartitions(name, restriction, reader, observer);
       }
@@ -461,21 +470,45 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         BlockingQueueLogObserver.CommitLogObserver observer);
 
     public void setup() {
-      runningObserves = new HashMap<>();
-      partitionToSeekedOffset = new HashMap<>();
       observers = new HashMap<>();
+      runningObserves =
+          CacheBuilder.newBuilder()
+              .concurrencyLevel(1)
+              .expireAfterAccess(5, TimeUnit.SECONDS)
+              .<Integer, ObserveHandle>removalListener(
+                  notification -> {
+                    if (notification.wasEvicted()) {
+                      log.info("Closing observer {} due to expiry", notification.getKey());
+                      Optional.ofNullable(observers.remove(notification.getKey()))
+                          .ifPresent(o -> o.stop(true));
+                      notification.getValue().close();
+                    }
+                  })
+              .build();
     }
 
     public void tearDown() {
-      Lists.newArrayList(observers.keySet()).forEach(p -> closeHandle(p, true));
+      Lists.newArrayList(observers.keySet()).forEach(this::closeHandle);
+      reader = null;
     }
 
     void splitRestriction(OffsetRange restriction, OutputReceiver<OffsetRange> splits) {
       if (restriction.isInitial()) {
-        CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
+        CommitLogReader createdReader = readerFactory.apply(repositoryFactory.apply());
         // compute starting offsets from commit log reader
-        List<Partition> partitions = reader.getPartitions();
-        partitions.forEach(p -> splits.output(OffsetRange.startingFrom(p, position, restriction)));
+        List<Partition> partitions = createdReader.getPartitions();
+        List<OffsetRange> split =
+            partitions.stream()
+                .map(
+                    p ->
+                        OffsetRange.readingPartition(
+                            p,
+                            position,
+                            restriction.getTotalLimit() / partitions.size(),
+                            restriction.isBounded()))
+                .collect(Collectors.toList());
+        log.info("Split initial restriction {} to {} splits", restriction, split.size());
+        split.forEach(splits::output);
       } else {
         splits.output(restriction);
       }
@@ -500,6 +533,17 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     @Override
     public TypeDescriptor<StreamElement> getOutputTypeDescriptor() {
       return TypeDescriptor.of(StreamElement.class);
+    }
+  }
+
+  private static void updateWatermark(
+      ManualWatermarkEstimator<?> watermarkEstimator, CommitLogObserver observer) {
+
+    long watermark = observer.getWatermark();
+    if (watermark > BoundedWindow.TIMESTAMP_MAX_VALUE.getMillis()) {
+      watermarkEstimator.setWatermark(BoundedWindow.TIMESTAMP_MAX_VALUE);
+    } else if (watermark > BoundedWindow.TIMESTAMP_MIN_VALUE.getMillis()) {
+      watermarkEstimator.setWatermark(Instant.ofEpochMilli(watermark));
     }
   }
 

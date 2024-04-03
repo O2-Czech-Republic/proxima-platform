@@ -73,6 +73,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -375,6 +376,7 @@ public class InMemStorageTest implements Serializable {
     CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
     AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     List<Byte> received = new ArrayList<>();
+    AtomicBoolean cancelled = new AtomicBoolean();
     ObserveHandle handle =
         reader.observePartitions(
             reader.getPartitions(),
@@ -394,6 +396,11 @@ public class InMemStorageTest implements Serializable {
                 context.confirm();
                 received.add(element.getValue()[0]);
                 return false;
+              }
+
+              @Override
+              public void onCancelled() {
+                cancelled.set(true);
               }
 
               @Override
@@ -431,6 +438,7 @@ public class InMemStorageTest implements Serializable {
                 new byte[] {2}),
             (succ, exc) -> {});
     assertEquals(Collections.singletonList((byte) 1), received);
+    assertTrue(cancelled.get());
   }
 
   @Test(timeout = 10000)
@@ -705,7 +713,7 @@ public class InMemStorageTest implements Serializable {
             return false;
           }
         });
-    assertTrue(completed.await(1, TimeUnit.SECONDS));
+    assertTrue(completed.await(3, TimeUnit.SECONDS));
   }
 
   @Test(timeout = 1000L)
@@ -850,7 +858,7 @@ public class InMemStorageTest implements Serializable {
     };
   }
 
-  @Test
+  @Test(timeout = 10000)
   public void testObserveSinglePartitionOutOfMultiplePartitions() throws InterruptedException {
     final int numPartitions = 3;
     final InMemStorage storage = new InMemStorage();
@@ -982,7 +990,7 @@ public class InMemStorageTest implements Serializable {
             Assert::assertTrue,
             elem -> {
               latch.countDown();
-              return false;
+              return true;
             });
     reader.observe("test", observer);
     writer

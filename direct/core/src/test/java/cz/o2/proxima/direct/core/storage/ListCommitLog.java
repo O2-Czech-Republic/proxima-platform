@@ -28,6 +28,7 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.time.WatermarkEstimator;
 import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OffsetCommitter;
@@ -55,6 +56,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -230,6 +232,7 @@ public class ListCommitLog implements CommitLogReader {
     @Getter private volatile boolean closed = false;
 
     private final Map<String, Consumer> consumers;
+    private volatile int resetTo = -1;
 
     ListObserveHandle(String listUuid, String consumerName) {
       this.listUuid = listUuid;
@@ -250,7 +253,7 @@ public class ListCommitLog implements CommitLogReader {
 
     @Override
     public void resetOffsets(List<Offset> offsets) {
-      throw new UnsupportedOperationException();
+      this.resetTo = ((ListOffset) Iterables.getOnlyElement(offsets)).getOffset();
     }
 
     @Override
@@ -265,6 +268,21 @@ public class ListCommitLog implements CommitLogReader {
     @VisibleForTesting
     Consumer getConsumer() {
       return consumers.get(consumerName);
+    }
+
+    public int takeResetOffset() {
+      int res = this.resetTo;
+      resetTo = -1;
+      if (res >= 0) {
+        Consumer consumer = getConsumer();
+        Set<Integer> acked = consumer.getAckedOffsets();
+        synchronized (acked) {
+          List<Integer> removed =
+              acked.stream().filter(off -> off >= res).collect(Collectors.toList());
+          acked.removeAll(removed);
+        }
+      }
+      return res;
     }
   }
 
@@ -490,6 +508,8 @@ public class ListCommitLog implements CommitLogReader {
           return true;
         },
         externalizableOffsets ? () -> true : allMatchOffset(consumer::isAcked),
+        handle::takeResetOffset,
+        () -> {},
         observer::onCompleted,
         observer::onCancelled);
     return handle;
@@ -559,7 +579,7 @@ public class ListCommitLog implements CommitLogReader {
     final String name = Iterables.getOnlyElement(consumers);
     if (externalizableOffsets) {
       ListOffset offset = (ListOffset) Iterables.getOnlyElement(offsets);
-      return pushToObserverBulk(name, offset.getOffset() + 1, observer);
+      return pushToObserverBulk(name, offset.getOffset(), observer);
     }
     return pushToObserverBulk(name, o -> true, observer);
   }
@@ -585,8 +605,9 @@ public class ListCommitLog implements CommitLogReader {
 
   private ObserveHandle pushToObserverBulk(
       @Nonnull String name, int skip, CommitLogObserver observer) {
+
     AtomicInteger skipCounter = new AtomicInteger(skip);
-    return pushToObserverBulk(name, offset -> skipCounter.decrementAndGet() <= 0, observer);
+    return pushToObserverBulk(name, offset -> skipCounter.decrementAndGet() < 0, observer);
   }
 
   private ObserveHandle pushToObserverBulk(
@@ -630,6 +651,8 @@ public class ListCommitLog implements CommitLogReader {
           return true;
         },
         externalizableOffsets ? () -> true : allMatchOffset(consumer::isAcked),
+        handle::takeResetOffset,
+        () -> observer.onRepartition(asRepartitionContext(Collections.singletonList(PARTITION))),
         observer::onCompleted,
         observer::onCancelled);
     return handle;
@@ -643,22 +666,35 @@ public class ListCommitLog implements CommitLogReader {
   private void pushTo(
       BiFunction<StreamElement, Integer, Boolean> consumer,
       cz.o2.proxima.core.functional.Factory<Boolean> finishedCheck,
+      cz.o2.proxima.core.functional.Factory<Integer> offsetReset,
+      Runnable onReset,
       Runnable onFinished,
       Runnable onCancelled) {
 
     executor()
         .execute(
             () -> {
-              do {
-                int index = 0;
-                for (StreamElement el : data()) {
-                  if (!consumer.apply(el, index++)) {
-                    onCancelled.run();
-                    return;
-                  }
+              List<StreamElement> data = data();
+              for (int index = 0; index < data.size(); index++) {
+                int reset = offsetReset.apply();
+                if (reset >= 0) {
+                  index = reset;
+                  onReset.run();
                 }
-              } while (!finishedCheck.apply());
-              onFinished.run();
+                StreamElement el = data.get(index);
+                if (!consumer.apply(el, index)) {
+                  onCancelled.run();
+                  return;
+                }
+              }
+              while (!Thread.currentThread().isInterrupted() && !finishedCheck.apply()) {
+                ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(100));
+              }
+              if (Thread.currentThread().isInterrupted()) {
+                onCancelled.run();
+              } else {
+                onFinished.run();
+              }
             });
   }
 

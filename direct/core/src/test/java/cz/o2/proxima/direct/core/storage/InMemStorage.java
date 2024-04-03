@@ -22,7 +22,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.service.AutoService;
 import cz.o2.proxima.core.functional.Consumer;
-import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.ConfigConstants;
@@ -75,7 +74,6 @@ import cz.o2.proxima.direct.core.view.LocalCachedPartitionedView;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
-import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -209,16 +207,60 @@ public class InMemStorage implements DataAccessorFactory {
     }
   }
 
-  @FunctionalInterface
-  public interface ElementConsumer {
-
-    void accept(Partition partition, StreamElement element, OffsetCommitter offsetCommitter);
+  private interface ElementWriter {
+    boolean accept(Partition partition, StreamElement element, OffsetCommitter offsetCommitter);
   }
 
-  @FunctionalInterface
-  private interface InMemIngestWriter extends Serializable {
+  private interface ElementConsumer {
+    static ElementConsumer dummy() {
+      return new ElementConsumer() {
+        @Override
+        public boolean accept(
+            Partition partition, StreamElement element, OffsetCommitter offsetCommitter) {
+          return true;
+        }
 
-    void write(Partition partition, StreamElement data);
+        @Override
+        public void cancel() {
+          // noop
+        }
+      };
+    }
+
+    static ElementConsumer fromObserver(CommitLogObserver observer, ElementWriter writer) {
+      return new ElementConsumer() {
+        @Override
+        public boolean accept(
+            Partition partition, StreamElement element, OffsetCommitter offsetCommitter) {
+          return writer.accept(partition, element, offsetCommitter);
+        }
+
+        @Override
+        public void cancel() {
+          observer.onCancelled();
+        }
+
+        @Override
+        public String toString() {
+          return MoreObjects.toStringHelper(this)
+              .add("observer", System.identityHashCode(observer))
+              .toString();
+        }
+      };
+    }
+
+    boolean accept(Partition partition, StreamElement element, OffsetCommitter offsetCommitter);
+
+    default boolean write(Partition partition, StreamElement element) {
+      return accept(
+          partition,
+          element,
+          (succ, exc) -> {
+            // noop
+          });
+    }
+
+    void cancel();
   }
 
   public static long getBoundedOutOfOrderness() {
@@ -254,8 +296,7 @@ public class InMemStorage implements DataAccessorFactory {
           "Non-matching attribute and attribute descriptor, got [ %s ] and [ %s ]",
           data.getAttribute(),
           data.getAttributeDescriptor());
-      NavigableMap<Integer, InMemIngestWriter> writeObservers = getObservers(getUri());
-      final ArrayList<InMemIngestWriter> currentWriters;
+      NavigableMap<Integer, ElementConsumer> writeObservers = getObservers(getUri());
       try (Locker ignore = holder().lockWrite()) {
         if (log.isDebugEnabled()) {
           log.debug(
@@ -277,15 +318,29 @@ public class InMemStorage implements DataAccessorFactory {
                   }
                   return data;
                 });
-        currentWriters = Lists.newArrayList(writeObservers.values());
       }
-      currentWriters.forEach(
-          o -> {
-            final int partitionId =
-                Partitioners.getTruncatedPartitionId(partitioner, data, numPartitions);
-            o.write(Partition.of(partitionId), data);
-            log.debug("Passed element {} to {}-{}", data, o, partitionId);
-          });
+      List<Integer> cancelled = new ArrayList<>();
+      // prevent ConcurrentModificationException
+      new ArrayList<>(writeObservers.entrySet())
+          .forEach(
+              e -> {
+                int id = e.getKey();
+                ElementConsumer o = e.getValue();
+                final int partitionId =
+                    Partitioners.getTruncatedPartitionId(partitioner, data, numPartitions);
+                boolean continueProcessing = o.write(Partition.of(partitionId), data);
+                log.debug(
+                    "Passed element {} to {}:{}-{}: continue {}",
+                    data,
+                    InMemStorage.this.id,
+                    o,
+                    partitionId,
+                    continueProcessing);
+                if (!continueProcessing) {
+                  cancelled.add(id);
+                }
+              });
+      cancelled.stream().map(writeObservers::remove).forEach(ElementConsumer::cancel);
       statusCallback.commit(true, null);
     }
 
@@ -456,14 +511,10 @@ public class InMemStorage implements DataAccessorFactory {
     private int createConsumerId(boolean isBatch) {
       if (!isBatch) {
         try (Locker ignore = holder().lockRead()) {
-          final NavigableMap<Integer, InMemIngestWriter> uriObservers = getObservers(getUri());
+          final NavigableMap<Integer, ElementConsumer> uriObservers = getObservers(getUri());
           final int id = uriObservers.isEmpty() ? 0 : uriObservers.lastKey() + 1;
           // insert placeholder
-          uriObservers.put(
-              id,
-              (partition, data) -> {
-                // Noop.
-              });
+          uriObservers.put(id, ElementConsumer.dummy());
           return id;
         }
       }
@@ -487,10 +538,10 @@ public class InMemStorage implements DataAccessorFactory {
         @Override
         public void close() {
           log.debug("Closing consumer {}", consumerId);
-          getObservers(getUri()).remove(consumerId);
+          Optional.ofNullable(getObservers(getUri()).remove(consumerId))
+              .ifPresent(ElementConsumer::cancel);
           killSwitch.set(true);
           observeFuture.get().cancel(true);
-          observer.onCancelled();
         }
 
         @Override
@@ -623,19 +674,23 @@ public class InMemStorage implements DataAccessorFactory {
         CommitLogObserver observer) {
 
       AtomicReference<ScheduledFuture<?>> onIdleRef = new AtomicReference<>();
+      final Object lock = new Object();
 
+      AtomicLong lastProcessedElement = new AtomicLong(System.currentTimeMillis());
       Runnable onIdle =
           () -> {
             try {
-              synchronized (observer) {
-                subscribedPartitions.forEach(item -> watermarkEstimator.idle(item.getId()));
-                observer.onIdle(watermarkEstimator::getWatermark);
-                if (watermarkEstimator.getWatermark()
-                    >= (Watermarks.MAX_WATERMARK - BOUNDED_OUT_OF_ORDERNESS)) {
-                  observer.onCompleted();
-                  getObservers(getUri()).remove(consumerId);
-                  onIdleRef.get().cancel(true);
-                  killSwitch.set(true);
+              if (System.currentTimeMillis() - lastProcessedElement.get() > 2_000) {
+                synchronized (lock) {
+                  subscribedPartitions.forEach(item -> watermarkEstimator.idle(item.getId()));
+                  observer.onIdle(watermarkEstimator::getWatermark);
+                  if (watermarkEstimator.getWatermark()
+                      >= (Watermarks.MAX_WATERMARK - BOUNDED_OUT_OF_ORDERNESS)) {
+                    observer.onCompleted();
+                    getObservers(getUri()).remove(consumerId);
+                    onIdleRef.get().cancel(true);
+                    killSwitch.set(true);
+                  }
                 }
               }
             } catch (Exception ex) {
@@ -648,36 +703,42 @@ public class InMemStorage implements DataAccessorFactory {
       onIdleRef.set(onIdleFuture);
       final Map<Partition, StreamElement> lastConsumedPerPartition = new HashMap<>();
       final ElementConsumer consumer =
-          (partition, element, committer) -> {
-            try {
-              if (!killSwitch.get() && subscribedPartitions.contains(partition)) {
-                synchronized (observer) {
-                  element = cloneAndUpdateAttribute(getEntityDescriptor(), element);
-                  watermarkEstimator.update(partition.getId(), element);
-                  @Nullable
-                  final StreamElement lastConsumed = lastConsumedPerPartition.get(partition);
-                  if (lastConsumed != null) {
-                    consumedOffsets.add(toConsumedOffset(partition, lastConsumed));
+          ElementConsumer.fromObserver(
+              observer,
+              (partition, element, committer) -> {
+                try {
+                  if (!killSwitch.get() && subscribedPartitions.contains(partition)) {
+                    synchronized (lock) {
+                      element = cloneAndUpdateAttribute(getEntityDescriptor(), element);
+                      watermarkEstimator.update(partition.getId(), element);
+                      @Nullable
+                      final StreamElement lastConsumed = lastConsumedPerPartition.get(partition);
+                      if (lastConsumed != null) {
+                        consumedOffsets.add(toConsumedOffset(partition, lastConsumed));
+                      }
+                      lastConsumedPerPartition.put(partition, element);
+                      final boolean continueProcessing =
+                          observer.onNext(
+                              element,
+                              asOnNextContext(
+                                  committer,
+                                  new ConsumedOffset(
+                                      partition,
+                                      consumedOffsets,
+                                      watermarkEstimator.getWatermark())));
+                      lastProcessedElement.set(System.currentTimeMillis());
+                      killSwitch.compareAndSet(false, !continueProcessing);
+                    }
                   }
-                  lastConsumedPerPartition.put(partition, element);
-                  final boolean continueProcessing =
-                      observer.onNext(
-                          element,
-                          asOnNextContext(
-                              committer,
-                              new ConsumedOffset(
-                                  partition, consumedOffsets, watermarkEstimator.getWatermark())));
-                  killSwitch.compareAndSet(false, !continueProcessing);
+                } catch (Exception ex) {
+                  synchronized (lock) {
+                    killSwitch.compareAndSet(false, !observer.onError(ex));
+                  }
                 }
-              }
-            } catch (Exception ex) {
-              synchronized (observer) {
-                killSwitch.compareAndSet(false, !observer.onError(ex));
-              }
-            }
-          };
+                return !killSwitch.get();
+              });
 
-      NavigableMap<Integer, InMemIngestWriter> uriObservers = getObservers(getUri());
+      NavigableMap<Integer, ElementConsumer> uriObservers = getObservers(getUri());
       if (position == Position.OLDEST) {
         try (Locker ignore = holder().lockRead()) {
           latch.countDown();
@@ -712,40 +773,51 @@ public class InMemStorage implements DataAccessorFactory {
                           }
                         });
                   });
-          if (!killSwitch.get()) {
-            if (!stopAtCurrent) {
-              uriObservers.put(
-                  consumerId,
-                  (partition, data) ->
-                      consumer.accept(
-                          partition,
-                          data,
-                          (success, error) -> {
-                            // Noop.
-                          }));
-            } else {
-              observer.onCompleted();
-              onIdleFuture.cancel(true);
-            }
-          }
+          registerOnlineConsumptionIfNeeded(
+              consumerId,
+              stopAtCurrent,
+              killSwitch,
+              observer,
+              uriObservers,
+              consumer,
+              onIdleFuture,
+              latch);
         }
       } else {
+        registerOnlineConsumptionIfNeeded(
+            consumerId,
+            stopAtCurrent,
+            killSwitch,
+            observer,
+            uriObservers,
+            consumer,
+            onIdleFuture,
+            latch);
+      }
+    }
+
+    private void registerOnlineConsumptionIfNeeded(
+        int consumerId,
+        boolean stopAtCurrent,
+        AtomicBoolean killSwitch,
+        CommitLogObserver observer,
+        NavigableMap<Integer, ElementConsumer> uriObservers,
+        ElementConsumer consumer,
+        ScheduledFuture<?> onIdleFuture,
+        CountDownLatch latch) {
+
+      if (!killSwitch.get()) {
         if (!stopAtCurrent) {
-          uriObservers.put(
-              consumerId,
-              (partition, data) ->
-                  consumer.accept(
-                      partition,
-                      data,
-                      (success, error) -> {
-                        // Noop.
-                      }));
+          uriObservers.put(consumerId, consumer);
         } else {
           observer.onCompleted();
           onIdleFuture.cancel(true);
         }
-        latch.countDown();
+      } else {
+        observer.onCancelled();
+        onIdleFuture.cancel(true);
       }
+      latch.countDown();
     }
 
     private String toConsumedOffset(Partition partition, StreamElement element) {
@@ -1163,7 +1235,7 @@ public class InMemStorage implements DataAccessorFactory {
 
   private static class DataHolder {
     final NavigableMap<String, StreamElement> data;
-    final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
+    final Map<URI, NavigableMap<Integer, ElementConsumer>> observers;
     final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     DataHolder() {
@@ -1215,7 +1287,7 @@ public class InMemStorage implements DataAccessorFactory {
     return holder().data;
   }
 
-  NavigableMap<Integer, InMemIngestWriter> getObservers(URI uri) {
+  NavigableMap<Integer, ElementConsumer> getObservers(URI uri) {
     return holder()
         .observers
         .computeIfAbsent(uri, tmp -> Collections.synchronizedNavigableMap(new TreeMap<>()));
@@ -1234,11 +1306,6 @@ public class InMemStorage implements DataAccessorFactory {
     final Map<String, Object> cfg = familyDescriptor.getCfg();
 
     log.info("Creating accessor {} for URI {}", getClass(), uri);
-    /*
-    holder()
-        .observers
-        .computeIfAbsent(uri, k -> Collections.synchronizedNavigableMap(new TreeMap<>()));
-     */
 
     final int numPartitions =
         Optional.ofNullable(cfg.get(NUM_PARTITIONS))

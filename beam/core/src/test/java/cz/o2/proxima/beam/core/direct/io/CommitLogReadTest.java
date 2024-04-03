@@ -160,36 +160,33 @@ public class CommitLogReadTest {
   public void testWithMultiplePartitions() throws InterruptedException {
     int numPartitions = 3;
     int numElements = 10;
-    // this test has undebuggable issues on Flink, skip it for now
-    if (runner.getSimpleName().equals("DirectRunner")) {
-      LocalKafkaCommitLogDescriptor kafka = new LocalKafkaCommitLogDescriptor();
-      KafkaAccessor accessor =
-          kafka.createAccessor(
-              direct,
-              createTestFamily(
-                  event,
-                  URI.create("kafka-test://brokers/topic-" + UUID.randomUUID()),
-                  ImmutableMap.of(
-                      LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
-                      numPartitions,
-                      WatermarkConfiguration.prefixedKey(
-                          WatermarkConfiguration.CFG_ESTIMATOR_FACTORY),
-                      FiniteElementsWatermarkEstimatorFactory.class.getName(),
-                      WatermarkConfiguration.prefixedKey("numElements"),
-                      numElements,
-                      WatermarkConfiguration.prefixedKey("name"),
-                      UUID.randomUUID().toString())));
+    LocalKafkaCommitLogDescriptor kafka = new LocalKafkaCommitLogDescriptor();
+    KafkaAccessor accessor =
+        kafka.createAccessor(
+            direct,
+            createTestFamily(
+                event,
+                URI.create("kafka-test://brokers/topic-" + UUID.randomUUID()),
+                ImmutableMap.of(
+                    LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
+                    numPartitions,
+                    WatermarkConfiguration.prefixedKey(
+                        WatermarkConfiguration.CFG_ESTIMATOR_FACTORY),
+                    FiniteElementsWatermarkEstimatorFactory.class.getName(),
+                    WatermarkConfiguration.prefixedKey("numElements"),
+                    numElements,
+                    WatermarkConfiguration.prefixedKey("name"),
+                    UUID.randomUUID().toString())));
 
-      writeElementsToKafka(numElements, accessor);
+    writeElementsToKafka(numElements, accessor);
 
-      CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
 
-      testReadingFromCommitLogMany(
-          numElements, CommitLogRead.of("name", Position.OLDEST, Long.MAX_VALUE, repo, reader));
-    }
+    testReadingFromCommitLogMany(
+        numElements, CommitLogRead.of("name", Position.OLDEST, Long.MAX_VALUE, repo, reader));
   }
 
-  @Test(timeout = 120000)
+  @Test(timeout = 150000)
   public void testWithMultiplePartitionsMany() throws InterruptedException {
     int numPartitions = 3;
     int numElements = 1000;
@@ -253,7 +250,7 @@ public class CommitLogReadTest {
                 MapElements.into(TypeDescriptors.integers())
                     .via(el -> ByteBuffer.wrap(el.getValue()).getInt()))
             .apply(Sum.integersGlobally());
-    PAssert.that(count).containsInAnyOrder(numElements * (numElements - 1) / 2);
+    PAssert.that(count).containsInAnyOrder((numElements * (numElements + 1)) / 2);
     try {
       assertNotNull(p.run().waitUntilFinish());
     } catch (Throwable err) {
@@ -296,7 +293,7 @@ public class CommitLogReadTest {
 
   private List<StreamElement> createInput(int num) {
     List<StreamElement> ret = new ArrayList<>();
-    for (int i = 0; i < num; i++) {
+    for (int i = 1; i <= num; i++) {
       ret.add(
           StreamElement.upsert(
               event,

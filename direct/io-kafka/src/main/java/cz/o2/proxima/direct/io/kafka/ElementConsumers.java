@@ -261,8 +261,6 @@ class ElementConsumers {
       observer.onRepartition(
           asRepartitionContext(
               offsets.stream().map(TopicOffset::getPartition).collect(Collectors.toList())));
-
-      Utils.seekToOffsets(offsets, consumer);
     }
 
     @Override

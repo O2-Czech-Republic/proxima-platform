@@ -22,6 +22,7 @@ import cz.o2.proxima.core.repository.ConfigRepository;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -32,8 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
-import org.junit.Before;
+import org.junit.After;
 import org.junit.Test;
 
 /** Test suite for {@link CachedView}. */
@@ -47,54 +47,57 @@ public class PartitionedCachedViewTest {
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .resolve();
 
-  final ConfigRepository repo = (ConfigRepository) Repository.ofTest(nonReplicated);
-  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
+  ConfigRepository repo;
+  DirectDataOperator direct;
   EntityDescriptor gateway;
 
-  @Before
-  public void setUp() {
-    repo.reloadConfig(true, nonReplicated);
+  private void setUp() {
     gateway =
         repo.findEntity("gateway")
             .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
   }
 
+  @After
+  public void tearDown() {
+    direct.close();
+    repo.drop();
+  }
+
   @Test(timeout = 10000)
   public void testCommitLogCaching() throws InterruptedException {
-    testStatusReadWrite(repo);
-    testScanWildcardAll(repo);
+    repo = (ConfigRepository) Repository.ofTest(nonReplicated);
+    direct = repo.getOrCreateOperator(DirectDataOperator.class);
+    setUp();
+    testStatusReadWrite();
+    testScanWildcardAll();
   }
 
   @Test(timeout = 10000)
   public void testCommitLogCachingReplicated() throws InterruptedException {
-    repo.reloadConfig(true, replicated);
-    testStatusReadWrite(repo);
-    testScanWildcardAll(repo);
+    repo = (ConfigRepository) Repository.ofTest(replicated);
+    direct = repo.getOrCreateOperator(DirectDataOperator.class);
+    setUp();
+    testStatusReadWrite();
+    testScanWildcardAll();
   }
 
-  private void testStatusReadWrite(final Repository repo) throws InterruptedException {
+  private void testStatusReadWrite() throws InterruptedException {
     AttributeDescriptor<Object> status =
         gateway
             .findAttribute("status")
             .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
-    OnlineAttributeWriter writer =
-        direct
-            .getWriter(status)
-            .orElseThrow(() -> new IllegalStateException("Missing writer for status"));
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
     DirectAttributeFamilyDescriptor cachedFamily =
         direct.getFamiliesForAttribute(status).stream()
             .filter(af -> af.getDesc().getAccess().canCreateCachedView())
             .findAny()
             .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
-    CachedView view = cachedFamily.getCachedView().get();
+    CachedView view = Optionals.get(cachedFamily.getCachedView());
     // read all partitions
-    AtomicReference<CountDownLatch> latch = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(2);
     view.assign(
-        cachedFamily.getCommitLogReader().get().getPartitions(),
-        (update, current) -> {
-          Optional.ofNullable(latch.get()).ifPresent(CountDownLatch::countDown);
-        });
-    latch.set(new CountDownLatch(2));
+        Optionals.get(cachedFamily.getCommitLogReader()).getPartitions(),
+        (update, current) -> latch.countDown());
     writer.write(
         StreamElement.upsert(
             gateway,
@@ -107,15 +110,15 @@ public class PartitionedCachedViewTest {
         (succ, exc) -> {
           assertTrue(succ);
           assertNull(exc);
-          latch.get().countDown();
+          latch.countDown();
         });
-    latch.get().await();
+    latch.await();
     Optional<KeyValue<Object>> kv = view.get("key", status);
     assertTrue(kv.isPresent());
     assertEquals(status, kv.get().getAttributeDescriptor());
   }
 
-  private void testScanWildcardAll(final Repository repo) throws InterruptedException {
+  private void testScanWildcardAll() throws InterruptedException {
     AttributeDescriptor<Object> status =
         gateway
             .findAttribute("status")
@@ -125,10 +128,7 @@ public class PartitionedCachedViewTest {
             .findAttribute("device.*")
             .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
 
-    OnlineAttributeWriter writer =
-        direct
-            .getWriter(status)
-            .orElseThrow(() -> new IllegalStateException("Missing writer for status"));
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
 
     DirectAttributeFamilyDescriptor cachedFamily =
         direct.getFamiliesForAttribute(status).stream()
@@ -136,15 +136,12 @@ public class PartitionedCachedViewTest {
             .findAny()
             .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
 
-    CachedView view = cachedFamily.getCachedView().get();
+    CachedView view = Optionals.get(cachedFamily.getCachedView());
     // read all partitions
-    AtomicReference<CountDownLatch> latch = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(4);
     view.assign(
-        cachedFamily.getCommitLogReader().get().getPartitions(),
-        (update, current) -> {
-          Optional.ofNullable(latch.get()).ifPresent(CountDownLatch::countDown);
-        });
-    latch.set(new CountDownLatch(4));
+        Optionals.get(cachedFamily.getCommitLogReader()).getPartitions(),
+        (update, current) -> latch.countDown());
     writer.write(
         StreamElement.upsert(
             gateway,
@@ -157,7 +154,7 @@ public class PartitionedCachedViewTest {
         (succ, exc) -> {
           assertTrue(succ);
           assertNull(exc);
-          latch.get().countDown();
+          latch.countDown();
         });
     writer.write(
         StreamElement.upsert(
@@ -171,9 +168,9 @@ public class PartitionedCachedViewTest {
         (succ, exc) -> {
           assertTrue(succ);
           assertNull(exc);
-          latch.get().countDown();
+          latch.countDown();
         });
-    latch.get().await();
+    latch.await();
     List<KeyValue<?>> kvs = new ArrayList<>();
     view.scanWildcardAll("key", kvs::add);
     assertEquals(2, kvs.size());

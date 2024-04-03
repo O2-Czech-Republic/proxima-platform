@@ -501,8 +501,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         Map<TopicPartition, List<ConsumerRecord<K, V>>> map = new HashMap<>();
         Collection<Partition> assignment =
             Lists.newArrayList(group.getAssignment(consumerId.getId()));
-        Map<Integer, Integer> offsets = consumerOffsets.get(consumerId);
-
+        final Map<Integer, Integer> offsets = consumerOffsets.get(consumerId);
         if (log.isDebugEnabled()) {
           log.debug(
               "Polling consumerId {}.{} with assignment {} and offsets {}",
@@ -544,7 +543,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           }
         }
         log.debug("Consumer {} id {} polled records {}", name, consumerId, map);
-
         return new ConsumerRecords<>(map);
       }
     }
@@ -683,7 +681,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
     @Override
     public ObserveHandle observeBulk(String name, Position position, CommitLogObserver observer) {
-
       ObserveHandle ret = super.observeBulk(name, position, observer);
       log.debug("Started to bulk observe LocalKafkaCommitLog with URI {} by {}", getUri(), name);
       return ret;

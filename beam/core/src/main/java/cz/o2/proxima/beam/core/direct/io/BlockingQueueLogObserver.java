@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
@@ -107,11 +108,14 @@ abstract class BlockingQueueLogObserver<
     public boolean onNext(
         StreamElement element,
         cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext context) {
-      log.debug(
-          "{}: Received next element {} on partition {}",
-          getName(),
-          element,
-          context.getPartition());
+
+      if (log.isDebugEnabled()) {
+        log.debug(
+            "{}: Received next element {} on partition {}",
+            getName(),
+            element,
+            context.getPartition());
+      }
       return enqueue(element, new BatchLogObserverUnifiedContext(context));
     }
 
@@ -151,7 +155,6 @@ abstract class BlockingQueueLogObserver<
     }
   }
 
-  @ToString
   @VisibleForTesting
   static class LogObserverUnifiedContext implements UnifiedContext {
 
@@ -184,10 +187,17 @@ abstract class BlockingQueueLogObserver<
       return false;
     }
 
-    @Nullable
     @Override
     public Offset getOffset() {
-      return context.getOffset();
+      return Objects.requireNonNull(context.getOffset());
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("offset", getOffset())
+          .add("watermark", getWatermark())
+          .toString();
     }
   }
 
@@ -236,12 +246,13 @@ abstract class BlockingQueueLogObserver<
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final AtomicLong watermark;
 
+  @Getter(AccessLevel.PROTECTED)
   private final BlockingQueue<Pair<StreamElement, UnifiedContext>> queue;
 
   private volatile boolean stopped = false;
   private volatile boolean nackAllIncoming = false;
-  @Getter @Nullable private UnifiedContext lastWrittenContext;
-  @Getter @Nullable private UnifiedContext lastReadContext;
+  @Getter @Nullable private volatile UnifiedContext lastWrittenContext;
+  @Getter @Nullable private volatile UnifiedContext lastReadContext;
   @Nullable private Pair<StreamElement, UnifiedContext> peekElement = null;
   private long limit;
   private boolean cancelled = false;
@@ -292,6 +303,7 @@ abstract class BlockingQueueLogObserver<
   @Override
   public void onCompleted() {
     log.debug("{}: Finished reading from observer", name);
+    cancelledLatch.countDown();
     putToQueue(null, null);
   }
 
@@ -299,12 +311,12 @@ abstract class BlockingQueueLogObserver<
     Pair<StreamElement, UnifiedContext> p = Pair.of(element, context);
     while (!stopped && !cancelled) {
       try {
-        if (queue.offer(p, 50, TimeUnit.MILLISECONDS)) {
+        if (queue.offer(p, 500, TimeUnit.MILLISECONDS)) {
           return true;
         }
       } catch (InterruptedException ex) {
         log.debug("Caught interrupted exception", ex);
-        stop(true);
+        stop(true, false);
         Thread.currentThread().interrupt();
       }
     }
@@ -408,7 +420,7 @@ abstract class BlockingQueueLogObserver<
 
   @Nullable
   private StreamElement consumePeek() {
-    @Nullable Pair<StreamElement, UnifiedContext> taken = peekElement;
+    final @Nullable Pair<StreamElement, UnifiedContext> taken = peekElement;
     peekElement = null;
     if (taken != null && taken.getFirst() != null) {
       lastReadContext = taken.getSecond();
@@ -443,20 +455,30 @@ abstract class BlockingQueueLogObserver<
   }
 
   void stop(boolean nack) {
+    stop(nack, true);
+  }
+
+  void stop(boolean nack, boolean wait) {
     nackAllIncoming = nack;
     stopped = true;
     if (nack) {
-      List<Pair<StreamElement, UnifiedContext>> drop = new ArrayList<>();
-      if (peekElement != null) {
-        drop.add(peekElement);
-        peekElement = null;
-      }
-      queue.drainTo(drop);
-      drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(UnifiedContext::nack);
+      nack();
+    } else {
+      queue.clear();
     }
-    if (getWatermark() < Watermarks.MAX_WATERMARK) {
+    if (getWatermark() < Watermarks.MAX_WATERMARK && wait) {
       ExceptionUtils.ignoringInterrupted(() -> cancelledLatch.await(1, TimeUnit.SECONDS));
     }
+  }
+
+  private void nack() {
+    List<Pair<StreamElement, UnifiedContext>> drop = new ArrayList<>();
+    if (peekElement != null) {
+      drop.add(peekElement);
+      peekElement = null;
+    }
+    queue.drainTo(drop);
+    drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(UnifiedContext::nack);
   }
 
   void clearIncomingQueue() {
@@ -465,14 +487,16 @@ abstract class BlockingQueueLogObserver<
 
   private void updateAndLogWatermark(long newWatermark) {
     if (!cancelled) {
-      if (log.isDebugEnabled() && watermark.get() < newWatermark) {
-        log.debug(
-            "{}: Watermark updated from {} to {}",
-            name,
-            Instant.ofEpochMilli(watermark.get()),
-            Instant.ofEpochMilli(newWatermark));
+      if (watermark.get() < newWatermark) {
+        if (log.isDebugEnabled()) {
+          log.debug(
+              "{}: Watermark updated from {} to {}",
+              name,
+              Instant.ofEpochMilli(watermark.get()),
+              Instant.ofEpochMilli(newWatermark));
+        }
+        watermark.set(newWatermark);
       }
-      watermark.set(newWatermark);
     }
   }
 

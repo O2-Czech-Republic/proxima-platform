@@ -24,7 +24,6 @@ dependencies {
   api libraries.beam_core
   implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.beam_extensions_kryo
-  testImplementation libraries.slf4j_log4j
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-core')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -39,6 +38,7 @@ dependencies {
   testImplementation libraries.hamcrest
   testImplementation libraries.mockito_core
   testImplementation libraries.log4j_core
+  testImplementation libraries.slf4j_log4j
   compileOnly project(path: ':proxima-direct-core')
   compileOnly libraries.auto_service_annotations
   compileAnnotationProcessor libraries.lombok

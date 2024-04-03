@@ -27,6 +27,8 @@ import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.scheme.SerializationException;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
@@ -36,12 +38,19 @@ import cz.o2.proxima.direct.core.storage.ListCommitLog.ListObserveHandle;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -85,10 +94,13 @@ public class ListCommitLogTest {
 
   @Test(timeout = 10000)
   public void testObserveBulkNonExternalizableUnnamed() throws InterruptedException {
-    CommitLogReader reader = ListCommitLog.ofNonExternalizable(data(10), direct.getContext());
+    int numElements = 10;
+    CommitLogReader reader =
+        ListCommitLog.ofNonExternalizable(data(numElements), direct.getContext());
     List<StreamElement> data = new ArrayList<>();
     CountDownLatch first = new CountDownLatch(1);
     CountDownLatch second = new CountDownLatch(1);
+    AtomicInteger skip = new AtomicInteger(1);
     ObserveHandle handle =
         reader.observeBulk(
             null,
@@ -100,8 +112,8 @@ public class ListCommitLogTest {
 
               @Override
               public boolean onNext(StreamElement element, OnNextContext context) {
-                context.nack();
-                return false;
+                context.confirm();
+                return skip.getAndDecrement() > 0;
               }
 
               @Override
@@ -110,10 +122,11 @@ public class ListCommitLogTest {
               }
             });
     first.await();
-    List<Offset> offsets = handle.getCurrentOffsets();
+    List<Offset> offsets = handle.getCommittedOffsets();
     handle = reader.observeBulkOffsets(offsets, toList(data, b -> second.countDown()));
     second.await();
-    assertEquals(10, data.size());
+    // the last committed is not read again, because it was committed
+    assertEquals(numElements - 2, data.size());
     assertFalse(handle.getCommittedOffsets().isEmpty());
     assertFalse(handle.getCurrentOffsets().isEmpty());
     ListObserveHandle listObserveHandle = (ListObserveHandle) handle;
@@ -165,18 +178,27 @@ public class ListCommitLogTest {
   @Test(timeout = 10000)
   public void testObserveExternalizableUnnamedPauseContinue() throws InterruptedException {
     CommitLogReader reader = ListCommitLog.of(data(10), direct.getContext());
-    List<StreamElement> data = new ArrayList<>();
+    List<Pair<StreamElement, Offset>> data = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     ObserveHandle handle =
-        reader.observe(null, toList(data, b -> latch.countDown(), v -> v.getValue()[0] < 5));
+        reader.observe(
+            null,
+            toList(
+                data,
+                p -> Pair.of(p.getFirst(), p.getSecond().getOffset()),
+                b -> latch.countDown(),
+                v -> v.getValue()[0] < 5));
     latch.await();
     assertEquals(6, data.size());
     assertTrue(handle.getCommittedOffsets().isEmpty());
     assertFalse(handle.getCurrentOffsets().isEmpty());
     CountDownLatch nextLatch = new CountDownLatch(1);
-    reader.observeBulkOffsets(handle.getCurrentOffsets(), toList(data, b -> nextLatch.countDown()));
+    List<StreamElement> addedData = new ArrayList<>();
+    reader.observeBulkOffsets(
+        Collections.singletonList(data.get(5).getSecond()),
+        toList(addedData, b -> nextLatch.countDown()));
     nextLatch.await();
-    assertEquals(11, data.size());
+    assertEquals(5, addedData.size());
   }
 
   @Test(timeout = 10000)
@@ -321,6 +343,65 @@ public class ListCommitLogTest {
   public void testOffsetExternalizerFromBytesWhenInvalidBytes() {
     ListCommitLog.ListOffsetExternalizer externalizer = new ListCommitLog.ListOffsetExternalizer();
     assertThrows(SerializationException.class, () -> externalizer.fromBytes(new byte[] {0x0}));
+  }
+
+  @Test(timeout = 10000)
+  public void testOffsetReset() throws InterruptedException {
+    CommitLogReader reader = ListCommitLog.ofNonExternalizable(data(10), direct.getContext());
+    BlockingQueue<Pair<Integer, Offset>> queue = new SynchronousQueue<>();
+    AtomicInteger repartitions = new AtomicInteger();
+    CountDownLatch completed = new CountDownLatch(1);
+    ObserveHandle handle =
+        reader.observeBulk(
+            null,
+            new CommitLogObserver() {
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+
+              @Override
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                context.confirm();
+                ExceptionUtils.unchecked(
+                    () -> queue.put(Pair.of((int) element.getValue()[0], context.getOffset())));
+                return true;
+              }
+
+              @Override
+              public void onRepartition(OnRepartitionContext context) {
+                repartitions.incrementAndGet();
+              }
+
+              @Override
+              public void onCompleted() {
+                completed.countDown();
+              }
+            });
+    List<Integer> allTaken = new ArrayList<>();
+    boolean wasReset = false;
+    while (true) {
+      Pair<Integer, Offset> taken = queue.take();
+      allTaken.add(taken.getFirst());
+      if (taken.getFirst() == 4 && !wasReset) {
+        wasReset = true;
+        handle.resetOffsets(Collections.singletonList(taken.getSecond()));
+      }
+      if (taken.getFirst() == 9) {
+        break;
+      }
+    }
+    Map<Integer, Long> counts =
+        allTaken.stream().collect(Collectors.groupingBy(e -> e, Collectors.counting()));
+    Optional<Entry<Integer, Long>> minMultiple =
+        counts.entrySet().stream()
+            .filter(e -> e.getValue() > 1)
+            .min(Comparator.comparing(Entry::getValue));
+    completed.await();
+    assertTrue(minMultiple.isPresent());
+    assertEquals(4, (int) minMultiple.get().getKey());
+    assertEquals(2L, (long) minMultiple.get().getValue());
+    assertEquals(2, repartitions.get());
   }
 
   private List<StreamElement> data(int count) {

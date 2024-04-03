@@ -16,9 +16,12 @@
 package cz.o2.proxima.direct.core.commitlog;
 
 import cz.o2.proxima.core.functional.Consumer;
+import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.functional.UnaryPredicate;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.Pair;
+import cz.o2.proxima.direct.core.commitlog.CommitLogObserver.OnNextContext;
 import java.util.List;
 
 public class LogObserverUtils {
@@ -32,6 +35,15 @@ public class LogObserverUtils {
       Consumer<Boolean> onFinished,
       UnaryPredicate<StreamElement> shouldContinue) {
 
+    return toList(list, Pair::getFirst, onFinished, shouldContinue);
+  }
+
+  public static <X> CommitLogObserver toList(
+      List<X> list,
+      UnaryFunction<Pair<StreamElement, OnNextContext>, X> mapFn,
+      Consumer<Boolean> onFinished,
+      UnaryPredicate<StreamElement> shouldContinue) {
+
     return new CommitLogObserver() {
       @Override
       public boolean onError(Throwable error) {
@@ -40,7 +52,7 @@ public class LogObserverUtils {
 
       @Override
       public boolean onNext(StreamElement element, OnNextContext context) {
-        list.add(element);
+        list.add(mapFn.apply(Pair.of(element, context)));
         context.confirm();
         return shouldContinue.apply(element);
       }

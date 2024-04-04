@@ -68,6 +68,13 @@ public class ${java_classname} implements Serializable {
             .withValidate(validations));
   }
 
+  /**
+   * Create instance of {@code ${java_classname} from given {@link Repository}.
+   **/
+  public static ${java_classname} wrap(Repository repository) {
+    return new ${java_classname}(repository);
+  }
+
   @FunctionalInterface
   static interface EntityDescriptorProvider {
     EntityDescriptor getDescriptor();
@@ -179,8 +186,11 @@ public class ${java_classname} implements Serializable {
 
 
   private ${java_classname}(ConfigRepository.Builder builder) {
-    this.factory = Objects.requireNonNull(builder).build().asFactory();
-    Repository repo = this.factory.apply();
+    this(builder.build());
+  }
+
+  private ${java_classname}(Repository repo) {
+    this.factory = Objects.requireNonNull(repo).asFactory();
     this.cfg = ((ConfigRepository) repo).getConfig();
 <#list operators as operator>
     ${operator.name} = new ${operator.classname}();

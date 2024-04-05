@@ -90,11 +90,10 @@ import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Output;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.serializers.DefaultSerializers.KryoSerializableSerializer;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.util.DefaultInstantiatorStrategy;
 import org.apache.beam.repackaged.kryo.org.objenesis.strategy.StdInstantiatorStrategy;
-import org.apache.beam.runners.direct.DirectRunner;
-import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.PipelineResult.State;
+import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderRegistry;
@@ -1703,8 +1702,11 @@ class BeamStream<T> implements Stream<T> {
   }
 
   private boolean supportsStableInput(PipelineOptions opts) {
-    return DirectRunner.class.isAssignableFrom(opts.getRunner())
-        || FlinkRunner.class.isAssignableFrom(opts.getRunner());
+    return isRunner("DirectRunner", opts.getRunner()) || isRunner("FlinkRunner", opts.getRunner());
+  }
+
+  private boolean isRunner(String runnerSimpleName, Class<? extends PipelineRunner<?>> runnerCls) {
+    return runnerCls.getSimpleName().equals(runnerSimpleName);
   }
 
   private static <T> PTransform<PCollection<T>, PDone> asWriteTransform(DoFn<T, ?> doFn) {

@@ -25,6 +25,7 @@ import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.PassthroughFilter;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.time.WatermarkEstimator;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -341,10 +342,12 @@ public class ReplicationControllerTest {
   }
 
   private void writeEvent(long stamp) {
+    CountDownLatch latch = new CountDownLatch(1);
     direct
         .getWriter(data)
         .orElseThrow(() -> new IllegalArgumentException("Missing writer for data"))
-        .write(getUpdate(event, data, stamp), (succ, exc) -> {});
+        .write(getUpdate(event, data, stamp), (succ, exc) -> latch.countDown());
+    ExceptionUtils.ignoringInterrupted(latch::await);
   }
 
   private static StreamElement getUpdate(

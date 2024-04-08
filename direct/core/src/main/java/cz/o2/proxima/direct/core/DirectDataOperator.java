@@ -465,10 +465,12 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   /** Close the operator and release all allocated resources. */
   @Override
   public void close() {
+    final List<OnlineAttributeWriter> toClose;
     synchronized (writers) {
-      writers.values().stream().distinct().forEach(OnlineAttributeWriter::close);
+      toClose = writers.values().stream().distinct().collect(Collectors.toList());
       writers.clear();
     }
+    toClose.forEach(OnlineAttributeWriter::close);
     Optional.ofNullable(transactionManager).ifPresent(TransactionResourceManager::close);
   }
 

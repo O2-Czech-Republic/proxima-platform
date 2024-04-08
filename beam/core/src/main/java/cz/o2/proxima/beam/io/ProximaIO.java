@@ -19,6 +19,7 @@ import cz.o2.proxima.core.annotations.Experimental;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -87,19 +88,21 @@ public class ProximaIO {
 
     @ProcessElement
     public void processElement(@Element StreamElement element) {
-      direct
-          .getWriter(element.getAttributeDescriptor())
-          .orElseThrow(
-              () ->
-                  new IllegalArgumentException(
-                      String.format("Missing writer for [%s].", element.getAttributeDescriptor())))
-          .write(
-              element,
-              (succ, error) -> {
-                if (error != null) {
-                  log.error(String.format("Unable to write element [%s].", element), error);
-                }
-              });
+      OnlineAttributeWriter writer =
+          direct
+              .getWriter(element.getAttributeDescriptor())
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          String.format(
+                              "Missing writer for [%s].", element.getAttributeDescriptor())));
+      writer.write(
+          element,
+          (succ, error) -> {
+            if (error != null) {
+              log.error(String.format("Unable to write element [%s].", element), error);
+            }
+          });
     }
 
     @Teardown

@@ -42,6 +42,7 @@ import cz.o2.proxima.core.transaction.TransactionSerializerSchemeProvider;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Strings;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.scheme.proto.transactions.Transactions;
@@ -221,6 +222,11 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         accessor = new ProtoMessageValueAccessor<>(this::getDefault);
       }
       return (AttributeValueAccessor<MessageT, OutputT>) accessor;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("class", protoClass).toString();
     }
   }
 

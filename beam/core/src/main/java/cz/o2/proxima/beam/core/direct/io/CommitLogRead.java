@@ -328,6 +328,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     private transient CommitLogReader reader;
     protected transient Cache<Integer, ObserveHandle> runningObserves;
     protected transient Map<Integer, CommitLogObserver> observers;
+    private Map<Partition, Offset> lastSeekedOffsets = new HashMap<>();
 
     private transient boolean externalizableOffsets = false;
 
@@ -425,14 +426,17 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       if (observer != null) {
         final @Nullable Offset currentOffset =
             observer.getLastReadContext() == null
-                ? null
+                ? lastSeekedOffsets.get(part)
                 : Objects.requireNonNull(observer.getLastReadContext().getOffset());
         if (!Objects.equals(currentOffset, tracker.currentRestriction().getStartOffset())) {
+          log.info(
+              "Closing reader due to non-matching offsets {} and {}",
+              currentOffset,
+              tracker.currentRestriction().getStartOffset());
           closeHandle(part.getId());
-          return !tracker.currentRestriction().isStartInclusive();
         }
       }
-      return false;
+      return !tracker.currentRestriction().isStartInclusive();
     }
 
     protected void closeHandle(int part) {
@@ -452,6 +456,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       final ObserveHandle handle;
       if (restriction.getStartOffset() != null) {
         handle = observeBulkOffsets(restriction, reader, observer);
+        lastSeekedOffsets.put(partition, restriction.getStartOffset());
       } else {
         handle = observeBulkPartitions(name, restriction, reader, observer);
       }

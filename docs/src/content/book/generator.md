@@ -135,7 +135,7 @@ will generate the `Model.java` class to the current working directory:
 
 Note that if your configuration file uses other dependecies (like scheme-proto in the maven example above) you need to specify these on the classpath and run the class `cz.o2.proxima.generator.ModelGenerator` manually:
 ```shell
- $ java -cp proxima-compiler-java-cli-0.13.0.jar:<other_jars> \
+ $ java -cp proxima-compiler-java-cli-0.14.0.jar:<other_jars> \
      cz.o2.proxima.generator.ModelGenerator \
      -p cz.o2.proxima.test -f <path_to_config>
 ```

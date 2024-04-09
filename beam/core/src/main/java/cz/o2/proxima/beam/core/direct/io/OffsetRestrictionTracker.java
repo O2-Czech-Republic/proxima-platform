@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.transforms.splittabledofn.HasDefaultTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.SplitResult;
@@ -35,6 +36,7 @@ import org.apache.beam.sdk.transforms.splittabledofn.SplitResult;
  * A {@link RestrictionTracker} for {@link Offset Offsets} read from {@link
  * cz.o2.proxima.direct.core.commitlog.CommitLogReader}
  */
+@Slf4j
 public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Offset> {
 
   @ToString
@@ -81,7 +83,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     @Getter private volatile boolean extensible;
 
     // true when the range has been all claimed
-    private transient volatile boolean finished = false;
+    private volatile boolean finished = false;
 
     private OffsetRange(Partition partition, Position position, long totalLimit, boolean bounded) {
       this.partition = partition;
@@ -170,7 +172,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     /**
      * @return unmodifiable already processed split of the restriction
      */
-    public OffsetRange asPrimary() {
+    public OffsetRange toPrimary() {
       this.finished = true;
       this.extensible = false;
       return new OffsetRange(
@@ -264,8 +266,9 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       return null;
     }
     if (currentRestriction.isSplittable()) {
-      OffsetRange primary = currentRestriction.asPrimary();
-      return SplitResult.of(primary, currentRestriction.asResidual());
+      OffsetRange primary = currentRestriction.toPrimary();
+      OffsetRange residual = currentRestriction.asResidual();
+      return SplitResult.of(primary, residual);
     }
     return SplitResult.of(null, currentRestriction);
   }

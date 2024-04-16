@@ -2169,13 +2169,21 @@ public final class ConfigRepository extends Repository {
         .filter(
             a ->
                 getAllFamilies(true)
+                    .filter(af -> af.getAttributes().contains(a))
                     .filter(af -> af.getType() == StorageType.PRIMARY)
-                    .noneMatch(af -> af.getAttributes().stream().anyMatch(fa -> fa.equals(a))))
+                    .findAny()
+                    .isEmpty())
         .findAny()
         .ifPresent(
             a -> {
               throw new IllegalArgumentException(
-                  "Attribute " + a.getName() + " of entity " + a.getEntity() + " has no storage");
+                  String.format(
+                      "Attribute %s of entity %s has no storage, candidates %s",
+                      a.getName(),
+                      a.getEntity(),
+                      getAllFamilies(true)
+                          .filter(af -> af.getAttributes().contains(a))
+                          .collect(Collectors.toList())));
             });
 
     // check that no attribute has two primary families

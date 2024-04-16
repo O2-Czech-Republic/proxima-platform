@@ -687,6 +687,28 @@ public class ConfigRepositoryTest {
     assertEquals("a", map2.get("b"));
   }
 
+  @Test
+  public void testRepositoryWithOnlyReplicaFamily() {
+    ConfigRepository.dropCached();
+    Config config =
+        ConfigFactory.parseString(
+            "entities { test { attributes { test { scheme: bytes } } } }\n"
+                + "attributeFamilies { "
+                + "test-family { "
+                + "entity: test\n "
+                + "attributes: [ \"*\" ]\n "
+                + "storage: \"inmem:///dummy\"\n "
+                + "type: replica\n "
+                + "access: commit-log } }");
+    try {
+      Repository.of(config);
+      fail("Should have thrown exception");
+    } catch (IllegalArgumentException ex) {
+      assertTrue(
+          ex.getCause().getMessage().startsWith("Attribute test of entity test has no storage"));
+    }
+  }
+
   private void checkThrows(Factory<?> factory) {
     checkThrows(factory, null);
   }

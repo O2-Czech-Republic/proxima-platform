@@ -20,7 +20,11 @@ import java.util.Optional;
 public class Optionals {
 
   public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() -> new IllegalArgumentException("Provided optional is empty."));
+    return get(optional, "Provided optional is empty.");
+  }
+
+  public static <T> T get(Optional<T> optional, String format, Object... args) {
+    return optional.orElseThrow(() -> new IllegalArgumentException(String.format(format, args)));
   }
 
   private Optionals() {

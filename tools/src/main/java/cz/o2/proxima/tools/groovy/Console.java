@@ -329,7 +329,8 @@ public class Console implements AutoCloseable {
     ValueSerializer<Object> valueSerializer =
         (ValueSerializer<Object>) attrDesc.getValueSerializer();
     byte[] payload = valueSerializer.serialize(valueSerializer.fromJsonValue(value));
-    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attrDesc));
+    OnlineAttributeWriter writer =
+        Optionals.get(direct.getWriter(attrDesc), "Cannot find writer for attribute %s", attrDesc);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> exc = new AtomicReference<>();
     writer.write(

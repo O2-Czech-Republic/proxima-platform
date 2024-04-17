@@ -306,7 +306,18 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
               .ifPresent(this::cacheOrRetrieveWriterFor);
         }
 
-        return Optional.ofNullable(writers.get(attr));
+        OnlineAttributeWriter result = writers.get(attr);
+        if (result == null) {
+          log.warn(
+              "Failed to find writer for attribute {} from candidates {} (all families {})",
+              attr,
+              repo.getFamiliesForAttribute(attr).stream()
+                  .filter(af -> af.getType() == StorageType.PRIMARY)
+                  .filter(af -> !af.getAccess().isReadonly())
+                  .collect(Collectors.toList()),
+              repo.getFamiliesForAttribute(attr));
+        }
+        return Optional.ofNullable(result);
       }
       return Optional.of(writer);
     }

@@ -15,8 +15,7 @@
  */
 package cz.o2.proxima.direct.transaction.manager;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.core.repository.ConfigConstants;
@@ -371,12 +370,17 @@ public class TransactionIT {
       long sequentialId = response.getSeqId();
 
       final List<StreamElement> updates;
+      boolean errorDetected = false;
       if (valA.isPresent()) {
         int currentVal = ByteBuffer.wrap(valA.get().getParsedRequired()).getInt();
         updates = updateAttributeAndRemove(sequentialId, key, attrB, attrA, currentVal);
-      } else {
+      } else if (valB.isPresent()) {
         int currentVal = ByteBuffer.wrap(valB.get().getParsedRequired()).getInt();
         updates = updateAttributeAndRemove(sequentialId, key, attrA, attrB, currentVal);
+      } else {
+        // this means we are in an error state and this transaction should be aborted
+        errorDetected = true;
+        updates = Collections.emptyList();
       }
 
       client
@@ -390,6 +394,10 @@ public class TransactionIT {
         TimeUnit.MILLISECONDS.sleep(Math.min(8, retrySleep *= 2));
         continue;
       }
+
+      assertFalse(
+          "There was error detected during transaction, it should be impossible to commit this transaction!",
+          errorDetected);
 
       CountDownLatch latch = new CountDownLatch(1);
       AtomicBoolean succeeded = new AtomicBoolean();

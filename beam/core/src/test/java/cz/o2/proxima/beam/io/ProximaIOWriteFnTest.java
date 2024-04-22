@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.io;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import cz.o2.proxima.beam.io.ProximaIO.WriteFn;
@@ -22,12 +23,22 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.util.Optionals;
+import cz.o2.proxima.direct.core.CommitCallback;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.jetbrains.annotations.NotNull;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -55,6 +66,7 @@ public class ProximaIOWriteFnTest {
   @Test
   public void writeSuccessfullyTest() {
     long now = System.currentTimeMillis();
+    writeFn.startBundle();
     writeFn.processElement(
         StreamElement.upsert(
             gateway,
@@ -64,7 +76,75 @@ public class ProximaIOWriteFnTest {
             status.getName(),
             now,
             new byte[] {1}));
+    writeFn.finishBundle();
     Optional<KeyValue<byte[]>> keyValue = reader.get("key1", status, now);
     assertTrue(keyValue.isPresent());
+  }
+
+  @Test
+  public void testTransactionRejection() {
+    long now = System.currentTimeMillis();
+    AtomicInteger fails = new AtomicInteger();
+    AtomicInteger written = new AtomicInteger();
+    OnlineAttributeWriter mockWriter = createSerializableWriter(fails, written);
+    WriteFn modifiedWriteFn =
+        new WriteFn(repository.asFactory()) {
+          @Override
+          OnlineAttributeWriter getWriterForElement(StreamElement element) {
+            return mockWriter;
+          }
+        };
+    modifiedWriteFn.startBundle();
+    modifiedWriteFn.processElement(
+        StreamElement.upsert(
+            gateway,
+            status,
+            UUID.randomUUID().toString(),
+            "key1",
+            status.getName(),
+            now,
+            new byte[] {1}));
+    assertEquals(1, fails.get());
+    modifiedWriteFn.finishBundle();
+    assertEquals(2, fails.get());
+    assertEquals(1, written.get());
+  }
+
+  @NotNull
+  private OnlineAttributeWriter createSerializableWriter(
+      AtomicInteger fails, AtomicInteger written) {
+    ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    OnlineAttributeWriter mockWriter =
+        new OnlineAttributeWriter() {
+          @Override
+          public void write(StreamElement data, CommitCallback statusCallback) {
+            if (fails.incrementAndGet() < 2) {
+              // reject after 1 second
+              scheduler.schedule(
+                  () ->
+                      statusCallback.commit(
+                          false, new TransactionRejectedException("t1", Response.Flags.ABORTED)),
+                  1,
+                  TimeUnit.SECONDS);
+            } else {
+              written.incrementAndGet();
+              statusCallback.commit(true, null);
+            }
+          }
+
+          @Override
+          public Factory<? extends OnlineAttributeWriter> asFactory() {
+            return repo -> this;
+          }
+
+          @Override
+          public URI getUri() {
+            return URI.create("mock:///");
+          }
+
+          @Override
+          public void close() {}
+        };
+    return mockWriter;
   }
 }

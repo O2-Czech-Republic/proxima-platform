@@ -18,9 +18,18 @@ package cz.o2.proxima.beam.io;
 import cz.o2.proxima.core.annotations.Experimental;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -72,6 +81,8 @@ public class ProximaIO {
 
     private transient DirectDataOperator direct;
 
+    private transient Set<CompletableFuture<Pair<Boolean, Throwable>>> pendingWrites;
+
     WriteFn(RepositoryFactory repositoryFactory) {
       this.repositoryFactory = repositoryFactory;
     }
@@ -86,23 +97,71 @@ public class ProximaIO {
       direct = repositoryFactory.apply().getOrCreateOperator(DirectDataOperator.class);
     }
 
+    @StartBundle
+    public void startBundle() {
+      // we access the collection asynchronously on completion of writes
+      pendingWrites = Collections.synchronizedSet(new HashSet<>());
+    }
+
+    @FinishBundle
+    public void finishBundle() {
+      while (!pendingWrites.isEmpty()) {
+        synchronized (pendingWrites) {
+          Optional<Pair<Boolean, Throwable>> failedFuture =
+              pendingWrites.stream()
+                  .map(f -> ExceptionUtils.uncheckedFactory(f::get))
+                  .filter(p -> !p.getFirst())
+                  .filter(p -> !(p.getSecond() instanceof TransactionRejectedException))
+                  .findAny();
+          if (failedFuture.isPresent()) {
+            throw new IllegalStateException(failedFuture.get().getSecond());
+          }
+        }
+      }
+    }
+
     @ProcessElement
     public void processElement(@Element StreamElement element) {
-      OnlineAttributeWriter writer =
-          direct
-              .getWriter(element.getAttributeDescriptor())
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          String.format(
-                              "Missing writer for [%s].", element.getAttributeDescriptor())));
-      writer.write(
-          element,
-          (succ, error) -> {
-            if (error != null) {
-              log.error(String.format("Unable to write element [%s].", element), error);
-            }
+      OnlineAttributeWriter writer = getWriterForElement(element);
+      AtomicReference<Runnable> writeRunnableRef = new AtomicReference<>();
+      writeRunnableRef.set(
+          () -> {
+            CompletableFuture<Pair<Boolean, Throwable>> writeResult = new CompletableFuture<>();
+            writeResult.thenAccept(
+                r -> {
+                  if (Boolean.TRUE.equals(r.getFirst())) {
+                    // remove successfully completed write
+                    pendingWrites.remove(writeResult);
+                  } else if (r.getSecond() instanceof TransactionRejectedException) {
+                    // restart the writing transaction
+                    writeRunnableRef.get().run();
+                    // transaction rejected, restart transaction
+                    pendingWrites.remove(writeResult);
+                  }
+                  // else keep the failed future until finish bundle
+                });
+            pendingWrites.add(writeResult);
+            writer.write(
+                element,
+                (succ, error) -> {
+                  writeResult.complete(Pair.of(succ, error));
+                  if (error != null) {
+                    log.error(String.format("Unable to write element [%s].", element), error);
+                  }
+                });
           });
+      // run the runnable
+      writeRunnableRef.get().run();
+    }
+
+    @VisibleForTesting
+    OnlineAttributeWriter getWriterForElement(StreamElement element) {
+      return direct
+          .getWriter(element.getAttributeDescriptor())
+          .orElseThrow(
+              () ->
+                  new IllegalArgumentException(
+                      String.format("Missing writer for [%s].", element.getAttributeDescriptor())));
     }
 
     @Teardown

@@ -20,6 +20,7 @@ import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.beam.core.transforms.AssignEventTime;
 import cz.o2.proxima.beam.core.transforms.CalendarWindows;
+import cz.o2.proxima.beam.io.ProximaIO;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.Factory;
@@ -42,7 +43,6 @@ import cz.o2.proxima.core.util.SerializableScopedValue;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
-import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
@@ -739,17 +739,13 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public void write(RepositoryProvider repoProvider) {
-
     RepositoryFactory factory = repoProvider.getRepo().asFactory();
-
-    writeUsingOnlineWriterFactory(
-        "write",
-        el ->
-            factory
-                .apply()
-                .getOrCreateOperator(DirectDataOperator.class)
-                .getWriter(el.getAttributeDescriptor())
-                .orElseThrow(() -> new IllegalStateException("Missing writer for " + el)));
+    @SuppressWarnings("unchecked")
+    BeamStream<StreamElement> elements = (BeamStream<StreamElement>) this;
+    Pipeline p = createPipeline();
+    PCollection<StreamElement> pcoll = elements.collection.materialize(p);
+    pcoll.apply(ProximaIO.write(factory));
+    runPipeline(p);
   }
 
   void writeUsingOnlineWriterFactory(

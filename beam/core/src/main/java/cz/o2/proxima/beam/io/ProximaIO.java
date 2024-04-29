@@ -24,11 +24,14 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -82,6 +85,7 @@ public class ProximaIO {
     private transient DirectDataOperator direct;
 
     private transient Set<CompletableFuture<Pair<Boolean, Throwable>>> pendingWrites;
+    private transient AtomicInteger missingResponses;
 
     WriteFn(RepositoryFactory repositoryFactory) {
       this.repositoryFactory = repositoryFactory;
@@ -101,29 +105,38 @@ public class ProximaIO {
     public void startBundle() {
       // we access the collection asynchronously on completion of writes
       pendingWrites = Collections.synchronizedSet(new HashSet<>());
+      missingResponses = new AtomicInteger();
     }
 
     @FinishBundle
     public void finishBundle() {
-      while (!pendingWrites.isEmpty()) {
+      while (pendingWrites != null && missingResponses.get() > 0) {
+        // clone to avoid ConcurrentModificationException
+        final Collection<CompletableFuture<Pair<Boolean, Throwable>>> unfinished;
         synchronized (pendingWrites) {
-          Optional<Pair<Boolean, Throwable>> failedFuture =
-              pendingWrites.stream()
-                  .map(f -> ExceptionUtils.uncheckedFactory(f::get))
-                  .filter(p -> !p.getFirst())
-                  .filter(p -> !(p.getSecond() instanceof TransactionRejectedException))
-                  .findAny();
-          if (failedFuture.isPresent()) {
-            throw new IllegalStateException(failedFuture.get().getSecond());
-          }
+          unfinished = new ArrayList<>(pendingWrites);
+          pendingWrites.clear();
+        }
+        Optional<Pair<Boolean, Throwable>> failedFuture =
+            unfinished.stream()
+                .map(f -> ExceptionUtils.uncheckedFactory(f::get))
+                .filter(p -> !p.getFirst())
+                .filter(p -> !(p.getSecond() instanceof TransactionRejectedException))
+                .findAny();
+        if (failedFuture.isPresent()) {
+          throw new IllegalStateException(failedFuture.get().getSecond());
         }
       }
+      // bundle finished
+      pendingWrites = null;
     }
 
     @ProcessElement
     public void processElement(@Element StreamElement element) {
       OnlineAttributeWriter writer = getWriterForElement(element);
       AtomicReference<Runnable> writeRunnableRef = new AtomicReference<>();
+      // increment missing responses outside the retry runnable
+      missingResponses.incrementAndGet();
       writeRunnableRef.set(
           () -> {
             CompletableFuture<Pair<Boolean, Throwable>> writeResult = new CompletableFuture<>();
@@ -131,6 +144,7 @@ public class ProximaIO {
                 r -> {
                   if (Boolean.TRUE.equals(r.getFirst())) {
                     // remove successfully completed write
+                    missingResponses.decrementAndGet();
                     pendingWrites.remove(writeResult);
                   } else if (r.getSecond() instanceof TransactionRejectedException) {
                     // restart the writing transaction

@@ -145,14 +145,16 @@ public class TransactionLogObserverTest {
             Collections.singletonList(
                 KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
         .thenAccept(responseQueue::add);
-    responseQueue.take();
+    Response response = responseQueue.take();
     clientManager
         .commit(
             transactionId,
             Collections.singletonList(
-                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+                userGateways.upsert(
+                    response.getSeqId(), "user", "1", response.getStamp(), new byte[] {})))
         .thenAccept(responseQueue::add);
-    Response response = responseQueue.take();
+
+    response = responseQueue.take();
     assertEquals(Response.Flags.COMMITTED, response.getFlags());
     TimeUnit.SECONDS.sleep(1);
     assertTrue(metrics.getTransactionsCommitted().getValue() > 0.0);
@@ -177,14 +179,15 @@ public class TransactionLogObserverTest {
             KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 1L, "1"));
     BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
     clientManager.begin(t1, inputs).thenAccept(responseQueue::add);
-    responseQueue.take();
+    Response response = responseQueue.take();
     clientManager
         .commit(
             t1,
             Collections.singletonList(
-                KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 2L, "1")))
+                userGateways.upsert(
+                    response.getSeqId(), "user", "1", response.getStamp(), new byte[] {})))
         .thenAccept(responseQueue::add);
-    Response response = responseQueue.take();
+    response = responseQueue.take();
     assertEquals(Response.Flags.COMMITTED, response.getFlags());
     clientManager.begin(t2, inputs).thenAccept(responseQueue::add);
     response = responseQueue.take();
@@ -222,10 +225,10 @@ public class TransactionLogObserverTest {
                 KeyAttributes.ofAttributeDescriptor(user, "u1", userGateways, 1L, "1")))
         .thenAccept(responseQueue::add);
     Response t1OpenResponse = responseQueue.take();
-    List<KeyAttribute> t1Outputs =
+    List<StreamElement> t1Outputs =
         Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(
-                user, "user", userGateways, t1OpenResponse.getSeqId(), "1"));
+            userGateways.upsert(
+                t1OpenResponse.getSeqId(), "user", "1", t1OpenResponse.getStamp(), new byte[] {}));
     clientManager
         .begin(
             t2,
@@ -234,10 +237,10 @@ public class TransactionLogObserverTest {
                 KeyAttributes.ofAttributeDescriptor(user, "u2", userGateways, 1L, "1")))
         .thenAccept(responseQueue::add);
     Response t2OpenResponse = responseQueue.take();
-    List<KeyAttribute> t2Outputs =
+    List<StreamElement> t2Outputs =
         Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(
-                user, "user", userGateways, t2OpenResponse.getSeqId(), "1"));
+            userGateways.upsert(
+                t2OpenResponse.getSeqId(), "user", "1", t1OpenResponse.getStamp(), new byte[] {}));
     clientManager.commit(t2, t2Outputs).thenAccept(responseQueue::add);
     Response response = responseQueue.take();
     assertEquals(Response.Flags.COMMITTED, response.getFlags());
@@ -263,10 +266,10 @@ public class TransactionLogObserverTest {
         .thenAccept(responseQueue::add);
     Response t1OpenResponse = responseQueue.take();
     assertEquals(stamp, t1OpenResponse.getStamp());
-    List<KeyAttribute> t1Outputs =
+    List<StreamElement> t1Outputs =
         Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(
-                user, "user", userGateways, t1OpenResponse.getSeqId(), "1"));
+            userGateways.upsert(
+                t1OpenResponse.getSeqId(), "user", "1", t1OpenResponse.getStamp(), new byte[] {}));
     factory.updateStamp(stamp - 1);
     clientManager
         .begin(
@@ -277,10 +280,10 @@ public class TransactionLogObserverTest {
         .thenAccept(responseQueue::add);
     Response t2OpenResponse = responseQueue.take();
     assertEquals(stamp - 1, t2OpenResponse.getStamp());
-    List<KeyAttribute> t2Outputs =
+    List<StreamElement> t2Outputs =
         Collections.singletonList(
-            KeyAttributes.ofAttributeDescriptor(
-                user, "user", userGateways, t2OpenResponse.getSeqId(), "1"));
+            userGateways.upsert(
+                t2OpenResponse.getSeqId(), "user", "1", t2OpenResponse.getStamp(), new byte[] {}));
     clientManager.commit(t1, t1Outputs).thenAccept(responseQueue::add);
     Response response = responseQueue.take();
     assertEquals(Response.Flags.COMMITTED, response.getFlags());
@@ -329,7 +332,7 @@ public class TransactionLogObserverTest {
         .commit(
             t1,
             Collections.singletonList(
-                KeyAttributes.ofAttributeDescriptor(this.user, "user", userGateways, 2L, "1")))
+                userGateways.upsert(t1SeqId, "user", "1", response.getStamp(), new byte[] {})))
         .thenAccept(responseQueue::add);
     responseQueue.take();
     clientManager.begin(t2, inputs).thenAccept(responseQueue::add);
@@ -593,9 +596,7 @@ public class TransactionLogObserverTest {
       StreamElement wildcardUpsert =
           userGateways.upsert(response.getSeqId(), "user", "1", now, new byte[] {});
       clientManager
-          .commit(
-              transactionId,
-              Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)))
+          .commit(transactionId, Collections.singletonList(wildcardUpsert))
           .thenAccept(queue::add);
       assertEquals(Response.Flags.COMMITTED, queue.take().getFlags());
       assertTrue(queue.isEmpty());
@@ -615,9 +616,7 @@ public class TransactionLogObserverTest {
       assertTrue(queue.isEmpty());
       wildcardUpsert = userGateways.upsert(response.getSeqId(), "user", "1", now, new byte[] {});
       clientManager
-          .commit(
-              transactionId,
-              Collections.singletonList(KeyAttributes.ofStreamElement(wildcardUpsert)))
+          .commit(transactionId, Collections.singletonList(wildcardUpsert))
           .thenAccept(queue::add);
       assertEquals(Response.Flags.COMMITTED, queue.take().getFlags());
       assertTrue(queue.isEmpty());
@@ -649,16 +648,17 @@ public class TransactionLogObserverTest {
               Collections.singletonList(
                   KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
           .thenAccept(responseQueue::add);
-      responseQueue.take();
+      Response response = responseQueue.take();
       observer.getRawManager().close();
       createObserver();
       clientManager
           .commit(
               transactionId,
               Collections.singletonList(
-                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+                  userGateways.upsert(
+                      response.getSeqId(), "user", "1", response.getStamp(), new byte[] {})))
           .thenAccept(responseQueue::add);
-      Response response = responseQueue.take();
+      response = responseQueue.take();
       assertEquals(Response.Flags.COMMITTED, response.getFlags());
     }
   }
@@ -690,7 +690,12 @@ public class TransactionLogObserverTest {
           .commit(
               t2,
               Collections.singletonList(
-                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+                  userGateways.upsert(
+                      t2openResponse.getSeqId(),
+                      "user",
+                      "1",
+                      t2openResponse.getStamp(),
+                      new byte[] {})))
           .thenAccept(responseQueue::add);
       Response t2commitResponse = responseQueue.take();
       observer.getRawManager().close();
@@ -699,7 +704,12 @@ public class TransactionLogObserverTest {
           .commit(
               t1,
               Collections.singletonList(
-                  KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+                  userGateways.upsert(
+                      t1openResponse.getSeqId(),
+                      "user",
+                      "1",
+                      t1openResponse.getStamp(),
+                      new byte[] {})))
           .thenAccept(responseQueue::add);
       Response response = responseQueue.take();
       assertTrue(
@@ -757,35 +767,18 @@ public class TransactionLogObserverTest {
             Collections.singletonList(
                 KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")))
         .thenAccept(responseQueue::add);
-    responseQueue.take();
+    Response response = responseQueue.take();
     clientManager
         .commit(
             transactionId,
             Collections.singletonList(
-                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
+                userGateways.upsert(
+                    response.getSeqId(), "user", "1", response.getStamp(), new byte[] {})))
         .thenAccept(responseQueue::add);
     responseQueue.take();
     clientManager.rollback(transactionId).thenAccept(responseQueue::add);
-    Response response = responseQueue.take();
-    assertEquals(Response.Flags.ABORTED, response.getFlags());
-
-    // now, when we start new transaction, it must be let through
-    transactionId = UUID.randomUUID().toString();
-    responseQueue.clear();
-    clientManager
-        .begin(
-            transactionId,
-            KeyAttributes.ofWildcardQueryElements(
-                user, "user", userGateways, Collections.emptyList()))
-        .thenAccept(responseQueue::add);
-    responseQueue.take();
-    clientManager
-        .commit(
-            transactionId,
-            Collections.singletonList(
-                KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")))
-        .thenAccept(responseQueue::add);
     response = responseQueue.take();
+    // once committed the transaction must stay committed
     assertEquals(Response.Flags.COMMITTED, response.getFlags());
   }
 
@@ -818,14 +811,11 @@ public class TransactionLogObserverTest {
         State.open(2001L, now, Collections.emptyList())
             .committed(
                 Collections.singletonList(
-                    KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2001L, "1")));
+                    userGateways.upsert(2001L, "user", "1", now, new byte[] {})));
     observer.transactionPostCommit(committed);
     State committed2 =
         State.open(1001L, now - 1, Collections.emptyList())
-            .committed(
-                Collections.singletonList(
-                    KeyAttributes.ofStreamElement(
-                        userGateways.delete(1001L, "user", "1", now - 1))));
+            .committed(Collections.singletonList(userGateways.delete(1001L, "user", "1", now - 1)));
     observer.transactionPostCommit(committed2);
     BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
     try (ClientTransactionManager clientManager = direct.getClientTransactionManager()) {
@@ -864,15 +854,23 @@ public class TransactionLogObserverTest {
       assertEquals(Response.Flags.OPEN, t1OpenResponse.getFlags());
       assertEquals(Response.Flags.OPEN, t2OpenResponse.getFlags());
 
-      List<KeyAttribute> t1Outputs =
+      List<StreamElement> t1Outputs =
           Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(
-                  user, "user", userGateways, t1OpenResponse.getSeqId(), "1"));
+              userGateways.upsert(
+                  t1OpenResponse.getSeqId(),
+                  "user",
+                  "1",
+                  t1OpenResponse.getStamp(),
+                  new byte[] {}));
 
-      List<KeyAttribute> t2Outputs =
+      List<StreamElement> t2Outputs =
           Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(
-                  user, "user", userGateways, t2OpenResponse.getSeqId(), "1"));
+              userGateways.upsert(
+                  t2OpenResponse.getSeqId(),
+                  "user",
+                  "1",
+                  t2OpenResponse.getStamp(),
+                  new byte[] {}));
 
       clientManager.commit(t1, t1Outputs).thenAccept(responseQueue::add);
       Response response = responseQueue.take();

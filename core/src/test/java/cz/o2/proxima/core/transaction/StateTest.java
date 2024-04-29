@@ -18,12 +18,15 @@ package cz.o2.proxima.core.transaction;
 import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 
 /** Test {@link State} transitions. */
@@ -32,7 +35,7 @@ public class StateTest {
   private final Repository repo = Repository.ofTest(ConfigFactory.load("test-transactions.conf"));
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-  private final AttributeDescriptor<byte[]> device = gateway.getAttribute("device.*");
+  private final Wildcard<byte[]> device = Wildcard.of(gateway, gateway.getAttribute("device.*"));
 
   @Test
   public void testStateTransitions() {
@@ -47,13 +50,15 @@ public class StateTest {
     assertEquals(1, s.getInputAttributes().size());
     assertEquals(ka, Iterables.get(s.getInputAttributes(), 0));
     ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", device, 3L, "1");
-    State committed = s.committed(Collections.singletonList(ka));
+    List<StreamElement> outputs =
+        Collections.singletonList(device.upsert(1L, "key", "1", 1L, new byte[] {}));
+    State committed = s.committed(outputs);
     assertEquals(1, committed.getInputAttributes().size());
-    assertEquals(1, committed.getCommittedAttributes().size());
+    assertEquals(1, committed.getCommittedOutputs().size());
     assertNotEquals(
         Iterables.get(committed.getInputAttributes(), 0),
-        Iterables.get(committed.getCommittedAttributes(), 0));
-    assertEquals(ka, Iterables.get(committed.getCommittedAttributes(), 0));
+        KeyAttributes.ofStreamElement(Iterables.get(committed.getCommittedOutputs(), 0)));
+    assertEquals(outputs, committed.getCommittedOutputs());
     assertEquals(5L, committed.getSequentialId());
     assertEquals(1234567890000L, s.getStamp());
     State aborted = s.aborted();

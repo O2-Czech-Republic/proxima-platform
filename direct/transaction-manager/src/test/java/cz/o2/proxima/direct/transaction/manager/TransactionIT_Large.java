@@ -63,7 +63,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.After;
@@ -382,12 +381,7 @@ public class TransactionIT_Large {
         updates = updateAttributeAndRemove(sequentialId, key, attrA, attrB, currentVal);
       }
 
-      client
-          .commit(
-              transactionId,
-              updates.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList()))
-          .thenApply(responses::add);
-
+      client.commit(transactionId, updates).thenApply(responses::add);
       response = responses.take();
       if (response.getFlags() != Flags.COMMITTED) {
         TimeUnit.MILLISECONDS.sleep(Math.min(8, retrySleep *= 2));

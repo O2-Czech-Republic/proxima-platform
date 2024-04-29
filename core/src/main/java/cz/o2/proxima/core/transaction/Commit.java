@@ -21,8 +21,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -47,6 +45,15 @@ public class Commit implements Serializable {
   }
 
   /**
+   * Create empty {@link Commit}.
+   *
+   * @return empty Commit
+   */
+  public static Commit empty() {
+    return new Commit(-1, Long.MIN_VALUE, Collections.emptyList());
+  }
+
+  /**
    * Create new {@link Commit} message to be appended to {@code _transcation.commit}
    *
    * @param seqId sequence Id of the transaction
@@ -67,11 +74,11 @@ public class Commit implements Serializable {
    *
    * @param transactionUpdates Updates to transactional attributes.
    */
-  public static Commit of(Collection<TransactionUpdate> transactionUpdates) {
+  public Commit and(Collection<TransactionUpdate> transactionUpdates) {
     Preconditions.checkArgument(
         transactionUpdates.stream().noneMatch(u -> u.getUpdate().isDelete()),
         "Deletes on transactional attributes not supported.");
-    return new Commit(transactionUpdates);
+    return new Commit(seqId, stamp, updates, transactionUpdates);
   }
 
   /** Transaction's sequenceId. */
@@ -81,10 +88,10 @@ public class Commit implements Serializable {
   @Getter private final long stamp;
 
   /** List of {@link cz.o2.proxima.core.storage.StreamElement StreamElements} to be replicated. */
-  @Getter private final List<StreamElement> updates;
+  @Getter private final Collection<StreamElement> updates;
 
   /** List of possible state updates and/or responses to return to client. */
-  @Getter private final List<TransactionUpdate> transactionUpdates;
+  @Getter private final Collection<TransactionUpdate> transactionUpdates;
 
   public Commit() {
     this(-1L, Long.MIN_VALUE, Collections.emptyList());
@@ -93,37 +100,19 @@ public class Commit implements Serializable {
   private Commit(long seqId, long stamp, Collection<StreamElement> updates) {
     this.seqId = seqId;
     this.stamp = stamp;
-    this.updates = fixSeqIdAndStamp(seqId, stamp, updates);
+    this.updates = updates;
     this.transactionUpdates = Collections.emptyList();
   }
 
-  private Commit(Collection<TransactionUpdate> transactionUpdates) {
-    this.seqId = -1;
-    this.stamp = Long.MIN_VALUE;
-    this.updates = Collections.emptyList();
+  private Commit(
+      long seqId,
+      long stamp,
+      Collection<StreamElement> updates,
+      Collection<TransactionUpdate> transactionUpdates) {
+
+    this.seqId = seqId;
+    this.stamp = stamp;
+    this.updates = updates;
     this.transactionUpdates = new ArrayList<>(transactionUpdates);
-  }
-
-  private static List<StreamElement> fixSeqIdAndStamp(
-      long seqId, long stamp, Collection<StreamElement> updates) {
-
-    return updates.stream()
-        .map(
-            s -> {
-              Preconditions.checkArgument(
-                  !s.isDeleteWildcard(), "Wildcard deletes not yet supported, got %s", s);
-              if (s.getSequentialId() != seqId || s.getStamp() != stamp) {
-                return StreamElement.upsert(
-                    s.getEntityDescriptor(),
-                    s.getAttributeDescriptor(),
-                    seqId,
-                    s.getKey(),
-                    s.getAttribute(),
-                    stamp,
-                    s.getValue());
-              }
-              return s;
-            })
-        .collect(Collectors.toList());
   }
 }

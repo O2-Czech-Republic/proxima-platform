@@ -32,6 +32,7 @@ import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.LogObserverUtils;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -95,40 +96,41 @@ public class TransactionCommitTransformationTest {
             commitDesc.getValueSerializer().serialize(commit)),
         (succ, exc) -> assertTrue(succ));
     assertEquals(2, outputs.size());
-    assertEquals(commit.getUpdates().get(0), outputs.get(0));
-    assertEquals(commit.getUpdates().get(1), outputs.get(1));
+    assertEquals(Iterables.get(commit.getUpdates(), 0), outputs.get(0));
+    assertEquals(Iterables.get(commit.getUpdates(), 1), outputs.get(1));
   }
 
   @Test
   public void testTransformTransactionUpdate() throws InterruptedException {
     long now = System.currentTimeMillis();
     Commit commit =
-        Commit.of(
-            Arrays.asList(
-                new TransactionUpdate(
-                    "all-transaction-commit-log-state",
-                    StreamElement.upsert(
-                        transaction,
-                        stateDesc,
-                        UUID.randomUUID().toString(),
-                        "t",
-                        stateDesc.getName(),
-                        now,
-                        stateDesc.getValueSerializer().serialize(State.empty()))),
-                new TransactionUpdate(
-                    "all-transaction-commit-log-response",
-                    StreamElement.upsert(
-                        transaction,
-                        responseDesc,
-                        UUID.randomUUID().toString(),
-                        "t",
-                        responseDesc.toAttributePrefix() + "1",
-                        now,
-                        responseDesc
-                            .getValueSerializer()
-                            .serialize(
-                                Response.forRequest(
-                                    Request.builder().responsePartitionId(0).build()))))));
+        Commit.empty()
+            .and(
+                Arrays.asList(
+                    new TransactionUpdate(
+                        "all-transaction-commit-log-state",
+                        StreamElement.upsert(
+                            transaction,
+                            stateDesc,
+                            UUID.randomUUID().toString(),
+                            "t",
+                            stateDesc.getName(),
+                            now,
+                            stateDesc.getValueSerializer().serialize(State.empty()))),
+                    new TransactionUpdate(
+                        "all-transaction-commit-log-response",
+                        StreamElement.upsert(
+                            transaction,
+                            responseDesc,
+                            UUID.randomUUID().toString(),
+                            "t",
+                            responseDesc.toAttributePrefix() + "1",
+                            now,
+                            responseDesc
+                                .getValueSerializer()
+                                .serialize(
+                                    Response.forRequest(
+                                        Request.builder().responsePartitionId(0).build()))))));
     List<StreamElement> requests = new ArrayList<>();
     List<StreamElement> states = new ArrayList<>();
     CommitLogObserver requestObserver = LogObserverUtils.toList(requests, ign -> {});

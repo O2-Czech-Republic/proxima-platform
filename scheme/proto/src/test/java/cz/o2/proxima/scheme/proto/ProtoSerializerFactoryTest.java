@@ -17,6 +17,7 @@ package cz.o2.proxima.scheme.proto;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
@@ -138,6 +139,16 @@ public class ProtoSerializerFactoryTest {
 
     KeyAttribute keyAttribute =
         KeyAttributes.ofAttributeDescriptor(transaction, "t", request, 1L, "1");
+    StreamElement element =
+        request.upsert(
+            1L,
+            "t",
+            "1",
+            System.currentTimeMillis(),
+            Request.builder()
+                .inputAttributes(Collections.singletonList(keyAttribute))
+                .flags(Flags.OPEN)
+                .build());
 
     List<KeyAttribute> wildcardQuery =
         KeyAttributes.ofWildcardQueryElements(
@@ -184,7 +195,6 @@ public class ProtoSerializerFactoryTest {
             System.currentTimeMillis());
 
     KeyAttribute keyAttributeSingleWildcard = KeyAttributes.ofStreamElement(update);
-    KeyAttribute keyAttributeDelete = KeyAttributes.ofStreamElement(delete);
     KeyAttribute missingGet = KeyAttributes.ofMissingAttribute(transaction, "t", request, "1");
     long now = System.currentTimeMillis();
 
@@ -223,7 +233,7 @@ public class ProtoSerializerFactoryTest {
             Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
             Pair.of(
                 State.open(1L, now, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
-                    .committed(Sets.newHashSet(keyAttribute)),
+                    .committed(Sets.newHashSet(element)),
                 state),
             Pair.of(State.empty(), state),
             Pair.of(
@@ -234,13 +244,16 @@ public class ProtoSerializerFactoryTest {
             Pair.of(State.open(1L, now, Sets.newHashSet(missingGet)).aborted(), state),
             Pair.of(
                 State.open(1L, now, Sets.newHashSet(keyAttributeSingleWildcard))
-                    .committed(Sets.newHashSet(keyAttributeSingleWildcard)),
+                    .committed(Sets.newHashSet(element)),
                 state),
             Pair.of(
-                State.open(1L, now, Collections.emptyList())
-                    .committed(Sets.newHashSet(keyAttributeDelete)),
+                State.open(1L, now, Collections.emptyList()).committed(Sets.newHashSet(element)),
                 state),
-            Pair.of(Commit.of(transactionUpdates), commit));
+            Pair.of(Commit.empty().and(transactionUpdates), commit),
+            Pair.of(
+                Commit.of(1, System.currentTimeMillis(), Arrays.asList(update, delete))
+                    .and(transactionUpdates),
+                commit));
 
     toVerify.forEach(
         p -> {
@@ -264,27 +277,25 @@ public class ProtoSerializerFactoryTest {
   private void compareCommit(Commit first, Commit other) {
     if (first.getTransactionUpdates().isEmpty()) {
       assertEquals(first, other);
-    } else {
-      assertEquals(first.getStamp(), other.getStamp());
-      assertEquals(first.getUpdates(), other.getUpdates());
-      assertEquals(first.getSeqId(), other.getSeqId());
-      assertEquals(first.getTransactionUpdates().size(), other.getTransactionUpdates().size());
-      for (int i = 0; i < first.getTransactionUpdates().size(); i++) {
-        TransactionUpdate firstUpdate = first.getTransactionUpdates().get(i);
-        TransactionUpdate otherUpdate = other.getTransactionUpdates().get(i);
-        assertEquals(firstUpdate.getTargetFamily(), otherUpdate.getTargetFamily());
-        assertEquals(firstUpdate.getUpdate().getKey(), otherUpdate.getUpdate().getKey());
-        assertEquals(
-            firstUpdate.getUpdate().getEntityDescriptor(),
-            otherUpdate.getUpdate().getEntityDescriptor());
-        assertEquals(
-            firstUpdate.getUpdate().getAttributeDescriptor(),
-            otherUpdate.getUpdate().getAttributeDescriptor());
-        assertEquals(
-            firstUpdate.getUpdate().getAttribute(), otherUpdate.getUpdate().getAttribute());
-        assertEquals(firstUpdate.getUpdate().getStamp(), otherUpdate.getUpdate().getStamp());
-        assertArrayEquals(firstUpdate.getUpdate().getValue(), otherUpdate.getUpdate().getValue());
-      }
+    }
+    assertEquals(first.getStamp(), other.getStamp());
+    assertEquals(first.getUpdates(), other.getUpdates());
+    assertEquals(first.getSeqId(), other.getSeqId());
+    assertEquals(first.getTransactionUpdates().size(), other.getTransactionUpdates().size());
+    for (int i = 0; i < first.getTransactionUpdates().size(); i++) {
+      TransactionUpdate firstUpdate = Iterables.get(first.getTransactionUpdates(), i);
+      TransactionUpdate otherUpdate = Iterables.get(other.getTransactionUpdates(), i);
+      assertEquals(firstUpdate.getTargetFamily(), otherUpdate.getTargetFamily());
+      assertEquals(firstUpdate.getUpdate().getKey(), otherUpdate.getUpdate().getKey());
+      assertEquals(
+          firstUpdate.getUpdate().getEntityDescriptor(),
+          otherUpdate.getUpdate().getEntityDescriptor());
+      assertEquals(
+          firstUpdate.getUpdate().getAttributeDescriptor(),
+          otherUpdate.getUpdate().getAttributeDescriptor());
+      assertEquals(firstUpdate.getUpdate().getAttribute(), otherUpdate.getUpdate().getAttribute());
+      assertEquals(firstUpdate.getUpdate().getStamp(), otherUpdate.getUpdate().getStamp());
+      assertArrayEquals(firstUpdate.getUpdate().getValue(), otherUpdate.getUpdate().getValue());
     }
   }
 
@@ -310,10 +321,17 @@ public class ProtoSerializerFactoryTest {
     return newRequest(Collections.singletonList(keyAttribute), flags);
   }
 
-  private Request newRequest(List<KeyAttribute> keyAttributes, Request.Flags flags) {
+  private Request newRequest(List<KeyAttribute> inputs, Request.Flags flags) {
+
+    return newRequest(inputs, Collections.emptyList(), flags);
+  }
+
+  private Request newRequest(
+      List<KeyAttribute> inputs, List<StreamElement> outputs, Request.Flags flags) {
+
     return Request.builder()
-        .inputAttributes(keyAttributes)
-        .outputAttributes(keyAttributes)
+        .inputAttributes(inputs)
+        .outputs(outputs)
         .responsePartitionId(1)
         .flags(flags)
         .build();

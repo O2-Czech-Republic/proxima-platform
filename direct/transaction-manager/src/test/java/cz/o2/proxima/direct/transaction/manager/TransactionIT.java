@@ -58,10 +58,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.After;
@@ -158,6 +156,7 @@ public class TransactionIT {
     int numWrites = 1000;
     int numThreads = 10;
     int numUsers = 20;
+    long startedAt = System.currentTimeMillis();
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
@@ -271,56 +270,6 @@ public class TransactionIT {
     verifyNumInAttributeIs(key, numWrites + 1, attrA);
   }
 
-  @Test(timeout = 100_000)
-  public void testDeletedAttributeGetWithFailedWrite() throws InterruptedException {
-    // check atomic swap of data between two attributes
-    // a value is read from attribute X, incremented and written to attribute Y and deleted from X
-    // if value is not present in attribute X, it is read from attribute Y, and written to X
-
-    int numWrites = 50;
-    int numThreads = 2;
-
-    CountDownLatch latch = new CountDownLatch(numThreads);
-    ExecutorService service = direct.getContext().getExecutorService();
-    AtomicReference<Throwable> err = new AtomicReference<>();
-    int numWritesPerThread = numWrites / numThreads;
-    assertEquals(numWritesPerThread * numThreads, numWrites);
-    String attrA = device.toAttributePrefix() + "A";
-    String attrB = device.toAttributePrefix() + "B";
-    String key = "key";
-    // seed value
-    writeSeedValue(attrA, key);
-    AtomicInteger failedWrites = new AtomicInteger();
-    AtomicInteger succeeded = new AtomicInteger();
-    for (int i = 0; i < numThreads; i++) {
-      service.submit(
-          () -> {
-            try {
-              for (int j = 0; j < numWritesPerThread; j++) {
-                if (!swapValueBetween(key, attrA, attrB, true)) {
-                  // failed write, repeat
-                  j--;
-                  failedWrites.incrementAndGet();
-                }
-              }
-            } catch (InterruptedException ex) {
-              Thread.currentThread().interrupt();
-            } catch (Throwable ex) {
-              err.set(ex);
-            }
-            latch.countDown();
-          });
-    }
-
-    latch.await();
-    TimeUnit.SECONDS.sleep(1);
-    if (err.get() != null) {
-      throw new RuntimeException(err.get());
-    }
-    verifyNumInAttributeIs(key, numWrites + 1, attrA);
-    assertTrue(failedWrites.get() > 0);
-  }
-
   private void writeSeedValue(String attribute, String key) {
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(device));
     StreamElement upsert =
@@ -335,12 +284,6 @@ public class TransactionIT {
   }
 
   private void swapValueBetween(String key, String attrA, String attrB)
-      throws InterruptedException {
-
-    swapValueBetween(key, attrA, attrB, false);
-  }
-
-  private boolean swapValueBetween(String key, String attrA, String attrB, boolean canFailWrite)
       throws InterruptedException {
 
     long retrySleep = 1;
@@ -383,11 +326,7 @@ public class TransactionIT {
         updates = Collections.emptyList();
       }
 
-      client
-          .commit(
-              transactionId,
-              updates.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList()))
-          .thenApply(responses::add);
+      client.commit(transactionId, updates).thenApply(responses::add);
 
       response = responses.take();
       if (response.getFlags() != Flags.COMMITTED) {
@@ -400,23 +339,17 @@ public class TransactionIT {
           errorDetected);
 
       CountDownLatch latch = new CountDownLatch(1);
-      AtomicBoolean succeeded = new AtomicBoolean();
       CommitCallback callback =
           (succ, exc) -> {
             if (!succ) {
               client.rollback(transactionId);
             }
-            succeeded.set(succ);
             latch.countDown();
           };
-      if (canFailWrite && random.nextBoolean()) {
-        callback.commit(false, new RuntimeException("Failed!"));
-      } else {
-        CommitCallback multiCallback = CommitCallback.afterNumCommits(updates.size(), callback);
-        updates.forEach(u -> view.write(u, multiCallback));
-      }
+      CommitCallback multiCallback = CommitCallback.afterNumCommits(updates.size(), callback);
+      updates.forEach(u -> view.write(u, multiCallback));
       latch.await();
-      return succeeded.get();
+      break;
     } while (true);
   }
 
@@ -452,12 +385,12 @@ public class TransactionIT {
         List<StreamElement> devices = new ArrayList<>();
         view.scanWildcard(userId, device, devices::add);
 
-        List<KeyAttribute> keyAttributes =
-            KeyAttributes.ofWildcardQueryElements(user, userId, device, devices);
-
         if (devices.isEmpty()) {
           continue;
         }
+
+        List<KeyAttribute> keyAttributes =
+            KeyAttributes.ofWildcardQueryElements(user, userId, device, devices);
 
         long stamp = System.currentTimeMillis();
         t.update(keyAttributes);
@@ -503,12 +436,10 @@ public class TransactionIT {
         final StreamElement numDevicesUpdate;
         int count = devices.size() + 1;
         if (intoAll) {
-
           numDevicesUpdate = numDevices.upsert(userId, "all", stamp, count);
         } else {
           numDevicesUpdate = numDevices.upsert(userId, String.valueOf(count), stamp, count);
         }
-
         BlockingQueue<Optional<Throwable>> err = new ArrayBlockingQueue<>(1);
         t.commitWrite(
             Arrays.asList(deviceUpdate, numDevicesUpdate),

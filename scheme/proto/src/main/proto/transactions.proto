@@ -33,6 +33,8 @@ message ProtoStreamElement {
   bytes value = 4;
   bool delete = 5;
   uint64 stamp = 6;
+  string uuid = 7;
+  uint64 seqId = 8;
 }
 
 enum Flags {
@@ -47,9 +49,10 @@ enum Flags {
 
 message ProtoRequest {
   repeated KeyAttribute inputAttribute = 1;
-  repeated KeyAttribute outputAttribute = 2;
+  reserved 2;
   Flags flags = 3;
   int32 responsePartitionId = 4;
+  repeated ProtoStreamElement output = 5;
 }
 
 message ProtoResponse {
@@ -64,7 +67,8 @@ message ProtoState {
   uint64 seqId = 2;
   fixed64 stamp = 3;
   repeated KeyAttribute inputAttributes = 4;
-  repeated KeyAttribute committedAttributes = 5;
+  reserved 5;
+  repeated ProtoStreamElement committedOutputs = 6;
 }
 
 message TransactionUpdate {

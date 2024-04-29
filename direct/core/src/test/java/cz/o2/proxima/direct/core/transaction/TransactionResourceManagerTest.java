@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.core.transaction;
 import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
-import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -56,7 +56,7 @@ public class TransactionResourceManagerTest {
       Repository.ofTest(ConfigFactory.load("test-transactions.conf").resolve());
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
-  private final AttributeDescriptor<?> status = gateway.getAttribute("status");
+  private final Regular<byte[]> status = Regular.of(gateway, gateway.getAttribute("status"));
   private final EntityDescriptor user = repo.getEntity("user");
   private final Wildcard<byte[]> allGateways = Wildcard.of(user, user.getAttribute("gateway.*"));
   private final EntityDescriptor transaction = repo.getEntity("_transaction");
@@ -144,7 +144,7 @@ public class TransactionResourceManagerTest {
                 manager.writeResponseAndUpdateState(
                     key,
                     State.open(1L, stamp, Collections.emptyList())
-                        .committed(new HashSet<>(request.getOutputAttributes())),
+                        .committed(new HashSet<>(request.getOutputs())),
                     requestId,
                     Response.forRequest(request).committed(),
                     commit);
@@ -173,8 +173,7 @@ public class TransactionResourceManagerTest {
       response =
           manager.commit(
               transactionId,
-              Collections.singletonList(
-                  KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+              Collections.singletonList(status.upsert(1L, "gw1", 0L, new byte[] {})));
 
       assertEquals(Response.Flags.COMMITTED, response.get().getFlags());
     }
@@ -457,8 +456,11 @@ public class TransactionResourceManagerTest {
       CachedTransaction transaction =
           manager.createCachedTransaction(
               "transaction",
-              State.open(2L, stamp + 1, Collections.emptyList())
-                  .committed(Collections.singletonList(ka)));
+              State.open(
+                  2L,
+                  stamp + 1,
+                  Collections.singletonList(
+                      KeyAttributes.ofStreamElement(status.upsert(1L, "g", 0L, new byte[] {})))));
       assertEquals("transaction", transaction.getTransactionId());
     }
   }
@@ -486,8 +488,12 @@ public class TransactionResourceManagerTest {
       CachedTransaction transaction =
           manager.createCachedTransaction(
               "transaction",
-              State.open(2L, stamp + 1, Collections.emptyList())
-                  .committed(Collections.singletonList(ka)));
+              State.open(
+                  2L,
+                  stamp + 1,
+                  Collections.singletonList(
+                      KeyAttributes.ofStreamElement(
+                          allGateways.upsert(1L, "u", "gw", 0L, new byte[] {})))));
       transaction.open(Collections.singletonList(ka));
       repartitionLatch.await();
       assertEquals(

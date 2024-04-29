@@ -15,8 +15,10 @@
  */
 package cz.o2.proxima.direct.core.transaction;
 
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.Response;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -46,13 +48,10 @@ public interface ClientTransactionManager extends AutoCloseable, TransactionMana
    * Commit the transaction with given output KeyAttributes being written.
    *
    * @param transactionId ID of the transaction
-   * @param outputAttributes attributes to be written to the output
+   * @param outputs elements to be written to the output
    * @return asynchronous response
    */
-  // FIXME: this must consume complete ouptut StreamElements!
-  // the output must be delegated to TransactionCommitTransformation atomically with state update
-  // to committed
-  CompletableFuture<Response> commit(String transactionId, List<KeyAttribute> outputAttributes);
+  CompletableFuture<Response> commit(String transactionId, Collection<StreamElement> outputs);
 
   /**
    * Rollback transaction with given ID.

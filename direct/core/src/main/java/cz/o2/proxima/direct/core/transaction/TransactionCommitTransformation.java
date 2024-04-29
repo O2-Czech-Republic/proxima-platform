@@ -67,26 +67,23 @@ public class TransactionCommitTransformation implements DirectElementWiseTransfo
     if (commit.getUpdates().isEmpty() && commit.getTransactionUpdates().isEmpty()) {
       log.warn("Received empty commit {}", commit);
       commitCallback.commit(true, null);
-    } else if (commit.getUpdates().isEmpty()) {
-      CommitCallback totalCallback =
-          CommitCallback.afterNumCommits(commit.getTransactionUpdates().size(), commitCallback);
-      commit
-          .getTransactionUpdates()
-          .forEach(
-              update ->
-                  getWriterForFamily(update.getTargetFamily())
-                      .write(update.getUpdate(), totalCallback));
-    } else {
-      CommitCallback totalCallback =
-          CommitCallback.afterNumCommits(commit.getUpdates().size(), commitCallback);
-      commit
-          .getUpdates()
-          .forEach(
-              update ->
-                  nonTransactional(
-                          Optionals.get(direct().getWriter(update.getAttributeDescriptor())))
-                      .write(update, totalCallback));
+      return;
     }
+    CommitCallback partialCallback =
+        CommitCallback.afterNumCommits(
+            commit.getTransactionUpdates().size() + commit.getUpdates().size(), commitCallback);
+    commit
+        .getTransactionUpdates()
+        .forEach(
+            update ->
+                getWriterForFamily(update.getTargetFamily())
+                    .write(update.getUpdate(), partialCallback));
+    commit
+        .getUpdates()
+        .forEach(
+            update ->
+                nonTransactional(Optionals.get(direct().getWriter(update.getAttributeDescriptor())))
+                    .write(update, partialCallback));
   }
 
   private DirectDataOperator direct() {

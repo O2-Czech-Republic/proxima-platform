@@ -31,7 +31,6 @@ import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.TransformationRunner;
 import cz.o2.proxima.direct.core.AttributeWriterBase.Type;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
@@ -65,53 +64,60 @@ public class TransactionalCachedViewTest {
     runObservations(
         server,
         "dummy",
-        new CommitLogObserver() {
-          @Override
-          public boolean onNext(StreamElement element, OnNextContext context) {
-            if (element.getAttributeDescriptor().equals(server.getRequestDesc())) {
-              Optional<Request> maybeRequest = server.getRequestDesc().valueOf(element);
-              if (maybeRequest.isPresent()) {
-                Request request = maybeRequest.get();
-                switch (request.getFlags()) {
-                  case OPEN:
+        (element, context) -> {
+          if (element.getAttributeDescriptor().equals(server.getRequestDesc())) {
+            Optional<Request> maybeRequest = server.getRequestDesc().valueOf(element);
+            if (maybeRequest.isPresent()) {
+              Request request = maybeRequest.get();
+              switch (request.getFlags()) {
+                case OPEN:
+                  server.writeResponseAndUpdateState(
+                      element.getKey(),
+                      State.open(
+                          System.currentTimeMillis(),
+                          System.currentTimeMillis(),
+                          request.getInputAttributes()),
+                      server.getRequestDesc().extractSuffix(element.getAttribute()),
+                      Response.forRequest(request)
+                          .open(seqId.getAndIncrement(), System.currentTimeMillis()),
+                      context::commit);
+                  break;
+                case COMMIT:
+                  {
+                    State currentState = server.getCurrentState(element.getKey());
                     server.writeResponseAndUpdateState(
                         element.getKey(),
-                        State.empty(),
-                        server.getRequestDesc().extractSuffix(element.getAttribute()),
-                        Response.forRequest(request)
-                            .open(seqId.getAndIncrement(), System.currentTimeMillis()),
-                        context::commit);
-                    break;
-                  case COMMIT:
-                    server.writeResponseAndUpdateState(
-                        element.getKey(),
-                        State.empty(),
+                        currentState.committed(request.getOutputs()),
                         server.getRequestDesc().extractSuffix(element.getAttribute()),
                         Response.forRequest(request).committed(),
                         context::commit);
                     break;
-                  case UPDATE:
+                  }
+                case UPDATE:
+                  {
+                    State currentState = server.getCurrentState(element.getKey());
                     server.writeResponseAndUpdateState(
                         element.getKey(),
-                        State.empty(),
+                        currentState.update(request.getInputAttributes()),
                         server.getRequestDesc().extractSuffix(element.getAttribute()),
                         Response.forRequest(request).updated(),
                         context::commit);
                     break;
-                  case ROLLBACK:
-                    server.writeResponseAndUpdateState(
-                        element.getKey(),
-                        State.empty(),
-                        server.getRequestDesc().extractSuffix(element.getAttribute()),
-                        Response.forRequest(request).aborted(),
-                        context::commit);
-                    break;
-                }
+                  }
+                case ROLLBACK:
+                  server.writeResponseAndUpdateState(
+                      element.getKey(),
+                      State.empty(),
+                      server.getRequestDesc().extractSuffix(element.getAttribute()),
+                      Response.forRequest(request).aborted(),
+                      context::commit);
+                  break;
               }
             }
+          } else {
             context.confirm();
-            return true;
           }
+          return true;
         });
 
     TransformationRunner.runTransformations(repo, direct);

@@ -228,8 +228,7 @@ public class ProtoSerializerFactoryTest {
             Pair.of(Response.forRequest(someRequest).aborted(), response),
             Pair.of(Response.forRequest(someRequest).duplicate(100L), response),
             Pair.of(Response.empty(), response),
-            Pair.of(
-                Commit.of(1L, System.currentTimeMillis(), Arrays.asList(update, delete)), commit),
+            Pair.of(Commit.outputs(transactionUpdates, Arrays.asList(update, delete)), commit),
             Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
             Pair.of(
                 State.open(1L, now, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
@@ -249,11 +248,8 @@ public class ProtoSerializerFactoryTest {
             Pair.of(
                 State.open(1L, now, Collections.emptyList()).committed(Sets.newHashSet(element)),
                 state),
-            Pair.of(Commit.empty().and(transactionUpdates), commit),
-            Pair.of(
-                Commit.of(1, System.currentTimeMillis(), Arrays.asList(update, delete))
-                    .and(transactionUpdates),
-                commit));
+            Pair.of(Commit.updates(transactionUpdates), commit),
+            Pair.of(Commit.outputs(transactionUpdates, Arrays.asList(update, delete)), commit));
 
     toVerify.forEach(
         p -> {
@@ -278,9 +274,7 @@ public class ProtoSerializerFactoryTest {
     if (first.getTransactionUpdates().isEmpty()) {
       assertEquals(first, other);
     }
-    assertEquals(first.getStamp(), other.getStamp());
-    assertEquals(first.getUpdates(), other.getUpdates());
-    assertEquals(first.getSeqId(), other.getSeqId());
+    assertEquals(first.getOutputs(), other.getOutputs());
     assertEquals(first.getTransactionUpdates().size(), other.getTransactionUpdates().size());
     for (int i = 0; i < first.getTransactionUpdates().size(); i++) {
       TransactionUpdate firstUpdate = Iterables.get(first.getTransactionUpdates(), i);

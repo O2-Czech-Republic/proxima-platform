@@ -58,20 +58,23 @@ public class TransactionCommitTransformation implements DirectElementWiseTransfo
         handleCommit(commit.get(), commitCallback);
       } else {
         log.warn("Unparseable value in {}", input);
+        commitCallback.commit(true, null);
       }
+    } else {
+      commitCallback.commit(true, null);
     }
   }
 
   private void handleCommit(Commit commit, CommitCallback commitCallback) {
     log.debug("Received commit {}", commit);
-    if (commit.getUpdates().isEmpty() && commit.getTransactionUpdates().isEmpty()) {
+    if (commit.getOutputs().isEmpty() && commit.getTransactionUpdates().isEmpty()) {
       log.warn("Received empty commit {}", commit);
       commitCallback.commit(true, null);
       return;
     }
     CommitCallback partialCallback =
         CommitCallback.afterNumCommits(
-            commit.getTransactionUpdates().size() + commit.getUpdates().size(), commitCallback);
+            commit.getTransactionUpdates().size() + commit.getOutputs().size(), commitCallback);
     commit
         .getTransactionUpdates()
         .forEach(
@@ -79,7 +82,7 @@ public class TransactionCommitTransformation implements DirectElementWiseTransfo
                 getWriterForFamily(update.getTargetFamily())
                     .write(update.getUpdate(), partialCallback));
     commit
-        .getUpdates()
+        .getOutputs()
         .forEach(
             update ->
                 nonTransactional(Optionals.get(direct().getWriter(update.getAttributeDescriptor())))

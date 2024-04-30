@@ -55,6 +55,7 @@ import cz.o2.proxima.scheme.proto.utils.ProtoUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -265,57 +266,39 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     }
 
     private static Commit commitFromProto(Repository repository, ProtoCommit protoCommit) {
-      final Commit commit;
-      if (protoCommit.getSeqId() > 0) {
-        commit =
-            Commit.of(
-                protoCommit.getSeqId(),
-                protoCommit.getStamp(),
-                protoCommit.getUpdatesList().stream()
-                    .map(p -> asStreamElement(repository, p))
-                    .collect(Collectors.toList()));
-      } else {
-        commit = Commit.empty();
-      }
-      return commit.and(
+      final Collection<StreamElement> outputs =
+          protoCommit.getUpdatesList().stream()
+              .map(u -> asStreamElement(repository, u))
+              .collect(Collectors.toList());
+      return Commit.outputs(
           protoCommit.getTransactionUpdatesList().stream()
               .map(
                   u ->
                       new TransactionUpdate(
                           u.getTargetFamily(), asStreamElement(repository, u.getElement())))
-              .collect(Collectors.toList()));
+              .collect(Collectors.toList()),
+          outputs);
     }
 
     private static ProtoCommit commitToProto(Repository repository, Commit commit) {
-      ProtoCommit.Builder builder =
-          ProtoCommit.newBuilder()
-              .addAllTransactionUpdates(
-                  commit.getTransactionUpdates().stream()
-                      .map(
-                          u ->
-                              Transactions.TransactionUpdate.newBuilder()
-                                  .setTargetFamily(u.getTargetFamily())
-                                  .setElement(asProtoStreamElement(u.getUpdate(), true))
-                                  .build())
-                      .collect(Collectors.toList()));
-      if (commit.getSeqId() > 0) {
-        builder =
-            builder
-                .setSeqId(commit.getSeqId())
-                .setStamp(commit.getStamp())
-                .addAllUpdates(
-                    commit.getUpdates().stream()
-                        .map(TransactionProtoSerializer::asProtoStreamElement)
-                        .collect(Collectors.toList()));
-      }
-      return builder.build();
+      return ProtoCommit.newBuilder()
+          .addAllTransactionUpdates(
+              commit.getTransactionUpdates().stream()
+                  .map(
+                      u ->
+                          Transactions.TransactionUpdate.newBuilder()
+                              .setTargetFamily(u.getTargetFamily())
+                              .setElement(asProtoStreamElement(u.getUpdate()))
+                              .build())
+                  .collect(Collectors.toList()))
+          .addAllUpdates(
+              commit.getOutputs().stream()
+                  .map(TransactionProtoSerializer::asProtoStreamElement)
+                  .collect(Collectors.toList()))
+          .build();
     }
 
     private static ProtoStreamElement asProtoStreamElement(StreamElement in) {
-      return asProtoStreamElement(in, false);
-    }
-
-    private static ProtoStreamElement asProtoStreamElement(StreamElement in, boolean includeStamp) {
       if (in.isDelete()) {
         if (in.getSequentialId() > 0) {
           return ProtoStreamElement.newBuilder()
@@ -323,7 +306,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
               .setAttribute(in.getAttribute())
               .setKey(in.getKey())
               .setDelete(in.isDelete())
-              .setStamp(includeStamp ? in.getStamp() : 0)
+              .setStamp(in.getStamp())
               .setSeqId(in.getSequentialId())
               .build();
         }
@@ -332,7 +315,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
             .setAttribute(in.getAttribute())
             .setKey(in.getKey())
             .setDelete(in.isDelete())
-            .setStamp(includeStamp ? in.getStamp() : 0)
+            .setStamp(in.getStamp())
             .setUuid(in.getUuid())
             .build();
       }
@@ -342,7 +325,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
             .setAttribute(in.getAttribute())
             .setKey(in.getKey())
             .setValue(ByteString.copyFrom(in.getValue()))
-            .setStamp(includeStamp ? in.getStamp() : 0)
+            .setStamp(in.getStamp())
             .setSeqId(in.getSequentialId())
             .build();
       }
@@ -351,7 +334,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           .setAttribute(in.getAttribute())
           .setKey(in.getKey())
           .setValue(ByteString.copyFrom(in.getValue()))
-          .setStamp(includeStamp ? in.getStamp() : 0)
+          .setStamp(in.getStamp())
           .setUuid(in.getUuid())
           .build();
     }
@@ -618,7 +601,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     private static Iterable<Transactions.ProtoStreamElement> asProtoStreamElements(
         Iterable<StreamElement> elements) {
 
-      return Iterables.transform(elements, e -> asProtoStreamElement(e, true));
+      return Iterables.transform(elements, TransactionProtoSerializer::asProtoStreamElement);
     }
 
     private final ProtoValueSerializer<ProtoTransactionT> inner;

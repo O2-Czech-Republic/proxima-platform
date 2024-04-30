@@ -39,29 +39,19 @@ public class CommitTest {
   public void testCreation() {
     StreamElement upsert =
         StreamElement.upsert(
-            gateway,
-            status,
-            UUID.randomUUID().toString(),
-            "key",
-            status.getName(),
-            0L,
-            new byte[] {1, 2, 3});
-    StreamElement delete =
-        StreamElement.delete(
-            gateway, status, UUID.randomUUID().toString(), "key", status.getName(), 1L);
-    Commit commit = Commit.of(1L, 1234567890000L, Arrays.asList(upsert, delete));
-    assertEquals(1L, commit.getSeqId());
-    assertEquals(1234567890000L, commit.getStamp());
-    assertEquals(2, commit.getUpdates().size());
-    assertFalse(Iterables.get(commit.getUpdates(), 0).isDelete());
-    assertTrue(Iterables.get(commit.getUpdates(), 1).isDelete());
+            gateway, status, 1L, "key", status.getName(), 1L, new byte[] {1, 2, 3});
+    StreamElement delete = StreamElement.delete(gateway, status, 1L, "key", status.getName(), 1L);
+    Commit commit = Commit.outputs(Collections.emptyList(), Arrays.asList(upsert, delete));
+    assertEquals(2, commit.getOutputs().size());
+    assertFalse(Iterables.get(commit.getOutputs(), 0).isDelete());
+    assertTrue(Iterables.get(commit.getOutputs(), 1).isDelete());
+    assertTrue(commit.getTransactionUpdates().isEmpty());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testWildcardDeleteUnsupported() {
-    Commit.of(
-        1L,
-        System.currentTimeMillis(),
+    Commit.outputs(
+        Collections.emptyList(),
         Collections.singletonList(
             StreamElement.deleteWildcard(
                 gateway, device, UUID.randomUUID().toString(), "key", 1L)));

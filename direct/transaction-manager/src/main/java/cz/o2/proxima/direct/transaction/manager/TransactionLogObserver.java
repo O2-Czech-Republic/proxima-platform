@@ -578,6 +578,8 @@ public class TransactionLogObserver implements CommitLogObserver {
               .map(KeyAttributes::ofStreamElement)
               .collect(Collectors.toList());
       if (!verifyNotInConflict(
+          transactionId,
+          currentState,
           currentState.getSequentialId(),
           currentState.getStamp(),
           concatInputsAndOutputs(currentState.getInputAttributes(), outputKeyAttributes))) {
@@ -637,7 +639,8 @@ public class TransactionLogObserver implements CommitLogObserver {
     long seqId = sequenceId.getAndIncrement();
     long now = currentTimeMillis();
     State proposedState = State.open(seqId, now, new HashSet<>(request.getInputAttributes()));
-    if (verifyNotInConflict(seqId, now, request.getInputAttributes())) {
+    if (verifyNotInConflict(
+        transactionId, proposedState, seqId, now, request.getInputAttributes())) {
       log.info("Transaction {} seqId {} is now {}", transactionId, seqId, proposedState.getFlags());
       metrics.getTransactionsOpen().increment();
       return proposedState;
@@ -648,7 +651,78 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private boolean verifyNotInConflict(
-      long transactionSeqId, long commitStamp, Iterable<KeyAttribute> attributes) {
+      String transactionId,
+      State currentState,
+      long transactionSeqId,
+      long commitStamp,
+      Iterable<KeyAttribute> attributes) {
+
+    final boolean detailedReport =
+        monitoringPolicy.shouldReportRejected(transactionId, currentState);
+
+    if (checkRequiredWildcards(transactionId, attributes, detailedReport)) {
+      return false;
+    }
+
+    if (containsUnequalSeqIds(transactionId, attributes, detailedReport)) {
+      return false;
+    }
+
+    return verifyInputsUpToDate(
+        transactionId, transactionSeqId, commitStamp, attributes, detailedReport);
+  }
+
+  private boolean verifyInputsUpToDate(
+      String transactionId,
+      long transactionSeqId,
+      long commitStamp,
+      Iterable<KeyAttribute> attributes,
+      boolean detailedReport) {
+
+    try (var l = Locker.of(this.lock.readLock())) {
+      return Streams.stream(attributes)
+          .filter(ka -> !ka.isWildcardQuery())
+          .noneMatch(
+              ka -> {
+                if (!ka.isDelete()
+                    && ka.getSequentialId() < Long.MAX_VALUE
+                    && ka.getSequentialId() > transactionSeqId) {
+                  // disallow any (well-defined) sequenceId with higher value than current
+                  // transaction
+                  if (detailedReport) {
+                    log.info("Transaction {} has invalid seqId in {}", transactionId, ka);
+                  }
+                  return true;
+                }
+                SortedSet<SeqIdWithTombstone> updated =
+                    lastUpdateSeqId.get(KeyWithAttribute.of(ka));
+                if (updated.isEmpty()) {
+                  return false;
+                }
+                SeqIdWithTombstone lastUpdated = updated.last();
+                long lastUpdatedSeqId = lastUpdated.getSeqId();
+                long lastUpdatedStamp = lastUpdated.getTimestamp();
+                boolean outdatedRead =
+                    lastUpdatedSeqId > transactionSeqId
+                        || lastUpdatedStamp > commitStamp
+                        || (lastUpdatedSeqId > ka.getSequentialId()
+                            // we can accept somewhat stale data if the state is equal => both agree
+                            // that the field was deleted
+                            && (!lastUpdated.isTombstone() || !ka.isDelete()));
+                if (outdatedRead && detailedReport) {
+                  log.info(
+                      "Transaction {} has outdated read in {}, last write was {}",
+                      transactionId,
+                      ka,
+                      lastUpdated);
+                }
+                return outdatedRead;
+              });
+    }
+  }
+
+  private boolean checkRequiredWildcards(
+      String transactionId, Iterable<KeyAttribute> attributes, boolean detailedReport) {
 
     final Set<KeyWithAttribute> requiredWildcards;
     try (var l = Locker.of(this.lock.readLock())) {
@@ -674,49 +748,28 @@ public class TransactionLogObserver implements CommitLogObserver {
               .collect(Collectors.toSet());
       if (!Sets.difference(requiredWildcards, presentInputs).isEmpty()) {
         // not all required inputs present
-        return false;
+        if (detailedReport) {
+          log.info(
+              "Transaction {} is missing required wildcards {}",
+              transactionId,
+              Sets.difference(requiredWildcards, presentInputs));
+        }
+        return true;
       }
     }
-
-    if (containsUnequalSeqIds(attributes)) {
-      return false;
-    }
-
-    try (var l = Locker.of(this.lock.readLock())) {
-      return Streams.stream(attributes)
-          .filter(ka -> !ka.isWildcardQuery())
-          .noneMatch(
-              ka -> {
-                if (!ka.isDelete()
-                    && ka.getSequentialId() < Long.MAX_VALUE
-                    && ka.getSequentialId() > transactionSeqId) {
-                  // disallow any (well-defined) sequenceId with higher value than current
-                  // transaction
-                  return true;
-                }
-                SortedSet<SeqIdWithTombstone> updated =
-                    lastUpdateSeqId.get(KeyWithAttribute.of(ka));
-                if (updated.isEmpty()) {
-                  return false;
-                }
-                SeqIdWithTombstone lastUpdated = updated.last();
-                long lastUpdatedSeqId = lastUpdated.getSeqId();
-                long lastUpdatedStamp = lastUpdated.getTimestamp();
-                return lastUpdatedSeqId > transactionSeqId
-                    || lastUpdatedStamp > commitStamp
-                    || (lastUpdatedSeqId > ka.getSequentialId()
-                        // we can accept somewhat stale data if the state is equal => both agree
-                        // that the field was deleted
-                        && (!lastUpdated.isTombstone() || !ka.isDelete()));
-              });
-    }
+    return false;
   }
 
-  private boolean containsUnequalSeqIds(Iterable<KeyAttribute> attributes) {
+  private boolean containsUnequalSeqIds(
+      String transactionId, Iterable<KeyAttribute> attributes, boolean detailedReport) {
+
     Map<KeyWithAttribute, Long> seqIds = new HashMap<>();
     for (KeyAttribute ka : attributes) {
       Long current = seqIds.putIfAbsent(KeyWithAttribute.of(ka), ka.getSequentialId());
       if (current != null && current != ka.getSequentialId()) {
+        if (detailedReport) {
+          log.info("Transaction {} contains unequal seqIds in {}", transactionId, attributes);
+        }
         return true;
       }
     }

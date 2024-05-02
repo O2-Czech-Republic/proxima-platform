@@ -51,7 +51,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -99,14 +98,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   public abstract static class TransactionValidator
       implements TransactionAware, DirectElementWiseTransform {
 
-    private transient ExecutorService executor;
     private transient Transaction transaction;
 
     @Override
     public void setup(
         Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {
-
-      this.executor = Objects.requireNonNull(directDataOperator.getContext().getExecutorService());
+      // nop
     }
 
     @Override
@@ -121,15 +118,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     @Override
     public final void transform(StreamElement input, CommitCallback commit) {
-      executor.submit(
-          () -> {
-            try {
-              validate(input, currentTransaction());
-              commit.commit(true, null);
-            } catch (Throwable err) {
-              commit.commit(false, err);
-            }
-          });
+      try {
+        validate(input, currentTransaction());
+        commit.commit(true, null);
+      } catch (Throwable err) {
+        commit.commit(false, err);
+      }
     }
 
     /**
@@ -192,6 +186,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private final List<CompletableFuture<?>> runningUpdates =
         Collections.synchronizedList(new ArrayList<>());
     private final List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<>());
+    private boolean terminated = false;
 
     private Transaction(String transactionId) {
       this.transactionId = transactionId;
@@ -220,22 +215,34 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
               CompletableFuture.failedFuture(
                   new TransactionRejectedException(transactionId, Flags.ABORTED));
       }
-      runningUpdates.add(future);
-      future.whenComplete((response, exc) -> processArrivedResponse(future, response, exc));
+      synchronized (runningUpdates) {
+        Preconditions.checkState(!terminated);
+        // wait for receiving the response
+        runningUpdates.add(future);
+        // and for processing it
+        runningUpdates.add(
+            future.whenComplete(
+                (response, exc) -> {
+                  runningUpdates.remove(future);
+                  processArrivedResponse(response, exc);
+                }));
+      }
     }
 
     public void commitWrite(List<StreamElement> outputs, CommitCallback callback) {
       commitAttempted = true;
-      waitForInFlight(null)
+      waitForInFlight()
           .thenCompose(ign -> runTransforms(outputs))
-          // need to wait for any requests added during transforms
-          .thenCompose(this::waitForInFlight)
+          // need to wait for any requests added during possible transforms
+          .thenCompose(elements -> waitForInFlight(elements, true))
           .thenCompose(this::sendCommitRequest)
           .thenCompose(this::handleCommitResponse)
           .completeOnTimeout(
               false, manager.getCfg().getTransactionTimeoutMs(), TimeUnit.MILLISECONDS)
           .whenComplete(
               (finished, err) -> {
+                log.info(
+                    "Transaction {} commit result: {}, {}", transactionId, finished, (Object) err);
                 if (err instanceof CompletionException && err.getCause() != null) {
                   callback.commit(false, err.getCause());
                 } else if (Boolean.TRUE.equals(finished)) {
@@ -248,12 +255,15 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
               });
     }
 
-    private CompletableFuture<Collection<StreamElement>> waitForInFlight(
-        @Nullable Collection<StreamElement> elements) {
+    private CompletableFuture<Collection<StreamElement>> waitForInFlight() {
+      return waitForInFlight(null, false);
+    }
 
+    private <T> CompletableFuture<T> waitForInFlight(@Nullable T result, boolean isFinal) {
       synchronized (runningUpdates) {
         CompletableFuture<?>[] futures = runningUpdates.toArray(new CompletableFuture<?>[] {});
-        return CompletableFuture.allOf(futures).thenApply(ign -> elements);
+        this.terminated = terminated || isFinal;
+        return CompletableFuture.allOf(futures).thenApply(ign -> result);
       }
     }
 
@@ -270,7 +280,13 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
 
     private CompletableFuture<Response> sendCommitRequest(Collection<StreamElement> transformed) {
-      Preconditions.checkState(runningUpdates.isEmpty());
+      synchronized (runningUpdates) {
+        Preconditions.checkState(
+            runningUpdates.stream().allMatch(CompletableFuture::isDone),
+            "Expected processed running updates, got %s",
+            runningUpdates);
+        runningUpdates.clear();
+      }
       if (state != State.Flags.OPEN) {
         return CompletableFuture.completedFuture(Response.empty().aborted());
       }
@@ -288,11 +304,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       return CompletableFuture.completedFuture(true);
     }
 
-    private void processArrivedResponse(
-        CompletableFuture<?> finished, @Nullable Response response, @Nullable Throwable err) {
-
+    private void processArrivedResponse(@Nullable Response response, @Nullable Throwable err) {
       log.debug("Processing response {} for transaction {}", response, transactionId);
-      Preconditions.checkState(runningUpdates.remove(finished));
       if (err != null) {
         TransactionRejectedException thrown =
             new TransactionRejectedException(transactionId, Flags.ABORTED);
@@ -364,6 +377,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     private List<CompletableFuture<?>> applyValidations(Iterable<StreamElement> elements) {
       for (StreamElement el : elements) {
+        @Nullable
         List<TransformationDescriptor> applicableTransforms =
             attributeTransforms.get(el.getAttributeDescriptor());
         if (applicableTransforms != null) {
@@ -405,7 +419,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
               el, transformed -> newElements.add(injectSequenceIdAndStamp(transformed)));
       Preconditions.checkState(
           newElements.size() == currentSize + add,
-          "Transformation %s is asynchronous which not currently supported in transaction mode.",
+          "Transformation %s is asynchronous which is not currently supported in transaction mode.",
           transform.getClass());
       return CompletableFuture.completedFuture(null);
     }
@@ -439,7 +453,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     public void sync() throws TransactionRejectedException {
       try {
-        waitForInFlight(null).get();
+        waitForInFlight(null, true).get();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new TransactionRejectedException(getTransactionId(), Flags.ABORTED);

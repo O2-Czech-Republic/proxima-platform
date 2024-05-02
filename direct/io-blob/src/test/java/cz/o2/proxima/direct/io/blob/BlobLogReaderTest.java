@@ -160,7 +160,7 @@ public class BlobLogReaderTest {
     assertEquals(1, observed.size());
   }
 
-  @Test
+  @Test(timeout = 10_000)
   public void testObservePartitionsCancelled() throws InterruptedException {
     List<Pair<Long, Long>> stamps =
         Lists.newArrayList(

@@ -77,8 +77,8 @@ message TransactionUpdate {
 }
 
 message ProtoCommit {
-  uint64 seqId = 1;
-  fixed64 stamp = 2;
+  reserved 1;
+  reserved 2;
   repeated ProtoStreamElement updates = 3;
   repeated TransactionUpdate transactionUpdates = 4;
 }

@@ -74,4 +74,15 @@ public interface TransactionMonitoringPolicy {
    * @param response the response to be sent
    */
   void outgoingResponse(String transactionId, Response response);
+
+  /**
+   * Called when transaction is about to be aborted. Returning {@code true} from this method will
+   * cause more details report about the reason why transaction is rejected.
+   *
+   * @param transactionId ID of transaction
+   * @param preAbortState state before the transaction was aborted
+   */
+  default boolean shouldReportRejected(String transactionId, State preAbortState) {
+    return false;
+  }
 }

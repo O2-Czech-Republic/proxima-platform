@@ -27,6 +27,7 @@ import cz.o2.proxima.core.repository.TransactionMode;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.transaction.Commit;
+import cz.o2.proxima.core.transaction.Commit.TransactionUpdate;
 import cz.o2.proxima.core.transaction.KeyAttribute;
 import cz.o2.proxima.core.transaction.Request;
 import cz.o2.proxima.core.transaction.Request.Flags;
@@ -322,10 +323,11 @@ public class TransactionResourceManager
     }
   }
 
+  @Getter
   private static class HandleWithAssignment {
 
-    @Getter private final List<Integer> partitions = new ArrayList<>();
-    @Getter ObserveHandle observeHandle = null;
+    private final List<Integer> partitions = new ArrayList<>();
+    ObserveHandle observeHandle = null;
 
     public void assign(Collection<Partition> partitions) {
       this.partitions.clear();
@@ -780,8 +782,12 @@ public class TransactionResourceManager
   }
 
   @VisibleForTesting
+  @Nullable
   CachedTransaction createCachedTransaction(String transactionId, State state) {
     Preconditions.checkArgument(state.getCommittedOutputs().isEmpty());
+    if (state.getInputAttributes().isEmpty()) {
+      return null;
+    }
     return new CachedTransaction(transactionId, state.getInputAttributes());
   }
 
@@ -801,24 +807,18 @@ public class TransactionResourceManager
       final CachedView stateView = cachedTransaction.getStateView();
       long now = System.currentTimeMillis();
       StreamElement stateUpsert = getStateDesc().upsert(transactionId, now, updateState);
-      final Commit initial;
-      if (!updateState.getCommittedOutputs().isEmpty()) {
-        initial =
-            Commit.of(
-                updateState.getSequentialId(),
-                updateState.getStamp(),
-                updateState.getCommittedOutputs());
-      } else {
-        initial = Commit.empty();
-      }
+      List<TransactionUpdate> transactionUpdates =
+          Arrays.asList(
+              new TransactionUpdate(stateFamily.getDesc().getName(), stateUpsert),
+              new TransactionUpdate(
+                  responseFamily.getDesc().getName(),
+                  getResponseDesc().upsert(transactionId, responseId, now, response)));
       log.debug("Returning response {} for transaction {}", response, transactionId);
       final Commit commit =
-          initial.and(
-              Arrays.asList(
-                  new Commit.TransactionUpdate(stateFamily.getDesc().getName(), stateUpsert),
-                  new Commit.TransactionUpdate(
-                      responseFamily.getDesc().getName(),
-                      getResponseDesc().upsert(transactionId, responseId, now, response))));
+          updateState.getCommittedOutputs().isEmpty()
+              ? Commit.updates(transactionUpdates)
+              : Commit.outputs(transactionUpdates, updateState.getCommittedOutputs());
+
       synchronized (stateView) {
         ensureTransactionOpen(transactionId, updateState);
         stateView.cache(stateUpsert);
@@ -836,7 +836,8 @@ public class TransactionResourceManager
     }
   }
 
-  private CachedTransaction getOrCreateCachedTransaction(String transactionId, State state) {
+  private @Nullable CachedTransaction getOrCreateCachedTransaction(
+      String transactionId, State state) {
     return openTransactionMap.computeIfAbsent(
         transactionId, tmp -> createCachedTransaction(transactionId, state));
   }
@@ -849,8 +850,8 @@ public class TransactionResourceManager
 
     Set<TransactionMode> modes =
         attributes.stream()
-            .filter(a -> a.getTransactionMode() != TransactionMode.NONE)
             .map(AttributeDescriptor::getTransactionMode)
+            .filter(mode -> mode != TransactionMode.NONE)
             .collect(Collectors.toSet());
     Preconditions.checkArgument(
         modes.size() == 1,

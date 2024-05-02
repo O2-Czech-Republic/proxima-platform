@@ -31,6 +31,7 @@ import lombok.Value;
  * there is only single attribute, the output is written directly to target commit-log.
  */
 @ToString
+@Getter
 @EqualsAndHashCode
 public class Commit implements Serializable {
 
@@ -45,28 +46,21 @@ public class Commit implements Serializable {
   }
 
   /**
-   * Create empty {@link Commit}.
-   *
-   * @return empty Commit
-   */
-  public static Commit empty() {
-    return new Commit(-1, Long.MIN_VALUE, Collections.emptyList());
-  }
-
-  /**
    * Create new {@link Commit} message to be appended to {@code _transcation.commit}
    *
-   * @param seqId sequence Id of the transaction
-   * @param stamp output timestamp of the transaction
-   * @param updates updates to write
+   * @param outputs updates to write
    * @return the commit
    */
-  public static Commit of(long seqId, long stamp, Collection<StreamElement> updates) {
+  public static Commit outputs(
+      Collection<TransactionUpdate> transactionUpdates, Collection<StreamElement> outputs) {
     Preconditions.checkArgument(
-        updates.stream().noneMatch(StreamElement::isDeleteWildcard),
+        outputs.stream().noneMatch(StreamElement::isDeleteWildcard),
         "Wildcard deletes not currently supported.");
-    Preconditions.checkArgument(seqId > 0, "SequenceId must be positive, got %s", seqId);
-    return new Commit(seqId, stamp, updates);
+    Preconditions.checkArgument(
+        outputs.stream().allMatch(el -> el.getStamp() > 0 && el.getSequentialId() > 0),
+        "Invalid updates in %s",
+        outputs);
+    return new Commit(outputs, transactionUpdates);
   }
 
   /**
@@ -74,45 +68,28 @@ public class Commit implements Serializable {
    *
    * @param transactionUpdates Updates to transactional attributes.
    */
-  public Commit and(Collection<TransactionUpdate> transactionUpdates) {
+  public static Commit updates(Collection<TransactionUpdate> transactionUpdates) {
     Preconditions.checkArgument(
         transactionUpdates.stream().noneMatch(u -> u.getUpdate().isDelete()),
         "Deletes on transactional attributes not supported.");
-    return new Commit(seqId, stamp, updates, transactionUpdates);
+    return new Commit(Collections.emptyList(), transactionUpdates);
   }
-
-  /** Transaction's sequenceId. */
-  @Getter private final long seqId;
-
-  /** Transaction's stamp. */
-  @Getter private final long stamp;
 
   /** List of {@link cz.o2.proxima.core.storage.StreamElement StreamElements} to be replicated. */
-  @Getter private final Collection<StreamElement> updates;
+  private final Collection<StreamElement> outputs;
 
   /** List of possible state updates and/or responses to return to client. */
-  @Getter private final Collection<TransactionUpdate> transactionUpdates;
+  private final Collection<TransactionUpdate> transactionUpdates;
 
   public Commit() {
-    this(-1L, Long.MIN_VALUE, Collections.emptyList());
-  }
-
-  private Commit(long seqId, long stamp, Collection<StreamElement> updates) {
-    this.seqId = seqId;
-    this.stamp = stamp;
-    this.updates = updates;
+    this.outputs = Collections.emptyList();
     this.transactionUpdates = Collections.emptyList();
   }
 
   private Commit(
-      long seqId,
-      long stamp,
-      Collection<StreamElement> updates,
-      Collection<TransactionUpdate> transactionUpdates) {
+      Collection<StreamElement> outputs, Collection<TransactionUpdate> transactionUpdates) {
 
-    this.seqId = seqId;
-    this.stamp = stamp;
-    this.updates = updates;
+    this.outputs = outputs;
     this.transactionUpdates = new ArrayList<>(transactionUpdates);
   }
 }

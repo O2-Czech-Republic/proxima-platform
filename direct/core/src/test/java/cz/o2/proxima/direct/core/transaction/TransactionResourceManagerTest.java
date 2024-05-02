@@ -173,7 +173,7 @@ public class TransactionResourceManagerTest {
       response =
           manager.commit(
               transactionId,
-              Collections.singletonList(status.upsert(1L, "gw1", 0L, new byte[] {})));
+              Collections.singletonList(status.upsert(1L, "gw1", 1L, new byte[] {})));
 
       assertEquals(Response.Flags.COMMITTED, response.get().getFlags());
     }

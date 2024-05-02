@@ -20,6 +20,8 @@ import static org.junit.Assert.assertTrue;
 
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.ConfigConstants;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -39,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,12 +51,14 @@ public class TransactionCommitTransformationTest {
   private final Repository repo = Repository.ofTest(ConfigFactory.load("test-transactions.conf"));
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
-  private final AttributeDescriptor<?> status = gateway.getAttribute("status");
+  private final Regular<byte[]> status = Regular.of(gateway, gateway.getAttribute("status"));
   private final AttributeDescriptor<?> device = gateway.getAttribute("device.*");
   private final EntityDescriptor transaction = repo.getEntity(ConfigConstants.TRANSACTION_ENTITY);
   private final AttributeDescriptor<Commit> commitDesc = transaction.getAttribute("commit");
-  private final AttributeDescriptor<State> stateDesc = transaction.getAttribute("state");
-  private final AttributeDescriptor<Response> responseDesc = transaction.getAttribute("response.*");
+  private final Regular<State> stateDesc =
+      Regular.of(transaction, transaction.getAttribute("state"));
+  private final Wildcard<Response> responseDesc =
+      Wildcard.of(transaction, transaction.getAttribute("response.*"));
   private TransactionCommitTransformation transformation;
 
   @Before
@@ -69,19 +74,9 @@ public class TransactionCommitTransformationTest {
 
   @Test
   public void testTransformUpdates() throws InterruptedException {
-    StreamElement upsert =
-        StreamElement.upsert(
-            gateway,
-            status,
-            UUID.randomUUID().toString(),
-            "key",
-            status.getName(),
-            0L,
-            new byte[] {1, 2, 3});
-    StreamElement delete =
-        StreamElement.delete(
-            gateway, status, UUID.randomUUID().toString(), "key", status.getName(), 1L);
-    Commit commit = Commit.of(1L, 1234567890000L, Arrays.asList(upsert, delete));
+    StreamElement upsert = status.upsert(1L, "key", 1L, new byte[] {1, 2, 3});
+    StreamElement delete = status.delete(1L, "key", 1L);
+    Commit commit = Commit.outputs(Collections.emptyList(), Arrays.asList(upsert, delete));
     List<StreamElement> outputs = new ArrayList<>();
     CommitLogObserver observer = LogObserverUtils.toList(outputs, ign -> {});
     Optionals.get(direct.getCommitLogReader(status)).observe("name", observer).waitUntilReady();
@@ -96,41 +91,25 @@ public class TransactionCommitTransformationTest {
             commitDesc.getValueSerializer().serialize(commit)),
         (succ, exc) -> assertTrue(succ));
     assertEquals(2, outputs.size());
-    assertEquals(Iterables.get(commit.getUpdates(), 0), outputs.get(0));
-    assertEquals(Iterables.get(commit.getUpdates(), 1), outputs.get(1));
+    assertEquals(Iterables.get(commit.getOutputs(), 0), outputs.get(0));
+    assertEquals(Iterables.get(commit.getOutputs(), 1), outputs.get(1));
   }
 
   @Test
-  public void testTransformTransactionUpdate() throws InterruptedException {
+  public void testTransformTransactionUpdate() {
     long now = System.currentTimeMillis();
     Commit commit =
-        Commit.empty()
-            .and(
-                Arrays.asList(
-                    new TransactionUpdate(
-                        "all-transaction-commit-log-state",
-                        StreamElement.upsert(
-                            transaction,
-                            stateDesc,
-                            UUID.randomUUID().toString(),
-                            "t",
-                            stateDesc.getName(),
-                            now,
-                            stateDesc.getValueSerializer().serialize(State.empty()))),
-                    new TransactionUpdate(
-                        "all-transaction-commit-log-response",
-                        StreamElement.upsert(
-                            transaction,
-                            responseDesc,
-                            UUID.randomUUID().toString(),
-                            "t",
-                            responseDesc.toAttributePrefix() + "1",
-                            now,
-                            responseDesc
-                                .getValueSerializer()
-                                .serialize(
-                                    Response.forRequest(
-                                        Request.builder().responsePartitionId(0).build()))))));
+        Commit.updates(
+            Arrays.asList(
+                new TransactionUpdate(
+                    "all-transaction-commit-log-state", stateDesc.upsert("t", now, State.empty())),
+                new TransactionUpdate(
+                    "all-transaction-commit-log-response",
+                    responseDesc.upsert(
+                        "t",
+                        "1",
+                        now,
+                        Response.forRequest(Request.builder().responsePartitionId(0).build())))));
     List<StreamElement> requests = new ArrayList<>();
     List<StreamElement> states = new ArrayList<>();
     CommitLogObserver requestObserver = LogObserverUtils.toList(requests, ign -> {});
@@ -152,5 +131,22 @@ public class TransactionCommitTransformationTest {
         (succ, exc) -> assertTrue(succ));
     assertEquals(1, requests.size());
     assertEquals(1, states.size());
+  }
+
+  @Test
+  public void testElementCommitted() {
+    // invalid input attribute
+    AtomicBoolean committed = new AtomicBoolean();
+    StreamElement responseElement = responseDesc.upsert("t1", "1", 1L, Response.empty());
+    transformation.transform(responseElement, (succ, exc) -> committed.set(succ));
+    assertTrue(committed.get());
+    committed.set(false);
+
+    // invalid value
+    StreamElement invalidElement =
+        StreamElement.upsert(
+            transaction, commitDesc, 1L, "t", commitDesc.getName(), 1L, new byte[] {2, 3, 4});
+    transformation.transform(invalidElement, (succ, exc) -> committed.set(succ));
+    assertTrue(committed.get());
   }
 }

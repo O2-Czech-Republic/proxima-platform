@@ -125,6 +125,9 @@ public class TransactionalOnlineAttributeWriterTest {
             System.currentTimeMillis(),
             new byte[] {1, 2, 3}),
         (succ, exc) -> {
+          if (exc != null) {
+            exc.printStackTrace(System.err);
+          }
           assertNull("Exception should be null, got " + exc, exc);
           assertTrue(succ);
           latch.countDown();

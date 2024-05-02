@@ -106,7 +106,7 @@ public class TransactionIT_Large {
             repo.getTransformations().get("_transaction-commit"),
             elem -> {
               Commit value = Optionals.get(commit.valueOf(elem));
-              if (value.getSeqId() > 0) {
+              if (!value.getOutputs().isEmpty()) {
                 Optional.ofNullable(replicatedLatch).ifPresent(CountDownLatch::countDown);
               }
             });

@@ -19,15 +19,16 @@ plugins {
 }
 
 dependencies {
-  api project(':proxima-direct-core')
-  api project(':proxima-scheme-proto')
-  api project(path: ':proxima-core')
-  api project(':proxima-scheme-proto-testing')
-  compileOnly project(path: ":proxima-core")
-  compileOnly project(path: ':proxima-direct-core')
   compileOnly project(path: ":proxima-core", configuration: 'testsJar')
   compileOnly project(path: ':proxima-direct-core', configuration: 'testsJar')
   compileOnly project(path: ":proxima-compiler-java-cli", configuration: "shadowJar")
+
+  api project(":proxima-core")
+  api project(':proxima-direct-core')
+  implementation project(':proxima-scheme-proto')
+  implementation project(':proxima-scheme-proto-testing')
+
+  testImplementation "cz.o2.proxima:proxima-vendor:${project.version}"
   testImplementation libraries.junit4
   testImplementation project(path: ":proxima-core", configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')

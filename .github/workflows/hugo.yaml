@@ -30,7 +30,7 @@ jobs:
     if: github.repository == 'datadrivencz/proxima-platform'
     runs-on: ubuntu-latest
     env:
-      HUGO_VERSION: 0.125.6
+      HUGO_VERSION: 0.123.7
     steps:
       - name: Install Hugo CLI
         run: |

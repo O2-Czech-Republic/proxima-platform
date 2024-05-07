@@ -39,7 +39,7 @@ import org.apache.beam.sdk.values.PCollection;
 
 /**
  * Storage with URI scheme {@code test-stream://}. This storage is backed by {@link TestStream} and
- * enables fine tuning with regard to watermark and other stream aspects.
+ * enables fine-tuning with regard to watermark and other stream aspects.
  */
 @AutoService(DataAccessorFactory.class)
 public class TestStreamStorage implements DataAccessorFactory {

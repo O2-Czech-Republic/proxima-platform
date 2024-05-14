@@ -41,3 +41,34 @@ message KeyValue {
   uint64 stamp = 6;
 
 }
+
+/**
+ * Bulk of KeyValues.
+ **/
+message Bulk {
+
+  // bulk of KeyValues
+  repeated KeyValue kv = 1;
+
+  // UUIDs associated with the KeyValues
+  repeated string uuid = 2;
+
+}
+
+/**
+ * Wrapper for bulk of key values, supporting compression.
+ **/
+message BulkWrapper {
+
+  enum Compression {
+    UNKNOWN = 0;
+    NONE = 1;
+    DEFLATE = 2;
+  }
+
+  Compression compression = 1;
+  // compressed or raw serialized Bulk
+  bytes value = 2;
+
+}
+

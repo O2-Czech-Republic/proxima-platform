@@ -46,6 +46,7 @@ public class PubSubStorageTest {
   @Test
   public void testAccept() {
     assertEquals(Accept.ACCEPT, storage.accepts(URI.create("gps://project/topic")));
+    assertEquals(Accept.ACCEPT, storage.accepts(URI.create("gps-bulk://project/topic?bulk=1000")));
     assertEquals(Accept.REJECT, storage.accepts(URI.create("file:///dev/null")));
   }
 
@@ -55,5 +56,31 @@ public class PubSubStorageTest {
     Mockito.when(family.getStorageUri()).thenReturn(URI.create("gps://project/topic"));
     assertNotNull(
         storage.createAccessor(repo.getOrCreateOperator(DirectDataOperator.class), family));
+  }
+
+  @Test
+  public void testCreateAccessorBulk() {
+    final AttributeFamilyDescriptor family = Mockito.mock(AttributeFamilyDescriptor.class);
+    Mockito.when(family.getStorageUri()).thenReturn(URI.create("gps-bulk://project/topic"));
+    PubSubAccessor accessor =
+        (PubSubAccessor)
+            storage.createAccessor(repo.getOrCreateOperator(DirectDataOperator.class), family);
+    assertNotNull(accessor.getBulk());
+    assertTrue(accessor.isBulk());
+  }
+
+  @Test
+  public void testCreateAccessorBulkDeflate() {
+    final AttributeFamilyDescriptor family = Mockito.mock(AttributeFamilyDescriptor.class);
+    Mockito.when(family.getStorageUri())
+        .thenReturn(URI.create("gps-bulk://project/topic?deflate=true&bulk=1000&flush=500"));
+    PubSubAccessor accessor =
+        (PubSubAccessor)
+            storage.createAccessor(repo.getOrCreateOperator(DirectDataOperator.class), family);
+    assertNotNull(accessor.getBulk());
+    assertTrue(accessor.isBulk());
+    assertTrue(accessor.getBulk().isDeflate());
+    assertEquals(1000, accessor.getBulk().getBulkSize());
+    assertEquals(500, accessor.getBulk().getFlushMs());
   }
 }

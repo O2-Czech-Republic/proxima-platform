@@ -133,7 +133,7 @@ public class OffsetCommitter<ID> {
         if (age > autoCommitMs) {
           committable.add(e);
           log.warn(
-              "Auto adding offset {} of ID {} to comittable map due to age {} ms. "
+              "Auto adding offset {} of ID {} to committable map due to age {} ms. "
                   + "The commit might have been lost. Verify your commit logic to remove this warning.",
               e.getKey(),
               id,

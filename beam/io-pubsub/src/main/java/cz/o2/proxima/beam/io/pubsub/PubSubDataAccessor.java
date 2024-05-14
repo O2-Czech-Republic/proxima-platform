@@ -30,6 +30,7 @@ import cz.o2.proxima.io.pubsub.util.PubSubUtils;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
@@ -58,7 +59,13 @@ public class PubSubDataAccessor implements DataAccessor {
     String topicName = UriUtil.getPathNormalized(uri);
     Preconditions.checkArgument(!project.isEmpty(), "Authority in URI %s must not be empty", uri);
     Preconditions.checkArgument(!topicName.isEmpty(), "Path in URI %s must specify topic", uri);
+    Preconditions.checkArgument(isUriSupported(uri), "URI %s is not supported.", uri);
     this.topic = String.format("projects/%s/topics/%s", project, topicName);
+  }
+
+  private boolean isUriSupported(URI uri) {
+    // currently does not support any additional features
+    return Optional.ofNullable(uri.getQuery()).map(String::isBlank).orElse(true);
   }
 
   @Override

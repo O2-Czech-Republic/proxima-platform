@@ -25,6 +25,7 @@ import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.typesafe.config.Config;
 import java.net.URI;
+import java.util.Set;
 import lombok.AccessLevel;
 import lombok.Getter;
 
@@ -36,7 +37,7 @@ public class PubSubStorage implements DataAccessorFactory {
   private static final long serialVersionUID = 1L;
 
   public static final String CFG_DEFAULT_MAX_ACK_DEADLINE = "pubsub.default.deadline-max-ms";
-  public static final String CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE =
+  public static final String CFG_DEFAULT_SUBSCRIPTION_AUTO_CREATE =
       "pubsub.default.subscription.auto-create";
   public static final String CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE =
       "pubsub.default.subscription.ack-deadline";
@@ -67,8 +68,8 @@ public class PubSubStorage implements DataAccessorFactory {
       if (cfg.hasPath(CFG_DEFAULT_MAX_ACK_DEADLINE)) {
         defaultMaxAckDeadlineMs = cfg.getInt(CFG_DEFAULT_MAX_ACK_DEADLINE);
       }
-      if (cfg.hasPath(CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE)) {
-        defaultSubscriptionAutoCreate = cfg.getBoolean(CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE);
+      if (cfg.hasPath(CFG_DEFAULT_SUBSCRIPTION_AUTO_CREATE)) {
+        defaultSubscriptionAutoCreate = cfg.getBoolean(CFG_DEFAULT_SUBSCRIPTION_AUTO_CREATE);
       }
       if (cfg.hasPath(CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE)) {
         defaultSubscriptionAckDeadlineSeconds = cfg.getInt(CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE);
@@ -90,6 +91,6 @@ public class PubSubStorage implements DataAccessorFactory {
 
   @Override
   public Accept accepts(URI uri) {
-    return uri.getScheme().equals("gps") ? Accept.ACCEPT : Accept.REJECT;
+    return Set.of("gps", "gps-bulk").contains(uri.getScheme()) ? Accept.ACCEPT : Accept.REJECT;
   }
 }

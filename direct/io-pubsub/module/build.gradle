@@ -25,6 +25,7 @@ dependencies {
   implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation libraries.slf4j_log4j
+  testImplementation libraries.log4j_core
   testImplementation libraries.junit4
   testImplementation libraries.mockito_core
   compileOnly libraries.auto_service_annotations

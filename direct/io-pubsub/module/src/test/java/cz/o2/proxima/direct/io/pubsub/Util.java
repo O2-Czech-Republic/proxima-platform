@@ -19,6 +19,8 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.v1.PubsubMessage;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.io.pubsub.proto.PubSub;
 import java.util.UUID;
 
@@ -27,6 +29,13 @@ class Util {
 
   private Util() {
     // no-op
+  }
+
+  static StreamElement update(
+      String key, EntityDescriptor entity, AttributeDescriptor<?> attr, byte[] value, long stamp) {
+
+    return StreamElement.upsert(
+        entity, attr, UUID.randomUUID().toString(), key, attr.getName(), stamp, value);
   }
 
   static PubsubMessage update(String key, String attribute, byte[] value, long stamp) {
@@ -47,6 +56,13 @@ class Util {
         .build();
   }
 
+  static StreamElement delete(
+      String key, EntityDescriptor entity, AttributeDescriptor<?> attr, long stamp) {
+
+    return StreamElement.delete(
+        entity, attr, UUID.randomUUID().toString(), key, attr.getName(), stamp);
+  }
+
   static PubsubMessage delete(String key, String attribute, long stamp) {
     return PubsubMessage.newBuilder()
         .setMessageId(UUID.randomUUID().toString())
@@ -65,8 +81,13 @@ class Util {
         .build();
   }
 
-  static PubsubMessage deleteWildcard(String key, AttributeDescriptor<?> attribute, long stamp) {
+  static StreamElement deleteWildcard(
+      String key, EntityDescriptor entity, AttributeDescriptor<?> wildcard, long stamp) {
 
+    return StreamElement.deleteWildcard(entity, wildcard, UUID.randomUUID().toString(), key, stamp);
+  }
+
+  static PubsubMessage deleteWildcard(String key, AttributeDescriptor<?> attribute, long stamp) {
     return PubsubMessage.newBuilder()
         .setMessageId(UUID.randomUUID().toString())
         .setPublishTime(

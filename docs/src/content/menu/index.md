@@ -12,6 +12,6 @@ draft: false
     - [Direct data operator]({{< relref "/book/operators/direct" >}})
     - [Beam data operator]({{< relref "/book/operators/beam" >}})
     - [Flink data operator]({{< relref "/book/operators/flink" >}})
-  - [Tools]({{< relref "/book/tools" >}})
   - [Transactions]({{< relref "/book/transactions" >}})
+  - [Tools]({{< relref "/book/tools" >}})
 - [JavaDoc](https://datadrivencz.github.io/proxima-platform/apidocs/)

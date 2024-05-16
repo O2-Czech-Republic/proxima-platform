@@ -50,7 +50,8 @@ public class TestStreamStorageTest {
 
   private final Repository repo =
       Repository.ofTest(
-          TestStreamStorage.replaceStorages(ConfigFactory.load("test-reference.conf").resolve()));
+          TestStreamStorage.replaceStorages(
+              ConfigFactory.parseResources("test-reference.conf").resolve()));
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
 

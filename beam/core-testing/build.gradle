@@ -27,6 +27,9 @@ dependencies {
   testImplementation libraries.hamcrest
   testImplementation libraries.slf4j_log4j
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
+  testImplementation project(":proxima-direct-core")
+  testImplementation project(path: ":proxima-direct-core", configuration: "testsJar")
+  testImplementation project(":example-model")
   compileOnly project(path: ':proxima-compiler-java-cli', configuration: "shadowJar")
   compileOnly libraries.auto_service_annotations
   compileAnnotationProcessor libraries.lombok

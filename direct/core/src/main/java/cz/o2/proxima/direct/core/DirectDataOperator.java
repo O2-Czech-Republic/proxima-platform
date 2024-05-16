@@ -212,13 +212,22 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
         log.debug("Adding new family {} to familyMap", family);
         if (family.isProxy()) {
           AttributeFamilyProxyDescriptor proxy = family.toProxy();
-          familyMap.put(family, DirectAttributeFamilyProxyDescriptor.of(repo, context, proxy));
           addResolvedFamily(proxy.getTargetFamilyRead());
           addResolvedFamily(proxy.getTargetFamilyWrite());
+          if (isValidFamily(proxy.getTargetFamilyRead())
+              && isValidFamily(proxy.getTargetFamilyWrite())) {
+            familyMap.put(family, DirectAttributeFamilyProxyDescriptor.of(repo, context, proxy));
+          } else {
+            familyMap.put(family, new InvalidDirectAttributeFamilyDescriptor(repo, family));
+          }
         } else {
-          DataAccessor accessor = findAccessorFor(family);
-          familyMap.put(
-              family, new DirectAttributeFamilyDescriptor(repo, family, context, accessor));
+          @Nullable DataAccessor accessor = findAccessorFor(family);
+          if (accessor != null) {
+            familyMap.put(
+                family, new DirectAttributeFamilyDescriptor(repo, family, context, accessor));
+          } else {
+            familyMap.put(family, new InvalidDirectAttributeFamilyDescriptor(repo, family));
+          }
         }
       }
     } catch (Exception ex) {
@@ -227,16 +236,15 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     }
   }
 
-  private DataAccessor findAccessorFor(AttributeFamilyDescriptor desc) {
+  private boolean isValidFamily(AttributeFamilyDescriptor family) {
+    return !(familyMap.get(family) instanceof InvalidDirectAttributeFamilyDescriptor);
+  }
+
+  private @Nullable DataAccessor findAccessorFor(AttributeFamilyDescriptor desc) {
     return getAccessorFactory(desc.getStorageUri())
         .map(f -> f.createAccessor(this, desc))
         .filter(f -> !repo.isShouldValidate(Validate.ACCESSES) || f.isAcceptable(desc))
-        .orElseThrow(
-            () ->
-                new IllegalStateException(
-                    "No DataAccessor for URI "
-                        + desc.getStorageUri()
-                        + " found. You might be missing some dependency."));
+        .orElse(null);
   }
 
   /**

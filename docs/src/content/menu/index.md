@@ -14,4 +14,4 @@ draft: false
     - [Flink data operator]({{< relref "/book/operators/flink" >}})
   - [Tools]({{< relref "/book/tools" >}})
   - [Transactions]({{< relref "/book/transactions" >}})
-- [Reference]({{< relref "/reference" >}})
+- [JavaDoc](https://datadrivencz.github.io/proxima-platform/apidocs/)

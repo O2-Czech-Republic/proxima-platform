@@ -16,19 +16,17 @@
 package cz.o2.proxima.direct.core;
 
 import static cz.o2.proxima.core.util.ReplicationRunner.runAttributeReplicas;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.core.repository.AttributeProxyDescriptor;
 import cz.o2.proxima.core.repository.ConfigRepository;
+import cz.o2.proxima.core.repository.ConfigRepository.Builder;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.TransformationDescriptor;
+import cz.o2.proxima.core.repository.config.ConfigUtils;
 import cz.o2.proxima.core.storage.StorageType;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.ThroughputLimiter;
@@ -144,6 +142,21 @@ public class DirectDataOperatorTest {
         .build();
     // make sonar happy :-)
     assertTrue(true);
+  }
+
+  @Test
+  public void testInvalidStorage() {
+    ConfigRepository repo =
+        Builder.ofTest(
+                ConfigUtils.withStorageReplacement(
+                    ConfigFactory.load("test-reference.conf").resolve(),
+                    name -> true,
+                    name -> URI.create("unsupported:///")))
+            .build();
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<?> status = gateway.getAttribute("status");
+    DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
+    assertThrows(IllegalArgumentException.class, () -> direct.getWriter(status));
   }
 
   @Test(timeout = 10000)

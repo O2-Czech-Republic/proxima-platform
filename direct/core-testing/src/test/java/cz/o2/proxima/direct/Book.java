@@ -16,15 +16,22 @@
 package cz.o2.proxima.direct;
 
 import com.google.protobuf.TextFormat;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
+import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
+import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.core.transaction.KeyAttributes;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.Transaction;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.core.view.CachedView;
 import cz.o2.proxima.example.Example.BaseEvent;
 import cz.o2.proxima.example.Example.BaseEvent.Action;
@@ -32,8 +39,13 @@ import cz.o2.proxima.example.Example.UserDetails;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.testing.model.Model;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -49,13 +61,13 @@ public class Book {
   private DirectDataOperator direct;
   private Model model;
 
-  public void createOperator() {
+  private void createOperator() {
     repo = Repository.of(ConfigFactory.load("test-readme.conf").resolve());
     model = Model.wrap(repo);
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
   }
 
-  public void writeData() {
+  private void writeData() {
     Optional<OnlineAttributeWriter> maybeWriter =
         direct.getWriter(model.getEvent().getDataDescriptor());
     Preconditions.checkState(maybeWriter.isPresent());
@@ -88,7 +100,7 @@ public class Book {
         });
   }
 
-  public void observeEvents() {
+  private void observeEvents() {
     Optional<CommitLogReader> maybeReader =
         direct.getCommitLogReader(model.getEvent().getDataDescriptor());
     Preconditions.checkState(maybeReader.isPresent());
@@ -128,7 +140,7 @@ public class Book {
         });
   }
 
-  public void randomRead() {
+  private void randomRead() {
     Optional<RandomAccessReader> maybeReader =
         direct.getRandomAccess(model.getUser().getDetailsDescriptor());
     Preconditions.checkState(maybeReader.isPresent());
@@ -150,7 +162,7 @@ public class Book {
     }
   }
 
-  public void cachedView() {
+  private void cachedView() {
     Optional<CachedView> maybeView = direct.getCachedView(model.getUser().getDetailsDescriptor());
     if (maybeView.isEmpty()) {
       log.warn(
@@ -171,6 +183,70 @@ public class Book {
         log.info("Have details {} for user {}", maybeDetails.get().getParsedRequired(), userId);
       } else {
         log.info("User {} has no details", userId);
+      }
+    }
+  }
+
+  private void transactions() {
+    Repository repo =
+        Repository.ofTest(ConfigFactory.parseResources("test-transactions.conf").resolve());
+    DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
+
+    EntityDescriptor gateway = repo.getEntity("gateway");
+
+    // retrieve two fields, this would be in practice done via 'model'
+    Regular<Integer> intField = Regular.of(gateway, gateway.getAttribute("intField"));
+    Wildcard<?> device = Wildcard.of(gateway, gateway.getAttribute("device.*"));
+
+    Optional<OnlineAttributeWriter> maybeWriter = direct.getWriter(intField);
+    Optional<RandomAccessReader> maybeReader = direct.getRandomAccess(device);
+
+    // sanity check
+    Preconditions.checkArgument(maybeWriter.isPresent());
+    Preconditions.checkArgument(maybeReader.isPresent());
+
+    OnlineAttributeWriter writer = maybeWriter.get();
+    RandomAccessReader reader = maybeReader.get();
+
+    // we use transactions, so we get transactional writer
+    Preconditions.checkState(writer.isTransactional());
+
+    String gatewayId = "gw1";
+
+    while (true) {
+      // create transaction
+      try (Transaction transaction = writer.transactional().begin()) {
+        // read number of devices
+        List<KeyValue<?>> kvs = new ArrayList<>();
+        reader.scanWildcard(gatewayId, device, kvs::add);
+
+        // notify the transaction manager of what we've read
+        transaction.update(KeyAttributes.ofWildcardQueryElements(gateway, gatewayId, device, kvs));
+
+        // write number of devices to the 'intField'
+        StreamElement upsert =
+            intField.upsert(
+                gatewayId, 1L /* will be replaced by the transaction coordinator */, kvs.size());
+
+        // commit and wait for confirmation
+        BlockingQueue<Pair<Boolean, Throwable>> result = new ArrayBlockingQueue<>(1);
+        transaction.commitWrite(
+            Collections.singletonList(upsert),
+            (succ, exc) -> {
+              result.offer(Pair.of(succ, exc));
+            });
+        Pair<Boolean, Throwable> taken = ExceptionUtils.uncheckedFactory(result::take);
+        if (!taken.getFirst()) {
+          // some error occurred
+          if (taken.getSecond() instanceof TransactionRejectedException) {
+            // transaction was rejected, need to restart it
+            continue;
+          }
+          // some other error
+          throw new IllegalStateException(taken.getSecond());
+        }
+        // success
+        break;
       }
     }
   }

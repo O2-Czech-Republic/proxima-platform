@@ -431,6 +431,30 @@ public class TransactionLogObserverTest {
   }
 
   @Test(timeout = 10000)
+  public void testTransactionUpdateWithWildcardAndDeleteNotConflict() throws InterruptedException {
+    createObserver();
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(5);
+    clientManager
+        .begin(
+            transactionId,
+            Collections.singletonList(
+                KeyAttributes.ofMissingAttribute(user, "user", userGateways, "1")))
+        .thenAccept(responseQueue::add);
+    // discard this
+    responseQueue.take();
+    clientManager
+        .updateTransaction(
+            transactionId,
+            KeyAttributes.ofWildcardQueryElements(
+                user, "user", userGateways, Collections.emptyList()))
+        .thenAccept(responseQueue::add);
+    Response response = responseQueue.take();
+    assertEquals(Response.Flags.UPDATED, response.getFlags());
+  }
+
+  @Test(timeout = 10000)
   public void testTransactionUpdateWithWildcardConflict2() throws InterruptedException {
     createObserver();
     ClientTransactionManager clientManager = direct.getClientTransactionManager();

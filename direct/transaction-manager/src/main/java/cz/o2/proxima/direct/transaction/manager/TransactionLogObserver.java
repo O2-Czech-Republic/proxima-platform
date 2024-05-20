@@ -523,7 +523,11 @@ public class TransactionLogObserver implements CommitLogObserver {
       Stream<KeyAttribute> attributes) {
 
     return attributes
-        .filter(ka -> ka.isWildcardQuery() || ka.getAttributeDescriptor().isWildcard())
+        .filter(
+            ka ->
+                ka.isWildcardQuery()
+                    // deletes are not part of the results retrieved by wildcard query
+                    || (ka.getAttributeDescriptor().isWildcard() && !ka.isDelete()))
         .collect(
             Collectors.groupingBy(TransactionLogObserver::getWildcardQueryId, Collectors.toSet()));
   }
@@ -552,14 +556,17 @@ public class TransactionLogObserver implements CommitLogObserver {
               // or both outcomes are the same
               Set<KeyAttribute> currentKeyAttributes = existingWildcards.get(e.getKey());
               Set<KeyAttribute> updatedKeyAttributes = e.getValue();
+              if (currentKeyAttributes == null) {
+                // no conflict possible
+                return true;
+              }
               boolean currentContainQuery =
-                  currentKeyAttributes != null
-                      && currentKeyAttributes.stream().anyMatch(KeyAttribute::isWildcardQuery);
+                  currentKeyAttributes.stream().anyMatch(KeyAttribute::isWildcardQuery);
               boolean updatesContainQuery =
                   updatedKeyAttributes.stream().anyMatch(KeyAttribute::isWildcardQuery);
 
-              if (updatesContainQuery && currentKeyAttributes != null) {
-                // we either did not query the data previously, or we have the exact same results
+              if (updatesContainQuery) {
+                // we either did not query the data previously, or we have compatible results
                 if (!Sets.difference(currentKeyAttributes, updatedKeyAttributes).isEmpty()) {
                   return false;
                 }

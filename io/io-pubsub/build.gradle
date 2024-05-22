@@ -39,4 +39,8 @@ protobuf {
   protoc { artifact = libraries.protoc }
 }
 
+test {
+  useJUnitPlatform()
+}
+
 publishArtifacts(project, "default")

@@ -15,10 +15,12 @@
  */
 package cz.o2.proxima.io.pubsub.util;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
+import cz.o2.proxima.io.pubsub.proto.PubSub;
 import cz.o2.proxima.io.pubsub.proto.PubSub.KeyValue;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -42,37 +44,66 @@ public class PubSubUtils {
       EntityDescriptor entity, String uuid, byte[] payload) {
 
     try {
-      final KeyValue parsed = KeyValue.parseFrom(payload);
-      final long stamp = parsed.getStamp();
-      Optional<AttributeDescriptor<Object>> attribute =
-          entity.findAttribute(parsed.getAttribute(), true /* allow protected */);
-
-      if (attribute.isPresent()) {
-        if (parsed.getDelete()) {
-          return Optional.of(
-              StreamElement.delete(
-                  entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
-        } else if (parsed.getDeleteWildcard()) {
-          return Optional.of(
-              StreamElement.deleteWildcard(
-                  entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
-        }
-        return Optional.of(
-            StreamElement.upsert(
-                entity,
-                attribute.get(),
-                uuid,
-                parsed.getKey(),
-                parsed.getAttribute(),
-                stamp,
-                parsed.getValue().toByteArray()));
-      }
-      log.warn("Failed to find attribute {} in entity {}", parsed.getAttribute(), entity);
-
+      return toStreamElement(entity, uuid, PubSub.KeyValue.parseFrom(payload));
     } catch (InvalidProtocolBufferException e) {
       log.warn("Failed to parse message with uuid {}", uuid, e);
+      return Optional.empty();
     }
+  }
 
+  /**
+   * Convert pubsub payload into {@link StreamElement}.
+   *
+   * @param entity Entity descriptor
+   * @param uuid message uuid
+   * @param kv the {@code KeyValue}
+   * @return StreamElement
+   */
+  public static Optional<StreamElement> toStreamElement(
+      EntityDescriptor entity, String uuid, PubSub.KeyValue kv) {
+
+    final long stamp = kv.getStamp();
+    Optional<AttributeDescriptor<Object>> attribute =
+        entity.findAttribute(kv.getAttribute(), true /* allow protected */);
+
+    if (attribute.isPresent()) {
+      if (kv.getDelete()) {
+        return Optional.of(
+            StreamElement.delete(
+                entity, attribute.get(), uuid, kv.getKey(), kv.getAttribute(), stamp));
+      } else if (kv.getDeleteWildcard()) {
+        return Optional.of(
+            StreamElement.deleteWildcard(
+                entity, attribute.get(), uuid, kv.getKey(), kv.getAttribute(), stamp));
+      }
+      return Optional.of(
+          StreamElement.upsert(
+              entity,
+              attribute.get(),
+              uuid,
+              kv.getKey(),
+              kv.getAttribute(),
+              stamp,
+              kv.getValue().toByteArray()));
+    }
+    log.warn("Failed to find attribute {} in entity {}", kv.getAttribute(), entity);
     return Optional.empty();
+  }
+
+  /**
+   * Create {@link KeyValue} from {@link StreamElement}.
+   *
+   * @param element the StreamElement
+   * @return {@link KeyValue}
+   */
+  public static PubSub.KeyValue toKeyValue(StreamElement element) {
+    return KeyValue.newBuilder()
+        .setKey(element.getKey())
+        .setAttribute(element.getAttribute())
+        .setDelete(element.isDelete())
+        .setDeleteWildcard(element.isDeleteWildcard())
+        .setValue(element.isDelete() ? ByteString.EMPTY : ByteString.copyFrom(element.getValue()))
+        .setStamp(element.getStamp())
+        .build();
   }
 }

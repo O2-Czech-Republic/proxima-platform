@@ -24,15 +24,26 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.base.Strings;
+import java.io.Serializable;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.Value;
 
 /** A {@link DataAccessor} for Google PubSub. */
-class PubSubAccessor extends SerializableAbstractStorage implements DataAccessor {
+public class PubSubAccessor extends SerializableAbstractStorage implements DataAccessor {
 
-  private static final long serialVersionUID = 1L;
+  @Getter
+  @Value
+  static class BulkConfig implements Serializable {
+    int bulkSize;
+    int flushMs;
+    boolean deflate;
+  }
+
+  private static final long serialVersionUID = 2L;
 
   public static final String CFG_MAX_ACK_DEADLINE = "pubsub.deadline-max-ms";
   public static final String CFG_SUBSCRIPTION_AUTOCREATE = "pubsub.subscription.auto-create";
@@ -52,11 +63,14 @@ class PubSubAccessor extends SerializableAbstractStorage implements DataAccessor
 
   @Getter private final PubSubWatermarkConfiguration watermarkConfiguration;
 
+  @Getter private final @Nullable BulkConfig bulk;
+
   PubSubAccessor(PubSubStorage storage, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
     super(entity, uri);
     this.cfg = cfg;
     project = uri.getAuthority();
     topic = UriUtil.getPathNormalized(uri);
+    this.bulk = parseBulkConfig(uri);
     maxAckDeadline =
         Optional.ofNullable(cfg.get(CFG_MAX_ACK_DEADLINE))
             .map(Object::toString)
@@ -75,7 +89,7 @@ class PubSubAccessor extends SerializableAbstractStorage implements DataAccessor
 
     long defaultEstimateDuration =
         storage.getDefaultWatermarkEstimateDuration() == null
-            ? subscriptionAckDeadline * 1000
+            ? subscriptionAckDeadline * 1000L
             : storage.getDefaultWatermarkEstimateDuration();
 
     watermarkConfiguration =
@@ -86,13 +100,36 @@ class PubSubAccessor extends SerializableAbstractStorage implements DataAccessor
     Preconditions.checkArgument(!Strings.isNullOrEmpty(topic), "Path has to represent topic");
   }
 
+  private BulkConfig parseBulkConfig(URI uri) {
+    boolean isBulk = uri.getScheme().equals("gps-bulk");
+    if (isBulk) {
+      Map<String, String> parsed = UriUtil.parseQuery(uri);
+      int bulksize = Optional.ofNullable(parsed.get("bulk")).map(Integer::valueOf).orElse(100);
+      int flush = Optional.ofNullable(parsed.get("flush")).map(Integer::valueOf).orElse(100);
+      boolean deflate =
+          Optional.ofNullable(parsed.get("deflate")).map(Boolean::valueOf).orElse(false);
+      return new BulkConfig(bulksize, flush, deflate);
+    }
+    return null;
+  }
+
+  public boolean isBulk() {
+    return bulk != null;
+  }
+
   @Override
   public Optional<CommitLogReader> getCommitLogReader(Context context) {
+    if (isBulk()) {
+      return Optional.of(new PubSubBulkReader(this, context));
+    }
     return Optional.of(new PubSubReader(this, context));
   }
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
+    if (isBulk()) {
+      return Optional.of(new PubSubBulkWriter(this, context));
+    }
     return Optional.of(new PubSubWriter(this, context));
   }
 }

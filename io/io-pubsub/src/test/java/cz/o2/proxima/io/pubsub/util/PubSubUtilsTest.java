@@ -15,10 +15,7 @@
  */
 package cz.o2.proxima.io.pubsub.util;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.protobuf.ByteString;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -139,5 +136,26 @@ class PubSubUtilsTest {
     Optional<StreamElement> element = PubSubUtils.toStreamElement(entity, uuid, payload);
 
     assertFalse(element.isPresent());
+  }
+
+  @Test
+  void toKeyValueTest() {
+    long now = System.currentTimeMillis();
+    StreamElement element =
+        StreamElement.upsert(
+            entity,
+            attribute,
+            UUID.randomUUID().toString(),
+            "key",
+            attribute.getName(),
+            now,
+            new byte[] {1, 2, 3});
+    KeyValue kv = PubSubUtils.toKeyValue(element);
+
+    assertFalse(kv.getDelete());
+    assertEquals(attribute.getName(), kv.getAttribute());
+    assertEquals(now, kv.getStamp());
+    assertEquals(element.getKey(), kv.getKey());
+    assertArrayEquals(element.getValue(), kv.getValue().toByteArray());
   }
 }

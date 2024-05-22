@@ -21,6 +21,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.v1.PubsubMessage;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
 /** A mock {@link Publisher}. */
@@ -33,7 +34,6 @@ class MockPublisher {
     Publisher ret = mock(Publisher.class);
     doAnswer(
             invocation -> {
-              writer.accept(invocation.getArgument(0, PubsubMessage.class));
               ApiFuture future = mock(ApiFuture.class);
               when(future.isDone()).thenReturn(true);
               when(future.isCancelled()).thenReturn(false);
@@ -44,6 +44,11 @@ class MockPublisher {
                       })
                   .when(future)
                   .addListener(any(), any());
+              try {
+                writer.accept(invocation.getArgument(0, PubsubMessage.class));
+              } catch (Exception ex) {
+                when(future.get()).thenThrow(new ExecutionException(ex));
+              }
               return future;
             })
         .when(ret)

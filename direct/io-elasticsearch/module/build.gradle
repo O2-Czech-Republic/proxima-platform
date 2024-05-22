@@ -36,6 +36,10 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-direct-io-elasticsearch'
 
+test {
+  useJUnitPlatform()
+}
+
 enableShadowJar(project) {
   if (!it.endsWith(".class")) {
     return true

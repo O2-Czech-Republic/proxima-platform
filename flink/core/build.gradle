@@ -46,4 +46,8 @@ dependencies {
 
 description = 'cz.o2.proxima:proxima-flink-core'
 
+test {
+  useJUnitPlatform()
+}
+
 publishArtifacts(project, "default")

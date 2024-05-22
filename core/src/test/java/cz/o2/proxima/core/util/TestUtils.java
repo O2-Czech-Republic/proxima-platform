@@ -15,16 +15,13 @@
  */
 package cz.o2.proxima.core.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
-
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor.Builder;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.AccessType;
 import cz.o2.proxima.core.storage.StorageType;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -50,12 +47,10 @@ public class TestUtils {
    */
   public static <T> T assertSerializable(T object) throws IOException, ClassNotFoundException {
     T deserialized = deserializeObject(serializeObject(object));
-    assertEquals(
-        String.format(
-            "Deserialized object of class '%s' should be equals to input.",
-            object.getClass().getName()),
-        deserialized,
-        object);
+    Preconditions.checkState(
+        deserialized.equals(object),
+        "Deserialized object of class '%s' should be equals to input.",
+        object.getClass().getName());
     return deserialized;
   }
 
@@ -71,9 +66,10 @@ public class TestUtils {
     try (ObjectOutputStream oos = new ObjectOutputStream(buffer)) {
       oos.writeObject(object);
     }
-    assertTrue(
-        String.format("Class '%s' isn't serializable.", object.getClass().getName()),
-        buffer.toByteArray().length > 0);
+    Preconditions.checkState(
+        buffer.toByteArray().length > 0,
+        "Class '%s' isn't serializable.",
+        object.getClass().getName());
     return buffer.toByteArray();
   }
 
@@ -101,9 +97,9 @@ public class TestUtils {
    * @param second second object to compare
    */
   public static void assertHashCodeAndEquals(Object first, Object second) {
-    assertEquals(first, second);
-    assertEquals("Hashcode should be same.", first.hashCode(), second.hashCode());
-    assertNotEquals(first, new Object());
+    Preconditions.checkState(first.equals(second));
+    Preconditions.checkState(first.hashCode() == second.hashCode(), "Hashcode should be same.");
+    Preconditions.checkState(!first.equals(new Object()));
   }
 
   /**

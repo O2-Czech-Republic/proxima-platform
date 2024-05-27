@@ -49,9 +49,9 @@ public class Book {
     PCollection<StreamElement> events =
         beam.getStream(
             p,
-            Position.OLDEST, /* stopAtCurrent */
-            false, /* useEventTime */
-            true,
+            Position.OLDEST,
+            false, /* stopAtCurrent */
+            true, /* useEventTime */
             model.getEvent().getDataDescriptor());
     PCollection<BaseEvent> parsed =
         events.apply(

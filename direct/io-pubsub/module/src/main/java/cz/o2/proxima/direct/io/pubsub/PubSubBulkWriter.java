@@ -93,8 +93,9 @@ class PubSubBulkWriter extends AbstractPubSubWriter implements OnlineAttributeWr
 
   static byte[] deflate(byte[] data) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (DeflaterOutputStream deflate = new DeflaterOutputStream(out)) {
+    try (DeflaterOutputStream deflate = new DeflaterOutputStream(out, true)) {
       deflate.write(data);
+      deflate.flush();
     }
     return out.toByteArray();
   }
@@ -104,9 +105,8 @@ class PubSubBulkWriter extends AbstractPubSubWriter implements OnlineAttributeWr
   }
 
   private void processForcedFlush() {
-    Pair<Bulk, List<CommitCallback>> toFlush = flushOrSetTimer(true);
-    if (toFlush != null) {
-      processFlushedData(toFlush);
+    synchronized (bulk) {
+      processFlushedData(flushOrSetTimer(true));
     }
   }
 

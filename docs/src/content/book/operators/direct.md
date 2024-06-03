@@ -102,7 +102,8 @@ reader.observe(
           // confirm the element was processed
           context.confirm();
         }
-        return false;
+        /* continue processing */
+        return true;
       }
 
       private void handleEvent(BaseEvent event, OnNextContext context) {

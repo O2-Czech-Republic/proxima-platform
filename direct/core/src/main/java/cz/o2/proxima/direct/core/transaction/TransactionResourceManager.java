@@ -118,6 +118,11 @@ public class TransactionResourceManager
     public TransactionMonitoringPolicy getTransactionMonitoringPolicy() {
       return transactionMonitoringPolicy;
     }
+
+    @Override
+    public int getServerTerminationTimeoutSeconds() {
+      return serverTerminationTimeoutSeconds;
+    }
   }
 
   private class CachedWriters implements AutoCloseable {
@@ -374,6 +379,9 @@ public class TransactionResourceManager
   @Getter(AccessLevel.PACKAGE)
   private final TransactionMonitoringPolicy transactionMonitoringPolicy;
 
+  @Getter(AccessLevel.PACKAGE)
+  private final int serverTerminationTimeoutSeconds;
+
   @VisibleForTesting
   public TransactionResourceManager(DirectDataOperator direct, Map<String, Object> cfg) {
     this.direct = direct;
@@ -386,6 +394,7 @@ public class TransactionResourceManager
     this.cleanupIntervalMs = getCleanupInterval(cfg);
     this.initialSequenceIdPolicy = getInitialSequenceIdPolicy(cfg);
     this.transactionMonitoringPolicy = getTransactionMonitoringPolicy(cfg);
+    this.serverTerminationTimeoutSeconds = getServerTerminationTimeout(cfg);
 
     log.info(
         "Created {} with transaction timeout {} ms",
@@ -426,6 +435,13 @@ public class TransactionResourceManager
         .map(Object::toString)
         .map(c -> Classpath.newInstance(c, TransactionMonitoringPolicy.class))
         .orElse(TransactionMonitoringPolicy.nop());
+  }
+
+  private static int getServerTerminationTimeout(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("server-termination-timeout"))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .orElse(2);
   }
 
   @Override

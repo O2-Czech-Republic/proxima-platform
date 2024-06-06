@@ -27,6 +27,7 @@ import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import cz.o2.proxima.typesafe.config.Config;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
@@ -104,9 +105,28 @@ public class TransactionManagerServer {
     return new TransactionLogObserverFactory.WithOnErrorHandler(
         error -> {
           log.error("Error processing transactions. Bailing out for safety.", error);
-          stop();
-          System.exit(1);
+          asyncTerminate(this::stop, () -> System.exit(1));
         });
+  }
+
+  @VisibleForTesting
+  void asyncTerminate(Runnable terminateWith, Runnable runAfter) {
+    CountDownLatch latch = new CountDownLatch(1);
+    Thread asyncThread =
+        new Thread(
+            () -> {
+              try {
+                terminateWith.run();
+              } catch (Throwable err) {
+                log.warn("Error during terminating", err);
+              }
+              latch.countDown();
+            });
+    asyncThread.start();
+    int timeout = manager.getCfg().getServerTerminationTimeoutSeconds();
+    ExceptionUtils.ignoringInterrupted(() -> latch.await(timeout, TimeUnit.SECONDS));
+    asyncThread.interrupt();
+    runAfter.run();
   }
 
   public void run() {

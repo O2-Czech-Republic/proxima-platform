@@ -49,6 +49,8 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
     InitialSequenceIdPolicy getInitialSeqIdPolicy();
 
     TransactionMonitoringPolicy getTransactionMonitoringPolicy();
+
+    int getServerTerminationTimeoutSeconds();
   }
 
   /**

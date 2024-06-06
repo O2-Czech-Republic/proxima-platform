@@ -19,8 +19,11 @@ import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.repository.ConfigRepository;
 import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.typesafe.config.Config;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 
 /** Test suite for {@link TransactionManagerServer}. */
@@ -50,5 +53,24 @@ public class TransactionManagerServerTest {
     assertFalse(server.isStopped());
     server.stop();
     assertTrue(server.isStopped());
+  }
+
+  @Test(timeout = 10000)
+  public void testServerAsyncTerminate() {
+    AtomicBoolean terminated = new AtomicBoolean();
+    server.asyncTerminate(() -> {}, () -> terminated.set(true));
+    assertTrue(terminated.get());
+    terminated.set(false);
+    server.asyncTerminate(
+        () -> ExceptionUtils.ignoringInterrupted(() -> TimeUnit.SECONDS.sleep(100)),
+        () -> terminated.set(true));
+    assertTrue(terminated.get());
+    terminated.set(false);
+    server.asyncTerminate(
+        () -> {
+          throw new RuntimeException("Error");
+        },
+        () -> terminated.set(true));
+    assertTrue(terminated.get());
   }
 }

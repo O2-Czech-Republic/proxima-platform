@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.io.pubsub;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.TextFormat;
 import com.google.pubsub.v1.PubsubMessage;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.Context;
@@ -47,7 +48,10 @@ public class PubSubBulkReader extends AbstractPubSubReader implements CommitLogR
     try {
       Bulk bulk = Bulk.parseFrom(deserialize(data));
       int bulkSize = bulk.getKvCount();
-      Preconditions.checkArgument(bulk.getUuidCount() == bulkSize);
+      if (bulk.getUuidCount() != bulkSize) {
+        log.warn("Invalid bulk {}", TextFormat.shortDebugString(bulk));
+        return Collections.emptyList();
+      }
       List<StreamElement> ret = new ArrayList<>(bulkSize);
       for (int i = 0; i < bulkSize; i++) {
         PubSubUtils.toStreamElement(getEntityDescriptor(), bulk.getUuid(i), bulk.getKv(i))

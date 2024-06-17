@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.io.pubsub;
 
+import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -125,6 +126,11 @@ class PubSubBulkWriter extends AbstractPubSubWriter implements OnlineAttributeWr
 
   private Pair<Bulk, List<CommitCallback>> flushBuilder() {
     final Bulk message = bulk.build();
+    Preconditions.checkState(
+        message.getKvCount() == message.getUuidCount(),
+        "Invalid message, kv count %s, uuid count %s",
+        message.getKvCount(),
+        message.getUuidCount());
     final List<CommitCallback> callbacks = new ArrayList<>(uncommitted);
     bulk.clear();
     uncommitted.clear();

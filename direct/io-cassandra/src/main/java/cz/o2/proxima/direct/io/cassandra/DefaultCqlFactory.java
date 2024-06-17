@@ -79,7 +79,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
     }
 
     @Override
-    public <T> @Nullable KeyValue<T> fromCellBytes(
+    public <T> KeyValue<T> fromCellBytes(
         EntityDescriptor entityDescriptor,
         AttributeDescriptor<T> attributeDescriptor,
         String key,

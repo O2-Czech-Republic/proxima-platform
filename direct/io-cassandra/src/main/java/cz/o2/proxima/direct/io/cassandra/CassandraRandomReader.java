@@ -67,7 +67,6 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
       ByteBuffer val = row.getBytes(0);
       if (val != null) {
         byte[] rowValue = val.array();
-
         try {
           return Optional.ofNullable(
               accessor
@@ -146,7 +145,6 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
                       System.currentTimeMillis(),
                       new Raw(name),
                       rowValue);
-
           if (keyValue != null) {
             consumer.accept(keyValue);
           } else {

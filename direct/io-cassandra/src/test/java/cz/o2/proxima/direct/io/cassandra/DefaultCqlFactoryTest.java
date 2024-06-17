@@ -557,7 +557,7 @@ public class DefaultCqlFactoryTest {
         URI.create("cassandra://whatever/my_table?primary=hgw&data=my_col&serializer=v2"),
         StringConverter.getDefault());
     long now = System.currentTimeMillis();
-    KeyValue<?> kv =
+    assertNotNull(
         factory.toKeyValue(
             entity,
             attrWildcard,
@@ -569,9 +569,8 @@ public class DefaultCqlFactoryTest {
                 .setSeqId(1L)
                 .setValue(ByteString.copyFrom(new byte[] {1}))
                 .build()
-                .toByteArray());
-    assertNotNull(kv);
-    kv =
+                .toByteArray()));
+    assertNull(
         factory.toKeyValue(
             entity,
             attrWildcard,
@@ -579,7 +578,6 @@ public class DefaultCqlFactoryTest {
             attrWildcard.toAttributePrefix(true) + "1",
             System.currentTimeMillis(),
             Offsets.empty(),
-            new byte[] {(byte) 199, 0});
-    assertNull(kv);
+            new byte[] {(byte) 199, 0}));
   }
 }

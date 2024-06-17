@@ -29,6 +29,7 @@ import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.io.cassandra.CassandraDBAccessor.ClusterHolder;
 import cz.o2.proxima.direct.io.cassandra.CqlFactory.KvIterable;
+import cz.o2.proxima.direct.io.cassandra.Offsets.Raw;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,7 +69,7 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
         byte[] rowValue = val.array();
 
         try {
-          return Optional.of(
+          return Optional.ofNullable(
               accessor
                   .getCqlFactory()
                   .toKeyValue(
@@ -133,23 +134,27 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
           byte[] rowValue = val.array();
           // by convention
           String name = wildcard.toAttributePrefix() + accessor.asString(attribute);
+          @Nullable
+          KeyValue<T> keyValue =
+              accessor
+                  .getCqlFactory()
+                  .toKeyValue(
+                      getEntityDescriptor(),
+                      wildcard,
+                      key,
+                      name,
+                      System.currentTimeMillis(),
+                      new Raw(name),
+                      rowValue);
 
-          Optional<T> parsed = wildcard.getValueSerializer().deserialize(rowValue);
-
-          if (parsed.isPresent()) {
-            consumer.accept(
-                accessor
-                    .getCqlFactory()
-                    .toKeyValue(
-                        getEntityDescriptor(),
-                        wildcard,
-                        key,
-                        name,
-                        System.currentTimeMillis(),
-                        new Offsets.Raw(name),
-                        rowValue));
+          if (keyValue != null) {
+            consumer.accept(keyValue);
           } else {
-            log.error("Failed to parse value for key {} attribute {}.{}", key, wildcard, attribute);
+            log.error(
+                "Failed to parse value for key {} attribute {} using class {}",
+                key,
+                name,
+                wildcard.getValueSerializer().getClass());
           }
         }
       }

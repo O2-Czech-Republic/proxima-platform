@@ -25,14 +25,15 @@ import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
-import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.io.serialization.proto.Serialization;
 import cz.o2.proxima.io.serialization.proto.Serialization.Cell;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,7 +61,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   interface Serializer extends Serializable {
     byte[] asCellBytes(StreamElement element);
 
-    <T> KeyValue<T> fromCellBytes(
+    <T> @Nullable KeyValue<T> fromCellBytes(
         EntityDescriptor entityDescriptor,
         AttributeDescriptor<T> attributeDescriptor,
         String key,
@@ -78,7 +79,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
     }
 
     @Override
-    public <T> KeyValue<T> fromCellBytes(
+    public <T> @Nullable KeyValue<T> fromCellBytes(
         EntityDescriptor entityDescriptor,
         AttributeDescriptor<T> attributeDescriptor,
         String key,
@@ -104,7 +105,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
     }
 
     @Override
-    public <T> KeyValue<T> fromCellBytes(
+    public <T> @Nullable KeyValue<T> fromCellBytes(
         EntityDescriptor entityDescriptor,
         AttributeDescriptor<T> attributeDescriptor,
         String key,
@@ -113,26 +114,36 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
         RandomOffset offset,
         byte[] serializedValue) {
 
-      Cell cell = ExceptionUtils.uncheckedFactory(() -> Cell.parseFrom(serializedValue));
-      if (cell.getSeqId() > 0) {
+      try {
+        Cell cell = Cell.parseFrom(serializedValue);
+        if (cell.getSeqId() > 0) {
+          return KeyValue.of(
+              entityDescriptor,
+              attributeDescriptor,
+              cell.getSeqId(),
+              key,
+              attribute,
+              offset,
+              cell.getValue().toByteArray(),
+              stamp);
+        }
         return KeyValue.of(
             entityDescriptor,
             attributeDescriptor,
-            cell.getSeqId(),
             key,
             attribute,
             offset,
             cell.getValue().toByteArray(),
             stamp);
+      } catch (IOException ex) {
+        log.warn(
+            "Failed to parse cell from bytes {} in key {}, entity {}, attribute {}",
+            Arrays.toString(serializedValue),
+            key,
+            entityDescriptor,
+            attribute);
       }
-      return KeyValue.of(
-          entityDescriptor,
-          attributeDescriptor,
-          key,
-          attribute,
-          offset,
-          cell.getValue().toByteArray(),
-          stamp);
+      return null;
     }
   }
 
@@ -403,7 +414,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   }
 
   @Override
-  public <T> KeyValue<T> toKeyValue(
+  public <T> @Nullable KeyValue<T> toKeyValue(
       EntityDescriptor entityDescriptor,
       AttributeDescriptor<T> attributeDescriptor,
       String key,

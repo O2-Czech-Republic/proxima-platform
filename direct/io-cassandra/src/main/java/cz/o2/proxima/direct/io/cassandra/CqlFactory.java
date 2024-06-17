@@ -130,7 +130,7 @@ public interface CqlFactory extends Serializable {
       List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session);
 
   /** Convert the byte[] stored in the database into {@link KeyValue}. */
-  <T> KeyValue<T> toKeyValue(
+  <T> @Nullable KeyValue<T> toKeyValue(
       EntityDescriptor entityDescriptor,
       AttributeDescriptor<T> attributeDescriptor,
       String key,

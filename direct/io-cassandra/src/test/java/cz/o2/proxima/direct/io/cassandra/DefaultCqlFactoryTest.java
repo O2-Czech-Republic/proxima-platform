@@ -549,4 +549,37 @@ public class DefaultCqlFactoryTest {
         "INSERT INTO my_table (hgw, device, my_col) VALUES (?, ?, ?) USING TIMESTAMP ?",
         preparedStatement.get(0));
   }
+
+  @Test
+  public void testV2SerializerRead() {
+    factory.setup(
+        entity,
+        URI.create("cassandra://whatever/my_table?primary=hgw&data=my_col&serializer=v2"),
+        StringConverter.getDefault());
+    long now = System.currentTimeMillis();
+    KeyValue<?> kv =
+        factory.toKeyValue(
+            entity,
+            attrWildcard,
+            "key",
+            attrWildcard.toAttributePrefix(true) + "1",
+            now,
+            Offsets.empty(),
+            Cell.newBuilder()
+                .setSeqId(1L)
+                .setValue(ByteString.copyFrom(new byte[] {1}))
+                .build()
+                .toByteArray());
+    assertNotNull(kv);
+    kv =
+        factory.toKeyValue(
+            entity,
+            attrWildcard,
+            "key",
+            attrWildcard.toAttributePrefix(true) + "1",
+            System.currentTimeMillis(),
+            Offsets.empty(),
+            new byte[] {(byte) 199, 0});
+    assertNull(kv);
+  }
 }

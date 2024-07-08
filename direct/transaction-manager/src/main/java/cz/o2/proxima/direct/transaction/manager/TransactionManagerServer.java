@@ -27,6 +27,7 @@ import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import cz.o2.proxima.typesafe.config.Config;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,13 +62,15 @@ public class TransactionManagerServer {
     }
     TransactionManagerServer server = TransactionManagerServer.of(config);
     try {
-      Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(true)));
       server.run();
       while (!Thread.currentThread().isInterrupted() && !server.isStopped()) {
         ExceptionUtils.ignoringInterrupted(() -> TimeUnit.SECONDS.sleep(10));
       }
-    } finally {
-      server.stop();
+    } catch (Throwable err) {
+      log.error(
+          "Exception caught while running {}", TransactionManagerServer.class.getSimpleName(), err);
+      server.stop(false);
     }
   }
 
@@ -105,7 +108,7 @@ public class TransactionManagerServer {
     return new TransactionLogObserverFactory.WithOnErrorHandler(
         error -> {
           log.error("Error processing transactions. Bailing out for safety.", error);
-          asyncTerminate(this::stop, () -> System.exit(1));
+          asyncTerminate(() -> stop(false), () -> System.exit(1));
         });
   }
 
@@ -139,11 +142,18 @@ public class TransactionManagerServer {
     return observerFactory.create(direct, metrics);
   }
 
-  public void stop() {
+  public void stop(boolean graceful) {
     if (closed.compareAndSet(false, true)) {
       log.info("{} shutting down.", getClass().getSimpleName());
-      manager.close();
-      direct.close();
+      CompletableFuture<Void> shutdownFuture =
+          CompletableFuture.runAsync(
+              () -> {
+                manager.close();
+                direct.close();
+              });
+      ExceptionUtils.ignoringInterrupted(() -> shutdownFuture.get(1, TimeUnit.SECONDS));
+      log.info("{} halting now.", getClass().getSimpleName());
+      System.exit(graceful ? 0 : 1);
     }
   }
 

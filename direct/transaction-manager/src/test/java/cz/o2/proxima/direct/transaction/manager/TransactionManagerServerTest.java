@@ -51,7 +51,7 @@ public class TransactionManagerServerTest {
   public void testServerRunTearDown() {
     server.run();
     assertFalse(server.isStopped());
-    server.stop();
+    server.stop(true);
     assertTrue(server.isStopped());
   }
 

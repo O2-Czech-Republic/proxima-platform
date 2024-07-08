@@ -17,14 +17,21 @@ package cz.o2.proxima.direct.client;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
+import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.direct.server.rpc.proto.service.IngestServiceGrpc;
+import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc;
+import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ScanResult;
 import io.grpc.Channel;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
@@ -319,6 +326,31 @@ public class IngestClientTest {
     assertEquals(504, status.get().getStatus());
   }
 
+  @Test
+  public void testScan() {
+    long now = System.currentTimeMillis();
+    IngestClient client =
+        createRetrieve(
+            new Options(),
+            m ->
+                when(m.scan(any()))
+                    .thenAnswer(
+                        invocaton -> {
+                          List<ScanResult> res =
+                              Collections.singletonList(
+                                  ScanResult.newBuilder()
+                                      .setKey("key")
+                                      .setAttribute("attribute")
+                                      .setStamp(now)
+                                      .setValue(ByteString.copyFrom(new byte[] {1}))
+                                      .build());
+                          return res.iterator();
+                        }));
+    List<ScanResult> res = new ArrayList<>();
+    client.scanAttributes("entity", Collections.singletonList("attribute"), res::add);
+    assertEquals(1, res.size());
+  }
+
   private IngestClient create(Options opts) {
     return new IngestClient(host, port, opts) {
 
@@ -326,8 +358,9 @@ public class IngestClientTest {
       void createChannelAndStub() {
         this.channel = mockChannel();
         this.ingestStub = IngestServiceGrpc.newStub(channel);
+        this.retrieveStub = RetrieveServiceGrpc.newBlockingStub(channel);
         this.ingestRequestObserver =
-            new StreamObserver<Rpc.IngestBulk>() {
+            new StreamObserver<>() {
 
               @Override
               public void onNext(Rpc.IngestBulk bulk) {
@@ -349,6 +382,20 @@ public class IngestClientTest {
               @Override
               public void onCompleted() {}
             };
+      }
+    };
+  }
+
+  private IngestClient createRetrieve(
+      Options opts, Consumer<RetrieveServiceBlockingStub> mockSetup) {
+
+    return new IngestClient(host, port, opts) {
+
+      @Override
+      void createChannelAndStub() {
+        this.channel = mockChannel();
+        this.retrieveStub = mock(RetrieveServiceBlockingStub.class);
+        mockSetup.accept(this.retrieveStub);
       }
     };
   }

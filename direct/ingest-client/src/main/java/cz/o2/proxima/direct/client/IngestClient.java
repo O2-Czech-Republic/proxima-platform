@@ -21,6 +21,8 @@ import cz.o2.proxima.direct.server.rpc.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.IngestServiceGrpc.IngestServiceStub;
 import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ScanRequest;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ScanResult;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Strings;
 import io.grpc.Channel;
@@ -28,6 +30,7 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -455,6 +458,22 @@ public class IngestClient implements AutoCloseable {
       list.setOffset(offset);
     }
     return listAttributes(list.build());
+  }
+
+  /**
+   * Scan through attributes of an entity
+   *
+   * @param entity entity to scan
+   * @param attributes list of attributes
+   * @param consumer received of results
+   */
+  public void scanAttributes(
+      String entity, List<String> attributes, Consumer<ScanResult> consumer) {
+
+    ensureChannel();
+    ScanRequest request =
+        ScanRequest.newBuilder().setEntity(entity).addAllAttribute(attributes).build();
+    retrieveStub.scan(request).forEachRemaining(consumer);
   }
 
   /** Send the request with timeout. */

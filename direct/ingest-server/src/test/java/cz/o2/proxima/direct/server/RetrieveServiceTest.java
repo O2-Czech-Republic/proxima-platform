@@ -28,6 +28,7 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.GetRequest;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ScanResult;
 import cz.o2.proxima.direct.server.test.Test.ExtendedMessage;
 import cz.o2.proxima.direct.server.transaction.TransactionContext;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
@@ -1329,9 +1330,17 @@ public class RetrieveServiceTest {
 
   @Test
   public void testScanValid() {
+    testScanElements(100);
+  }
+
+  @Test(timeout = 30_000)
+  public void testScanValidLarge() {
+    testScanElements(10000);
+  }
+
+  private void testScanElements(int numElements) {
     EntityDescriptor entity = server.repo.getEntity("dummy");
     AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
-    int numElements = 100;
     OnlineAttributeWriter writer = Optionals.get(server.direct.getWriter(attribute));
     long now = System.currentTimeMillis();
     for (int i = 0; i < numElements; i++) {
@@ -1371,13 +1380,17 @@ public class RetrieveServiceTest {
 
     retrieve.scan(request, responseObserver);
 
+    int numScanned = responses.stream().mapToInt(ScanResult::getValueCount).sum();
+    assertEquals(numElements, numScanned);
+
     assertTrue(finished.get());
     Rpc.ScanResult response = responses.get(0);
-    assertEquals("wildcard.0", response.getAttribute());
-    assertEquals("key", response.getKey());
-    assertEquals(now, response.getStamp());
-    assertArrayEquals(new byte[] {1, 2, 3}, response.getValue().toByteArray());
-    assertEquals(numElements, responses.size());
+    assertTrue(response.getValueCount() > 1);
+    Rpc.KeyValue kv = response.getValue(0);
+    assertEquals("wildcard.0", kv.getAttribute());
+    assertEquals("key", kv.getKey());
+    assertEquals(now, kv.getStamp());
+    assertArrayEquals(new byte[] {1, 2, 3}, kv.getValue().toByteArray());
   }
 
   @Test

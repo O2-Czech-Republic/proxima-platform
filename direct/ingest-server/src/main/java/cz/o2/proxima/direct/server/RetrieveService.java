@@ -403,6 +403,8 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
           request.getAttributeList());
       DirectAttributeFamilyDescriptor family = Iterables.getOnlyElement(families);
       BatchLogReader reader = Optionals.get(family.getBatchReader());
+      ScanResult.Builder builder = ScanResult.newBuilder();
+      AtomicInteger serializedEstimate = new AtomicInteger();
       reader.observe(
           reader.getPartitions(),
           attributes,
@@ -410,20 +412,32 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
             @Override
             public boolean onNext(StreamElement element) {
               if (!element.isDelete()) {
-                ScanResult result =
-                    ScanResult.newBuilder()
+                builder.addValue(
+                    Rpc.KeyValue.newBuilder()
                         .setAttribute(element.getAttribute())
                         .setKey(element.getKey())
                         .setValue(ByteString.copyFrom(element.getValue()))
-                        .setStamp(element.getStamp())
-                        .build();
-                responseObserver.onNext(result);
+                        .setStamp(element.getStamp()));
+                int current =
+                    serializedEstimate.addAndGet(
+                        element.getValue().length
+                            + element.getAttribute().length()
+                            + element.getKey().length()
+                            + 8);
+                if (current > 65535) {
+                  responseObserver.onNext(builder.build());
+                  builder.clear();
+                  serializedEstimate.set(0);
+                }
               }
               return true;
             }
 
             @Override
             public void onCompleted() {
+              if (builder.getValueCount() > 0) {
+                responseObserver.onNext(builder.build());
+              }
               ExceptionUtils.unchecked(() -> result.put(Optional.empty()));
             }
 

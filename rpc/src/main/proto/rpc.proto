@@ -353,12 +353,21 @@ message ScanRequest {
 
 }
 
-message ScanResult {
-
+message KeyValue {
   string key = 1;
   string attribute = 2;
   bytes value = 3;
   uint64 stamp = 4;
+}
+
+message ScanResult {
+
+  reserved 1;
+  reserved 2;
+  reserved 3;
+  reserved 4;
+
+  repeated KeyValue value = 5;
 
 }
 

@@ -27,6 +27,7 @@ import cz.o2.proxima.direct.server.rpc.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.KeyValue;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.ScanResult;
 import io.grpc.Channel;
 import io.grpc.stub.StreamObserver;
@@ -339,10 +340,12 @@ public class IngestClientTest {
                           List<ScanResult> res =
                               Collections.singletonList(
                                   ScanResult.newBuilder()
-                                      .setKey("key")
-                                      .setAttribute("attribute")
-                                      .setStamp(now)
-                                      .setValue(ByteString.copyFrom(new byte[] {1}))
+                                      .addValue(
+                                          KeyValue.newBuilder()
+                                              .setKey("key")
+                                              .setAttribute("attribute")
+                                              .setStamp(now)
+                                              .setValue(ByteString.copyFrom(new byte[] {1})))
                                       .build());
                           return res.iterator();
                         }));

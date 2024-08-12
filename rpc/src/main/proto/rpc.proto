@@ -66,7 +66,7 @@ message Status {
    *   404 - Not found - the entity or attribute not found in the settings
    *   412 - Not acceptable - the message has unknown format (unable to validate the scheme)
    *   502 - Bad gateway - cannot connect to the target storage
-   *   504 - Gateway timeout - the request timeouted
+   *   504 - Gateway timeout - the request timed out
    **/
   uint32 status = 2;
 

@@ -118,7 +118,7 @@ public class TransactionsTest {
     String transactionId = response.getTransactionId();
     assertFalse(transactionId.isEmpty());
     long stamp = System.currentTimeMillis();
-    replicatedLatch = new CountDownLatch(1);
+    replicatedLatch = new CountDownLatch(2);
     StatusBulk status =
         ingestBulk(
             transactionId,

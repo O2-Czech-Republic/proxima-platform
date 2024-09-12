@@ -30,7 +30,6 @@ import cz.o2.proxima.core.transaction.Response.Flags;
 import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.transform.ElementWiseTransformation;
 import cz.o2.proxima.core.transform.ElementWiseTransformation.Collector;
-import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -71,16 +70,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     ClientTransactionManager manager = direct.getClientTransactionManager();
     // write each output to the _transaction.commit, even if there is single output
     return new TransactionalOnlineAttributeWriter(
-        direct, Optionals.get(direct.getWriter(manager.getCommitDesc()))) {
-
-      @Override
-      public Transaction begin() {
-        Transaction ret = super.begin();
-        // this should never throw TransactionRejectedException
-        ExceptionUtils.unchecked(ret::beginGlobal);
-        return ret;
-      }
-    };
+        direct, Optionals.get(direct.getWriter(manager.getCommitDesc())));
   }
 
   /** Interface for a transformation to get access to {@link Transaction}. */
@@ -231,6 +221,9 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     public void commitWrite(List<StreamElement> outputs, CommitCallback callback) {
       commitAttempted = true;
+      if (state == State.Flags.UNKNOWN) {
+        beginGlobal();
+      }
       waitForInFlight()
           .thenCompose(ign -> runTransforms(outputs))
           // need to wait for any requests added during possible transforms

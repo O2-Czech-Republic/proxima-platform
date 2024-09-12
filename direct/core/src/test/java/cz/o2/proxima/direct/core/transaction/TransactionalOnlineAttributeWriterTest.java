@@ -183,6 +183,43 @@ public class TransactionalOnlineAttributeWriterTest {
   }
 
   @Test(timeout = 10_000)
+  public void testTransactionCreateCommit() throws InterruptedException {
+    CachedView view = Optionals.get(direct.getCachedView(status));
+    view.assign(view.getPartitions());
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
+    assertTrue(writer.isTransactional());
+    long stamp = 123456789000L;
+    // we successfully open and commit the transaction
+    toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
+    toReturn.add(Response.forRequest(anyRequest()).committed());
+    CountDownLatch latch = new CountDownLatch(1);
+    try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
+      t.commitWrite(
+          Collections.singletonList(
+              StreamElement.upsert(
+                  gateway,
+                  status,
+                  UUID.randomUUID().toString(),
+                  "key",
+                  status.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, 3})),
+          (succ, exc) -> {
+            assertTrue(succ);
+            assertNull(exc);
+            latch.countDown();
+          });
+    }
+    latch.await();
+    Optional<KeyValue<byte[]>> res = view.get("key", status);
+    assertTrue(res.isPresent());
+    assertEquals("key", res.get().getKey());
+    assertTrue(res.get().hasSequentialId());
+    assertEquals(1L, res.get().getSequentialId());
+    assertEquals(stamp, res.get().getStamp());
+  }
+
+  @Test(timeout = 10_000)
   public void testTransactionCreateUpdateCommitMultipleOutputs()
       throws InterruptedException, TransactionRejectedException {
 

@@ -552,7 +552,11 @@ public class TransactionResourceManager
       if (element.getAttributeDescriptor().equals(getStateDesc())) {
         Optional<State> state = getStateDesc().valueOf(element);
         if (state.isPresent()) {
-          getOrCreateCachedTransaction(element.getKey(), state.get()).touch(element.getStamp());
+          CachedTransaction openTransaction =
+              getOrCreateCachedTransaction(element.getKey(), state.get());
+          if (openTransaction != null) {
+            openTransaction.touch(element.getStamp());
+          }
         }
       }
       delegate.accept(element, cached);

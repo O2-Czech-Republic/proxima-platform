@@ -24,7 +24,7 @@ plugins {
 java.sourceCompatibility = JavaVersion.VERSION_11
 
 def auto_service_version = "1.1.1"
-def beam_version = "2.58.0"
+def beam_version = "2.59.0"
 def errorprone_version = "2.18.0"
 def flink_version = "1.18.0"
 def grpc_version = "1.62.2"

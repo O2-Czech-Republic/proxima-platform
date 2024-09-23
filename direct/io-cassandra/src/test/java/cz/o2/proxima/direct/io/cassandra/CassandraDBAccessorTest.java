@@ -72,7 +72,7 @@ import org.mockito.Mockito;
 /** Test suite for {@link CassandraDBAccessor}. */
 public class CassandraDBAccessorTest {
 
-  static final class TestDBAccessor extends CassandraDBAccessor {
+  static class TestDBAccessor extends CassandraDBAccessor {
 
     @Setter ResultSet res = new EmptyResultSet();
 
@@ -92,22 +92,22 @@ public class CassandraDBAccessorTest {
     Cluster createCluster(String authority) {
       Cluster ret = mock(Cluster.class);
       AtomicBoolean closed = new AtomicBoolean(false);
-      when(ret.connect())
-          .thenAnswer(
-              ign -> {
-                Session session = mock(Session.class);
-                when(session.isClosed()).thenAnswer(invocationOnMock -> closed.get());
-                doAnswer(
-                        invocationOnMock -> {
-                          closed.set(true);
-                          return null;
-                        })
-                    .when(session)
-                    .close();
-                closed.set(false);
-                return session;
-              });
+      when(ret.connect()).thenAnswer(ign -> newSession(closed));
       return ret;
+    }
+
+    Session newSession(AtomicBoolean closed) {
+      Session session = mock(Session.class);
+      when(session.isClosed()).thenAnswer(invocationOnMock -> closed.get());
+      doAnswer(
+              invocationOnMock -> {
+                closed.set(true);
+                return null;
+              })
+          .when(session)
+          .close();
+      closed.set(false);
+      return session;
     }
   }
 
@@ -285,6 +285,43 @@ public class CassandraDBAccessorTest {
             entity,
             URI.create("cassandra://host:9042/table/?primary=data"),
             getCfg(TestCqlFactory.class));
+    try (CassandraWriter writer = accessor.newWriter()) {
+      AtomicBoolean success = new AtomicBoolean(false);
+      writer.write(
+          StreamElement.upsert(
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key",
+              attr.getName(),
+              System.currentTimeMillis(),
+              new byte[0]),
+          (status, exc) -> success.set(status));
+      assertTrue(success.get());
+    }
+    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
+  }
+
+  @Test
+  public void testClusterReconnect() {
+    entity = EntityDescriptor.newBuilder().setName("dummy").build();
+
+    CassandraDBAccessor accessor =
+        new TestDBAccessor(
+            entity,
+            URI.create("cassandra://host:9042/table/?primary=data"),
+            getCfg(TestCqlFactory.class)) {
+
+          int retries = 0;
+
+          @Override
+          Session newSession(AtomicBoolean closed) {
+            if (retries++ < 3) {
+              throw new IllegalStateException("Invalid cluster.");
+            }
+            return super.newSession(closed);
+          }
+        };
     try (CassandraWriter writer = accessor.newWriter()) {
       AtomicBoolean success = new AtomicBoolean(false);
       writer.write(

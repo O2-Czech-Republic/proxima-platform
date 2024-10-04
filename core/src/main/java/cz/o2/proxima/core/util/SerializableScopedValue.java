@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /**
  * A value that holds a {@link Serializable} value and scopes its value to given context.
@@ -35,11 +36,16 @@ public final class SerializableScopedValue<C, V> implements Serializable {
   private static final Map<String, Map<Object, Object>> VALUE_MAP = new ConcurrentHashMap<>();
 
   private final String uuid = UUID.randomUUID().toString();
-  private final Factory<V> factory;
+  private final @Nullable Factory<V> factory;
 
   public SerializableScopedValue(Factory<V> what) {
     this.factory = Objects.requireNonNull(what);
     VALUE_MAP.putIfAbsent(uuid, new ConcurrentHashMap<>());
+  }
+
+  public SerializableScopedValue(C context, V value) {
+    this.factory = null;
+    VALUE_MAP.compute(uuid, (k, v) -> new ConcurrentHashMap<>()).put(context, value);
   }
 
   @SuppressWarnings("unchecked")
@@ -48,7 +54,7 @@ public final class SerializableScopedValue<C, V> implements Serializable {
   }
 
   private V cloneOriginal() {
-    return factory.apply();
+    return Objects.requireNonNull(factory).apply();
   }
 
   /**

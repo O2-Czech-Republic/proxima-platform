@@ -34,6 +34,14 @@ public class SerializableScopedValueTest {
   }
 
   @Test
+  public void testSerializableWithValue() throws IOException, ClassNotFoundException {
+    SerializableScopedValue<Integer, Integer> value = new SerializableScopedValue<>(1, 2);
+    SerializableScopedValue<Integer, Integer> other = TestUtils.assertSerializable(value);
+    TestUtils.assertHashCodeAndEquals(value, other);
+    assertEquals(value.get(1), other.get(1));
+  }
+
+  @Test
   public void testContextLocality() throws IOException, ClassNotFoundException {
     BlockingQueue<Integer> results = new LinkedBlockingDeque<>();
     SerializableScopedValue<Integer, AtomicInteger> value =

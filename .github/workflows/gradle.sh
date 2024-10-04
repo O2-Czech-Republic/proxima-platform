@@ -27,10 +27,15 @@ fi
 
 ./gradlew publishToMavenLocal -Pvendor -PnoSigning
 
+GRADLE_BUILD_ARGS=""
+if [[ ! -z $RUNNER_DEBUG ]]; then
+  GRADLE_BUILD_ARGS="--info"
+fi
+
 if [[ "${IS_PR}" != "false" ]] || [[ "${BRANCH}" == "master" ]]; then
   ./gradlew spotlessCheck \
-      && ./gradlew build -x test \
-      && ./gradlew test -Pwith-coverage \
+      && ./gradlew build -x test ${GRADLE_BUILD_ARGS} \
+      && ./gradlew test -Pwith-coverage ${GRADLE_BUILD_ARGS} \
       && JAVA_HOME=${JAVA_HOME_17_X64} ./gradlew sonar --no-parallel
   exit $?
 fi

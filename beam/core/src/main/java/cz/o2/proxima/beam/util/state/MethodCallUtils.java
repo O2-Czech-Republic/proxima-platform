@@ -16,11 +16,13 @@
 package cz.o2.proxima.beam.util.state;
 
 import cz.o2.proxima.core.functional.BiConsumer;
+import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -36,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.ByteBuddy;
@@ -48,6 +49,7 @@ import net.bytebuddy.description.type.TypeDefinition;
 import net.bytebuddy.description.type.TypeDescription.ForLoadedType;
 import net.bytebuddy.description.type.TypeDescription.Generic;
 import net.bytebuddy.description.type.TypeDescription.Generic.Builder;
+import net.bytebuddy.dynamic.DynamicType.Unloaded;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.dynamic.scaffold.InstrumentedType;
 import net.bytebuddy.implementation.Implementation;
@@ -123,13 +125,13 @@ class MethodCallUtils {
         wrapperArgList.values().stream()
             .map(p -> p.getFirst() != null ? p.getFirst().getAnnotationType() : p.getSecond())
             .collect(Collectors.toList());
-    for (Map.Entry<TypeId, Pair<Annotation, Type>> e : argsMap.entrySet()) {
-      int wrapperArg = findArgIndex(wrapperArgList.keySet(), e.getKey());
+    for (TypeId t : argsMap.keySet()) {
+      int wrapperArg = findArgIndex(wrapperArgList.keySet(), t);
       if (wrapperArg < 0) {
         addUnknownWrapperArgument(
-            mainTag, outputType, e.getKey(), wrapperParamsIds, wrapperArgList.keySet(), res);
+            mainTag, outputType, t, wrapperParamsIds, wrapperArgList.keySet(), res);
       } else {
-        remapKnownArgument(outputType, e.getKey(), wrapperArg, res);
+        remapKnownArgument(outputType, t, wrapperArg, res);
       }
     }
     return res;
@@ -143,9 +145,7 @@ class MethodCallUtils {
 
     if (typeId.isElement()) {
       // this applies to @ProcessElement only, the input element holds KV<?, StateOrInput>
-      res.add(
-          (args, elem) ->
-              extractValue((TimestampedValue<KV<?, StateOrInput<?>>>) args[wrapperArg]));
+      res.add((args, elem) -> extractValue((KV<?, StateOrInput<?>>) args[wrapperArg]));
     } else if (typeId.isTimestamp()) {
       res.add((args, elem) -> elem == null ? args[wrapperArg] : elem.getTimestamp());
     } else if (typeId.isOutput(outputType)) {
@@ -232,9 +232,9 @@ class MethodCallUtils {
     };
   }
 
-  private static KV<?, ?> extractValue(TimestampedValue<KV<?, StateOrInput<?>>> arg) {
-    Preconditions.checkArgument(!arg.getValue().getValue().isState());
-    return KV.of(arg.getValue().getKey(), arg.getValue().getValue().getInput());
+  private static KV<?, ?> extractValue(KV<?, StateOrInput<?>> arg) {
+    Preconditions.checkArgument(!arg.getValue().isState());
+    return KV.of(arg.getKey(), arg.getValue().getInput());
   }
 
   private static int findArgIndex(Collection<TypeId> collection, TypeId key) {
@@ -747,35 +747,35 @@ class MethodCallUtils {
     }
   }
 
-  public interface MethodInvoker<T, R> {
+  public interface MethodInvoker<T, R> extends Serializable {
 
-    static <T, R> MethodInvoker<T, R> of(Method method, ByteBuddy buddy)
+    static <T, R> MethodInvoker<T, R> of(Method method, ByteBuddy buddy, ClassCollector collector)
         throws NoSuchMethodException,
             InvocationTargetException,
             InstantiationException,
             IllegalAccessException {
 
-      return getInvoker(method, buddy);
+      return getInvoker(method, buddy, collector);
     }
 
     R invoke(T _this, Object[] args);
   }
 
-  public interface VoidMethodInvoker<T> {
+  public interface VoidMethodInvoker<T> extends Serializable {
 
-    static <T> VoidMethodInvoker<T> of(Method method, ByteBuddy buddy)
+    static <T> VoidMethodInvoker<T> of(Method method, ByteBuddy buddy, ClassCollector collector)
         throws NoSuchMethodException,
             InvocationTargetException,
             InstantiationException,
             IllegalAccessException {
 
-      return getInvoker(method, buddy);
+      return getInvoker(method, buddy, collector);
     }
 
     void invoke(T _this, Object[] args);
   }
 
-  private static <T> T getInvoker(Method method, ByteBuddy buddy)
+  private static <T> T getInvoker(Method method, ByteBuddy buddy, ClassCollector collector)
       throws NoSuchMethodException,
           InvocationTargetException,
           InstantiationException,
@@ -798,21 +798,18 @@ class MethodCallUtils {
     } catch (Exception ex) {
       // define the class
     }
+    Unloaded<?> unloaded =
+        buddy
+            .subclass(superClass)
+            .implement(implement)
+            .name(subclassName)
+            .defineMethod("invoke", returnType, Visibility.PUBLIC)
+            .withParameters(declaringClass, Object[].class)
+            .intercept(MethodCall.invoke(method).onArgument(0).with(new ArrayArgumentProvider()))
+            .make();
     @SuppressWarnings("unchecked")
-    Class<T> cls =
-        (Class<T>)
-            buddy
-                .subclass(superClass)
-                .implement(implement)
-                .name(subclassName)
-                .defineMethod("invoke", returnType, Visibility.PUBLIC)
-                .withParameters(declaringClass, Object[].class)
-                .intercept(
-                    MethodCall.invoke(method).onArgument(0).with(new ArrayArgumentProvider()))
-                .make()
-                .load(null, strategy)
-                .getLoaded();
-
+    Class<T> cls = (Class<T>) unloaded.load(null, strategy).getLoaded();
+    collector.collect(cls, unloaded.getBytes());
     return newInstance(cls);
   }
 

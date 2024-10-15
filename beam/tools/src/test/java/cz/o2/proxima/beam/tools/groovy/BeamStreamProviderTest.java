@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import static cz.o2.proxima.beam.util.RunnerUtils.injectJarIntoContextClassLoader;
 import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.repository.Repository;
@@ -82,7 +83,7 @@ public class BeamStreamProviderTest {
   @Test
   public void testInjectPathToClassloader() throws IOException {
     File f = File.createTempFile("dummy", ".tmp");
-    BeamStreamProvider.injectJarIntoContextClassLoader(Collections.singletonList(f));
+    injectJarIntoContextClassLoader(Collections.singletonList(f));
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
     assertTrue(loader instanceof URLClassLoader);
   }

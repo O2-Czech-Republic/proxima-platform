@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.core.util.SerializableScopedValue;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,7 +33,6 @@ import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
-import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.coders.VarIntCoder;
@@ -79,7 +79,7 @@ public class ExternalStateExpanderTest {
   @Parameter public Class<? extends PipelineRunner<?>> runner;
 
   @Test
-  public void testSimpleExpand() {
+  public void testSimpleExpand() throws IOException {
     Pipeline pipeline = createPipeline();
     PCollection<String> inputs = pipeline.apply(Create.of("1", "2", "3"));
     PCollection<KV<Integer, String>> withKeys =
@@ -99,7 +99,7 @@ public class ExternalStateExpanderTest {
   }
 
   @Test
-  public void testSimpleExpandMultiOutput() {
+  public void testSimpleExpandMultiOutput() throws IOException {
     Pipeline pipeline = createPipeline();
     PCollection<String> inputs = pipeline.apply(Create.of("1", "2", "3"));
     PCollection<KV<Integer, String>> withKeys =
@@ -123,7 +123,7 @@ public class ExternalStateExpanderTest {
   }
 
   @Test
-  public void testCompositeExpand() {
+  public void testCompositeExpand() throws IOException {
     PTransform<PCollection<String>, PCollection<Long>> transform =
         new PTransform<>() {
           @Override
@@ -150,7 +150,7 @@ public class ExternalStateExpanderTest {
   }
 
   @Test
-  public void testSimpleExpandWithInitialState() throws CoderException {
+  public void testSimpleExpandWithInitialState() throws IOException {
     Pipeline pipeline = createPipeline();
     PCollection<String> inputs = pipeline.apply(Create.of("3", "4"));
     PCollection<KV<Integer, String>> withKeys =
@@ -166,13 +166,13 @@ public class ExternalStateExpanderTest {
             pipeline,
             Create.of(
                     KV.of(
-                        "sum/ParMultiDo(Anonymous)",
+                        "sum",
                         new StateValue(
                             CoderUtils.encodeToByteArray(intCoder, 0),
                             "sum",
                             CoderUtils.encodeToByteArray(longCoder, 2L))),
                     KV.of(
-                        "sum/ParMultiDo(Anonymous)",
+                        "sum",
                         new StateValue(
                             CoderUtils.encodeToByteArray(intCoder, 1),
                             "sum",
@@ -185,7 +185,7 @@ public class ExternalStateExpanderTest {
   }
 
   @Test
-  public void testSimpleExpandWithStateStore() throws CoderException {
+  public void testSimpleExpandWithStateStore() throws IOException {
     Pipeline pipeline = createPipeline();
     Instant now = new Instant(0);
     PCollection<String> inputs =
@@ -227,7 +227,7 @@ public class ExternalStateExpanderTest {
   }
 
   @Test
-  public void testStateWithElementEarly() throws CoderException {
+  public void testStateWithElementEarly() throws IOException {
     Pipeline pipeline = createPipeline();
     Instant now = new Instant(0);
     PCollection<String> inputs =
@@ -262,16 +262,16 @@ public class ExternalStateExpanderTest {
   }
 
   @Test
-  public void testBufferedTimestampInject() {
+  public void testBufferedTimestampInject() throws IOException {
     testTimestampInject(false);
   }
 
   @Test
-  public void testBufferedTimestampInjectToMultiOutput() {
+  public void testBufferedTimestampInjectToMultiOutput() throws IOException {
     testTimestampInject(true);
   }
 
-  private void testTimestampInject(boolean multiOutput) {
+  private void testTimestampInject(boolean multiOutput) throws IOException {
     Pipeline pipeline = createPipeline();
     Instant now = new Instant(0);
     PCollection<String> inputs =

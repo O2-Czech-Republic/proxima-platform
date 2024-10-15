@@ -16,6 +16,8 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import static cz.o2.proxima.beam.tools.groovy.BeamStream.dehydrate;
+import static cz.o2.proxima.beam.util.RunnerUtils.createJarFromDynamicClasses;
+import static cz.o2.proxima.beam.util.RunnerUtils.registerToPipeline;
 
 import com.google.api.client.util.Lists;
 import com.google.auto.service.AutoService;
@@ -28,6 +30,7 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
@@ -36,34 +39,22 @@ import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.ToolsClassLoader;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import groovy.lang.Closure;
-import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.beam.repackaged.core.org.apache.commons.compress.utils.IOUtils;
-import org.apache.beam.runners.flink.FlinkPipelineOptions;
-import org.apache.beam.runners.spark.SparkCommonPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.ExperimentalOptions;
@@ -225,17 +216,6 @@ public abstract class BeamStreamProvider implements StreamProvider {
     return PipelineOptionsFactory::create;
   }
 
-  /**
-   * List all UDFs created.
-   *
-   * @return set of all UDFs
-   */
-  protected Set<String> listUdfClassNames() {
-    return Optional.ofNullable(getToolsClassLoader())
-        .map(ToolsClassLoader::getDefinedClasses)
-        .orElse(Collections.emptySet());
-  }
-
   Factory<Pipeline> getJarRegisteringPipelineFactory() {
     Supplier<PipelineOptions> factory = getPipelineOptionsFactory();
     UnaryFunction<PipelineOptions, Pipeline> createPipeline = getCreatePipelineFromOpts();
@@ -272,10 +252,12 @@ public abstract class BeamStreamProvider implements StreamProvider {
     String runnerName = opts.getRunner().getSimpleName();
     try {
       File path = createJarFromUdfs();
-      log.info("Created jar {} with generated classes.", path);
-      List<File> files = new ArrayList<>(Collections.singletonList(path));
-      getAddedJars().stream().map(u -> new File(u.getPath())).forEach(files::add);
-      registerToPipeline(opts, runnerName, files);
+      if (path != null) {
+        log.info("Created jar {} with generated classes.", path);
+        List<File> files = new ArrayList<>(Collections.singletonList(path));
+        getAddedJars().stream().map(u -> new File(u.getPath())).forEach(files::add);
+        registerToPipeline(opts, runnerName, files);
+      }
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }
@@ -287,67 +269,19 @@ public abstract class BeamStreamProvider implements StreamProvider {
         .orElse(Collections.emptySet());
   }
 
-  private void registerToPipeline(PipelineOptions opts, String runnerName, Collection<File> paths) {
-    log.info("Adding jars {} into classpath for runner {}", paths, runnerName);
-    List<String> filesToStage =
-        paths.stream().map(File::getAbsolutePath).collect(Collectors.toList());
-    if (runnerName.equals("FlinkRunner")) {
-      FlinkPipelineOptions flinkOpts = opts.as(FlinkPipelineOptions.class);
-      flinkOpts.setFilesToStage(addToList(filesToStage, flinkOpts.getFilesToStage()));
-    } else if (runnerName.equals("SparkRunner")) {
-      SparkCommonPipelineOptions sparkOpts = opts.as(SparkCommonPipelineOptions.class);
-      sparkOpts.setFilesToStage(addToList(filesToStage, sparkOpts.getFilesToStage()));
-    } else {
-      if (!runnerName.equals("DirectRunner")) {
-        log.warn(
-            "Injecting jar into unknown runner {}. It might not work as expected. "
-                + "If you are experiencing issues with sub run and/or submission, "
-                + "please fill github issue reporting the name of the runner.",
-            runnerName);
-      }
-      injectJarIntoContextClassLoader(paths);
-    }
-  }
-
-  private List<String> addToList(@Nonnull List<String> first, @Nullable List<String> second) {
-    Collection<String> res = new HashSet<>(first);
-    if (second != null) {
-      res.addAll(second);
-    }
-    return new ArrayList<>(res);
-  }
-
-  private File createJarFromUdfs() throws IOException {
-    Set<String> classes = listUdfClassNames();
-    File out = File.createTempFile("proxima-tools", ".jar");
+  private @Nullable File createJarFromUdfs() throws IOException {
     ToolsClassLoader loader = getToolsClassLoader();
-    log.info("Building jar from classes {} retrieved from {}", classes, loader);
-
-    out.deleteOnExit();
-    try (JarOutputStream output = new JarOutputStream(new FileOutputStream(out))) {
-      long now = System.currentTimeMillis();
-      for (String cls : classes) {
-        String name = cls.replace('.', '/') + ".class";
-        JarEntry entry = new JarEntry(name);
-        entry.setTime(now);
-        output.putNextEntry(entry);
-        InputStream input = new ByteArrayInputStream(loader.getClassByteCode(cls));
-        IOUtils.copy(input, output);
-        output.closeEntry();
-      }
-    }
-    return out;
-  }
-
-  @VisibleForTesting
-  static void injectJarIntoContextClassLoader(Collection<File> paths) {
-    ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    URL[] urls =
-        paths.stream()
-            .map(p -> ExceptionUtils.uncheckedFactory(() -> p.toURI().toURL()))
-            .collect(Collectors.toList())
-            .toArray(new URL[] {});
-    Thread.currentThread().setContextClassLoader(new URLClassLoader(urls, loader));
+    Map<? extends Class<?>, byte[]> codeMap =
+        Optional.ofNullable(loader)
+            .map(
+                l ->
+                    l.getDefinedClasses().stream()
+                        .map(name -> ExceptionUtils.uncheckedFactory(() -> loader.loadClass(name)))
+                        .map(cls -> Pair.of(cls, loader.getClassByteCode(cls.getName())))
+                        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)))
+            .orElse(Collections.emptyMap());
+    log.info("Building jar from classes {} retrieved from {}", codeMap, loader);
+    return createJarFromDynamicClasses(codeMap);
   }
 
   private @Nullable ToolsClassLoader getToolsClassLoader() {

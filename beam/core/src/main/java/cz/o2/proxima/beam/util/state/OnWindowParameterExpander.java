@@ -15,13 +15,15 @@
  */
 package cz.o2.proxima.beam.util.state;
 
-import static cz.o2.proxima.beam.util.state.ExternalStateExpander.bagStateFromInputType;
+import static cz.o2.proxima.beam.util.state.ExpandContext.bagStateFromInputType;
 import static cz.o2.proxima.beam.util.state.MethodCallUtils.*;
 
+import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -32,7 +34,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import net.bytebuddy.description.annotation.AnnotationDescription;
 import net.bytebuddy.description.annotation.AnnotationDescription.Builder;
@@ -45,7 +46,7 @@ import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TupleTag;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-interface OnWindowParameterExpander {
+interface OnWindowParameterExpander extends Serializable {
 
   static OnWindowParameterExpander of(
       ParameterizedType inputType,
@@ -66,23 +67,8 @@ interface OnWindowParameterExpander {
     final List<BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>> windowArgsGenerators =
         projectArgs(wrapperArgs, onWindowArgs, mainTag, outputType);
 
-    return new OnWindowParameterExpander() {
-      @Override
-      public List<Pair<AnnotationDescription, TypeDefinition>> getWrapperArgs() {
-        return new ArrayList<>(wrapperArgs.values());
-      }
-
-      @Override
-      public Object[] getProcessElementArgs(
-          TimestampedValue<KV<?, ?>> input, Object[] wrapperArgs) {
-        return fromGenerators(input, processArgsGenerators, wrapperArgs);
-      }
-
-      @Override
-      public Object[] getOnWindowExpirationArgs(Object[] wrapperArgs) {
-        return fromGenerators(null, windowArgsGenerators, wrapperArgs);
-      }
-    };
+    return new OnWindowParameterExpanderImpl(
+        wrapperArgs, processArgsGenerators, windowArgsGenerators);
   }
 
   static List<Pair<Annotation, Type>> createWrapperArgList(
@@ -133,7 +119,7 @@ interface OnWindowParameterExpander {
     // add @StateId for buffer
     AnnotationDescription buffer =
         Builder.ofType(StateId.class)
-            .define("value", ExternalStateExpander.EXPANDER_BUF_STATE_NAME)
+            .define("value", ExpandContext.EXPANDER_BUF_STATE_NAME)
             .build();
     res.put(TypeId.of(buffer), Pair.of(buffer, bagStateFromInputType(inputType)));
     return res;
@@ -153,4 +139,39 @@ interface OnWindowParameterExpander {
 
   /** Get parameters that should be passed to {@code @}OnWindowExpiration from wrapper's call. */
   Object[] getOnWindowExpirationArgs(Object[] wrapperArgs);
+
+  class OnWindowParameterExpanderImpl implements OnWindowParameterExpander {
+
+    private final transient LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>>
+        wrapperArgs;
+    private final List<BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>>
+        processArgsGenerators;
+    private final List<BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>>
+        windowArgsGenerators;
+
+    public OnWindowParameterExpanderImpl(
+        LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs,
+        List<BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>> processArgsGenerators,
+        List<BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>> windowArgsGenerators) {
+
+      this.wrapperArgs = wrapperArgs;
+      this.processArgsGenerators = processArgsGenerators;
+      this.windowArgsGenerators = windowArgsGenerators;
+    }
+
+    @Override
+    public List<Pair<AnnotationDescription, TypeDefinition>> getWrapperArgs() {
+      return new ArrayList<>(wrapperArgs.values());
+    }
+
+    @Override
+    public Object[] getProcessElementArgs(TimestampedValue<KV<?, ?>> input, Object[] wrapperArgs) {
+      return fromGenerators(input, processArgsGenerators, wrapperArgs);
+    }
+
+    @Override
+    public Object[] getOnWindowExpirationArgs(Object[] wrapperArgs) {
+      return fromGenerators(null, windowArgsGenerators, wrapperArgs);
+    }
+  }
 }

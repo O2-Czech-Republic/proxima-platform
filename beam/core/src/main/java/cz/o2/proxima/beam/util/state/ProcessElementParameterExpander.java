@@ -19,9 +19,11 @@ import static cz.o2.proxima.beam.util.state.MethodCallUtils.*;
 import static cz.o2.proxima.beam.util.state.MethodCallUtils.projectArgs;
 
 import cz.o2.proxima.core.functional.BiConsumer;
+import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -32,8 +34,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Predicate;
 import lombok.extern.slf4j.Slf4j;
 import net.bytebuddy.description.annotation.AnnotationDescription;
 import net.bytebuddy.description.annotation.AnnotationDescription.ForLoadedAnnotation;
@@ -53,7 +53,7 @@ import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TupleTag;
 import org.joda.time.Instant;
 
-interface ProcessElementParameterExpander {
+interface ProcessElementParameterExpander extends Serializable {
 
   static ProcessElementParameterExpander of(
       DoFn<?, ?> doFn,
@@ -63,28 +63,8 @@ interface ProcessElementParameterExpander {
       Type outputType,
       Instant stateWriteInstant) {
 
-    final LinkedHashMap<TypeId, Pair<Annotation, Type>> processArgs = extractArgs(processElement);
-    final LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs =
-        createWrapperArgs(inputType, outputType, processArgs.values());
-    final List<BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>> processArgsGenerators =
-        projectArgs(wrapperArgs, processArgs, mainTag, outputType);
-
-    return new ProcessElementParameterExpander() {
-      @Override
-      public List<Pair<AnnotationDescription, TypeDefinition>> getWrapperArgs() {
-        return new ArrayList<>(wrapperArgs.values());
-      }
-
-      @Override
-      public Object[] getProcessElementArgs(Object[] wrapperArgs) {
-        return fromGenerators(processArgsGenerators, wrapperArgs);
-      }
-
-      @Override
-      public UnaryFunction<Object[], Boolean> getProcessFn() {
-        return createProcessFn(wrapperArgs, doFn, processElement, stateWriteInstant);
-      }
-    };
+    return new ProcessElementParameterExpanderImpl(
+        doFn, processElement, inputType, mainTag, outputType, stateWriteInstant);
   }
 
   /** Get arguments that must be declared by wrapper's call. */
@@ -99,20 +79,11 @@ interface ProcessElementParameterExpander {
   /** Get function to process elements and delegate to original DoFn. */
   UnaryFunction<Object[], Boolean> getProcessFn();
 
-  private static UnaryFunction<Object[], Boolean> createProcessFn(
-      LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs,
-      DoFn<?, ?> doFn,
-      Method method,
-      Instant stateWriteInstant) {
-
-    Map<String, BiConsumer<Object, StateValue>> stateUpdaterMap = getStateUpdaters(doFn);
-    return new ProcessFn(stateWriteInstant, wrapperArgs, method, stateUpdaterMap);
-  }
-
-  private static int findParameter(Collection<TypeId> args, Predicate<TypeId> predicate) {
+  private static int findParameter(
+      Collection<TypeId> args, UnaryFunction<TypeId, Boolean> predicate) {
     int i = 0;
     for (TypeId t : args) {
-      if (predicate.test(t)) {
+      if (predicate.apply(t)) {
         return i;
       }
       i++;
@@ -140,7 +111,7 @@ interface ProcessElementParameterExpander {
     // add @TimerId for flush timer
     AnnotationDescription timerAnnotation =
         AnnotationDescription.Builder.ofType(DoFn.TimerId.class)
-            .define("value", ExternalStateExpander.EXPANDER_TIMER_NAME)
+            .define("value", ExpandContext.EXPANDER_TIMER_NAME)
             .build();
     res.put(
         TypeId.of(timerAnnotation),
@@ -149,7 +120,7 @@ interface ProcessElementParameterExpander {
     // add @StateId for finished buffer
     AnnotationDescription finishedAnnotation =
         AnnotationDescription.Builder.ofType(DoFn.StateId.class)
-            .define("value", ExternalStateExpander.EXPANDER_FLUSH_STATE_NAME)
+            .define("value", ExpandContext.EXPANDER_FLUSH_STATE_NAME)
             .build();
     res.put(
         TypeId.of(finishedAnnotation),
@@ -161,11 +132,11 @@ interface ProcessElementParameterExpander {
     // add @StateId for buffer
     AnnotationDescription stateAnnotation =
         AnnotationDescription.Builder.ofType(StateId.class)
-            .define("value", ExternalStateExpander.EXPANDER_BUF_STATE_NAME)
+            .define("value", ExpandContext.EXPANDER_BUF_STATE_NAME)
             .build();
     res.put(
         TypeId.of(stateAnnotation),
-        Pair.of(stateAnnotation, ExternalStateExpander.bagStateFromInputType(inputType)));
+        Pair.of(stateAnnotation, ExpandContext.bagStateFromInputType(inputType)));
 
     // add MultiOutputReceiver
     TypeDescription receiver = ForLoadedType.of(MultiOutputReceiver.class);
@@ -191,8 +162,8 @@ interface ProcessElementParameterExpander {
   class ProcessFn implements UnaryFunction<Object[], Boolean> {
     private final int elementPos;
     private final Instant stateWriteInstant;
-    private final LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs;
-    private final Method method;
+    private final List<TypeId> wrapperArgsKeys;
+    private final int methodParameterCount;
     private final Map<String, BiConsumer<Object, StateValue>> stateUpdaterMap;
 
     public ProcessFn(
@@ -203,8 +174,8 @@ interface ProcessElementParameterExpander {
 
       this.elementPos = findParameter(wrapperArgs.keySet(), TypeId::isElement);
       this.stateWriteInstant = stateWriteInstant;
-      this.wrapperArgs = wrapperArgs;
-      this.method = method;
+      this.wrapperArgsKeys = new ArrayList<>(wrapperArgs.keySet());
+      this.methodParameterCount = method.getParameterCount();
       this.stateUpdaterMap = stateUpdaterMap;
       Preconditions.checkState(elementPos >= 0, "Missing @Element annotation on method %s", method);
     }
@@ -222,9 +193,9 @@ interface ProcessElementParameterExpander {
         StateValue state = elem.getValue().getState();
         String stateName = state.getName();
         // find state accessor
-        int statePos = findParameter(wrapperArgs.keySet(), a -> a.isState(stateName));
+        int statePos = findParameter(wrapperArgsKeys, a -> a.isState(stateName));
         Preconditions.checkArgument(
-            statePos < method.getParameterCount(), "Missing state accessor for %s", stateName);
+            statePos < methodParameterCount, "Missing state accessor for %s", stateName);
         Object stateAccessor = args[statePos];
         // find declaration of state to find coder
         BiConsumer<Object, StateValue> updater = stateUpdaterMap.get(stateName);
@@ -251,6 +222,53 @@ interface ProcessElementParameterExpander {
         return false;
       }
       return true;
+    }
+  }
+
+  class ProcessElementParameterExpanderImpl implements ProcessElementParameterExpander {
+
+    final transient LinkedHashMap<TypeId, Pair<Annotation, Type>> processArgs;
+    final transient LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs;
+    final List<BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>> processArgsGenerators;
+    final UnaryFunction<Object[], Boolean> processFn;
+
+    public ProcessElementParameterExpanderImpl(
+        DoFn<?, ?> doFn,
+        Method processElement,
+        ParameterizedType inputType,
+        TupleTag<?> mainTag,
+        Type outputType,
+        Instant stateWriteInstant) {
+
+      processArgs = extractArgs(processElement);
+      wrapperArgs = createWrapperArgs(inputType, outputType, processArgs.values());
+      processArgsGenerators = projectArgs(wrapperArgs, processArgs, mainTag, outputType);
+      processFn = createProcessFn(wrapperArgs, doFn, processElement, stateWriteInstant);
+    }
+
+    @Override
+    public List<Pair<AnnotationDescription, TypeDefinition>> getWrapperArgs() {
+      return new ArrayList<>(wrapperArgs.values());
+    }
+
+    @Override
+    public Object[] getProcessElementArgs(Object[] wrapperArgs) {
+      return fromGenerators(processArgsGenerators, wrapperArgs);
+    }
+
+    @Override
+    public UnaryFunction<Object[], Boolean> getProcessFn() {
+      return processFn;
+    }
+
+    private static UnaryFunction<Object[], Boolean> createProcessFn(
+        LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs,
+        DoFn<?, ?> doFn,
+        Method method,
+        Instant stateWriteInstant) {
+
+      Map<String, BiConsumer<Object, StateValue>> stateUpdaterMap = getStateUpdaters(doFn);
+      return new ProcessFn(stateWriteInstant, wrapperArgs, method, stateUpdaterMap);
     }
   }
 }

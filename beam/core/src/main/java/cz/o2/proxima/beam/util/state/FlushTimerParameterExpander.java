@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.beam.util.state;
 
-import static cz.o2.proxima.beam.util.state.ExternalStateExpander.*;
+import static cz.o2.proxima.beam.util.state.ExpandContext.*;
 import static cz.o2.proxima.beam.util.state.MethodCallUtils.*;
 
+import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -40,7 +42,7 @@ import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TupleTag;
 import org.joda.time.Instant;
 
-interface FlushTimerParameterExpander {
+interface FlushTimerParameterExpander extends Serializable {
 
   static FlushTimerParameterExpander of(
       DoFn<?, ?> doFn,
@@ -49,24 +51,8 @@ interface FlushTimerParameterExpander {
       TupleTag<?> mainTag,
       Type outputType) {
 
-    final LinkedHashMap<TypeId, Pair<Annotation, Type>> processArgs = extractArgs(processElement);
-    final LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs =
-        createWrapperArgs(doFn, inputType);
-    final List<java.util.function.BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>>
-        processArgsGenerators = projectArgs(wrapperArgs, processArgs, mainTag, outputType);
-
-    return new FlushTimerParameterExpander() {
-      @Override
-      public List<Pair<AnnotationDescription, TypeDefinition>> getWrapperArgs() {
-        return new ArrayList<>(wrapperArgs.values());
-      }
-
-      @Override
-      public Object[] getProcessElementArgs(
-          TimestampedValue<KV<?, ?>> input, Object[] wrapperArgs) {
-        return fromGenerators(input, processArgsGenerators, wrapperArgs);
-      }
-    };
+    return new FlushTimerParameterExpanderImpl(
+        extractArgs(processElement), createWrapperArgs(doFn, inputType), mainTag, outputType);
   }
 
   private static LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>>
@@ -147,4 +133,32 @@ interface FlushTimerParameterExpander {
    * {@code @}OnWindowExpiration
    */
   Object[] getProcessElementArgs(TimestampedValue<KV<?, ?>> input, Object[] wrapperArgs);
+
+  class FlushTimerParameterExpanderImpl implements FlushTimerParameterExpander {
+
+    final transient LinkedHashMap<TypeId, Pair<Annotation, Type>> processArgs;
+    final transient LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs;
+    final List<BiFunction<Object[], TimestampedValue<KV<?, ?>>, Object>> processArgsGenerators;
+
+    private FlushTimerParameterExpanderImpl(
+        LinkedHashMap<TypeId, Pair<Annotation, Type>> processArgs,
+        LinkedHashMap<TypeId, Pair<AnnotationDescription, TypeDefinition>> wrapperArgs,
+        TupleTag<?> mainTag,
+        Type outputType) {
+
+      this.processArgs = processArgs;
+      this.wrapperArgs = wrapperArgs;
+      processArgsGenerators = projectArgs(wrapperArgs, processArgs, mainTag, outputType);
+    }
+
+    @Override
+    public List<Pair<AnnotationDescription, TypeDefinition>> getWrapperArgs() {
+      return new ArrayList<>(wrapperArgs.values());
+    }
+
+    @Override
+    public Object[] getProcessElementArgs(TimestampedValue<KV<?, ?>> input, Object[] wrapperArgs) {
+      return fromGenerators(input, processArgsGenerators, wrapperArgs);
+    }
+  }
 }

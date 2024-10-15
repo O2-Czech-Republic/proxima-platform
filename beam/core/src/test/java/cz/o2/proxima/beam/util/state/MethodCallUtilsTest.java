@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import cz.o2.proxima.beam.util.state.MethodCallUtils.MethodInvoker;
 import cz.o2.proxima.beam.util.state.MethodCallUtils.VoidMethodInvoker;
 import cz.o2.proxima.core.functional.BiConsumer;
+import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.functional.UnaryFunction;
@@ -31,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 import net.bytebuddy.ByteBuddy;
 import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.state.StateBinder;
@@ -79,7 +79,9 @@ public class MethodCallUtilsTest {
     ByteBuddy buddy = new ByteBuddy();
     SumCollect s = new SumCollect();
     Method method = s.getClass().getDeclaredMethod("apply", int.class, int.class, Consumer.class);
-    VoidMethodInvoker<SumCollect> invoker = VoidMethodInvoker.of(method, buddy);
+    List<Class<?>> generated = new ArrayList<>();
+    ClassCollector collector = (cls, code) -> generated.add(cls);
+    VoidMethodInvoker<SumCollect> invoker = VoidMethodInvoker.of(method, buddy, collector);
     List<Integer> list = new ArrayList<>();
     Consumer<Integer> c = list::add;
     invoker.invoke(s, new Object[] {1, 2, c});
@@ -92,6 +94,7 @@ public class MethodCallUtilsTest {
     }
     long duration = System.nanoTime() - start;
     assertTrue(duration < 1_000_000_000);
+    assertEquals(1, generated.size());
   }
 
   @Test
@@ -100,13 +103,17 @@ public class MethodCallUtilsTest {
           NoSuchMethodException,
           InstantiationException,
           IllegalAccessException {
+
+    List<Class<?>> generated = new ArrayList<>();
+    ClassCollector collector = (cls, code) -> generated.add(cls);
     Sum s =
         new Sum() {
           final MethodInvoker<Delegate, Integer> invoker =
               MethodInvoker.of(
                   ExceptionUtils.uncheckedFactory(
                       () -> Delegate.class.getDeclaredMethod("apply", int.class, int.class)),
-                  new ByteBuddy());
+                  new ByteBuddy(),
+                  collector);
 
           class Delegate {
             Integer apply(int a, int b) {
@@ -120,6 +127,7 @@ public class MethodCallUtilsTest {
           }
         };
     assertEquals(3, (int) s.apply(1, 2));
+    assertEquals(1, generated.size());
   }
 
   <T, V> void testMethodInvokerWith(
@@ -132,7 +140,9 @@ public class MethodCallUtilsTest {
     ByteBuddy buddy = new ByteBuddy();
     T s = instanceFactory.apply();
     Method method = s.getClass().getDeclaredMethod("apply", paramType, paramType);
-    MethodInvoker<T, V> invoker = MethodInvoker.of(method, buddy);
+    List<Class<?>> generated = new ArrayList<>();
+    ClassCollector collector = (cls, code) -> generated.add(cls);
+    MethodInvoker<T, V> invoker = MethodInvoker.of(method, buddy, collector);
     assertEquals(
         valueFactory.apply(3),
         invoker.invoke(
@@ -144,6 +154,7 @@ public class MethodCallUtilsTest {
     }
     long duration = System.nanoTime() - start;
     assertTrue(duration < 1_000_000_000);
+    assertEquals(1, generated.size());
   }
 
   private void testBinder(StateBinder binder) {

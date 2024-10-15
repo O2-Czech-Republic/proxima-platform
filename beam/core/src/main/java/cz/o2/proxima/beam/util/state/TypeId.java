@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.util.state;
 
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import net.bytebuddy.description.annotation.AnnotationDescription;
@@ -26,7 +27,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.DoFn.OutputReceiver;
 import org.apache.beam.sdk.transforms.DoFn.StateId;
 
-class TypeId {
+class TypeId implements Serializable {
 
   private static final TypeId TIMESTAMP_TYPE =
       TypeId.of(AnnotationDescription.Builder.ofType(DoFn.Timestamp.class).build());

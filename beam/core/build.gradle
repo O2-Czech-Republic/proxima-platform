@@ -24,6 +24,8 @@ dependencies {
   api libraries.beam_core
   implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation libraries.beam_extensions_kryo
+  provided libraries.beam_runners_flink
+  provided libraries.beam_runners_spark
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-core')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -32,7 +34,6 @@ dependencies {
   testImplementation project(path: ':proxima-direct-io-kafka', configuration: 'testsJar')
   testImplementation project(path: ':proxima-scheme-proto-testing')
   testImplementation libraries.beam_runners_direct
-  testImplementation libraries.beam_runners_flink
   testImplementation libraries.beam_sql
   testImplementation libraries.junit4
   testImplementation libraries.hamcrest
@@ -49,6 +50,10 @@ description = 'cz.o2.proxima:proxima-beam-core'
 
 protobuf {
   protoc { artifact = libraries.protoc }
+}
+
+test {
+  jvmArgs '-Dsun.io.serialization.extendedDebugInfo=true'
 }
 
 publishArtifacts(project, "default")

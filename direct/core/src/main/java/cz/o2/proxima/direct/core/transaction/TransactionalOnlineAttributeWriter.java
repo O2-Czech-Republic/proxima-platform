@@ -176,7 +176,6 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private final List<CompletableFuture<?>> runningUpdates =
         Collections.synchronizedList(new ArrayList<>());
     private final List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<>());
-    private boolean terminated = false;
 
     private Transaction(String transactionId) {
       this.transactionId = transactionId;
@@ -206,7 +205,6 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
                   new TransactionRejectedException(transactionId, Flags.ABORTED));
       }
       synchronized (runningUpdates) {
-        Preconditions.checkState(!terminated);
         // wait for receiving the response
         runningUpdates.add(future);
         // and for processing it
@@ -227,7 +225,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       waitForInFlight()
           .thenCompose(ign -> runTransforms(outputs))
           // need to wait for any requests added during possible transforms
-          .thenCompose(elements -> waitForInFlight(elements, true))
+          .thenCompose(this::waitForInFlight)
           .thenCompose(this::sendCommitRequest)
           .thenCompose(this::handleCommitResponse)
           .completeOnTimeout(
@@ -249,13 +247,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
 
     private CompletableFuture<Collection<StreamElement>> waitForInFlight() {
-      return waitForInFlight(null, false);
+      return waitForInFlight(null);
     }
 
-    private <T> CompletableFuture<T> waitForInFlight(@Nullable T result, boolean isFinal) {
+    private <T> CompletableFuture<T> waitForInFlight(@Nullable T result) {
       synchronized (runningUpdates) {
         CompletableFuture<?>[] futures = runningUpdates.toArray(new CompletableFuture<?>[] {});
-        this.terminated = terminated || isFinal;
         return CompletableFuture.allOf(futures).thenApply(ign -> result);
       }
     }
@@ -446,7 +443,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     public void sync() throws TransactionRejectedException {
       try {
-        waitForInFlight(null, true).get();
+        waitForInFlight().get();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new TransactionRejectedException(getTransactionId(), Flags.ABORTED);

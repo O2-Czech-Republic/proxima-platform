@@ -199,6 +199,11 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         case OPEN:
           future = manager.updateTransaction(transactionId, addedInputs);
           break;
+        case COMMITTED:
+          future =
+              CompletableFuture.failedFuture(
+                  new TransactionRejectedException(transactionId, Flags.DUPLICATE));
+          break;
         default:
           future =
               CompletableFuture.failedFuture(

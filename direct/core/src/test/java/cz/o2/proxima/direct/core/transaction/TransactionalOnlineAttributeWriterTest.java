@@ -407,6 +407,24 @@ public class TransactionalOnlineAttributeWriterTest {
     assertEquals(Flags.DUPLICATE, res.take().getResponseFlags());
   }
 
+  @Test(timeout = 10000)
+  public void testTransactionReopenWithUpdate() throws InterruptedException {
+    TransactionalOnlineAttributeWriter writer = direct.getGlobalTransactionWriter();
+    assertTrue(user.isTransactional());
+    for (int i = 0; i < 2; i++) {
+      toReturn.add(Response.forRequest(anyRequest()).duplicate(1L));
+    }
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<TransactionRejectedException> res = new ArrayBlockingQueue<>(1);
+    try (Transaction t = writer.begin(transactionId)) {
+      t.beginGlobal();
+      t.update(List.of(KeyAttributes.ofMissingAttribute(gateway, "key", device, "dummy")));
+      t.commitWrite(
+          Collections.emptyList(), (succ, exc) -> res.add((TransactionRejectedException) exc));
+    }
+    assertEquals(Flags.DUPLICATE, res.take().getResponseFlags());
+  }
+
   @Test(timeout = 10_000)
   public void testWriteInTransactionWithTransform() throws InterruptedException {
     List<AttributeDescriptor<byte[]>> attrs = Arrays.asList(userGateways, gatewayUsers);

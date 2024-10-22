@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.transaction.manager;
 import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
+import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.repository.ConfigConstants;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
@@ -270,6 +271,37 @@ public class TransactionIT {
     verifyNumInAttributeIs(key, numWrites + 1, attrA);
   }
 
+  @Test(timeout = 10_000)
+  public void testTransactionCommitIdempotent() throws InterruptedException {
+    String transactionId = UUID.randomUUID().toString();
+    String key = "key";
+    String attrA = device.toAttributePrefix() + "A";
+    String attrB = device.toAttributePrefix() + "B";
+    replicatedLatch = new CountDownLatch(1);
+    writeSeedValue(attrA, key);
+    replicatedLatch.await();
+    assertTrue(view.get(key, attrA, device).isPresent());
+    assertFalse(view.get(key, attrB, device).isPresent());
+    // swap with stable transaction ID
+    swapValueBetween(key, attrA, attrB, () -> transactionId);
+    {
+      Optional<KeyValue<byte[]>> valueA = view.get(key, attrA, device);
+      Optional<KeyValue<byte[]>> valueB = view.get(key, attrB, device);
+      assertFalse(valueA.isPresent());
+      assertTrue(valueB.isPresent());
+    }
+
+    // try reissuing the same transaction
+    swapValueBetween(key, attrA, attrB, () -> transactionId);
+    {
+      // same outcome as previously
+      Optional<KeyValue<byte[]>> valueA = view.get(key, attrA, device);
+      Optional<KeyValue<byte[]>> valueB = view.get(key, attrB, device);
+      assertFalse(valueA.isPresent());
+      assertTrue(valueB.isPresent());
+    }
+  }
+
   private void writeSeedValue(String attribute, String key) {
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(device));
     StreamElement upsert =
@@ -286,9 +318,16 @@ public class TransactionIT {
   private void swapValueBetween(String key, String attrA, String attrB)
       throws InterruptedException {
 
+    swapValueBetween(key, attrA, attrB, () -> UUID.randomUUID().toString());
+  }
+
+  private void swapValueBetween(
+      String key, String attrA, String attrB, Factory<String> transactionIdFn)
+      throws InterruptedException {
+
     long retrySleep = 1;
     do {
-      String transactionId = UUID.randomUUID().toString();
+      String transactionId = transactionIdFn.apply();
       BlockingQueue<Response> responses = new ArrayBlockingQueue<>(5);
       Optional<KeyValue<byte[]>> valA = view.get(key, attrA, device);
       Optional<KeyValue<byte[]>> valB = view.get(key, attrB, device);
@@ -306,7 +345,7 @@ public class TransactionIT {
       client.begin(transactionId, fetched).thenApply(responses::add);
 
       Response response = responses.take();
-      if (response.getFlags() != Flags.OPEN) {
+      if (response.getFlags() != Flags.OPEN && response.getFlags() != Flags.DUPLICATE) {
         TimeUnit.MILLISECONDS.sleep(Math.min(8, retrySleep *= 2));
         continue;
       }
@@ -329,7 +368,8 @@ public class TransactionIT {
       client.commit(transactionId, updates).thenApply(responses::add);
 
       response = responses.take();
-      if (response.getFlags() != Flags.COMMITTED) {
+      boolean committed = response.getFlags() == Flags.COMMITTED;
+      if (response.getFlags() != Flags.COMMITTED && response.getFlags() != Flags.DUPLICATE) {
         TimeUnit.MILLISECONDS.sleep(Math.min(8, retrySleep *= 2));
         continue;
       }
@@ -338,17 +378,19 @@ public class TransactionIT {
           "There was error detected during transaction, it should be impossible to commit this transaction!",
           errorDetected);
 
-      CountDownLatch latch = new CountDownLatch(1);
-      CommitCallback callback =
-          (succ, exc) -> {
-            if (!succ) {
-              client.rollback(transactionId);
-            }
-            latch.countDown();
-          };
-      CommitCallback multiCallback = CommitCallback.afterNumCommits(updates.size(), callback);
-      updates.forEach(u -> view.write(u, multiCallback));
-      latch.await();
+      if (committed) {
+        CountDownLatch latch = new CountDownLatch(1);
+        CommitCallback callback =
+            (succ, exc) -> {
+              if (!succ) {
+                client.rollback(transactionId);
+              }
+              latch.countDown();
+            };
+        CommitCallback multiCallback = CommitCallback.afterNumCommits(updates.size(), callback);
+        updates.forEach(u -> view.write(u, multiCallback));
+        latch.await();
+      }
       break;
     } while (true);
   }

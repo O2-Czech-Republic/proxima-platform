@@ -437,13 +437,15 @@ public class TransactionLogObserver implements CommitLogObserver {
       State currentState = manager.getCurrentState(transactionId);
       State newState = transitionState(transactionId, currentState, request);
       monitoringPolicy.stateUpdate(transactionId, currentState, newState);
+      Response response = getResponseForNewState(request, currentState, newState);
       // we have successfully computed new state, produce response
       log.info(
-          "Transaction {} transitioned to state {} from {}",
+          "Transaction {} transitioned due to {} from state {} to state {}, returning {}",
           transactionId,
+          request.getFlags(),
+          currentState.getFlags(),
           newState.getFlags(),
-          currentState.getFlags());
-      Response response = getResponseForNewState(request, currentState, newState);
+          response.getFlags());
       manager.ensureTransactionOpen(transactionId, newState);
       monitoringPolicy.outgoingResponse(transactionId, response);
       manager.writeResponseAndUpdateState(
@@ -464,7 +466,8 @@ public class TransactionLogObserver implements CommitLogObserver {
             ? Response.forRequest(request).open(newState.getSequentialId(), newState.getStamp())
             : Response.forRequest(request).updated();
       case COMMITTED:
-        if (request.getFlags() == Request.Flags.OPEN) {
+        if (request.getFlags() != Request.Flags.COMMIT
+            || oldState.getFlags() == State.Flags.COMMITTED) {
           return Response.forRequest(request).duplicate(newState.getSequentialId());
         }
         return Response.forRequest(request).committed();

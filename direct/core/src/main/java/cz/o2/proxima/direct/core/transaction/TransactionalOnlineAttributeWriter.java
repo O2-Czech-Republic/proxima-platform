@@ -259,6 +259,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     private CompletableFuture<Collection<StreamElement>> runTransforms(
         List<StreamElement> outputs) {
+
       if (state != State.Flags.OPEN) {
         return CompletableFuture.failedFuture(
             new TransactionRejectedException(
@@ -278,7 +279,10 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         runningUpdates.clear();
       }
       if (state != State.Flags.OPEN) {
-        return CompletableFuture.completedFuture(Response.empty().aborted());
+        if (state != State.Flags.COMMITTED) {
+          return CompletableFuture.completedFuture(Response.empty().aborted());
+        }
+        return CompletableFuture.completedFuture(Response.empty().duplicate(sequenceId));
       }
       log.debug("Sending commit request for transformed elements {}", transformed);
       return manager.commit(transactionId, transformed);

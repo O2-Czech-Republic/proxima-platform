@@ -802,8 +802,8 @@ public class TransactionLogObserverTest {
     responseQueue.take();
     clientManager.rollback(transactionId).thenAccept(responseQueue::add);
     response = responseQueue.take();
-    // once committed the transaction must stay committed
-    assertEquals(Response.Flags.COMMITTED, response.getFlags());
+    // once committed the transaction must stay committed, but return as duplicate
+    assertEquals(Response.Flags.DUPLICATE, response.getFlags());
   }
 
   @Test(timeout = 10000)

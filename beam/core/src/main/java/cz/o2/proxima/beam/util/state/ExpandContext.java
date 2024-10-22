@@ -380,8 +380,9 @@ class ExpandContext {
     return new PTransform<>() {
       @Override
       public PCollectionTuple expand(PCollection<InputT> input) {
+        Coder<InputT> inputCoder = input.getCoder();
         @SuppressWarnings("unchecked")
-        KvCoder<K, V> coder = (KvCoder<K, V>) input.getCoder();
+        KvCoder<K, V> coder = (KvCoder<K, V>) inputCoder;
         Coder<K> keyCoder = coder.getKeyCoder();
         Coder<V> valueCoder = coder.getValueCoder();
         TypeDescriptor<StateOrInput<V>> valueDescriptor =
@@ -413,7 +414,7 @@ class ExpandContext {
         PCollectionTuple tuple =
             flattened.apply(
                 "expanded",
-                ParDo.of(transformedDoFn(doFn, (KvCoder<K, V>) input.getCoder(), mainOutputTag))
+                ParDo.of(transformedDoFn(doFn, (KvCoder<K, V>) inputCoder, mainOutputTag))
                     .withOutputTags(mainOutputTag, otherOutputs.and(STATE_TUPLE_TAG)));
         PCollectionTuple res = PCollectionTuple.empty(input.getPipeline());
         for (Entry<TupleTag<Object>, PCollection<Object>> e :
@@ -946,7 +947,7 @@ class ExpandContext {
       boolean isNextScheduled =
           nextFlush != null && nextFlush.isBefore(BoundedWindow.TIMESTAMP_MAX_VALUE);
       if (isNextScheduled) {
-        flushTimer.set(nextFlush);
+        flushTimer.withOutputTimestamp(nextFlush).set(nextFlush);
         nextFlushState.write(nextFlush);
       }
       @SuppressWarnings("unchecked")

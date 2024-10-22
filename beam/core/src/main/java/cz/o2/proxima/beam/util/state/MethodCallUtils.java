@@ -331,16 +331,18 @@ class MethodCallUtils {
                 Pair.of(
                     p.getSecond().value(),
                     createUpdater(
+                        p.getSecond().value(),
                         ((StateSpec<?>)
                             ExceptionUtils.uncheckedFactory(() -> p.getFirst().get(doFn))))))
         .filter(p -> p.getSecond() != null)
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
 
-  @SuppressWarnings("unchecked")
-  private static @Nullable BiConsumer<Object, StateValue> createUpdater(StateSpec<?> stateSpec) {
+  private static @Nullable BiConsumer<Object, StateValue> createUpdater(
+      String name, StateSpec<?> stateSpec) {
+
     AtomicReference<BiConsumer<Object, StateValue>> consumer = new AtomicReference<>();
-    stateSpec.bind("dummy", createUpdaterBinder(consumer));
+    stateSpec.bind(name, createUpdaterBinder(consumer));
     return consumer.get();
   }
 
@@ -363,6 +365,7 @@ class MethodCallUtils {
                 Pair.of(
                     p.getSecond().value(),
                     createReader(
+                        p.getSecond().value(),
                         ((StateSpec<?>)
                             ExceptionUtils.uncheckedFactory(() -> p.getFirst().get(doFn))))))
         .filter(p -> p.getSecond() != null)
@@ -372,9 +375,10 @@ class MethodCallUtils {
 
   @SuppressWarnings("unchecked")
   private static @Nullable BiFunction<Object, byte[], Iterable<StateValue>> createReader(
-      StateSpec<?> stateSpec) {
+      String name, StateSpec<?> stateSpec) {
+
     AtomicReference<BiFunction<Object, byte[], Iterable<StateValue>>> res = new AtomicReference<>();
-    stateSpec.bind("dummy", createStateReaderBinder(res));
+    stateSpec.bind(name, createStateReaderBinder(res));
     return res.get();
   }
 

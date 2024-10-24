@@ -224,6 +224,7 @@ public class ExternalStateExpanderTest {
         (int)
             CoderUtils.decodeFromByteArray(
                 VarIntCoder.of(), second.getValue().getValue().getKey()));
+    assertEquals("sum", second.getValue().getValue().getName());
   }
 
   @Test

@@ -220,9 +220,7 @@ public class TransactionalOnlineAttributeWriterTest {
   }
 
   @Test(timeout = 10_000)
-  public void testTransactionCreateUpdateCommitMultipleOutputs()
-      throws InterruptedException, TransactionRejectedException {
-
+  public void testTransactionCreateUpdateCommitMultipleOutputs() throws InterruptedException {
     CachedView view = Optionals.get(direct.getCachedView(status));
     view.assign(view.getPartitions());
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
@@ -348,9 +346,7 @@ public class TransactionalOnlineAttributeWriterTest {
   }
 
   @Test(timeout = 10000)
-  public void testGlobalTransactionWriter()
-      throws InterruptedException, TransactionRejectedException {
-
+  public void testGlobalTransactionWriter() throws InterruptedException {
     TransactionalOnlineAttributeWriter writer = direct.getGlobalTransactionWriter();
     assertTrue(user.isTransactional());
     // we successfully open and commit the transaction

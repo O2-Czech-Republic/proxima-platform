@@ -280,7 +280,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
                         .map(cls -> Pair.of(cls, loader.getClassByteCode(cls.getName())))
                         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)))
             .orElse(Collections.emptyMap());
-    log.info("Building jar from classes {} retrieved from {}", codeMap, loader);
+    log.info("Building jar from classes {} retrieved from {}", codeMap.keySet(), loader);
     return createJarFromDynamicClasses(codeMap);
   }
 

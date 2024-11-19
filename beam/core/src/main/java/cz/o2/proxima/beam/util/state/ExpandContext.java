@@ -999,7 +999,7 @@ class ExpandContext {
               ExceptionUtils.unchecked(() -> processElementMethod.invoke(doFn, processArgs));
             } else {
               // return back to buffer
-              log.debug("Returning element {} to flush buffer", kv);
+              log.debug("Returning element {} to flush buffer, maxTs {}", kv, maxTs);
               pushedBackElements.add(kv);
             }
           });

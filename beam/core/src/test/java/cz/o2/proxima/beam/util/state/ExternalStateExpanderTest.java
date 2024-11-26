@@ -16,7 +16,7 @@
 package cz.o2.proxima.beam.util.state;
 
 import static com.mongodb.internal.connection.tlschannel.util.Util.assertTrue;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -32,6 +32,7 @@ import java.util.UUID;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.Pipeline.PipelineVisitor.Defaults;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
@@ -39,8 +40,13 @@ import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.coders.VarLongCoder;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.runners.TransformHierarchy;
 import org.apache.beam.sdk.state.StateSpec;
 import org.apache.beam.sdk.state.StateSpecs;
+import org.apache.beam.sdk.state.TimeDomain;
+import org.apache.beam.sdk.state.Timer;
+import org.apache.beam.sdk.state.TimerSpec;
+import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestStream;
@@ -49,8 +55,10 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.ParDo.MultiOutput;
 import org.apache.beam.sdk.transforms.Reify;
 import org.apache.beam.sdk.transforms.WithKeys;
+import org.apache.beam.sdk.transforms.reflect.DoFnSignatures;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.util.CoderUtils;
 import org.apache.beam.sdk.values.KV;
@@ -88,6 +96,33 @@ public class ExternalStateExpanderTest {
                 .withKeyType(TypeDescriptors.integers()));
     PCollection<Long> count = withKeys.apply(ParDo.of(getSumFn()));
     PAssert.that(count).containsInAnyOrder(2L, 4L);
+    Pipeline expanded =
+        ExternalStateExpander.expand(
+            pipeline,
+            Create.empty(KvCoder.of(StringUtf8Coder.of(), StateValue.coder())),
+            new Instant(0),
+            ign -> BoundedWindow.TIMESTAMP_MAX_VALUE,
+            dummy());
+    expanded.run();
+  }
+
+  @Test
+  public void testWithTimer() throws IOException {
+    Pipeline pipeline = createPipeline();
+    PCollection<String> inputs =
+        pipeline.apply(
+            Create.timestamped(
+                TimestampedValue.of("1", new Instant(1)),
+                TimestampedValue.of("2", new Instant(1))));
+    PCollection<KV<Integer, String>> withKeys =
+        inputs.apply(
+            WithKeys.<Integer, String>of(e -> Integer.parseInt(e) % 2)
+                .withKeyType(TypeDescriptors.integers()));
+    PCollection<Long> count = withKeys.apply(ParDo.of(getTimerFn()));
+    PAssert.that(count)
+        .containsInAnyOrder(
+            BoundedWindow.TIMESTAMP_MAX_VALUE.getMillis(),
+            BoundedWindow.TIMESTAMP_MAX_VALUE.getMillis());
     Pipeline expanded =
         ExternalStateExpander.expand(
             pipeline,
@@ -260,6 +295,20 @@ public class ExternalStateExpanderTest {
         (long)
             CoderUtils.decodeFromByteArray(
                 VarLongCoder.of(), first.getValue().getValue().getValue()));
+
+    // check that we did expand
+    expanded.traverseTopologically(
+        new Defaults() {
+          @Override
+          public void visitPrimitiveTransform(TransformHierarchy.Node node) {
+            if (node.getTransform() instanceof ParDo.MultiOutput) {
+              ParDo.MultiOutput<?, ?> transform = (MultiOutput<?, ?>) node.getTransform();
+              assertTrue(
+                  !DoFnSignatures.isStateful(transform.getFn())
+                      || transform.getFn().getClass().getName().contains("$Expanded"));
+            }
+          }
+        });
   }
 
   @Test
@@ -270,6 +319,48 @@ public class ExternalStateExpanderTest {
   @Test
   public void testBufferedTimestampInjectToMultiOutput() throws IOException {
     testTimestampInject(true);
+  }
+
+  @Test
+  public void testExpansionExclusion() throws IOException {
+    Pipeline pipeline = createPipeline();
+    PCollection<String> input = pipeline.apply(Create.of("1", "2", "3"));
+    input
+        .apply(WithKeys.of(1))
+        .apply(
+            "process",
+            ParDo.of(
+                new DoFn<KV<Integer, String>, Long>() {
+                  @TimerId("timer")
+                  private final TimerSpec timer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+
+                  @ExcludeExternal
+                  @ProcessElement
+                  public void process(@Element KV<Integer, String> in) {}
+
+                  @OnTimer("timer")
+                  public void timer(@TimerId("timer") Timer timer) {}
+                }));
+    Instant now = Instant.now();
+    Pipeline expanded =
+        ExternalStateExpander.expand(
+            pipeline,
+            Create.empty(KvCoder.of(StringUtf8Coder.of(), StateValue.coder())),
+            now,
+            current -> BoundedWindow.TIMESTAMP_MAX_VALUE,
+            dummy());
+
+    // check that we didn't expand
+    expanded.traverseTopologically(
+        new Defaults() {
+          @Override
+          public void visitPrimitiveTransform(TransformHierarchy.Node node) {
+            if (node.getTransform() instanceof ParDo.MultiOutput) {
+              ParDo.MultiOutput<?, ?> transform = (MultiOutput<?, ?>) node.getTransform();
+              assertFalse(transform.getFn().getClass().getName().contains("$Expanded"));
+            }
+          }
+        });
   }
 
   private void testTimestampInject(boolean multiOutput) throws IOException {
@@ -427,6 +518,26 @@ public class ExternalStateExpanderTest {
         input.apply(MapElements.into(TypeDescriptors.voids()).via(a -> null));
         return PDone.in(input.getPipeline());
       }
+    };
+  }
+
+  private static DoFn<KV<Integer, String>, Long> getTimerFn() {
+    return new DoFn<KV<Integer, String>, Long>() {
+      @TimerId("timer")
+      private final TimerSpec timerSpec = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+
+      @RequiresStableInput
+      @ProcessElement
+      public void process(
+          @Element KV<String, String> elem,
+          @TimerId("timer") Timer timer,
+          OutputReceiver<Long> output) {
+
+        output.output(timer.getCurrentRelativeTime().getMillis());
+      }
+
+      @OnTimer("timer")
+      public void timer(@TimerId("timer") Timer timer, OutputReceiver<Long> output) {}
     };
   }
 }

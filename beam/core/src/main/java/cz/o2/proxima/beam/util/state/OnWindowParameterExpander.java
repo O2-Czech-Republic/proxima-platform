@@ -18,18 +18,17 @@ package cz.o2.proxima.beam.util.state;
 import static cz.o2.proxima.beam.util.state.ExpandContext.bagStateFromInputType;
 import static cz.o2.proxima.beam.util.state.MethodCallUtils.*;
 
+import com.google.common.collect.Streams;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
-import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -75,7 +74,10 @@ interface OnWindowParameterExpander extends Serializable {
       LinkedHashMap<TypeId, Pair<Annotation, Type>> processArgs,
       LinkedHashMap<TypeId, Pair<Annotation, Type>> onWindowArgs) {
 
-    Set<TypeId> union = new HashSet<>(Sets.union(processArgs.keySet(), onWindowArgs.keySet()));
+    Set<TypeId> union =
+        Streams.concat(processArgs.keySet().stream(), onWindowArgs.keySet().stream())
+            .filter(t -> !t.isTimer())
+            .collect(Collectors.toSet());
     // @Element is not supported by @OnWindowExpiration
     union.remove(TypeId.of(AnnotationDescription.Builder.ofType(DoFn.Element.class).build()));
     return union.stream()

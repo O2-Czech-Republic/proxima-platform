@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.beam.util;
 
+import com.google.common.base.Strings;
+import cz.o2.proxima.beam.core.ProximaPipelineOptions;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import java.io.ByteArrayInputStream;
@@ -26,6 +28,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -87,11 +90,18 @@ public class RunnerUtils {
    * @param classes map of class to bytecode
    * @return generated {@link File}
    */
-  public static File createJarFromDynamicClasses(Map<? extends Class<?>, byte[]> classes)
-      throws IOException {
-    Path tempFile = Files.createTempFile("proxima-beam-dynamic", ".jar");
+  public static File createJarFromDynamicClasses(
+      ProximaPipelineOptions opts, Map<? extends Class<?>, byte[]> classes) throws IOException {
+
+    final Path tempFile =
+        Strings.isNullOrEmpty(opts.getUdfJarDirPath())
+            ? Files.createTempFile("proxima-beam-dynamic", ".jar")
+            : Files.createTempFile(
+                Paths.get(opts.getUdfJarDirPath()), "proxima-beam-dynamic", ".jar");
     File out = tempFile.toFile();
-    out.deleteOnExit();
+    if (!opts.getPreserveUDFJar()) {
+      out.deleteOnExit();
+    }
     try (JarOutputStream output = new JarOutputStream(new FileOutputStream(out))) {
       long now = System.currentTimeMillis();
       for (Map.Entry<? extends Class<?>, byte[]> e : classes.entrySet()) {

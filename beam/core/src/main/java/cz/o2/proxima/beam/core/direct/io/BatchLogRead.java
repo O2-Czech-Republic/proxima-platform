@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.beam.core.direct.io;
 
-import com.google.auto.service.AutoService;
+import cz.o2.proxima.beam.core.ProximaPipelineOptions;
 import cz.o2.proxima.beam.core.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -42,9 +42,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.InstantCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
-import org.apache.beam.sdk.options.Default;
-import org.apache.beam.sdk.options.PipelineOptions;
-import org.apache.beam.sdk.options.PipelineOptionsRegistrar;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.DoFn.BoundedPerElement;
 import org.apache.beam.sdk.transforms.Impulse;
@@ -63,21 +60,6 @@ import org.joda.time.Instant;
 /** A {@link PTransform} that reads from a {@link BatchLogReader} using splittable DoFn. */
 @Slf4j
 public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>> {
-
-  public interface BatchLogReadPipelineOptions extends PipelineOptions {
-    @Default.Long(0L)
-    long getStartBatchReadDelayMs();
-
-    void setStartBatchReadDelayMs(long readDelayMs);
-  }
-
-  @AutoService(PipelineOptionsRegistrar.class)
-  public static class BatchLogReadOptionsFactory implements PipelineOptionsRegistrar {
-    @Override
-    public Iterable<Class<? extends PipelineOptions>> getPipelineOptions() {
-      return Collections.singletonList(BatchLogReadPipelineOptions.class);
-    }
-  }
 
   /**
    * Create the {@link BatchLogRead} transform that reads from {@link BatchLogReader} in batch
@@ -351,7 +333,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         input
             .getPipeline()
             .getOptions()
-            .as(BatchLogReadPipelineOptions.class)
+            .as(ProximaPipelineOptions.class)
             .getStartBatchReadDelayMs();
     return input
         .apply(Impulse.create())

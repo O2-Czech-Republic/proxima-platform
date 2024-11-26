@@ -74,6 +74,7 @@ import org.apache.beam.sdk.state.OrderedListState;
 import org.apache.beam.sdk.state.SetState;
 import org.apache.beam.sdk.state.StateBinder;
 import org.apache.beam.sdk.state.StateSpec;
+import org.apache.beam.sdk.state.Timer;
 import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.state.WatermarkHoldState;
 import org.apache.beam.sdk.transforms.Combine.CombineFn;
@@ -89,6 +90,7 @@ import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TupleTag;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.joda.time.Duration;
 import org.joda.time.Instant;
 
 @Slf4j
@@ -204,11 +206,58 @@ class MethodCallUtils {
         res.add(
             (args, elem) -> singleOutput((MultiOutputReceiver) args[wrapperPos], elem, mainTag));
       }
+    } else if (typeId.isTimer()) {
+      res.add((args, elem) -> asTimer(elem));
     } else {
       throw new IllegalStateException(
           String.format(
               "Missing argument %s in wrapper. Available options are %s", typeId, wrapperIds));
     }
+  }
+
+  private static Timer asTimer(TimestampedValue<KV<?, ?>> elem) {
+    return new Timer() {
+
+      @Override
+      public void set(Instant absoluteTime) {
+        // nop
+      }
+
+      @Override
+      public void setRelative() {
+        // nop
+      }
+
+      @Override
+      public void clear() {
+        // nop
+      }
+
+      @Override
+      public Timer offset(Duration offset) {
+        return this;
+      }
+
+      @Override
+      public Timer align(Duration period) {
+        return this;
+      }
+
+      @Override
+      public Timer withOutputTimestamp(Instant outputTime) {
+        return this;
+      }
+
+      @Override
+      public Timer withNoOutputTimestamp() {
+        return this;
+      }
+
+      @Override
+      public Instant getCurrentRelativeTime() {
+        return elem.getTimestamp();
+      }
+    };
   }
 
   private static DoFn.MultiOutputReceiver remapTimestampIfNeeded(

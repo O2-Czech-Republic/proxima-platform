@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.core.direct.io;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 
+import cz.o2.proxima.beam.core.ProximaPipelineOptions;
 import cz.o2.proxima.beam.core.direct.io.BatchLogRead.BatchLogReadFn;
 import cz.o2.proxima.beam.core.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -119,7 +120,7 @@ public class BatchLogReadTest {
     List<StreamElement> input = createInput(numElements);
     ListBatchReader reader = ListBatchReader.of(direct.getContext(), input);
     PipelineOptions opts = PipelineOptionsFactory.create();
-    opts.as(BatchLogRead.BatchLogReadPipelineOptions.class).setStartBatchReadDelayMs(1000L);
+    opts.as(ProximaPipelineOptions.class).setStartBatchReadDelayMs(1000L);
     Pipeline p = createPipeline(opts);
     testReadingFromBatchLogMany(
         p,

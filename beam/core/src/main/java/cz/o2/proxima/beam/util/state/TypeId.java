@@ -113,4 +113,8 @@ class TypeId implements Serializable {
   public boolean isMultiOutput() {
     return equals(MULTI_OUTPUT_TYPE);
   }
+
+  public boolean isTimer() {
+    return stringId.contains(DoFn.TimerId.class.getName());
+  }
 }

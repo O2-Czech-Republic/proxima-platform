@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.util.state;
 
+import cz.o2.proxima.beam.core.ProximaPipelineOptions;
 import cz.o2.proxima.beam.util.RunnerUtils;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import java.io.File;
@@ -52,7 +53,8 @@ public class ExternalStateExpander {
     ExpandContext context =
         new ExpandContext(inputs, stateWriteInstant, nextFlushInstantFn, stateSink);
     Pipeline expanded = context.expand(pipeline);
-    File dynamicJar = RunnerUtils.createJarFromDynamicClasses(context.getGeneratedClasses());
+    ProximaPipelineOptions opts = expanded.getOptions().as(ProximaPipelineOptions.class);
+    File dynamicJar = RunnerUtils.createJarFromDynamicClasses(opts, context.getGeneratedClasses());
     RunnerUtils.registerToPipeline(
         expanded.getOptions(),
         expanded.getOptions().getRunner().getSimpleName(),

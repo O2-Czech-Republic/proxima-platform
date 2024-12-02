@@ -22,6 +22,7 @@ import static cz.o2.proxima.beam.util.RunnerUtils.registerToPipeline;
 import com.google.api.client.util.Lists;
 import com.google.auto.service.AutoService;
 import cz.o2.proxima.beam.core.BeamDataOperator;
+import cz.o2.proxima.beam.core.ProximaPipelineOptions;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -251,7 +252,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
   void createUdfJarAndRegisterToPipeline(PipelineOptions opts) {
     String runnerName = opts.getRunner().getSimpleName();
     try {
-      File path = createJarFromUdfs();
+      File path = createJarFromUdfs(opts.as(ProximaPipelineOptions.class));
       if (path != null) {
         log.info("Created jar {} with generated classes.", path);
         List<File> files = new ArrayList<>(Collections.singletonList(path));
@@ -269,7 +270,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
         .orElse(Collections.emptySet());
   }
 
-  private @Nullable File createJarFromUdfs() throws IOException {
+  private @Nullable File createJarFromUdfs(ProximaPipelineOptions opts) throws IOException {
     ToolsClassLoader loader = getToolsClassLoader();
     Map<? extends Class<?>, byte[]> codeMap =
         Optional.ofNullable(loader)
@@ -281,7 +282,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
                         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)))
             .orElse(Collections.emptyMap());
     log.info("Building jar from classes {} retrieved from {}", codeMap.keySet(), loader);
-    return createJarFromDynamicClasses(codeMap);
+    return createJarFromDynamicClasses(opts, codeMap);
   }
 
   private @Nullable ToolsClassLoader getToolsClassLoader() {

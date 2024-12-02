@@ -19,6 +19,7 @@ import static cz.o2.proxima.beam.util.state.MethodCallUtils.getStateReaders;
 import static cz.o2.proxima.beam.util.state.MethodCallUtils.getWrapperInputType;
 
 import cz.o2.proxima.beam.util.state.MethodCallUtils.VoidMethodInvoker;
+import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.util.ExceptionUtils;
@@ -96,6 +97,7 @@ import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.ParDo.MultiOutput;
 import org.apache.beam.sdk.transforms.WithKeys;
 import org.apache.beam.sdk.transforms.reflect.DoFnSignatures;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
@@ -122,7 +124,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.joda.time.Instant;
 
 @Slf4j
-class ExpandContext {
+@Internal
+public class ExpandContext {
 
   static final String EXPANDER_BUF_STATE_SPEC = "expanderBufStateSpec";
   static final String EXPANDER_BUF_STATE_NAME = "_expanderBuf";
@@ -140,7 +143,7 @@ class ExpandContext {
   private static class StateTupleTag extends TupleTag<StateValue> {}
 
   @Getter
-  class DoFnExpandContext<K, V> {
+  public class DoFnExpandContext<K, V> {
 
     private final DoFn<KV<K, V>, ?> doFn;
     private final TupleTag<Object> mainTag;
@@ -163,6 +166,10 @@ class ExpandContext {
     private final FlushTimerInterceptor<K, V> flushTimerInterceptor;
     private final OnWindowExpirationInterceptor<K, V> onWindowExpirationInterceptor;
     private final ProcessElementInterceptor<K, V> processElementInterceptor;
+
+    private final StateSpec<BagState<TimestampedValue<KV<K, V>>>> bufState;
+    private final StateSpec<ValueState<Instant>> flushState = StateSpecs.value();
+    private final TimerSpec flushTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
 
     @SuppressWarnings("unchecked")
     DoFnExpandContext(DoFn<KV<K, V>, ?> doFn, KvCoder<K, V> inputCoder, TupleTag<Object> mainTag)
@@ -224,6 +231,7 @@ class ExpandContext {
               processElementInvoker, onWindowInvoker, onWindowExpander);
       this.processElementInterceptor =
           new ProcessElementInterceptor<>(processElementExpander, processElementInvoker);
+      this.bufState = StateSpecs.bag(TimestampedValueCoder.of(inputCoder));
     }
   }
 
@@ -318,8 +326,25 @@ class ExpandContext {
       PCollection<KV<String, StateValue>> inputs) {
 
     return PTransformOverride.of(
-        application -> application.getTransform() instanceof ParDo.MultiOutput,
+        application -> {
+          if (application.getTransform() instanceof ParDo.MultiOutput) {
+            ParDo.MultiOutput<?, ?> transform = (MultiOutput<?, ?>) application.getTransform();
+            if (DoFnSignatures.isStateful(transform.getFn())) {
+              return shouldExpand(transform.getFn().getClass());
+            }
+          }
+          return false;
+        },
         parMultiDoReplacementFactory(inputs));
+  }
+
+  private boolean shouldExpand(Class<? extends DoFn> cls) {
+    if (Arrays.stream(cls.getDeclaredMethods())
+        .filter(m -> m.getAnnotation(DoFn.ProcessElement.class) != null)
+        .anyMatch(m -> m.getAnnotation(ExcludeExternal.class) != null)) {
+      return false;
+    }
+    return cls.getAnnotation(ExcludeExternal.class) == null;
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -348,9 +373,6 @@ class ExpandContext {
         (ParDo.MultiOutput<?, ?>) (PTransform) transform.getTransform();
     DoFn<KV<?, ?>, ?> doFn = (DoFn) rawTransform.getFn();
     PInput pMainInput = getMainInput(transform);
-    if (!DoFnSignatures.isStateful(doFn)) {
-      return PTransformReplacement.of(pMainInput, (PTransform) transform.getTransform());
-    }
     String transformName = asStableTransformName(transform.getFullName());
     PCollection<StateValue> transformInputs =
         inputs
@@ -459,27 +481,13 @@ class ExpandContext {
     builder =
         builder
             .defineConstructor(Visibility.PUBLIC)
-            .withParameters(
-                doFnClass,
-                context.getFlushTimerInterceptor().getClass(),
-                context.getOnWindowExpirationInterceptor().getClass(),
-                context.getProcessElementInterceptor().getClass())
+            .withParameters(doFnClass, context.getClass())
             .intercept(
                 addStateAndTimerValues(
                     doFn,
-                    inputCoder,
                     MethodCall.invoke(
                             ExceptionUtils.uncheckedFactory(() -> DoFn.class.getConstructor()))
-                        .andThen(FieldAccessor.ofField(DELEGATE_FIELD_NAME).setsArgumentAt(0))
-                        .andThen(
-                            FieldAccessor.ofField(FLUSH_TIMER_INTERCEPTOR_FIELD_NAME)
-                                .setsArgumentAt(1))
-                        .andThen(
-                            FieldAccessor.ofField(ON_WINDOW_INTERCEPTOR_FIELD_NAME)
-                                .setsArgumentAt(2))
-                        .andThen(
-                            FieldAccessor.ofField(PROCESS_ELEMENT_INTERCEPTOR_FIELD_NAME)
-                                .setsArgumentAt(3))));
+                        .andThen(FieldAccessor.ofField(DELEGATE_FIELD_NAME).setsArgumentAt(0))));
 
     builder = addProcessingMethods(context, builder);
     builder = implementDoFnProvider(builder);
@@ -504,19 +512,10 @@ class ExpandContext {
 
     try {
       Constructor<? extends DoFn<InputT, ?>> ctor =
-          cls.getDeclaredConstructor(
-              context.getDoFnClass(),
-              context.getFlushTimerInterceptor().getClass(),
-              context.getOnWindowExpirationInterceptor().getClass(),
-              context.getProcessElementInterceptor().getClass());
+          cls.getDeclaredConstructor(context.getDoFnClass(), context.getClass());
       @SuppressWarnings("unchecked")
       DoFn<InputT, Object> instance =
-          (DoFn<InputT, Object>)
-              ctor.newInstance(
-                  context.getDoFn(),
-                  context.getFlushTimerInterceptor(),
-                  context.getOnWindowExpirationInterceptor(),
-                  context.getProcessElementInterceptor());
+          (DoFn<InputT, Object>) ctor.newInstance(context.getDoFn(), context);
       return instance;
     } catch (Exception ex) {
       throw new IllegalStateException(String.format("Cannot instantiate class %s", cls), ex);
@@ -549,30 +548,50 @@ class ExpandContext {
   }
 
   private static <K, V, InputT extends KV<K, V>, OutputT> Implementation addStateAndTimerValues(
-      DoFn<InputT, OutputT> doFn, Coder<? extends KV<K, V>> inputCoder, Composable delegate) {
+      DoFn<InputT, OutputT> doFn, Composable delegate) {
 
     List<Class<? extends Annotation>> acceptable = Arrays.asList(StateId.class, TimerId.class);
     @SuppressWarnings("unchecked")
     Class<? extends DoFn<InputT, OutputT>> doFnClass =
         (Class<? extends DoFn<InputT, OutputT>>) doFn.getClass();
-    for (Field f : doFnClass.getDeclaredFields()) {
-      if (!Modifier.isStatic(f.getModifiers())
-          && acceptable.stream().anyMatch(a -> f.getAnnotation(a) != null)) {
-        f.setAccessible(true);
-        Object value = ExceptionUtils.uncheckedFactory(() -> f.get(doFn));
-        delegate = delegate.andThen(FieldAccessor.ofField(f.getName()).setsValue(value));
-      }
+    try {
+      return delegate
+          .andThen(
+              MethodCall.invoke(
+                      DoFnExpandContext.class.getDeclaredMethod("getFlushTimerInterceptor"))
+                  .onArgument(1)
+                  .setsField(m -> m.getName().equals(FLUSH_TIMER_INTERCEPTOR_FIELD_NAME)))
+          .andThen(
+              MethodCall.invoke(
+                      DoFnExpandContext.class.getDeclaredMethod("getOnWindowExpirationInterceptor"))
+                  .onArgument(1)
+                  .setsField(m -> m.getName().equals(ON_WINDOW_INTERCEPTOR_FIELD_NAME)))
+          .andThen(
+              MethodCall.invoke(
+                      DoFnExpandContext.class.getDeclaredMethod("getProcessElementInterceptor"))
+                  .onArgument(1)
+                  .setsField(m -> m.getName().equals(PROCESS_ELEMENT_INTERCEPTOR_FIELD_NAME)))
+          .andThen(
+              MethodCall.invoke(DoFnExpandContext.class.getDeclaredMethod("getBufState"))
+                  .onArgument(1)
+                  .setsField(m -> m.getName().equals(EXPANDER_BUF_STATE_SPEC)))
+          .andThen(
+              MethodCall.invoke(DoFnExpandContext.class.getDeclaredMethod("getFlushState"))
+                  .onArgument(1)
+                  .setsField(m -> m.getName().equals(EXPANDER_FLUSH_STATE_SPEC)))
+          .andThen(
+              MethodCall.invoke(DoFnExpandContext.class.getDeclaredMethod("getFlushTimer"))
+                  .onArgument(1)
+                  .setsField(m -> m.getName().equals(EXPANDER_TIMER_SPEC)))
+          .andThen(
+              new FieldExtractor(
+                  doFnClass,
+                  f ->
+                      !Modifier.isStatic(f.getModifiers())
+                          && acceptable.stream().anyMatch(a -> f.getAnnotation(a) != null)));
+    } catch (Exception ex) {
+      throw new IllegalStateException(ex);
     }
-    delegate =
-        delegate
-            .andThen(
-                FieldAccessor.ofField(EXPANDER_BUF_STATE_SPEC)
-                    .setsValue(StateSpecs.bag(TimestampedValueCoder.of(inputCoder))))
-            .andThen(FieldAccessor.ofField(EXPANDER_FLUSH_STATE_SPEC).setsValue(StateSpecs.value()))
-            .andThen(
-                FieldAccessor.ofField(EXPANDER_TIMER_SPEC)
-                    .setsValue(TimerSpecs.timer(TimeDomain.EVENT_TIME)));
-    return delegate;
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -719,8 +738,10 @@ class ExpandContext {
           methodDefinition = methodDefinition.annotateParameter(i, paramAnnotation);
         }
       }
-      return methodDefinition.annotateMethod(
-          AnnotationDescription.Builder.ofType(annotation).build());
+      for (Annotation a : method.getDeclaredAnnotations()) {
+        methodDefinition = methodDefinition.annotateMethod(a);
+      }
+      return methodDefinition;
     }
     return builder;
   }

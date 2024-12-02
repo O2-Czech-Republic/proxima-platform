@@ -40,6 +40,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TupleTag;
+import org.apache.flink.shaded.curator5.com.google.common.collect.Streams;
 import org.joda.time.Instant;
 
 interface FlushTimerParameterExpander extends Serializable {
@@ -59,23 +60,12 @@ interface FlushTimerParameterExpander extends Serializable {
       createWrapperArgs(DoFn<?, ?> doFn, ParameterizedType inputType) {
 
     List<Pair<Annotation, Type>> states =
-        Arrays.stream(doFn.getClass().getDeclaredFields())
-            .filter(f -> f.getAnnotation(DoFn.StateId.class) != null)
-            .map(
-                f -> {
-                  Preconditions.checkArgument(
-                      f.getGenericType() instanceof ParameterizedType,
-                      "Field %s has invalid type %s",
-                      f.getName(),
-                      f.getGenericType());
-                  return Pair.of(
-                      (Annotation) f.getAnnotation(DoFn.StateId.class),
-                      ((ParameterizedType) f.getGenericType()).getActualTypeArguments()[0]);
-                })
-            .collect(Collectors.toList());
+        collectFieldsWithAnnotation(doFn, DoFn.StateId.class, true);
+    List<Pair<Annotation, Type>> timers =
+        collectFieldsWithAnnotation(doFn, DoFn.TimerId.class, false);
 
     List<Pair<AnnotationDescription, TypeDefinition>> types =
-        states.stream()
+        Streams.concat(states.stream(), timers.stream())
             .map(
                 p ->
                     Pair.of(
@@ -120,6 +110,28 @@ interface FlushTimerParameterExpander extends Serializable {
           res.put(id, p);
         });
     return res;
+  }
+
+  private static <A extends Annotation> List<Pair<Annotation, Type>> collectFieldsWithAnnotation(
+      DoFn<?, ?> doFn, Class<A> annotation, boolean isState) {
+
+    return Arrays.stream(doFn.getClass().getDeclaredFields())
+        .filter(f -> f.getAnnotation(annotation) != null)
+        .map(
+            f -> {
+              if (isState) {
+                Preconditions.checkArgument(
+                    f.getGenericType() instanceof ParameterizedType,
+                    "Field %s has invalid type %s",
+                    f.getName(),
+                    f.getGenericType());
+                return Pair.of(
+                    (Annotation) f.getAnnotation(annotation),
+                    ((ParameterizedType) f.getGenericType()).getActualTypeArguments()[0]);
+              }
+              return Pair.of((Annotation) f.getAnnotation(annotation), (Type) Timer.class);
+            })
+        .collect(Collectors.toList());
   }
 
   /**

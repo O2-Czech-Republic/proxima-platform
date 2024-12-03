@@ -166,8 +166,7 @@ public class TransactionResourceManager
 
     @Getter final String transactionId;
     long touched = System.currentTimeMillis();
-    final Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> attributeToFamily =
-        new HashMap<>();
+    final Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> attributeToFamily;
     final Map<String, CompletableFuture<Response>> requestFutures = new ConcurrentHashMap<>();
     @Nullable OnlineAttributeWriter requestWriter;
     @Nullable OnlineAttributeWriter commitWriter;
@@ -176,11 +175,11 @@ public class TransactionResourceManager
 
     CachedTransaction(String transactionId, Collection<KeyAttribute> attributes) {
       this.transactionId = transactionId;
-      this.attributeToFamily.putAll(
+      this.attributeToFamily =
           findFamilyForTransactionalAttribute(
               attributes.stream()
                   .map(KeyAttribute::getAttributeDescriptor)
-                  .collect(Collectors.toList())));
+                  .collect(Collectors.toList()));
     }
 
     CompletableFuture<Response> open(List<KeyAttribute> inputAttrs) {
@@ -242,11 +241,16 @@ public class TransactionResourceManager
 
     private CompletableFuture<?> sendRequest(Request request, String requestId) {
       Pair<List<Integer>, OnlineAttributeWriter> writerWithAssignedPartitions = getRequestWriter();
-      Preconditions.checkState(
-          !writerWithAssignedPartitions.getFirst().isEmpty(),
-          "Received empty partitions to observe for responses to transactional "
-              + "requests. Please see if you have enough partitions and if your clients can correctly "
-              + "resolve hostnames");
+      if (writerWithAssignedPartitions.getFirst().isEmpty()) {
+        IllegalStateException ex =
+            new IllegalStateException(
+                "Received empty partitions to observe for responses to transactional "
+                    + "requests. Please see if you have enough partitions and if your clients can correctly "
+                    + "resolve hostnames.");
+        log.error("Failed to open transaction. Clearing cache.", ex);
+        closeClientResponseFamily();
+        throw ex;
+      }
       CompletableFuture<?> res = new CompletableFuture<>();
       writerWithAssignedPartitions
           .getSecond()
@@ -286,6 +290,12 @@ public class TransactionResourceManager
       return Pair.of(
           Objects.requireNonNull(clientObservedFamilies.get(responseFamily).getPartitions()),
           requestWriter);
+    }
+
+    void closeClientResponseFamily() {
+      DirectAttributeFamilyDescriptor responseFamily = attributeToFamily.get(responseDesc);
+      Optional.ofNullable(clientObservedFamilies.remove(responseFamily))
+          .ifPresent(h -> h.getObserveHandle().close());
     }
 
     public DirectAttributeFamilyDescriptor getResponseFamily() {

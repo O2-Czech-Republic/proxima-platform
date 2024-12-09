@@ -209,6 +209,14 @@ interface ProcessElementParameterExpander extends Serializable {
         // set the initial timer
         flushTimer.set(stateWriteInstant);
       }
+      if (stateWriteInstant.isAfter(ts)) {
+        log.debug(
+            "Dropping element {} with {}, which precedes stateWriteInstant {}",
+            elem,
+            ts,
+            stateWriteInstant);
+        return false;
+      }
       boolean shouldBuffer =
           nextFlush == null /* we have not finished reading state */
               || nextFlush.isBefore(ts) /* the timestamp if after next flush */;

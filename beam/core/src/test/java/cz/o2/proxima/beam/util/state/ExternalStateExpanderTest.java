@@ -88,8 +88,14 @@ public class ExternalStateExpanderTest {
 
   @Test
   public void testSimpleExpand() throws IOException {
+    Instant now = new Instant(0);
     Pipeline pipeline = createPipeline();
-    PCollection<String> inputs = pipeline.apply(Create.of("1", "2", "3"));
+    PCollection<String> inputs =
+        pipeline.apply(
+            Create.timestamped(
+                TimestampedValue.of("1", now),
+                TimestampedValue.of("2", now),
+                TimestampedValue.of("3", now)));
     PCollection<KV<Integer, String>> withKeys =
         inputs.apply(
             WithKeys.<Integer, String>of(e -> Integer.parseInt(e) % 2)
@@ -100,7 +106,33 @@ public class ExternalStateExpanderTest {
         ExternalStateExpander.expand(
             pipeline,
             Create.empty(KvCoder.of(StringUtf8Coder.of(), StateValue.coder())),
-            new Instant(0),
+            now,
+            ign -> BoundedWindow.TIMESTAMP_MAX_VALUE,
+            dummy());
+    expanded.run();
+  }
+
+  @Test
+  public void testSimpleExpandWithDrop() throws IOException {
+    Instant now = new Instant(0);
+    Pipeline pipeline = createPipeline();
+    PCollection<String> inputs =
+        pipeline.apply(
+            Create.timestamped(
+                TimestampedValue.of("1", now.minus(1)),
+                TimestampedValue.of("2", now.minus(1)),
+                TimestampedValue.of("3", now.minus(1))));
+    PCollection<KV<Integer, String>> withKeys =
+        inputs.apply(
+            WithKeys.<Integer, String>of(e -> Integer.parseInt(e) % 2)
+                .withKeyType(TypeDescriptors.integers()));
+    PCollection<Long> count = withKeys.apply(ParDo.of(getSumFn()));
+    PAssert.that(count).empty();
+    Pipeline expanded =
+        ExternalStateExpander.expand(
+            pipeline,
+            Create.empty(KvCoder.of(StringUtf8Coder.of(), StateValue.coder())),
+            now,
             ign -> BoundedWindow.TIMESTAMP_MAX_VALUE,
             dummy());
     expanded.run();
@@ -136,7 +168,13 @@ public class ExternalStateExpanderTest {
   @Test
   public void testSimpleExpandMultiOutput() throws IOException {
     Pipeline pipeline = createPipeline();
-    PCollection<String> inputs = pipeline.apply(Create.of("1", "2", "3"));
+    Instant now = new Instant(0);
+    PCollection<String> inputs =
+        pipeline.apply(
+            Create.timestamped(
+                TimestampedValue.of("1", now),
+                TimestampedValue.of("2", now),
+                TimestampedValue.of("3", now)));
     PCollection<KV<Integer, String>> withKeys =
         inputs.apply(
             WithKeys.<Integer, String>of(e -> Integer.parseInt(e) % 2)
@@ -151,7 +189,7 @@ public class ExternalStateExpanderTest {
         ExternalStateExpander.expand(
             pipeline,
             Create.empty(KvCoder.of(StringUtf8Coder.of(), StateValue.coder())),
-            new Instant(0),
+            now,
             ign -> BoundedWindow.TIMESTAMP_MAX_VALUE,
             dummy());
     expanded.run();
@@ -170,15 +208,21 @@ public class ExternalStateExpanderTest {
             return withKeys.apply(ParDo.of(getSumFn()));
           }
         };
+    Instant now = new Instant(0);
     Pipeline pipeline = createPipeline();
-    PCollection<String> inputs = pipeline.apply(Create.of("1", "2", "3"));
+    PCollection<String> inputs =
+        pipeline.apply(
+            Create.timestamped(
+                TimestampedValue.of("1", now),
+                TimestampedValue.of("2", now),
+                TimestampedValue.of("3", now)));
     PCollection<Long> count = inputs.apply(transform);
     PAssert.that(count).containsInAnyOrder(2L, 4L);
     Pipeline expanded =
         ExternalStateExpander.expand(
             pipeline,
             Create.empty(KvCoder.of(StringUtf8Coder.of(), StateValue.coder())),
-            new Instant(0),
+            now,
             ign -> BoundedWindow.TIMESTAMP_MAX_VALUE,
             dummy());
     expanded.run();
@@ -186,8 +230,11 @@ public class ExternalStateExpanderTest {
 
   @Test
   public void testSimpleExpandWithInitialState() throws IOException {
+    Instant now = new Instant(0);
     Pipeline pipeline = createPipeline();
-    PCollection<String> inputs = pipeline.apply(Create.of("3", "4"));
+    PCollection<String> inputs =
+        pipeline.apply(
+            Create.timestamped(TimestampedValue.of("3", now), TimestampedValue.of("4", now)));
     PCollection<KV<Integer, String>> withKeys =
         inputs.apply(
             WithKeys.<Integer, String>of(e -> Integer.parseInt(e) % 2)
@@ -213,7 +260,7 @@ public class ExternalStateExpanderTest {
                             "sum",
                             CoderUtils.encodeToByteArray(longCoder, 1L))))
                 .withCoder(KvCoder.of(StringUtf8Coder.of(), StateValue.coder())),
-            new Instant(0),
+            now,
             current -> BoundedWindow.TIMESTAMP_MAX_VALUE,
             dummy());
     expanded.run();

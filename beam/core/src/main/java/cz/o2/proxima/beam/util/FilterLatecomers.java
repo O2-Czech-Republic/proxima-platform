@@ -16,7 +16,6 @@
 package cz.o2.proxima.beam.util;
 
 import cz.o2.proxima.beam.util.state.ExcludeExternal;
-import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.state.TimeDomain;
 import org.apache.beam.sdk.state.Timer;
@@ -50,25 +49,13 @@ public class FilterLatecomers<T> extends PTransform<PCollection<T>, PCollectionT
   }
 
   @SuppressWarnings("unchecked")
-  public static <T> PCollection<T> getOnTime(PCollectionTuple tuple, TypeDescriptor<T> type) {
-    Coder<T> coder = getCoder(tuple, type);
-    return (PCollection<T>)
-        tuple.get(ON_TIME_TAG).setTypeDescriptor((TypeDescriptor) type).setCoder(coder);
+  public static <T> PCollection<T> getOnTime(PCollectionTuple tuple) {
+    return (PCollection<T>) tuple.get(ON_TIME_TAG);
   }
 
   @SuppressWarnings("unchecked")
-  public static <T> PCollection<T> getLate(PCollectionTuple tuple, TypeDescriptor<T> type) {
-    final Coder<T> coder = getCoder(tuple, type);
-    return (PCollection<T>)
-        tuple.get(LATE_TAG).setTypeDescriptor((TypeDescriptor) type).setCoder(coder);
-  }
-
-  private static <T> Coder<T> getCoder(PCollectionTuple tuple, TypeDescriptor<T> type) {
-    try {
-      return tuple.getPipeline().getCoderRegistry().getCoder(type);
-    } catch (CannotProvideCoderException e) {
-      throw new IllegalStateException(e);
-    }
+  public static <T> PCollection<T> getLate(PCollectionTuple tuple) {
+    return (PCollection<T>) tuple.get(LATE_TAG);
   }
 
   @ExcludeExternal
@@ -107,16 +94,21 @@ public class FilterLatecomers<T> extends PTransform<PCollection<T>, PCollectionT
     public void timer() {}
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   @Override
   public PCollectionTuple expand(PCollection<T> input) {
     PCollection<KV<Integer, T>> withKeys =
         input.apply(
             WithKeys.<Integer, T>of(Object::hashCode).withKeyType(TypeDescriptors.integers()));
     TupleTag<T> mainTag = (TupleTag<T>) ON_TIME_TAG;
-    return withKeys.apply(
-        "filter",
-        ParDo.of(new FilterFn<>(input.getTypeDescriptor()))
-            .withOutputTags(mainTag, TupleTagList.of(LATE_TAG)));
+    PCollectionTuple tuple =
+        withKeys.apply(
+            "filter",
+            ParDo.of(new FilterFn<>(input.getTypeDescriptor()))
+                .withOutputTags(mainTag, TupleTagList.of(LATE_TAG)));
+    final Coder<T> coder = input.getCoder();
+    tuple.get(LATE_TAG).setCoder((Coder) coder).setTypeDescriptor(input.getTypeDescriptor());
+    tuple.get(ON_TIME_TAG).setCoder((Coder) coder).setTypeDescriptor(input.getTypeDescriptor());
+    return tuple;
   }
 }

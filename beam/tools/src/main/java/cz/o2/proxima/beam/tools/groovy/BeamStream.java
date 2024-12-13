@@ -19,7 +19,7 @@ import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.beam.core.transforms.AssignEventTime;
-import cz.o2.proxima.beam.core.transforms.CalendarWindows;
+// import cz.o2.proxima.beam.core.transforms.CalendarWindows;
 import cz.o2.proxima.beam.io.ProximaIO;
 import cz.o2.proxima.core.functional.BiFunction;
 import cz.o2.proxima.core.functional.Consumer;
@@ -125,6 +125,7 @@ import org.apache.beam.sdk.transforms.Reshuffle;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
+import org.apache.beam.sdk.transforms.windowing.CalendarWindows;
 import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
@@ -146,6 +147,7 @@ import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode;
 import org.codehaus.groovy.runtime.GStringImpl;
+import org.joda.time.DateTimeZone;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 
@@ -831,18 +833,19 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public WindowedStream<T> calendarWindow(String window, int count, TimeZone timeZone) {
     WindowFn<? super T, ?> windowFn;
+    DateTimeZone zone = DateTimeZone.forTimeZone(timeZone);
     int multiplier = 1;
     switch (window) {
       case "weeks":
         multiplier = 7;
       case "days":
-        windowFn = CalendarWindows.days(count * multiplier).withTimeZone(timeZone);
+        windowFn = CalendarWindows.days(count * multiplier).withTimeZone(zone);
         break;
       case "months":
-        windowFn = CalendarWindows.months(count).withTimeZone(timeZone);
+        windowFn = CalendarWindows.months(count).withTimeZone(zone);
         break;
       case "years":
-        windowFn = CalendarWindows.years(count).withTimeZone(timeZone);
+        windowFn = CalendarWindows.years(count).withTimeZone(zone);
         break;
       default:
         throw new IllegalArgumentException(

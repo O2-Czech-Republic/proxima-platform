@@ -22,7 +22,6 @@ import org.apache.beam.sdk.testing.TestStream;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.TimestampedValue;
-import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Instant;
 import org.junit.Test;
 
@@ -44,10 +43,8 @@ public class FilterLatecomersTest {
                 .addElements(TimestampedValue.of(0, now.minus(1)))
                 .advanceWatermarkToInfinity());
     PCollectionTuple result = input.apply(FilterLatecomers.of());
-    PAssert.that(FilterLatecomers.getOnTime(result, TypeDescriptors.integers()))
-        .containsInAnyOrder(1, 2, 3);
-    PAssert.that(FilterLatecomers.getLate(result, TypeDescriptors.integers()))
-        .containsInAnyOrder(0);
+    PAssert.that(FilterLatecomers.getOnTime(result)).containsInAnyOrder(1, 2, 3);
+    PAssert.that(FilterLatecomers.getLate(result)).containsInAnyOrder(0);
     p.run();
   }
 }

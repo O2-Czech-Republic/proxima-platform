@@ -132,10 +132,13 @@ public class LocalCachedPartitionedViewTest {
 
   @Test
   public void testWriteOnCacheError() {
+    AtomicInteger errors = new AtomicInteger();
     view.assign(
         singlePartition(),
         (elem, old) -> {
-          throw new IllegalStateException("Fail");
+          if (errors.incrementAndGet() < 2) {
+            throw new IllegalStateException("Fail");
+          }
         });
     writer.write(update("key", armed, now), (succ, exc) -> {});
     assertTrue(view.get("key", armed, now).isPresent());

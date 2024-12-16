@@ -288,45 +288,49 @@ public class TransactionLogObserver implements CommitLogObserver {
             () -> {
               while (!Thread.currentThread().isInterrupted()) {
                 try {
-                  manager.houseKeeping();
-                  long now = currentTimeMillis();
-                  long cleanupInterval = manager.getCfg().getCleanupInterval();
-                  long cleanup = now - cleanupInterval;
-                  int cleaned;
-                  try (var l = Locker.of(lock.writeLock())) {
-                    List<Map.Entry<KeyWithAttribute, SeqIdWithTombstone>> toCleanUp =
-                        lastUpdateSeqId.entries().stream()
-                            .filter(e -> e.getValue().getTimestamp() < cleanup)
-                            .collect(Collectors.toList());
-                    cleaned = toCleanUp.size();
-                    toCleanUp.forEach(e -> lastUpdateSeqId.remove(e.getKey(), e.getValue()));
-                  }
-                  // release and re-acquire lock to enable progress of any waiting threads
-                  try (var l = Locker.of(lock.writeLock())) {
-                    Iterator<Map<KeyWithAttribute, SeqIdWithTombstone>> it =
-                        updatesToWildcard.values().iterator();
-                    while (it.hasNext()) {
-                      Map<KeyWithAttribute, SeqIdWithTombstone> value = it.next();
-                      Iterators.removeIf(
-                          value.values().iterator(), e -> e.getTimestamp() < cleanup);
-                      if (value.isEmpty()) {
-                        it.remove();
-                      }
-                    }
-                  }
-                  long duration = currentTimeMillis() - now;
-                  log.info("Finished housekeeping in {} ms, removed {} records", duration, cleaned);
-                  metrics.getWritesCleaned().increment(cleaned);
-                  if (duration < cleanupInterval) {
-                    sleep(cleanupInterval - duration);
-                  }
+                  doHouseKeeping();
                 } catch (InterruptedException ex) {
                   Thread.currentThread().interrupt();
                 } catch (Throwable err) {
                   log.error("Error in housekeeping thread", err);
                 }
               }
+              log.info("Terminated housekeeping thread by request.");
             });
+  }
+
+  private void doHouseKeeping() throws InterruptedException {
+    manager.houseKeeping();
+    long now = currentTimeMillis();
+    long cleanupInterval = manager.getCfg().getCleanupInterval();
+    long cleanup = now - cleanupInterval;
+    int cleaned;
+    try (var l = Locker.of(lock.writeLock())) {
+      List<Map.Entry<KeyWithAttribute, SeqIdWithTombstone>> toCleanUp =
+          lastUpdateSeqId.entries().stream()
+              .filter(e -> e.getValue().getTimestamp() < cleanup)
+              .collect(Collectors.toList());
+      cleaned = toCleanUp.size();
+      toCleanUp.forEach(e -> lastUpdateSeqId.remove(e.getKey(), e.getValue()));
+    }
+    // release and re-acquire lock to enable progress of any waiting threads
+    try (var l = Locker.of(lock.writeLock())) {
+      Iterator<Map<KeyWithAttribute, SeqIdWithTombstone>> it =
+          updatesToWildcard.values().iterator();
+      while (it.hasNext()) {
+        Map<KeyWithAttribute, SeqIdWithTombstone> value = it.next();
+        Iterators.removeIf(value.values().iterator(), e -> e.getTimestamp() < cleanup);
+        if (value.isEmpty()) {
+          it.remove();
+        }
+      }
+    }
+    long duration = currentTimeMillis() - now;
+    log.info("Finished housekeeping in {} ms, removed {} records", duration, cleaned);
+    metrics.getWritesCleaned().increment(cleaned);
+    if (duration < cleanupInterval) {
+      sleep(cleanupInterval - duration);
+    }
   }
 
   @VisibleForTesting

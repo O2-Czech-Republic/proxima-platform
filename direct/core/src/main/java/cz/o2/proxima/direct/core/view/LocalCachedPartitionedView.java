@@ -188,9 +188,16 @@ public class LocalCachedPartitionedView implements CachedView {
 
           @Override
           public boolean onError(Throwable error) {
-            log.error("Error in caching data. Restarting consumption", error);
-            assign(partitions);
+            log.error("Error in caching data. Restarting consumption.", error);
+            assign(partitions, updateCallback, ttl);
             return false;
+          }
+
+          @Override
+          public void onIdle(OnIdleContext context) {
+            if (ttl != null) {
+              lastCleanup = maybeDoCleanup(lastCleanup, ttlMs);
+            }
           }
         };
 

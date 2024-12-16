@@ -347,6 +347,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   }
 
   static PreparedStatement prepare(Session session, String statement) {
+    log.debug("Trying to prepare statement {}", statement);
     PreparedStatement ret = session.prepare(statement);
     log.info("Prepared statement {} as {}", statement, ret);
     return ret;

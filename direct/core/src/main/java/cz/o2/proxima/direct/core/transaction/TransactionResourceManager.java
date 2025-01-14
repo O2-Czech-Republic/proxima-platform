@@ -123,6 +123,11 @@ public class TransactionResourceManager
     public int getServerTerminationTimeoutSeconds() {
       return serverTerminationTimeoutSeconds;
     }
+
+    @Override
+    public long getSyncTimeoutMs() {
+      return syncTimeoutMs;
+    }
   }
 
   private class CachedWriters implements AutoCloseable {
@@ -392,6 +397,9 @@ public class TransactionResourceManager
   @Getter(AccessLevel.PACKAGE)
   private final int serverTerminationTimeoutSeconds;
 
+  @Getter(AccessLevel.PACKAGE)
+  private final int syncTimeoutMs;
+
   @VisibleForTesting
   public TransactionResourceManager(DirectDataOperator direct, Map<String, Object> cfg) {
     this.direct = direct;
@@ -405,6 +413,7 @@ public class TransactionResourceManager
     this.initialSequenceIdPolicy = getInitialSequenceIdPolicy(cfg);
     this.transactionMonitoringPolicy = getTransactionMonitoringPolicy(cfg);
     this.serverTerminationTimeoutSeconds = getServerTerminationTimeout(cfg);
+    this.syncTimeoutMs = getSyncTimeout(cfg);
 
     log.info(
         "Created {} with transaction timeout {} ms",
@@ -452,6 +461,13 @@ public class TransactionResourceManager
         .map(Object::toString)
         .map(Integer::valueOf)
         .orElse(2);
+  }
+
+  private int getSyncTimeout(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("sync-timeout-ms"))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .orElse(5000);
   }
 
   @Override

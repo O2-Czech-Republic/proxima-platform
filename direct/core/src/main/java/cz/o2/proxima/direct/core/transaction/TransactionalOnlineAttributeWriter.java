@@ -51,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -258,6 +259,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private <T> CompletableFuture<T> waitForInFlight(@Nullable T result) {
       synchronized (runningUpdates) {
         CompletableFuture<?>[] futures = runningUpdates.toArray(new CompletableFuture<?>[] {});
+        runningUpdates.clear();
         return CompletableFuture.allOf(futures).thenApply(ign -> result);
       }
     }
@@ -452,11 +454,11 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     public void sync() throws TransactionRejectedException {
       try {
-        waitForInFlight().get();
+        waitForInFlight().get(manager.getCfg().getSyncTimeoutMs(), TimeUnit.MILLISECONDS);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new TransactionRejectedException(getTransactionId(), Flags.ABORTED);
-      } catch (ExecutionException e) {
+      } catch (ExecutionException | TimeoutException e) {
         if (e.getCause() instanceof TransactionRejectedException) {
           throw (TransactionRejectedException) e.getCause();
         }

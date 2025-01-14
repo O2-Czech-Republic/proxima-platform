@@ -32,6 +32,8 @@ public interface TransactionManager {
     long getCleanupInterval();
 
     long getTransactionTimeoutMs();
+
+    long getSyncTimeoutMs();
   }
 
   EntityDescriptor getTransaction();

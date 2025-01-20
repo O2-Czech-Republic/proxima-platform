@@ -442,6 +442,9 @@ public class TransactionLogObserver implements CommitLogObserver {
       State newState = transitionState(transactionId, currentState, request);
       monitoringPolicy.stateUpdate(transactionId, currentState, newState);
       Response response = getResponseForNewState(request, currentState, newState);
+      if (newState.isFinal()) {
+        metrics.getTransactionLatency().increment(currentTimeMillis() - newState.getStamp());
+      }
       // we have successfully computed new state, produce response
       log.info(
           "Transaction {} transitioned due to {} from state {} to state {}, returning {}",

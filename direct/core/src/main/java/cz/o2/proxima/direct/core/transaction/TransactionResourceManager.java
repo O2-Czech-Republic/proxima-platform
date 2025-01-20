@@ -830,7 +830,11 @@ public class TransactionResourceManager
   @VisibleForTesting
   @Nullable
   CachedTransaction createCachedTransaction(String transactionId, State state) {
-    Preconditions.checkArgument(state.getCommittedOutputs().isEmpty());
+    Preconditions.checkArgument(
+        state.getCommittedOutputs().isEmpty() || state.getFlags() == State.Flags.COMMITTED,
+        "Invalid state of transaction %s: %s",
+        transactionId,
+        state.getFlags());
     if (state.getInputAttributes().isEmpty()) {
       return null;
     }

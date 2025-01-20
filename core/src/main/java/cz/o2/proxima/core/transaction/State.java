@@ -102,4 +102,8 @@ public class State implements Serializable {
     return new State(
         sequentialId, stamp, Flags.ABORTED, getInputAttributes(), Collections.emptySet());
   }
+
+  public boolean isFinal() {
+    return this.flags == Flags.COMMITTED || this.flags == Flags.ABORTED;
+  }
 }

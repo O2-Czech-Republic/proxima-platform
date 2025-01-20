@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.transaction.manager;
 
+import cz.o2.proxima.core.metrics.ApproxPercentileMetric;
 import cz.o2.proxima.core.metrics.GaugeMetric;
 import cz.o2.proxima.core.metrics.MetricFactory;
 import cz.o2.proxima.core.metrics.TimeAveragingMetric;
@@ -45,6 +46,10 @@ public class Metrics {
   @Getter
   private final TimeAveragingMetric transactionsRolledBack =
       factory.timeAveraging(GROUP, "transactions_rolled_back", 1_000);
+
+  @Getter
+  private final ApproxPercentileMetric transactionLatency =
+      factory.percentile(GROUP, "transactions_latency", 300_000, 5_000);
 
   @Getter private final GaugeMetric numWritesCached = factory.gauge(GROUP, "writes_cached");
 

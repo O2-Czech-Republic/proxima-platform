@@ -31,12 +31,14 @@ import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
 import cz.o2.proxima.direct.server.IngestService;
 import cz.o2.proxima.direct.server.RetrieveService;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.BeginTransactionRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.BeginTransactionResponse;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.GetRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.GetResponse;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.Ingest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.IngestBulk;
+import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.Status;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.StatusBulk;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitRequest;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc.TransactionCommitResponse;
@@ -51,6 +53,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -163,6 +167,53 @@ public class TransactionsTest {
                 .setEntity("user")
                 .setKey("usr1")
                 .setAttribute("gateway.gw1")
+                .build());
+    assertEquals(200, getResponse.getStatus());
+    assertEquals(3, getResponse.getValue().size());
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionReadWriteSingle() throws InterruptedException {
+    BeginTransactionResponse response = begin();
+    String transactionId = response.getTransactionId();
+    assertFalse(transactionId.isEmpty());
+    long stamp = System.currentTimeMillis();
+    replicatedLatch = new CountDownLatch(2);
+    Rpc.Status status =
+        ingest(
+            transactionId,
+            StreamElement.upsert(
+                gateway,
+                gatewayUsers,
+                UUID.randomUUID().toString(),
+                "gw1",
+                gatewayUsers.toAttributePrefix() + "usr1",
+                stamp,
+                new byte[] {1, 2, 3}));
+
+    assertEquals(200, status.getStatus());
+
+    // written, but not yet committed
+    GetResponse getResponse =
+        get(
+            GetRequest.newBuilder()
+                .setEntity("gateway")
+                .setKey("gw1")
+                .setAttribute("user.usr1")
+                .build());
+    assertEquals(404, getResponse.getStatus());
+
+    TransactionCommitResponse commitResponse = commit(transactionId);
+    assertEquals(TransactionCommitResponse.Status.COMMITTED, commitResponse.getStatus());
+    replicatedLatch.await();
+
+    // verify we can read the results
+    getResponse =
+        get(
+            GetRequest.newBuilder()
+                .setEntity("gateway")
+                .setKey("gw1")
+                .setAttribute("user.usr1")
                 .build());
     assertEquals(200, getResponse.getStatus());
     assertEquals(3, getResponse.getValue().size());
@@ -336,10 +387,34 @@ public class TransactionsTest {
     ListStreamObserver<BeginTransactionResponse> beginObserver = intoList();
     retrieve.begin(
         BeginTransactionRequest.newBuilder()
-            .setTranscationId(MoreObjects.firstNonNull(transactionId, ""))
+            .setTransactionId(MoreObjects.firstNonNull(transactionId, ""))
             .build(),
         beginObserver);
     return Iterables.getOnlyElement(beginObserver.getOutputs());
+  }
+
+  private Rpc.Status ingest(String transactionId, StreamElement update)
+      throws InterruptedException {
+
+    BlockingQueue<Status> status = new ArrayBlockingQueue<>(1);
+    StreamObserver<Rpc.Status> res =
+        new StreamObserver<>() {
+          @Override
+          public void onNext(Rpc.Status s) {
+            ExceptionUtils.unchecked(() -> status.put(s));
+          }
+
+          @Override
+          public void onError(Throwable throwable) {
+            log.error("Error", throwable);
+            throw new IllegalStateException(throwable);
+          }
+
+          @Override
+          public void onCompleted() {}
+        };
+    ingest.ingest(asIngest(transactionId, update), res);
+    return status.take();
   }
 
   private StatusBulk ingestBulk(String transactionId, StreamElement... updates) {
@@ -353,21 +428,23 @@ public class TransactionsTest {
         IngestBulk.newBuilder()
             .addAllIngest(
                 updates.stream()
-                    .map(
-                        el ->
-                            Ingest.newBuilder()
-                                .setUuid(el.getUuid())
-                                .setTransactionId(transactionId)
-                                .setEntity(el.getEntityDescriptor().getName())
-                                .setKey(el.getKey())
-                                .setAttribute(el.getAttribute())
-                                .setStamp(el.getStamp())
-                                .setValue(ByteString.copyFrom(el.getValue()))
-                                .build())
+                    .map(el -> asIngest(transactionId, el))
                     .collect(Collectors.toList()))
             .build());
     ingestBulk.onCompleted();
     return Iterables.getOnlyElement(ingestObserver.getOutputs());
+  }
+
+  private static Ingest asIngest(String transactionId, StreamElement el) {
+    return Ingest.newBuilder()
+        .setUuid(el.getUuid())
+        .setTransactionId(transactionId)
+        .setEntity(el.getEntityDescriptor().getName())
+        .setKey(el.getKey())
+        .setAttribute(el.getAttribute())
+        .setStamp(el.getStamp())
+        .setValue(ByteString.copyFrom(el.getValue()))
+        .build();
   }
 
   private static <T> ListStreamObserver<T> intoList() {

@@ -33,9 +33,7 @@ public interface ProximaPipelineOptions extends PipelineOptions {
     }
   }
 
-  /**
-   * @{code false} to preserve UDF jar on exit.
-   */
+  /** {@code false} to preserve UDF jar on exit. */
   @Default.Boolean(true)
   boolean getPreserveUDFJar();
 
@@ -46,7 +44,7 @@ public interface ProximaPipelineOptions extends PipelineOptions {
 
   void setUdfJarDirPath(String path);
 
-  /** Set delay for {@BatchLogRead} in ms. */
+  /** Set delay for {@link cz.o2.proxima.beam.core.direct.io.BatchLogRead} in ms. */
   @Default.Long(0L)
   long getStartBatchReadDelayMs();
 

@@ -241,6 +241,7 @@ public class TransactionLogObserverTest {
         Collections.singletonList(
             userGateways.upsert(
                 t2OpenResponse.getSeqId(), "user", "1", t1OpenResponse.getStamp(), new byte[] {}));
+    // cannot overwrite higher sequentialId with lower one
     clientManager.commit(t2, t2Outputs).thenAccept(responseQueue::add);
     Response response = responseQueue.take();
     assertEquals(Response.Flags.COMMITTED, response.getFlags());

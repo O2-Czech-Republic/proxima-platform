@@ -331,7 +331,7 @@ message BeginTransactionRequest {
   repeated KeyAttribute attributesInvolved = 1;
 
   /** An optional transaction ID. When omitted a new transaction ID will be generated. */
-  string transcationId = 2;
+  string transactionId = 2;
 
 }
 

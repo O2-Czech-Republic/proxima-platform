@@ -103,7 +103,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       Rpc.BeginTransactionRequest request,
       StreamObserver<Rpc.BeginTransactionResponse> responseObserver) {
 
-    String transactionId = transactionContext.create(request.getTranscationId());
+    String transactionId = transactionContext.create(request.getTransactionId());
     responseObserver.onNext(
         Rpc.BeginTransactionResponse.newBuilder().setTransactionId(transactionId).build());
     responseObserver.onCompleted();

@@ -327,14 +327,24 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     if (log.isDebugEnabled()) {
       log.debug("Processing input ingest {}", TextFormat.shortDebugString(request));
     }
-    Metrics.INGESTS.increment();
-    try {
-      if (!writeRequest(request, consumer)) {
-        Metrics.INVALID_REQUEST.increment();
+    if (request.getTransactionId().isEmpty()) {
+      Metrics.INGESTS.increment();
+      try {
+        if (!writeRequest(request, consumer)) {
+          Metrics.INVALID_REQUEST.increment();
+        }
+      } catch (Exception err) {
+        log.error("Error processing user request {}", TextFormat.shortDebugString(request), err);
+        consumer.accept(status(request.getUuid(), 500, err.getMessage()));
       }
-    } catch (Exception err) {
-      log.error("Error processing user request {}", TextFormat.shortDebugString(request), err);
-      consumer.accept(status(request.getUuid(), 500, err.getMessage()));
+    } else {
+      @Nullable StreamElement streamElement = validateAndConvertToStreamElement(request, consumer);
+      if (streamElement != null) {
+        transactionContext
+            .get(request.getTransactionId())
+            .addOutputs(Collections.singletonList(streamElement));
+        consumer.accept(ok(request.getUuid()));
+      }
     }
   }
 

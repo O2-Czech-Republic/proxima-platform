@@ -115,9 +115,12 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
     try {
       Metrics.LIST_REQUESTS.increment();
-      if (request.getEntity().isEmpty()
-          || request.getKey().isEmpty()
-          || request.getWildcardPrefix().isEmpty()) {
+      final String wildcardPrefix =
+          request.getWildcardPrefix().endsWith(".*")
+              ? request.getWildcardPrefix().substring(0, request.getWildcardPrefix().length() - 2)
+              : request.getWildcardPrefix();
+
+      if (request.getEntity().isEmpty() || request.getKey().isEmpty() || wildcardPrefix.isEmpty()) {
         throw new Status(400, "Missing some required fields");
       }
 
@@ -133,7 +136,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
       AttributeDescriptor<Object> wildcard =
           entity
-              .findAttribute(request.getWildcardPrefix() + ".*")
+              .findAttribute(wildcardPrefix + ".*")
               .orElseThrow(
                   () ->
                       new Status(
@@ -141,16 +144,16 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
                           "Entity "
                               + request.getEntity()
                               + " does not have wildcard attribute "
-                              + request.getWildcardPrefix()));
+                              + wildcardPrefix));
 
       RandomAccessReader reader = instantiateReader(wildcard);
 
       Rpc.ListResponse.Builder response = Rpc.ListResponse.newBuilder().setStatus(200);
       Predicate<KeyValue<Object>> filterPredicate =
-          request.getWildcardPrefix().equals(wildcard.toAttributePrefix())
-                  || request.getWildcardPrefix().equals(wildcard.toAttributePrefix(false))
+          wildcardPrefix.equals(wildcard.toAttributePrefix())
+                  || wildcardPrefix.equals(wildcard.toAttributePrefix(false))
               ? ign -> true
-              : kv -> kv.getAttribute().startsWith(request.getWildcardPrefix());
+              : kv -> kv.getAttribute().startsWith(wildcardPrefix);
       List<KeyValue<Object>> kvs = processListRequest(request, wildcard, reader, filterPredicate);
       kvs.forEach(
           kv ->

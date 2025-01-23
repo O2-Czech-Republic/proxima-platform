@@ -67,7 +67,7 @@ jobs:
       - name: Copy javadoc
         run: "cp -r build/docs/apidocs docs/target/public/"
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./docs/target/public
 

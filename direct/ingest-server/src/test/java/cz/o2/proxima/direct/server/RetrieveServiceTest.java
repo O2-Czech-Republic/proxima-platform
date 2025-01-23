@@ -486,6 +486,12 @@ public class RetrieveServiceTest {
 
   @Test
   public void testListValid() {
+    runListTestWithPrefix("wildcard");
+    runListTestWithPrefix("wildcard.");
+    runListTestWithPrefix("wildcard.*");
+  }
+
+  private void runListTestWithPrefix(String prefix) {
     EntityDescriptor entity = server.repo.getEntity("dummy");
     AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
@@ -516,7 +522,7 @@ public class RetrieveServiceTest {
     Rpc.ListRequest request =
         Rpc.ListRequest.newBuilder()
             .setEntity(entity.getName())
-            .setWildcardPrefix("wildcard")
+            .setWildcardPrefix(prefix)
             .setKey(key)
             .build();
 

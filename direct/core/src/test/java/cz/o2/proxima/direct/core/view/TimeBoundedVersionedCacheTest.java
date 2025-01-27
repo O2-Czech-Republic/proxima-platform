@@ -19,9 +19,11 @@ import static org.junit.Assert.*;
 
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.view.TimeBoundedVersionedCache.Payload;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
@@ -30,9 +32,7 @@ import org.junit.Test;
 public class TimeBoundedVersionedCacheTest {
 
   Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
-  EntityDescriptor entity =
-      repo.findEntity("gateway")
-          .orElseThrow(() -> new IllegalArgumentException("Missing entity gateway"));
+  EntityDescriptor entity = Optionals.get(repo.findEntity("gateway"));
   long now = System.currentTimeMillis();
 
   @Test
@@ -43,6 +43,18 @@ public class TimeBoundedVersionedCacheTest {
     assertEquals(
         Pair.of(now, new Payload("test", 1L, true)), cache.get("key", "attribute", now + 1));
     assertNull(cache.get("key", "attribute", now - 1));
+  }
+
+  @Test
+  public void testCacheProxyPutGet() {
+    entity = Optionals.get(repo.findEntity("proxied"));
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
+    byte[] payload = "test".getBytes(StandardCharsets.UTF_8);
+    assertTrue(cache.put("key", "_e.test", now, 1L, false, payload));
+    assertEquals(Pair.of(now, new Payload(payload, 1L, true)), cache.get("key", "_e.test", now));
+    assertEquals(
+        Pair.of(now, new Payload(payload, 1L, true)), cache.get("key", "_e.test", now + 1));
+    assertNull(cache.get("key", "_e.test", now - 1));
   }
 
   @Test

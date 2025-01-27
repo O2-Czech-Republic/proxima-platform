@@ -35,6 +35,7 @@ import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.core.randomaccess.RawOffset;
 import cz.o2.proxima.direct.core.view.TimeBoundedVersionedCache.Payload;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Collection;
@@ -319,6 +320,11 @@ public class LocalCachedPartitionedView implements CachedView {
       int limit,
       Consumer<KeyValue<?>> consumer) {
 
+    Preconditions.checkArgument(
+        offset.startsWith(prefix),
+        "Offset must start with prefix, got offset %s prefix %s",
+        offset,
+        prefix);
     AtomicInteger missing = new AtomicInteger(limit);
     cache.scan(
         key,

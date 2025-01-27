@@ -76,7 +76,6 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
 
     @SuppressWarnings("unchecked")
     AttrLookup(AttributeFamilyProxyDescriptor proxy) {
-
       this.familyName = proxy.getName();
       this.attrs =
           proxy.getAttributes().stream()
@@ -204,6 +203,8 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
       Optional<OnlineAttributeWriter> maybeWriter =
           getWriter(lookup, context, desc).map(AttributeWriterBase::online);
       if (maybeReader.isPresent() && maybeWriter.isPresent()) {
+        // FIXME: this mapping is wrong!
+        // we must avoid caching the proxy, but cache the original instead
         return Optional.of(
             new LocalCachedPartitionedView(
                 desc.getTargetFamilyRead().getEntity(), maybeReader.get(), maybeWriter.get()));

@@ -269,7 +269,7 @@ public class StreamElement implements Serializable {
     this.value = value;
     this.deleteWildcard = deleteWildcard;
 
-    Preconditions.checkArgument(this.uuid.length() > 0, "UUID must not be empty");
+    Preconditions.checkArgument(!this.uuid.isEmpty(), "UUID must not be empty");
   }
 
   protected StreamElement(
@@ -362,7 +362,7 @@ public class StreamElement implements Serializable {
     return (Optional<T>) Optional.ofNullable(parsed);
   }
 
-  protected void setParsed(Object parsed) {
+  protected final void setParsed(Object parsed) {
     this.parsed = parsed;
   }
 

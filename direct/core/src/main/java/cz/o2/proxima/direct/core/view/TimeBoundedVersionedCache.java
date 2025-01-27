@@ -233,7 +233,7 @@ class TimeBoundedVersionedCache implements Serializable {
       String key, String attribute, long stamp, @Nullable Object value) {
 
     if (log.isDebugEnabled()) {
-      AttributeDescriptor<Object> attrDesc = entity.findAttribute(attribute).orElse(null);
+      AttributeDescriptor<Object> attrDesc = entity.findAttribute(attribute, true).orElse(null);
       if (attrDesc != null) {
         log.debug(
             "Caching attribute {} for key {} at {} with payload {}",

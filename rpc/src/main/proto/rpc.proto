@@ -281,7 +281,7 @@ message MultifetchRequest {
 
   /**
    * ID of transaction of the requests. All requests MUST have empty transaction ID and
-   * share this global on (if any).
+   * share this global one (if any).
    */
   string transactionId = 3;
 

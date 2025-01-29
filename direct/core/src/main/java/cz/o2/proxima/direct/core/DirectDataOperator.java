@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.core;
 
+import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.functional.UnaryFunction;
@@ -360,7 +361,11 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       // store writer of this family to all attributes
       for (AttributeDescriptor<?> a : af.getAttributes()) {
         if (a.getTransactionMode() == TransactionMode.NONE) {
-          writers.put(a, OnlineAttributeWriters.synchronizedWriter(familyWriter));
+          if (familyWriter.getClass().getAnnotation(DeclaredThreadSafe.class) == null) {
+            writers.put(a, OnlineAttributeWriters.synchronizedWriter(familyWriter));
+          } else {
+            writers.put(a, familyWriter);
+          }
         } else {
           writers.put(a, maybeTransactionalWriter);
         }

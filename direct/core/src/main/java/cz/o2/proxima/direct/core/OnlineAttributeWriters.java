@@ -41,7 +41,7 @@ public class OnlineAttributeWriters {
       }
 
       @Override
-      public synchronized URI getUri() {
+      public URI getUri() {
         return delegate.getUri();
       }
 

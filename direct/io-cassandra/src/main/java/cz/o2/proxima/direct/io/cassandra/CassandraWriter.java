@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.io.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Session;
+import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -27,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** A {@link OnlineAttributeWriter} implementation for Cassandra. */
 @Slf4j
+@DeclaredThreadSafe
 class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAttributeWriter {
 
   private final CassandraDBAccessor accessor;
@@ -39,8 +41,7 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
   }
 
   @Override
-  public synchronized void write(StreamElement data, CommitCallback statusCallback) {
-
+  public void write(StreamElement data, CommitCallback statusCallback) {
     try {
       Session session = accessor.ensureSession();
       Optional<BoundStatement> cql = accessor.getCqlFactory().getWriteStatement(data, session);

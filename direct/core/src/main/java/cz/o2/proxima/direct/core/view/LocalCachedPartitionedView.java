@@ -341,7 +341,7 @@ public class LocalCachedPartitionedView implements CachedView {
         (attr, e) -> {
           KeyValue<Object> kv = toKv(key, attr, e);
           if (kv != null) {
-            if (missing.decrementAndGet() != 0) {
+            if (missing.getAndDecrement() != 0) {
               consumer.accept(kv);
             } else {
               return false;

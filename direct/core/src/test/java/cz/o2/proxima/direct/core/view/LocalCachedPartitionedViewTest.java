@@ -207,6 +207,29 @@ public class LocalCachedPartitionedViewTest {
   }
 
   @Test
+  public void testScanWildcardWithLimit() {
+    view.assign(singlePartition());
+    writer.write(update("key", "device.1", device, now), (succ, exc) -> {});
+    writer.write(update("key", "device.2", device, now + 1), (succ, exc) -> {});
+    List<KeyValue<?>> kvs = new ArrayList<>();
+    view.scanWildcard("key", device, now, kvs::add);
+    assertEquals(1, kvs.size());
+    kvs.clear();
+    view.scanWildcard(
+        "key",
+        device,
+        view.fetchOffset(Listing.ATTRIBUTE, device.toAttributePrefix()),
+        now + 1,
+        1,
+        kvs::add);
+    assertEquals(1, kvs.size());
+    view.scanWildcard("key", device, kvs.get(0).getOffset(), now + 1, 1, kvs::add);
+    assertEquals(2, kvs.size());
+    assertEquals("device.1", kvs.get(0).getAttribute());
+    assertEquals("device.2", kvs.get(1).getAttribute());
+  }
+
+  @Test
   public void testScanWildcardAllWithDelete() {
     view.assign(singlePartition());
     writer.write(update("key", "armed", armed, now), (succ, exc) -> {});

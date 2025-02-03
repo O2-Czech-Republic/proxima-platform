@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.google.common.base.Strings;
+import cz.o2.proxima.io.serialization.shaded.com.google.common.base.Strings;
 import java.util.Date;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;

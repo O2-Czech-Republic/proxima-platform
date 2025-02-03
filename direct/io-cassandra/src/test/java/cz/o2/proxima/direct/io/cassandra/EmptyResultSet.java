@@ -15,18 +15,15 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.driver.core.ColumnDefinitions;
-import com.datastax.driver.core.ExecutionInfo;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.datastax.oss.driver.api.core.cql.ColumnDefinitions;
+import com.datastax.oss.driver.api.core.cql.ExecutionInfo;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 
 /** A result set with no data. */
 public class EmptyResultSet implements ResultSet, Serializable {
@@ -48,11 +45,6 @@ public class EmptyResultSet implements ResultSet, Serializable {
   }
 
   @Override
-  public boolean isExhausted() {
-    return true;
-  }
-
-  @Override
   public boolean isFullyFetched() {
     return true;
   }
@@ -60,42 +52,6 @@ public class EmptyResultSet implements ResultSet, Serializable {
   @Override
   public int getAvailableWithoutFetching() {
     return 0;
-  }
-
-  @Override
-  public ListenableFuture<ResultSet> fetchMoreResults() {
-    return new ListenableFuture<>() {
-
-      @Override
-      public void addListener(Runnable r, Executor exctr) {
-        r.run();
-      }
-
-      @Override
-      public boolean cancel(boolean mayInterruptIfRunning) {
-        return false;
-      }
-
-      @Override
-      public boolean isCancelled() {
-        return false;
-      }
-
-      @Override
-      public boolean isDone() {
-        return true;
-      }
-
-      @Override
-      public ResultSet get() {
-        return new EmptyResultSet();
-      }
-
-      @Override
-      public ResultSet get(long timeout, TimeUnit unit) {
-        return new EmptyResultSet();
-      }
-    };
   }
 
   @Override
@@ -115,7 +71,8 @@ public class EmptyResultSet implements ResultSet, Serializable {
   }
 
   @Override
-  public List<ExecutionInfo> getAllExecutionInfo() {
-    return Collections.emptyList();
+  public List<ExecutionInfo> getExecutionInfos() {
+    // sorry folks :)
+    return List.of();
   }
 }

@@ -15,16 +15,13 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Cluster.Builder;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.Statement;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -39,6 +36,9 @@ import cz.o2.proxima.direct.core.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.io.serialization.shaded.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.io.serialization.shaded.com.google.common.base.Preconditions;
+import cz.o2.proxima.io.serialization.shaded.com.google.common.base.Strings;
 import java.io.ObjectStreamException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -49,9 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
@@ -64,50 +62,10 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
 
   private static final long serialVersionUID = 1L;
 
-  class ClusterHolder implements AutoCloseable {
-
-    @Getter(AccessLevel.PACKAGE)
-    private Cluster cluster;
-
-    private ClusterHolder(Cluster cluster) {
-      this.cluster = cluster;
-      incrementClusterReference();
-    }
-
-    @Override
-    public void close() {
-      if (cluster != null) {
-        decrementClusterReference();
-        cluster = null;
-      }
-    }
-
-    private void incrementClusterReference() {
-      CLUSTER_REFERENCES.computeIfAbsent(cluster, tmp -> new AtomicInteger(0)).incrementAndGet();
-    }
-
-    private void decrementClusterReference() {
-      AtomicInteger references = CLUSTER_REFERENCES.get(cluster);
-      log.debug("Decrementing reference of cluster {}, current count {}", cluster, references);
-      if (references != null && references.decrementAndGet() == 0) {
-        synchronized (CLUSTER_MAP) {
-          Optional.ofNullable(CLUSTER_SESSIONS.remove(cluster)).ifPresent(Session::close);
-          Optional.ofNullable(CLUSTER_MAP.remove(getUri().getAuthority()))
-              .ifPresent(Cluster::close);
-          CLUSTER_REFERENCES.remove(cluster);
-          log.debug("Cluster {} closed", cluster);
-        }
-      }
-    }
-  }
-
   @VisibleForTesting
   @Getter(AccessLevel.PACKAGE)
-  private static final Map<String, Cluster> CLUSTER_MAP =
+  private static final Map<String, CqlSession> SESSION_MAP =
       Collections.synchronizedMap(new HashMap<>());
-
-  private static final Map<Cluster, AtomicInteger> CLUSTER_REFERENCES = new ConcurrentHashMap<>();
-  private static final Map<Cluster, Session> CLUSTER_SESSIONS = new ConcurrentHashMap<>();
 
   static final String CQL_FACTORY_CFG = "cqlFactory";
   static final String CQL_STRING_CONVERTER = "converter";
@@ -116,6 +74,7 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   static final ConsistencyLevel DEFAULT_CONSISTENCY_LEVEL = ConsistencyLevel.QUORUM;
   static final String USERNAME_CFG = "username";
   static final String PASSWORD_CFG = "password";
+  static final String DATACENTER_CFG = "datacenter";
 
   /** Converter between string and native cassandra type used for wildcard types. */
   private final StringConverter<?> converter;
@@ -143,16 +102,18 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   @Getter(AccessLevel.PACKAGE)
   private final String password;
 
+  @Getter(AccessLevel.PACKAGE)
+  private final String datacenter;
+
   public CassandraDBAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
     super(entityDesc, uri);
-
     this.cqlFactoryName = getCqlFactoryName(cfg);
     this.batchParallelism = getBatchParallelism(cfg);
     this.converter = getStringConverter(cfg);
     this.consistencyLevel = getConsistencyLevel(cfg);
     this.username = getOpt(cfg, USERNAME_CFG, Object::toString, null);
     this.password = getOpt(cfg, PASSWORD_CFG, Object::toString, "");
+    this.datacenter = getOpt(cfg, DATACENTER_CFG, Object::toString, "datacenter1");
     initializeCqlFactory();
   }
 
@@ -188,7 +149,8 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   }
 
   private ConsistencyLevel getConsistencyLevel(Map<String, Object> cfg) {
-    return getOpt(cfg, CONSISTENCY_LEVEL_CFG, ConsistencyLevel::valueOf, DEFAULT_CONSISTENCY_LEVEL);
+    return getOpt(
+        cfg, CONSISTENCY_LEVEL_CFG, DefaultConsistencyLevel::valueOf, DEFAULT_CONSISTENCY_LEVEL);
   }
 
   private static <T> T getOpt(
@@ -207,46 +169,52 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   }
 
   ResultSet execute(Statement statement) {
-    statement.setConsistencyLevel(consistencyLevel);
+    statement = statement.setConsistencyLevel(consistencyLevel);
     if (log.isDebugEnabled()) {
       if (statement instanceof BoundStatement) {
         final BoundStatement s = (BoundStatement) statement;
-        log.debug("Executing BoundStatement {}", s.preparedStatement().getQueryString());
+        log.debug("Executing BoundStatement {}", s.getPreparedStatement().getQuery());
       } else {
         log.debug(
             "Executing {} {} with payload {}",
             statement.getClass().getSimpleName(),
             statement,
-            statement.getOutgoingPayload());
+            statement.getCustomPayload());
       }
     }
     return ensureSession().execute(statement);
   }
 
-  ClusterHolder acquireCluster() {
-    return new ClusterHolder(getCluster(getUri()));
-  }
-
-  private Cluster getCluster(URI uri) {
+  private CqlSession getSession(URI uri) {
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(uri.getAuthority()), "Invalid authority in %s", uri);
-    return getCluster(uri.getAuthority(), this.username);
+    return getSession(uri.getAuthority(), this.username);
   }
 
-  private Cluster getCluster(String authority, @Nullable String username) {
+  private CqlSession getSession(String authority, @Nullable String username) {
     final String clusterCachedKey = computeClusterKey(authority, username);
 
-    synchronized (CLUSTER_MAP) {
-      Cluster cluster =
-          CLUSTER_MAP.computeIfAbsent(clusterCachedKey, k -> createCluster(authority));
-      return Objects.requireNonNull(cluster);
-    }
-  }
-
-  private void removeCluster(URI uri) {
-    synchronized (CLUSTER_MAP) {
-      Optional.ofNullable(CLUSTER_MAP.remove(computeClusterKey(uri.getAuthority(), this.username)))
-          .ifPresent(Cluster::close);
+    int retry = 0;
+    while (true) {
+      try {
+        synchronized (SESSION_MAP) {
+          CqlSession session =
+              SESSION_MAP.computeIfAbsent(clusterCachedKey, k -> createSession(authority));
+          if (session.isClosed()) {
+            SESSION_MAP.remove(clusterCachedKey);
+            continue;
+          }
+          return Objects.requireNonNull(session);
+        }
+      } catch (Exception ex) {
+        if (retry++ < 3) {
+          int attempt = retry;
+          ExceptionUtils.ignoringInterrupted(
+              () -> TimeUnit.MILLISECONDS.sleep((int) (Math.pow(2, attempt) * 100)));
+        } else {
+          throw ex;
+        }
+      }
     }
   }
 
@@ -255,19 +223,24 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
   }
 
   @VisibleForTesting
-  Cluster createCluster(String authority) {
-    log.info("Creating cluster for authority {} in accessor {}", authority, this);
-    return configureClusterBuilder(Cluster.builder(), authority).build();
+  CqlSession createSession(String authority) {
+    log.info("Creating session for authority {} in accessor {}", authority, this);
+    return configureSessionBuilder(CqlSession.builder(), authority).build();
   }
 
   @VisibleForTesting
-  Builder configureClusterBuilder(Builder builder, String authority) {
-    builder.addContactPointsWithPorts(
-        Arrays.stream(authority.split(","))
-            .map(CassandraDBAccessor::getAddress)
-            .collect(Collectors.toList()));
-    if (username != null) {
-      builder.withCredentials(username, password);
+  CqlSessionBuilder configureSessionBuilder(CqlSessionBuilder builder, String authority) {
+    builder =
+        builder
+            .addContactPoints(
+                Arrays.stream(authority.split(","))
+                    .map(CassandraDBAccessor::getAddress)
+                    .collect(Collectors.toList()))
+            .withLocalDatacenter(this.datacenter)
+            .withClassLoader(builder.getClass().getClassLoader());
+
+    if (username != null && password != null) {
+      return builder.withAuthCredentials(username, password);
     }
     return builder;
   }
@@ -281,39 +254,8 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
     return InetSocketAddress.createUnresolved(parts[0], Integer.parseInt(parts[1]));
   }
 
-  Session ensureSession() {
-    return ensureSessionInternal(0);
-  }
-
-  private Session ensureSessionInternal(int retry) {
-    Cluster cluster = getCluster(getUri());
-    Preconditions.checkState(cluster != null);
-    /* Session we are connected to. */
-    Session session;
-    try {
-      session = CLUSTER_SESSIONS.computeIfAbsent(cluster, Cluster::connect);
-    } catch (Exception ex) {
-      if (retry < 3) {
-        ExceptionUtils.ignoringInterrupted(
-            () -> TimeUnit.MILLISECONDS.sleep((int) (Math.pow(2, retry) * 100)));
-      } else {
-        throw ex;
-      }
-      log.warn("Exception while creating session from cluster. Retry {}.", retry, ex);
-      removeCluster(getUri());
-      return ensureSessionInternal(retry + 1);
-    }
-    if (session.isClosed()) {
-      synchronized (this) {
-        session = CLUSTER_SESSIONS.get(cluster);
-        if (session.isClosed()) {
-          session = cluster.connect();
-          CLUSTER_SESSIONS.put(cluster, session);
-        }
-      }
-    }
-    Preconditions.checkState(!session.isClosed());
-    return session;
+  CqlSession ensureSession() {
+    return getSession(getUri());
   }
 
   @Override
@@ -374,9 +316,7 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
 
   @VisibleForTesting
   static void clear() {
-    CLUSTER_REFERENCES.clear();
-    CLUSTER_MAP.clear();
-    CLUSTER_SESSIONS.clear();
+    SESSION_MAP.clear();
   }
 
   @SuppressWarnings("unchecked")

@@ -20,16 +20,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Cluster.Builder;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.Statement;
-import com.google.common.collect.ImmutableMap;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeDescriptorBase;
 import cz.o2.proxima.core.repository.ConfigRepository;
@@ -45,6 +43,7 @@ import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import cz.o2.proxima.io.serialization.shaded.com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -89,15 +88,13 @@ public class CassandraDBAccessorTest {
     }
 
     @Override
-    Cluster createCluster(String authority) {
-      Cluster ret = mock(Cluster.class);
+    CqlSession createSession(String authority) {
       AtomicBoolean closed = new AtomicBoolean(false);
-      when(ret.connect()).thenAnswer(ign -> newSession(closed));
-      return ret;
+      return newSession(closed);
     }
 
-    Session newSession(AtomicBoolean closed) {
-      Session session = mock(Session.class);
+    CqlSession newSession(AtomicBoolean closed) {
+      CqlSession session = mock(CqlSession.class);
       when(session.isClosed()).thenAnswer(invocationOnMock -> closed.get());
       doAnswer(
               invocationOnMock -> {
@@ -114,13 +111,13 @@ public class CassandraDBAccessorTest {
   public static final class TestCqlFactory extends DefaultCqlFactory {
 
     @Override
-    public Optional<BoundStatement> getWriteStatement(StreamElement ingest, Session session) {
+    public Optional<BoundStatement> getWriteStatement(StreamElement ingest, CqlSession session) {
       return Optional.of(mockWriteStatement());
     }
 
     @Override
     public BoundStatement getReadStatement(
-        String key, String attribute, AttributeDescriptor<?> desc, Session session) {
+        String key, String attribute, AttributeDescriptor<?> desc, CqlSession session) {
       return mockReadStatement();
     }
 
@@ -134,8 +131,7 @@ public class CassandraDBAccessorTest {
 
     private BoundStatement mockStatement(boolean read) {
       BoundStatement mock = mock(BoundStatement.class);
-      when(mock.bind(any())).thenAnswer(invocation -> null);
-      when(mock.preparedStatement())
+      when(mock.getPreparedStatement())
           .thenReturn(read ? readPreparedStatement() : writePreparedStatement());
       return mock;
     }
@@ -156,26 +152,26 @@ public class CassandraDBAccessorTest {
         AttributeDescriptor<?> wildcard,
         Offsets.Raw offset,
         int limit,
-        Session session) {
+        CqlSession session) {
 
       return mock(BoundStatement.class);
     }
 
     @Override
     public BoundStatement getListEntitiesStatement(
-        Offsets.Token offset, int limit, Session session) {
+        Offsets.TokenOffset offset, int limit, CqlSession session) {
 
       return mock(BoundStatement.class);
     }
 
     @Override
-    public BoundStatement getFetchTokenStatement(String key, Session session) {
+    public BoundStatement getFetchTokenStatement(String key, CqlSession session) {
       return mock(BoundStatement.class);
     }
 
     @Override
     public BoundStatement scanPartition(
-        List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session) {
+        List<AttributeDescriptor<?>> attributes, CassandraPartition partition, CqlSession session) {
 
       return mock(BoundStatement.class);
     }
@@ -183,7 +179,7 @@ public class CassandraDBAccessorTest {
     @SuppressWarnings("unchecked")
     @Override
     public <T> KvIterable<T> getListAllStatement(
-        String key, Offsets.Raw offset, int limit, Session session) {
+        String key, Offsets.Raw offset, int limit, CqlSession session) {
 
       return mock(KvIterable.class);
     }
@@ -194,13 +190,13 @@ public class CassandraDBAccessorTest {
     private static final long serialVersionUID = 1L;
 
     @Override
-    public Optional<BoundStatement> getWriteStatement(StreamElement ingest, Session session) {
+    public Optional<BoundStatement> getWriteStatement(StreamElement ingest, CqlSession session) {
       throw new RuntimeException("Fail");
     }
 
     @Override
     public BoundStatement getReadStatement(
-        String key, String attribute, AttributeDescriptor<?> desc, Session session) {
+        String key, String attribute, AttributeDescriptor<?> desc, CqlSession session) {
 
       throw new RuntimeException("Fail");
     }
@@ -211,32 +207,32 @@ public class CassandraDBAccessorTest {
         AttributeDescriptor<?> wildcard,
         Offsets.Raw offset,
         int limit,
-        Session session) {
+        CqlSession session) {
       throw new RuntimeException("Fail");
     }
 
     @Override
     public BoundStatement getListEntitiesStatement(
-        Offsets.Token offset, int limit, Session session) {
+        Offsets.TokenOffset offset, int limit, CqlSession session) {
 
       throw new RuntimeException("Fail");
     }
 
     @Override
-    public BoundStatement getFetchTokenStatement(String key, Session session) {
+    public BoundStatement getFetchTokenStatement(String key, CqlSession session) {
       throw new RuntimeException("Fail");
     }
 
     @Override
     public BoundStatement scanPartition(
-        List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session) {
+        List<AttributeDescriptor<?>> attributes, CassandraPartition partition, CqlSession session) {
 
       throw new RuntimeException("Fail");
     }
 
     @Override
     public <T> KvIterable<T> getListAllStatement(
-        String key, Offsets.Raw offset, int limit, Session session) {
+        String key, Offsets.Raw offset, int limit, CqlSession session) {
 
       throw new RuntimeException("Fail");
     }
@@ -299,7 +295,6 @@ public class CassandraDBAccessorTest {
           (status, exc) -> success.set(status));
       assertTrue(success.get());
     }
-    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   @Test
@@ -315,7 +310,7 @@ public class CassandraDBAccessorTest {
           int retries = 0;
 
           @Override
-          Session newSession(AtomicBoolean closed) {
+          CqlSession newSession(AtomicBoolean closed) {
             if (retries++ < 3) {
               throw new IllegalStateException("Invalid cluster.");
             }
@@ -336,7 +331,6 @@ public class CassandraDBAccessorTest {
           (status, exc) -> success.set(status));
       assertTrue(success.get());
     }
-    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test failed write. */
@@ -386,7 +380,6 @@ public class CassandraDBAccessorTest {
           (status, exc) -> success.set(status));
       assertTrue(success.get());
     }
-    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test failed delete. */
@@ -410,7 +403,6 @@ public class CassandraDBAccessorTest {
           (status, exc) -> success.set(status));
       assertFalse(success.get());
     }
-    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test get of attribute. */
@@ -420,7 +412,7 @@ public class CassandraDBAccessorTest {
 
     byte[] payload = new byte[] {1, 2};
     Row row = mock(Row.class);
-    when(row.getBytes(0)).thenReturn(ByteBuffer.wrap(payload));
+    when(row.get(0, ByteBuffer.class)).thenReturn(ByteBuffer.wrap(payload));
     List<Row> rows = Collections.singletonList(row);
 
     ResultSet res = mock(ResultSet.class);
@@ -440,7 +432,6 @@ public class CassandraDBAccessorTest {
       assertEquals("key", value.get().getKey());
       assertArrayEquals(payload, value.get().getValue());
     }
-    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test failed get does throw exceptions. */
@@ -450,7 +441,7 @@ public class CassandraDBAccessorTest {
 
     byte[] payload = new byte[] {1, 2};
     Row row = mock(Row.class);
-    when(row.getBytes(0)).thenReturn(ByteBuffer.wrap(payload));
+    when(row.get(0, ByteBuffer.class)).thenReturn(ByteBuffer.wrap(payload));
     List<Row> rows = Collections.singletonList(row);
 
     ResultSet res = mock(ResultSet.class);
@@ -465,7 +456,6 @@ public class CassandraDBAccessorTest {
       accessor.setRes(res);
       assertThrows(RuntimeException.class, () -> db.get("key", attr));
     }
-    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test list with success. */
@@ -476,7 +466,7 @@ public class CassandraDBAccessorTest {
     byte[] payload = new byte[] {1, 2};
     Row row = mock(Row.class);
     when(row.getObject(0)).thenReturn("1");
-    when(row.getBytes(1)).thenReturn(ByteBuffer.wrap(payload));
+    when(row.get(1, ByteBuffer.class)).thenReturn(ByteBuffer.wrap(payload));
     List<Row> rows = Collections.singletonList(row);
 
     ResultSet res = mock(ResultSet.class);
@@ -503,7 +493,6 @@ public class CassandraDBAccessorTest {
 
       assertEquals(1, count.get());
     }
-    assertTrue(CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   /** Test list with success. */
@@ -514,7 +503,7 @@ public class CassandraDBAccessorTest {
     byte[] payload = new byte[] {1, 2};
     Row row = mock(Row.class);
     when(row.getObject(0)).thenReturn(new Date(1234567890000L));
-    when(row.getBytes(1)).thenReturn(ByteBuffer.wrap(payload));
+    when(row.get(1, ByteBuffer.class)).thenReturn(ByteBuffer.wrap(payload));
     List<Row> rows = Collections.singletonList(row);
 
     ResultSet res = mock(ResultSet.class);
@@ -551,7 +540,7 @@ public class CassandraDBAccessorTest {
     byte[] payload = new byte[] {1, 2};
     Row row = mock(Row.class);
     when(row.getObject(0)).thenReturn("1");
-    when(row.getBytes(1)).thenReturn(ByteBuffer.wrap(payload));
+    when(row.get(1, ByteBuffer.class)).thenReturn(ByteBuffer.wrap(payload));
     List<Row> rows = Collections.singletonList(row);
 
     ResultSet res = mock(ResultSet.class);
@@ -675,9 +664,6 @@ public class CassandraDBAccessorTest {
       List<Statement> executed = accessor.getExecuted();
       assertEquals(2, executed.size());
     }
-    assertTrue(
-        "Expected empty CLUSTER_MAP, got " + CassandraDBAccessor.getCLUSTER_MAP(),
-        CassandraDBAccessor.getCLUSTER_MAP().isEmpty());
   }
 
   @Test(timeout = 10000)
@@ -778,7 +764,7 @@ public class CassandraDBAccessorTest {
     CassandraDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class));
-    Session session = accessor.ensureSession();
+    CqlSession session = accessor.ensureSession();
     assertNotNull(session);
     assertSame(session, accessor.ensureSession());
     session.close();
@@ -791,7 +777,7 @@ public class CassandraDBAccessorTest {
     for (int i = 0; i < numElements; i++) {
       Row row = mock(Row.class);
       when(row.getString(eq(0))).thenReturn("key" + i);
-      when(row.getBytes(eq(1))).thenReturn(ByteBuffer.wrap(new byte[] {(byte) i}));
+      when(row.get(eq(1), eq(ByteBuffer.class))).thenReturn(ByteBuffer.wrap(new byte[] {(byte) i}));
       rows.add(row);
     }
     when(res.iterator()).thenReturn(rows.iterator());
@@ -856,13 +842,16 @@ public class CassandraDBAccessorTest {
     assertEquals("username", accessor.getUsername());
     assertEquals("password", accessor.getPassword());
     assertEquals(CassandraDBAccessor.DEFAULT_CONSISTENCY_LEVEL, accessor.getConsistencyLevel());
-    Builder mock = Mockito.mock(Builder.class);
-    Builder builder = accessor.configureClusterBuilder(mock, "host:9042");
+    CqlSessionBuilder mock = Mockito.mock(CqlSessionBuilder.class);
+    when(mock.withAuthCredentials(any(), any())).thenReturn(mock);
+    when(mock.addContactPoints(any())).thenReturn(mock);
+    when(mock.withLocalDatacenter(any())).thenReturn(mock);
+    when(mock.withClassLoader(any())).thenReturn(mock);
+    CqlSessionBuilder builder = accessor.configureSessionBuilder(mock, "host:9042");
     verify(builder)
-        .addContactPointsWithPorts(
+        .addContactPoints(
             Collections.singletonList(InetSocketAddress.createUnresolved("host", 9042)));
-    verify(builder).withCredentials("username", "password");
-    assertNotNull(accessor.createCluster("host:9042"));
+    verify(builder).withAuthCredentials("username", "password");
   }
 
   @Test
@@ -891,17 +880,19 @@ public class CassandraDBAccessorTest {
     assertEquals(ConsistencyLevel.LOCAL_ONE, accessor.getConsistencyLevel());
     assertNull(accessor.getUsername());
     assertEquals("", accessor.getPassword());
-    Builder mock = Mockito.mock(Builder.class);
-    Builder builder = accessor.configureClusterBuilder(mock, "host:9042");
+    CqlSessionBuilder mock = Mockito.mock(CqlSessionBuilder.class);
+    when(mock.addContactPoints(any())).thenReturn(mock);
+    when(mock.withLocalDatacenter(any())).thenReturn(mock);
+    when(mock.withClassLoader(any())).thenReturn(mock);
+    CqlSessionBuilder builder = accessor.configureSessionBuilder(mock, "host:9042");
     verify(builder)
-        .addContactPointsWithPorts(
+        .addContactPoints(
             Collections.singletonList(InetSocketAddress.createUnresolved("host", 9042)));
     verify(builder, never()).withCredentials(any(), any());
     assertNotNull(accessor);
   }
 
   private Map<String, Object> getCfg(Class<?> cls, Class<? extends StringConverter<?>> converter) {
-
     Map<String, Object> m = new HashMap<>();
     m.put(CassandraDBAccessor.CQL_FACTORY_CFG, cls.getName());
     m.put(CassandraDBAccessor.CQL_STRING_CONVERTER, converter.getName());

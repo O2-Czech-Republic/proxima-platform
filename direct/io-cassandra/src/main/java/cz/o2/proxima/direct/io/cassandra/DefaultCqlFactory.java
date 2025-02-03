@@ -15,12 +15,11 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
-import com.google.common.base.Preconditions;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -29,6 +28,7 @@ import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.io.serialization.proto.Serialization;
 import cz.o2.proxima.io.serialization.proto.Serialization.Cell;
+import cz.o2.proxima.io.serialization.shaded.com.google.common.base.Preconditions;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.Serializable;
@@ -195,7 +195,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   }
 
   @Override
-  public Optional<BoundStatement> getWriteStatement(StreamElement element, Session session) {
+  public Optional<BoundStatement> getWriteStatement(StreamElement element, CqlSession session) {
 
     ensureSession(session);
     if (element.isDelete()) {
@@ -207,7 +207,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
   @Override
   public BoundStatement getReadStatement(
-      String key, String attribute, AttributeDescriptor<?> desc, Session session) {
+      String key, String attribute, AttributeDescriptor<?> desc, CqlSession session) {
 
     ensureSession(session);
     PreparedStatement statement = getPreparedGetStatement(session, attribute, desc);
@@ -224,7 +224,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
       AttributeDescriptor<?> wildcard,
       @Nullable Offsets.Raw offset,
       int limit,
-      Session session) {
+      CqlSession session) {
 
     ensureSession(session);
     PreparedStatement statement = getPreparedListStatement(session, wildcard);
@@ -376,14 +376,14 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   }
 
   @Override
-  protected String createListAllStatement(Session session) {
+  protected String createListAllStatement(CqlSession session) {
     throw new UnsupportedOperationException(
         "Unsupported. " + "See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
   }
 
   @Override
   public Statement scanPartition(
-      List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session) {
+      List<AttributeDescriptor<?>> attributes, CassandraPartition partition, CqlSession session) {
 
     StringBuilder columns = new StringBuilder();
     String comma = "";
@@ -410,7 +410,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
             partition.getTokenEnd());
 
     log.info("Scanning partition with query {}", query);
-    return new SimpleStatement(query);
+    return SimpleStatement.builder(query).build();
   }
 
   @Override
@@ -429,7 +429,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
   @Override
   public <T> KvIterable<T> getListAllStatement(
-      String key, Offsets.Raw offset, int limit, Session session) {
+      String key, Offsets.Raw offset, int limit, CqlSession session) {
     throw new UnsupportedOperationException(
         "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
   }

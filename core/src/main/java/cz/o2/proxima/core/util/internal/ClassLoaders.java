@@ -93,7 +93,9 @@ public class ClassLoaders {
 
     @Override
     protected URL findResource(String moduleName, String name) {
-      return Objects.requireNonNull(getModuleLoader(moduleName)).findResource(name);
+      ChildFirstURLClassLoader cl = Objects.requireNonNull(getModuleLoader(moduleName));
+      log.debug("Looking for resource {} in module {} using classLoader {}", name, moduleName, cl);
+      return cl.findResource(name);
     }
 
     @Override
@@ -131,6 +133,11 @@ public class ClassLoaders {
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
       return loadClass(name, resolve, true);
+    }
+
+    @Override
+    protected URL findResource(String moduleName, String name) throws IOException {
+      return super.findResource(null, name);
     }
 
     public Class<?> loadClassFromSelf(String name, boolean resolve) throws ClassNotFoundException {

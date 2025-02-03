@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -26,7 +26,6 @@ import cz.o2.proxima.direct.core.batch.BatchLogObservers;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.batch.TerminationContext;
-import cz.o2.proxima.direct.io.cassandra.CassandraDBAccessor.ClusterHolder;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -111,41 +110,39 @@ class CassandraLogReader implements BatchLogReader {
       BatchLogObserver observer) {
 
     ResultSet result;
-    try (ClusterHolder holder = accessor.acquireCluster()) {
-      Session session = accessor.ensureSession();
-      result =
-          accessor.execute(accessor.getCqlFactory().scanPartition(attributes, partition, session));
-      for (Row row : result) {
-        if (terminationContext.isCancelled()) {
-          return false;
+    CqlSession session = accessor.ensureSession();
+    result =
+        accessor.execute(accessor.getCqlFactory().scanPartition(attributes, partition, session));
+    for (Row row : result) {
+      if (terminationContext.isCancelled()) {
+        return false;
+      }
+      String key = row.getString(0);
+      int field = 1;
+      for (AttributeDescriptor<?> attribute : attributes) {
+        String attributeName = attribute.getName();
+        if (attribute.isWildcard()) {
+          // FIXME: this is wrong
+          // need mapping between attribute and accessor
+          String suffix = accessor.asString(row.getObject(field++));
+          attributeName = attribute.toAttributePrefix() + suffix;
         }
-        String key = row.getString(0);
-        int field = 1;
-        for (AttributeDescriptor<?> attribute : attributes) {
-          String attributeName = attribute.getName();
-          if (attribute.isWildcard()) {
-            // FIXME: this is wrong
-            // need mapping between attribute and accessor
-            String suffix = accessor.asString(row.getObject(field++));
-            attributeName = attribute.toAttributePrefix() + suffix;
-          }
-          ByteBuffer bytes = row.getBytes(field++);
-          if (bytes != null) {
-            byte[] array = bytes.slice().array();
-            StreamElement element =
-                accessor
-                    .getCqlFactory()
-                    .toKeyValue(
-                        accessor.getEntityDescriptor(),
-                        attribute,
-                        key,
-                        attributeName,
-                        System.currentTimeMillis(),
-                        Offsets.empty(),
-                        array);
-            if (!observer.onNext(element, BatchLogObservers.defaultContext(partition))) {
-              return false;
-            }
+        ByteBuffer bytes = row.get(field++, ByteBuffer.class);
+        if (bytes != null) {
+          byte[] array = bytes.slice().array();
+          StreamElement element =
+              accessor
+                  .getCqlFactory()
+                  .toKeyValue(
+                      accessor.getEntityDescriptor(),
+                      attribute,
+                      key,
+                      attributeName,
+                      System.currentTimeMillis(),
+                      Offsets.empty(),
+                      array);
+          if (!observer.onNext(element, BatchLogObservers.defaultContext(partition))) {
+            return false;
           }
         }
       }

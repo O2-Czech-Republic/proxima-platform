@@ -15,15 +15,15 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.Session;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.UriUtil;
+import cz.o2.proxima.io.serialization.shaded.com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.io.serialization.shaded.com.google.common.base.Strings;
 import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -45,7 +45,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   @Nullable private String payloadCol;
 
   /** The connection session in use. */
-  @Getter @Nullable transient Session current = null;
+  @Getter @Nullable transient CqlSession current = null;
 
   /** A TTL value in seconds associated with each update or insert. */
   protected long ttl = 0;
@@ -141,8 +141,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    * @param what data to ingest
    * @return the statement to use in order to store the data
    */
-  protected PreparedStatement getPreparedStatement(Session session, StreamElement what) {
-
+  protected PreparedStatement getPreparedStatement(CqlSession session, StreamElement what) {
     if (what.isDelete()) {
       PreparedStatement cached;
       if (what.isDeleteWildcard()) {
@@ -178,7 +177,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    * @return the statement to use in order to read the data
    */
   protected PreparedStatement getPreparedGetStatement(
-      Session session, String attribute, AttributeDescriptor<?> desc) {
+      CqlSession session, String attribute, AttributeDescriptor<?> desc) {
 
     return getCache.computeIfAbsent(
         desc,
@@ -198,13 +197,13 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    * @return the statement to use in order to read the data
    */
   protected PreparedStatement getPreparedListStatement(
-      Session session, AttributeDescriptor<?> wildcardAttribute) {
+      CqlSession session, AttributeDescriptor<?> wildcardAttribute) {
 
     return listCache.computeIfAbsent(
         wildcardAttribute, k -> prepare(session, createListStatement(wildcardAttribute)));
   }
 
-  protected PreparedStatement getPreparedListAllStatement(Session session) {
+  protected PreparedStatement getPreparedListAllStatement(CqlSession session) {
     if (listAllAttributes == null) {
       listAllAttributes = prepare(session, createListAllStatement(session));
     }
@@ -276,7 +275,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    * @param session the connection session
    * @return string representation of the CQL
    */
-  protected abstract String createListAllStatement(Session session);
+  protected abstract String createListAllStatement(CqlSession session);
 
   /** Clear the cache (e.g. on reconnects). */
   protected void clearCache() {
@@ -319,7 +318,8 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   }
 
   @Override
-  public BoundStatement getListEntitiesStatement(Offsets.Token offset, int limit, Session session) {
+  public BoundStatement getListEntitiesStatement(
+      Offsets.TokenOffset offset, int limit, CqlSession session) {
 
     if (listEntities == null) {
       listEntities = prepare(session, createListEntitiesStatement());
@@ -332,21 +332,21 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   }
 
   @Override
-  public BoundStatement getFetchTokenStatement(String key, Session session) {
+  public BoundStatement getFetchTokenStatement(String key, CqlSession session) {
     if (fetchToken == null) {
       fetchToken = prepare(session, createFetchTokenStatement());
     }
     return fetchToken.bind(key);
   }
 
-  void ensureSession(Session session) {
+  void ensureSession(CqlSession session) {
     if (this.current != session) {
       clearCache();
       current = session;
     }
   }
 
-  static PreparedStatement prepare(Session session, String statement) {
+  static PreparedStatement prepare(CqlSession session, String statement) {
     log.debug("Trying to prepare statement {}", statement);
     PreparedStatement ret = session.prepare(statement);
     log.info("Prepared statement {} as {}", statement, ret);

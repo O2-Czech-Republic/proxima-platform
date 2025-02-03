@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.Statement;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -53,7 +53,7 @@ public interface CqlFactory extends Serializable {
    * @param session current session
    * @return the statement to execute. When empty, the ingest is silently discarded.
    */
-  Optional<BoundStatement> getWriteStatement(StreamElement element, Session session);
+  Optional<BoundStatement> getWriteStatement(StreamElement element, CqlSession session);
 
   /**
    * Retrieve a CQL query to execute in order to read data.
@@ -65,7 +65,7 @@ public interface CqlFactory extends Serializable {
    * @return the statement to execute
    */
   BoundStatement getReadStatement(
-      String key, String attribute, AttributeDescriptor<?> desc, Session session);
+      String key, String attribute, AttributeDescriptor<?> desc, CqlSession session);
 
   /**
    * Retrieve wrapped statement to execute to list all attributes of given key.
@@ -78,7 +78,7 @@ public interface CqlFactory extends Serializable {
    * @return iterable over keyvalues
    */
   <T> KvIterable<T> getListAllStatement(
-      String key, @Nullable Offsets.Raw offset, int limit, Session session);
+      String key, @Nullable Offsets.Raw offset, int limit, CqlSession session);
 
   /**
    * Retrieve a CQL query to execute in order to list wildcard attributes. The prefix is name of
@@ -96,7 +96,7 @@ public interface CqlFactory extends Serializable {
       AttributeDescriptor<?> wildcard,
       @Nullable Offsets.Raw offset,
       int limit,
-      Session session);
+      CqlSession session);
 
   /**
    * Get statement for listing entities.
@@ -107,7 +107,7 @@ public interface CqlFactory extends Serializable {
    * @return the statement to execute
    */
   BoundStatement getListEntitiesStatement(
-      @Nullable Offsets.Token offset, int limit, Session session);
+      @Nullable Offsets.TokenOffset offset, int limit, CqlSession session);
 
   /**
    * Retrieve a bound statement to fetch a token for given entity.
@@ -116,7 +116,7 @@ public interface CqlFactory extends Serializable {
    * @param session connection session
    * @return the statement to execute
    */
-  BoundStatement getFetchTokenStatement(String key, Session session);
+  BoundStatement getFetchTokenStatement(String key, CqlSession session);
 
   /**
    * Retrieve a bound statement to scan data for given attribute and partition.
@@ -127,7 +127,7 @@ public interface CqlFactory extends Serializable {
    * @return the statement to execute
    */
   Statement scanPartition(
-      List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session);
+      List<AttributeDescriptor<?>> attributes, CassandraPartition partition, CqlSession session);
 
   /** Convert the byte[] stored in the database into {@link KeyValue}. */
   <T> @Nullable KeyValue<T> toKeyValue(

@@ -23,13 +23,13 @@ public class Offsets {
   private static RandomOffset EMPTY = new RandomOffset() {};
 
   /** Offset represented by a token (hash) of the key. */
-  public static class Token implements RandomOffset {
+  public static class TokenOffset implements RandomOffset {
 
     private static final long serialVersionUID = 1L;
 
     final long tkn;
 
-    Token(long token) {
+    TokenOffset(long token) {
       this.tkn = token;
     }
 

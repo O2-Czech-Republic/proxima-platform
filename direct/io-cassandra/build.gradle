@@ -18,12 +18,14 @@ plugins {
   id 'cz.o2.proxima.java-conventions'
 }
 
+def cassandra_version = "4.18.1"
+
 dependencies {
   api project(':proxima-core')
   api project(':proxima-direct-core')
   implementation project(path: ':proxima-io-serialization', configuration: "shadowJar")
   implementation libraries.slf4j_api;
-  intoShadow 'com.datastax.cassandra:cassandra-driver-core:3.11.0'
+  intoShadow "org.apache.cassandra:java-driver-core:${cassandra_version}"
   intoShadow 'io.netty:netty-handler:4.1.42.Final'
   intoShadow 'commons-codec:commons-codec:1.10'
   provided "com.google.j2objc:j2objc-annotations:2.8"
@@ -54,7 +56,8 @@ enableShadowJar(project) {
 shadowJar {
   relocators.clear()
   ["io.netty", "io.dropwizard", "com.github.jnr", "com.google", "jnr", "com.kenai",
-   "org.apache.commons", "org.objectweb", "org.codehaus", "com.codahale", "com.fasterxml"].each {
+   "org.apache.commons", "org.objectweb", "org.codehaus", "com.codahale", "com.fasterxml",
+   "com.typesafe", "org.reactivestreams", "org.HdrHistogram", "net.jcip", "edu.umd"].each {
 
     relocate it, "cz.o2.proxima.cassandra.shaded.${it}"
   }

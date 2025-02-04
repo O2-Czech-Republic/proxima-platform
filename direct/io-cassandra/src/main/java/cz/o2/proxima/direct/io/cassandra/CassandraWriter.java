@@ -15,14 +15,13 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.direct.io.cassandra.CassandraDBAccessor.ClusterHolder;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,24 +31,22 @@ import lombok.extern.slf4j.Slf4j;
 class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAttributeWriter {
 
   private final CassandraDBAccessor accessor;
-  private final ClusterHolder clusterHolder;
 
   CassandraWriter(CassandraDBAccessor accessor) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
-    this.clusterHolder = accessor.acquireCluster();
   }
 
   @Override
   public void write(StreamElement data, CommitCallback statusCallback) {
     try {
-      Session session = accessor.ensureSession();
+      CqlSession session = accessor.ensureSession();
       Optional<BoundStatement> cql = accessor.getCqlFactory().getWriteStatement(data, session);
       if (cql.isPresent()) {
         if (log.isDebugEnabled()) {
           log.debug(
               "Executing statement {} to write {}",
-              cql.get().preparedStatement().getQueryString(),
+              cql.get().getPreparedStatement().getQuery(),
               data);
         }
         accessor.execute(cql.get());
@@ -71,6 +68,6 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
 
   @Override
   public void close() {
-    clusterHolder.close();
+    // nop
   }
 }

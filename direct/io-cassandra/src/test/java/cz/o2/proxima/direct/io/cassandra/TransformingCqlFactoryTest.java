@@ -16,14 +16,16 @@
 package cz.o2.proxima.direct.io.cassandra;
 
 import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeDescriptorBase;
 import cz.o2.proxima.core.repository.ConfigRepository;
@@ -92,10 +94,11 @@ public class TransformingCqlFactoryTest {
     StreamElement ingest =
         StreamElement.upsert(
             entity, attr, UUID.randomUUID().toString(), "123", "first", now, "value".getBytes());
-    Session session = mock(Session.class);
+    CqlSession session = mock(CqlSession.class);
     PreparedStatement statement = mock(PreparedStatement.class);
     BoundStatement bound = mock(BoundStatement.class);
     when(session.prepare((String) any())).thenReturn(statement);
+    when(bound.setLong(anyInt(), anyLong())).thenReturn(bound);
     when(statement.bind(any(), any())).thenReturn(bound);
 
     factory.getWriteStatement(ingest, session);
@@ -112,11 +115,13 @@ public class TransformingCqlFactoryTest {
     final StreamElement ingest =
         StreamElement.upsert(
             entity, attr, UUID.randomUUID().toString(), "123", "first", now, "value".getBytes());
-    final Session session = mock(Session.class);
+    final CqlSession session = mock(CqlSession.class);
     final PreparedStatement statement = mock(PreparedStatement.class);
 
     when(session.prepare((String) any())).thenReturn(statement);
-    when(statement.bind(any(), any())).thenReturn(mock(BoundStatement.class));
+    BoundStatement mockStatement = mock(BoundStatement.class);
+    when(statement.bind(any(), any())).thenReturn(mockStatement);
+    when(mockStatement.setLong(anyInt(), anyLong())).thenReturn(mockStatement);
     factory.setup(
         entity,
         ExceptionUtils.uncheckedFactory(() -> new URI("cassandra://wherever/my_table/?ttl=86400")),
@@ -142,7 +147,7 @@ public class TransformingCqlFactoryTest {
             "first",
             System.currentTimeMillis(),
             null);
-    Session session = mock(Session.class);
+    CqlSession session = mock(CqlSession.class);
     PreparedStatement statement = mock(PreparedStatement.class);
     when(session.prepare((String) any())).thenReturn(statement);
     when(statement.bind(any(), any())).thenReturn(mock(BoundStatement.class));

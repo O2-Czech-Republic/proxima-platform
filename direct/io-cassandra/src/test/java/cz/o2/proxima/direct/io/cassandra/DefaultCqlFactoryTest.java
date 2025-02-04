@@ -22,11 +22,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeDescriptorBase;
 import cz.o2.proxima.core.repository.ConfigRepository;
@@ -57,7 +57,7 @@ public class DefaultCqlFactoryTest {
   final AttributeDescriptorBase<?> attrWildcard;
   final EntityDescriptor entity;
   final PreparedStatement statement = mock(PreparedStatement.class);
-  final Session session = mock(Session.class);
+  final CqlSession session = mock(CqlSession.class);
 
   CqlFactory factory;
   List<String> preparedStatement;
@@ -204,7 +204,7 @@ public class DefaultCqlFactoryTest {
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
-    when(bound.setBytes(eq(1), any())).thenReturn(bound);
+    when(bound.set(eq(1), any(), eq(ByteBuffer.class))).thenReturn(bound);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
@@ -448,20 +448,20 @@ public class DefaultCqlFactoryTest {
             Collections.singletonList(attr),
             new CassandraPartition(0, Long.MIN_VALUE, Long.MAX_VALUE, 0, 100, false),
             null);
-    assertEquals(statement.getClass(), SimpleStatement.class);
+    assertTrue(statement instanceof SimpleStatement);
     assertEquals(
         "SELECT hgw, my_attribute FROM my_table WHERE token(hgw) >= 0 AND token(hgw) < 100",
-        statement.toString());
+        ((SimpleStatement) statement).getQuery());
 
     statement =
         factory.scanPartition(
             Collections.singletonList(attrWildcard),
             new CassandraPartition(0, Long.MIN_VALUE, Long.MAX_VALUE, 0, 100, true),
             null);
-    assertEquals(statement.getClass(), SimpleStatement.class);
+    assertTrue(statement instanceof SimpleStatement);
     assertEquals(
         "SELECT hgw, device, my_col FROM my_table WHERE token(hgw) >= 0 AND token(hgw) <= 100",
-        statement.toString());
+        ((SimpleStatement) statement).getQuery());
   }
 
   @Test

@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.driver.core.BoundStatement;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.Statement;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
@@ -108,7 +108,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
   }
 
   @Override
-  public Optional<BoundStatement> getWriteStatement(StreamElement element, Session session) {
+  public Optional<BoundStatement> getWriteStatement(StreamElement element, CqlSession session) {
 
     ensureSession(session);
     if (element.isDelete()) {
@@ -127,7 +127,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
         return Optional.empty();
       }
       BoundStatement bound = statement.bind(values.toArray(new Object[values.size()]));
-      bound.setLong(values.size(), element.getStamp() * 1000L);
+      bound = bound.setLong(values.size(), element.getStamp() * 1000L);
       return Optional.of(bound);
     } else {
       log.debug("Ingest {} was filtered out.", element);
@@ -147,14 +147,14 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
 
   @Override
   public BoundStatement getReadStatement(
-      String key, String attribute, AttributeDescriptor desc, Session session) {
+      String key, String attribute, AttributeDescriptor desc, CqlSession session) {
 
     throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override
   public BoundStatement getListStatement(
-      String key, AttributeDescriptor wildcard, Offsets.Raw offset, int limit, Session session) {
+      String key, AttributeDescriptor wildcard, Offsets.Raw offset, int limit, CqlSession session) {
 
     throw new UnsupportedOperationException("Not supported.");
   }
@@ -171,7 +171,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
 
   @Override
   public Statement scanPartition(
-      List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session) {
+      List<AttributeDescriptor<?>> attributes, CassandraPartition partition, CqlSession session) {
 
     throw new UnsupportedOperationException("Not supported.");
   }
@@ -191,13 +191,13 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
   }
 
   @Override
-  protected String createListAllStatement(Session session) {
+  protected String createListAllStatement(CqlSession session) {
     throw new UnsupportedOperationException("Not supported.");
   }
 
   @Override
   public <T> KvIterable<T> getListAllStatement(
-      String key, Offsets.Raw offset, int limit, Session session) {
+      String key, Offsets.Raw offset, int limit, CqlSession session) {
 
     throw new UnsupportedOperationException("Not supported.");
   }

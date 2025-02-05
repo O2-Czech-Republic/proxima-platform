@@ -17,9 +17,6 @@ package cz.o2.proxima.direct.io.kafka;
 
 import static cz.o2.proxima.core.util.TestUtils.createTestFamily;
 import static org.junit.Assert.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.Mockito.*;
 
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.core.functional.UnaryFunction;
@@ -2049,7 +2046,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCurrentOffsetsWatermark() throws InterruptedException {
     final Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(1)));
-    final LocalKafkaWriter writer = accessor.newWriter();
+    final LocalKafkaWriter<?, ?> writer = accessor.newWriter();
     final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
     final long now = System.currentTimeMillis();
@@ -2886,20 +2883,23 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                   @Nullable Collection<Partition> assignedPartitions,
                   @Nullable ConsumerRebalanceListener listener) {
 
-                KafkaConsumer<K, V> mock =
-                    super.mockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
-                doAnswer(
-                        invocationOnMock -> {
-                          if (invokedCount.incrementAndGet() > 2) {
-                            return endOffsets;
-                          }
-                          return beginningOffsets;
-                        })
-                    .when(mock)
-                    .beginningOffsets(any());
+                return new MockKafkaConsumer<>(
+                    name, group, serializer, assignedPartitions, listener) {
+                  @Override
+                  public Map<TopicPartition, Long> beginningOffsets(
+                      Collection<TopicPartition> partitions) {
+                    if (invokedCount.incrementAndGet() > 2) {
+                      return endOffsets;
+                    }
+                    return beginningOffsets;
+                  }
 
-                doAnswer(invocationOnMock -> endOffsets).when(mock).endOffsets(any());
-                return mock;
+                  @Override
+                  public Map<TopicPartition, Long> endOffsets(
+                      Collection<TopicPartition> partitions, Duration timeout) {
+                    return endOffsets;
+                  }
+                };
               }
             };
           }
@@ -2961,20 +2961,23 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                   @Nullable Collection<Partition> assignedPartitions,
                   @Nullable ConsumerRebalanceListener listener) {
 
-                KafkaConsumer<K, V> mock =
-                    super.mockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
-                doAnswer(
-                        invocationOnMock -> {
-                          if (invokedCount.incrementAndGet() > 2) {
-                            return endOffsets;
-                          }
-                          return beginningOffsets;
-                        })
-                    .when(mock)
-                    .beginningOffsets(any());
+                return new MockKafkaConsumer<>(
+                    name, group, serializer, assignedPartitions, listener) {
+                  @Override
+                  public Map<TopicPartition, Long> beginningOffsets(
+                      Collection<TopicPartition> partitions) {
+                    if (invokedCount.incrementAndGet() > 2) {
+                      return endOffsets;
+                    }
+                    return beginningOffsets;
+                  }
 
-                doAnswer(invocationOnMock -> endOffsets).when(mock).endOffsets(any());
-                return mock;
+                  @Override
+                  public Map<TopicPartition, Long> endOffsets(
+                      Collection<TopicPartition> partitions, Duration timeout) {
+                    return endOffsets;
+                  }
+                };
               }
             };
           }
@@ -3029,10 +3032,13 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                   @Nullable Collection<Partition> assignedPartitions,
                   @Nullable ConsumerRebalanceListener listener) {
 
-                KafkaConsumer<K, V> mock =
-                    super.mockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
-                doThrow(new RuntimeException("Failed poll")).when(mock).poll(any());
-                return mock;
+                return new MockKafkaConsumer<>(
+                    name, group, serializer, assignedPartitions, listener) {
+                  @Override
+                  public ConsumerRecords<K, V> poll(Duration sleep) {
+                    throw new RuntimeException("Failed poll");
+                  }
+                };
               }
             };
           }
@@ -3077,31 +3083,25 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                   @Nullable ConsumerRebalanceListener listener) {
 
                 final Map<TopicPartition, OffsetAndMetadata> committed = new HashMap<>();
-                KafkaConsumer<K, V> mock =
-                    super.mockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
-                doAnswer(
-                        invocationOnMock -> {
-                          if (invokedCount.getAndIncrement() == 1) {
-                            throw new RebalanceInProgressException();
-                          }
-                          Map<TopicPartition, OffsetAndMetadata> toCommit =
-                              invocationOnMock.getArgument(0);
-                          committed.putAll(toCommit);
-                          return null;
-                        })
-                    .when(mock)
-                    .commitSync(anyMap());
-                doAnswer(
-                        invocationOnMock -> {
-                          Set<TopicPartition> parts = invocationOnMock.getArgument(0);
-                          return parts.stream()
-                              .map(tp -> Pair.of(tp, committed.get(tp)))
-                              .filter(p -> p.getSecond() != null)
-                              .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
-                        })
-                    .when(mock)
-                    .committed(anySet());
-                return mock;
+                return new MockKafkaConsumer<>(
+                    name, group, serializer, assignedPartitions, listener) {
+                  @Override
+                  public void commitSync(Map<TopicPartition, OffsetAndMetadata> toCommit) {
+                    if (invokedCount.getAndIncrement() == 1) {
+                      throw new RebalanceInProgressException();
+                    }
+                    committed.putAll(toCommit);
+                  }
+
+                  @Override
+                  public Map<TopicPartition, OffsetAndMetadata> committed(
+                      Set<TopicPartition> parts) {
+                    return parts.stream()
+                        .map(tp -> Pair.of(tp, committed.get(tp)))
+                        .filter(p -> p.getSecond() != null)
+                        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+                  }
+                };
               }
             };
           }

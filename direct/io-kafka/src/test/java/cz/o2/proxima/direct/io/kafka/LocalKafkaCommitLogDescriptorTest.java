@@ -1996,6 +1996,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final LocalKafkaWriter writer = accessor.newWriter();
     final CachedView view = Optionals.get(accessor.getCachedView(context()));
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
+    long now = System.currentTimeMillis();
     StreamElement update =
         StreamElement.upsert(
             entity,
@@ -2003,7 +2004,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             UUID.randomUUID().toString(),
             "key",
             attr.getName(),
-            System.currentTimeMillis(),
+            now,
             new byte[] {1, 2});
 
     writer.write(
@@ -2016,7 +2017,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.set(new CountDownLatch(1));
     view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     assertArrayEquals(new byte[] {1, 2}, Optionals.get(view.get("key", attr)).getValue());
-    long now = System.currentTimeMillis();
     update =
         StreamElement.upsert(
             entity,
@@ -2024,7 +2024,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             UUID.randomUUID().toString(),
             "key",
             attr.getName(),
-            now,
+            now + 1,
             new byte[] {1, 2, 3});
     assertEquals(Watermarks.MIN_WATERMARK, getMinWatermark(view.getRunningHandle().get()));
     writer.write(

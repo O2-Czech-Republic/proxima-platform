@@ -38,6 +38,7 @@ import cz.o2.proxima.direct.io.kafka.ElementConsumers.OnlineConsumer;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -430,33 +431,28 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 && !shutdown.get()
                 && !Thread.currentThread().isInterrupted());
 
-            Set<TopicPartition> assignment = kafka.assignment();
-            if (!assignment.isEmpty()) {
-              listener.onPartitionsRevoked(assignment);
-              listener.onPartitionsAssigned(assignment);
-            }
+            notifyAssignedPartitions(kafka, listener);
 
             readyLatch.countDown();
 
             AtomicReference<Throwable> error = new AtomicReference<>();
             long pollTimeMs = 0L;
 
-            Map<TopicPartition, Long> polledOffsets = new HashMap<>(assignment.size());
+            Map<TopicPartition, Long> polledOffsets = new HashMap<>();
             do {
-              if (poll.isEmpty()) {
-                Optional.ofNullable(watermarkEstimator.get()).ifPresent(consumer::onIdle);
-              }
               logConsumerWatermark(name, offsets, watermarkEstimator, poll.count());
               poll =
                   seekToNewOffsetsIfNeeded(
                       seekOffsets, consumer, watermarkEstimator, kafka, poll, polledOffsets);
               long bytesPolled = 0L;
-              Set<TopicPartition> emptyPartitions = new HashSet<>(assignment);
+              Set<TopicPartition> currentAssignment = kafka.assignment();
+              Set<TopicPartition> nonEmptyPartitions = new HashSet<>(currentAssignment.size());
               for (ConsumerRecord<Object, Object> r : poll) {
                 bytesPolled += r.serializedKeySize() + r.serializedValueSize();
                 TopicPartition tp = new TopicPartition(r.topic(), r.partition());
                 // offsets should be increasing in polled records
                 polledOffsets.put(tp, r.offset());
+                nonEmptyPartitions.add(tp);
                 preWrite.accept(tp, r);
                 StreamElement ingest = serializer.read(r, getEntityDescriptor());
                 if (ingest != null) {
@@ -487,12 +483,16 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                   }
                 }
               }
-              if (!emptyPartitions.isEmpty()) {
+              if (!Sets.difference(currentAssignment, nonEmptyPartitions).isEmpty()
+                  || currentAssignment.isEmpty()) {
                 increaseWatermarkOnEmptyPolls(
-                    kafka.endOffsets(kafka.assignment()),
+                    currentAssignment.isEmpty()
+                        ? Collections.emptyMap()
+                        : kafka.endOffsets(currentAssignment),
                     polledOffsets,
                     topicPartitionToId,
-                    watermarkEstimator);
+                    watermarkEstimator,
+                    consumer);
               }
               if (!flushCommits(kafka, consumer)) {
                 handleRebalanceInOffsetCommit(kafka, listener);
@@ -543,6 +543,16 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           }
         });
     readyLatch.await();
+  }
+
+  private static void notifyAssignedPartitions(
+      KafkaConsumer<?, ?> kafka, ConsumerRebalanceListener listener) {
+
+    Set<TopicPartition> assignment = kafka.assignment();
+    if (!assignment.isEmpty()) {
+      listener.onPartitionsRevoked(assignment);
+      listener.onPartitionsAssigned(assignment);
+    }
   }
 
   private void handleRebalanceInOffsetCommit(
@@ -661,15 +671,21 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       Map<TopicPartition, Long> endOffsets,
       Map<TopicPartition, Long> polledOffsets,
       Map<TopicPartition, Integer> topicPartitionToId,
-      AtomicReference<PartitionedWatermarkEstimator> watermarkEstimator) {
+      AtomicReference<PartitionedWatermarkEstimator> watermarkEstimator,
+      ElementConsumer<?, ?> consumer) {
 
+    AtomicInteger emptyPartitions = new AtomicInteger();
     endOffsets.forEach(
         (tp, endOffset) -> {
-          long polledOffset = MoreObjects.firstNonNull(polledOffsets.get(tp), 0L);
+          long polledOffset = MoreObjects.firstNonNull(polledOffsets.get(tp), -1L);
           if (endOffset <= polledOffset + 1) {
+            emptyPartitions.incrementAndGet();
             watermarkEstimator.get().idle(topicPartitionToId.get(tp));
           }
         });
+    if (emptyPartitions.get() == endOffsets.size()) {
+      Optional.ofNullable(watermarkEstimator.get()).ifPresent(consumer::onIdle);
+    }
   }
 
   private ObserveHandle createObserveHandle(

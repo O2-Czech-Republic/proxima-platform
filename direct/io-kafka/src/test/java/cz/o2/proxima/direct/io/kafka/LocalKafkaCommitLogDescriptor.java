@@ -24,6 +24,7 @@ import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
@@ -71,6 +72,9 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.record.TimestampType;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.Serde;
+import org.apache.kafka.common.serialization.Serdes;
 
 /**
  * A class that can be used as {@code KafkaCommitLog} in various test scenarios. The commit log is
@@ -84,6 +88,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
   public static final String CFG_NUM_PARTITIONS = "local-kafka-num-partitions";
   public static final String CFG_RETENTION = "retention-elements";
+
+  private static final Serde<byte[]> byteArray = Serdes.ByteArray();
 
   // we need this to be able to survive serialization
   private static final Map<String, Map<URI, Accessor>> ACCESSORS = new ConcurrentHashMap<>();
@@ -255,156 +261,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         @Nullable Collection<Partition> assignedPartitions,
         @Nullable ConsumerRebalanceListener listener) {
 
-      log.info(
-          "Creating mock kafka consumer name {}, with committed offsets {}",
-          name,
-          committedOffsets);
-
-      KafkaConsumer<K, V> mock = mock(KafkaConsumer.class);
-
-      int assignedId =
-          assignedPartitions != null ? group.add(assignedPartitions) : group.add(listener);
-      final AtomicBoolean polled = new AtomicBoolean();
-
-      ConsumerId consumerId = ConsumerId.of(name, assignedId);
-      consumerOffsets.put(
-          consumerId,
-          group.getAssignment(consumerId.getId()).stream()
-              .map(
-                  p -> {
-                    int off = getCommittedOffset(name, p.getId());
-                    off = off >= 0 ? off : written.get(p.getId()).size();
-                    return Pair.of(p.getId(), off);
-                  })
-              .collect(Collectors.toConcurrentMap(Pair::getFirst, Pair::getSecond)));
-
-      doAnswer(
-              invocation -> {
-                polled.set(true);
-                Duration sleep = (Duration) invocation.getArguments()[0];
-                return pollConsumer(
-                    group, Math.min(200, sleep.toMillis()), consumerId, serializer, listener);
-              })
-          .when(mock)
-          .poll(any());
-
-      doAnswer(
-              invocation -> {
-                Collection<TopicPartition> tp;
-                tp = (Collection<TopicPartition>) invocation.getArguments()[0];
-                return getEndOffsets(name, tp);
-              })
-          .when(mock)
-          .endOffsets(any());
-
-      doAnswer(
-              invocation -> {
-                Collection<TopicPartition> c;
-                c = (Collection<TopicPartition>) invocation.getArguments()[0];
-                Map<TopicPartition, Long> starts =
-                    c.stream().collect(Collectors.toMap(i -> i, i -> 0L));
-                log.debug("Consumer {} beginningOffsets {}: {}", name, c, starts);
-                return starts;
-              })
-          .when(mock)
-          .beginningOffsets(any());
-
-      doAnswer(
-              invocation -> {
-                Collection<TopicPartition> parts;
-                parts = (Collection<TopicPartition>) invocation.getArguments()[0];
-                seekConsumerToBeginning(consumerId, parts);
-                polled.set(true);
-                return null;
-              })
-          .when(mock)
-          .seekToBeginning(any());
-
-      doAnswer(
-              invocation -> {
-                TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
-                long offset = (long) invocation.getArguments()[1];
-                seekConsumerTo(consumerId, tp.partition(), offset);
-                polled.set(true);
-                return null;
-              })
-          .when(mock)
-          .seek(any(), anyLong());
-
-      doAnswer(
-              invocation -> {
-                TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
-                OffsetAndMetadata offset = (OffsetAndMetadata) invocation.getArguments()[1];
-                seekConsumerTo(consumerId, tp.partition(), offset.offset());
-                polled.set(true);
-                return null;
-              })
-          .when(mock)
-          .seek(any(), any());
-
-      doAnswer(
-              invocation -> {
-                Map<TopicPartition, OffsetAndMetadata> commitMap;
-                commitMap = (Map<TopicPartition, OffsetAndMetadata>) invocation.getArguments()[0];
-                commitConsumer(name, commitMap);
-                return null;
-              })
-          .when(mock)
-          .commitSync((Map<TopicPartition, OffsetAndMetadata>) any());
-
-      doAnswer(
-              invocation -> {
-                Set<TopicPartition> parts = (Set<TopicPartition>) invocation.getArguments()[0];
-                return parts.stream()
-                    .map(
-                        tp -> {
-                          int off = getCommittedOffset(name, tp.partition());
-                          if (off >= 0) {
-                            return Pair.of(tp, new OffsetAndMetadata(off));
-                          }
-                          return Pair.of(tp, null);
-                        })
-                    .filter(p -> p.getSecond() != null)
-                    .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
-              })
-          .when(mock)
-          .committed((Set<TopicPartition>) any());
-
-      doAnswer(
-              invocation ->
-                  polled.get()
-                      ? group.getAssignment(consumerId.getId()).stream()
-                          .map(p -> new TopicPartition(getTopic(), p.getId()))
-                          .collect(Collectors.toSet())
-                      : Collections.emptySet())
-          .when(mock)
-          .assignment();
-
-      when(mock.partitionsFor(eq(group.getTopic())))
-          .thenReturn(
-              IntStream.range(0, group.getNumPartitions())
-                  .mapToObj(i -> new PartitionInfo(group.getTopic(), i, null, null, null))
-                  .collect(Collectors.toList()));
-
-      doAnswer(
-              invocation -> {
-                group.remove(consumerId.getId());
-                return null;
-              })
-          .when(mock)
-          .close();
-
-      doAnswer(
-              invocation -> {
-                TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
-                return (long)
-                    Optional.ofNullable(consumerOffsets.get(consumerId).get(tp.partition()))
-                        .orElse(-1);
-              })
-          .when(mock)
-          .position(any());
-
-      return mock;
+      return new MockKafkaConsumer(name, group, serializer, assignedPartitions, listener);
     }
 
     private int getCommittedOffset(String name, int partition) {
@@ -491,10 +348,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           }
           consumerId.setAssigned(true);
         }
-        // need to sleep in order not to pollute the heap with
-        // unnecessary objects
-        // this is because mockito somehow creates lots of objects
-        // when it is invoked too often
+
         log.debug("Sleeping {} ms before attempting to poll", period);
         Thread.sleep(period);
 
@@ -626,6 +480,145 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
     public int getPerPartitionElementsRetention() {
       return 0;
+    }
+
+    class MockKafkaConsumer<K, V> extends KafkaConsumer<K, V> {
+
+      @Getter private final String name;
+      @Getter private final AtomicBoolean polled = new AtomicBoolean();
+      @Getter private final ConsumerGroup group;
+      @Getter private final ConsumerId consumerId;
+      @Getter private final ElementSerializer<K, V> serializer;
+      @Getter private final ConsumerRebalanceListener listener;
+
+      public MockKafkaConsumer(
+          String name,
+          ConsumerGroup group,
+          ElementSerializer<K, V> serializer,
+          Collection<Partition> assignedPartitions,
+          ConsumerRebalanceListener listener) {
+
+        super(
+            Map.of("bootstrap.servers", "localhost:9092"),
+            (Deserializer<K>) byteArray.deserializer(),
+            (Deserializer<V>) byteArray.deserializer());
+
+        log.info(
+            "Creating mock kafka consumer name {}, with committed offsets {}",
+            name,
+            committedOffsets);
+
+        int assignedId =
+            assignedPartitions != null ? group.add(assignedPartitions) : group.add(listener);
+
+        this.consumerId = ConsumerId.of(name, assignedId);
+        consumerOffsets.put(
+            consumerId,
+            group.getAssignment(consumerId.getId()).stream()
+                .map(
+                    p -> {
+                      int off = getCommittedOffset(name, p.getId());
+                      off = off >= 0 ? off : written.get(p.getId()).size();
+                      return Pair.of(p.getId(), off);
+                    })
+                .collect(Collectors.toConcurrentMap(Pair::getFirst, Pair::getSecond)));
+
+        this.name = name;
+        this.group = group;
+        this.serializer = serializer;
+        this.listener = listener;
+      }
+
+      @Override
+      public Map<TopicPartition, Long> endOffsets(Collection<TopicPartition> partitions) {
+        return getEndOffsets(name, partitions);
+      }
+
+      @Override
+      public Map<TopicPartition, Long> beginningOffsets(Collection<TopicPartition> partitions) {
+        Map<TopicPartition, Long> starts =
+            partitions.stream().collect(Collectors.toMap(i -> i, i -> 0L));
+        log.debug("Consumer {} beginningOffsets {}: {}", name, partitions, starts);
+        return starts;
+      }
+
+      @Override
+      public Set<TopicPartition> assignment() {
+        return polled.get()
+            ? group.getAssignment(consumerId.getId()).stream()
+                .map(p -> new TopicPartition(getTopic(), p.getId()))
+                .collect(Collectors.toSet())
+            : Collections.emptySet();
+      }
+
+      @Override
+      public ConsumerRecords<K, V> poll(Duration sleep) {
+        polled.set(true);
+        return ExceptionUtils.uncheckedFactory(
+            () ->
+                pollConsumer(
+                    group, Math.min(200, sleep.toMillis()), consumerId, serializer, listener));
+      }
+
+      @Override
+      public void seek(TopicPartition tp, long offset) {
+        seekConsumerTo(consumerId, tp.partition(), offset);
+        polled.set(true);
+      }
+
+      @Override
+      public void seek(TopicPartition tp, OffsetAndMetadata offset) {
+        seekConsumerTo(consumerId, tp.partition(), offset.offset());
+        polled.set(true);
+      }
+
+      @Override
+      public void seekToBeginning(Collection<TopicPartition> parts) {
+        seekConsumerToBeginning(consumerId, parts);
+        polled.set(true);
+      }
+
+      @Override
+      public long position(TopicPartition tp) {
+        return (long)
+            Optional.ofNullable(consumerOffsets.get(consumerId).get(tp.partition())).orElse(-1);
+      }
+
+      @Override
+      public void commitSync(Map<TopicPartition, OffsetAndMetadata> commitMap) {
+        commitConsumer(name, commitMap);
+      }
+
+      @Override
+      public Map<TopicPartition, OffsetAndMetadata> committed(Set<TopicPartition> parts) {
+        return parts.stream()
+            .map(
+                tp -> {
+                  int off = getCommittedOffset(name, tp.partition());
+                  if (off >= 0) {
+                    return Pair.of(tp, new OffsetAndMetadata(off));
+                  }
+                  return Pair.of(tp, (OffsetAndMetadata) null);
+                })
+            .filter(p -> p.getSecond() != null)
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+      }
+
+      @Override
+      public List<PartitionInfo> partitionsFor(String topic) {
+        if (topic.equals(group.getTopic())) {
+          return IntStream.range(0, group.getNumPartitions())
+              .mapToObj(i -> new PartitionInfo(group.getTopic(), i, null, null, null))
+              .collect(Collectors.toList());
+        } else {
+          return Collections.emptyList();
+        }
+      }
+
+      @Override
+      public void close() {
+        group.remove(consumerId.getId());
+      }
     }
   }
 

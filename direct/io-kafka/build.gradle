@@ -44,6 +44,7 @@ dependencies {
   testImplementation "org.apache.kafka:kafka_2.13:${kafka_version}"
   testImplementation "org.apache.kafka:kafka-streams:${kafka_version}"
   testImplementation "org.apache.kafka:kafka-streams-test-utils:${kafka_version}"
+  testImplementation libraries.log4j_core
   compileOnly libraries.auto_service_annotations
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service

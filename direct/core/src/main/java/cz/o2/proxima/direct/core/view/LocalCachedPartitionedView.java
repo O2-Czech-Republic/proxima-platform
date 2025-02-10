@@ -108,13 +108,13 @@ public class LocalCachedPartitionedView implements CachedView {
       final Pair<Long, Payload> oldVal;
       synchronized (cache) {
         oldVal = cache.get(element.getKey(), attrName, Long.MAX_VALUE);
-        long sequenceId = element.hasSequentialId() ? element.getSequentialId() : 0L;
+        long sequentialId = element.hasSequentialId() ? element.getSequentialId() : 0L;
         updated =
             cache.put(
                 element.getKey(),
                 attrName,
                 element.getStamp(),
-                sequenceId,
+                sequentialId,
                 overwrite,
                 parsed.orElse(null));
       }

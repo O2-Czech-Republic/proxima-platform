@@ -68,16 +68,16 @@ public class KafkaStreamElement extends StreamElement {
               "Invalid attribute {} in kafka key {} for entity {}", attribute, key, entityDesc);
         } else {
           @Nullable
-          final Header sequenceIdHeader =
+          final Header sequentialIdHeader =
               record.headers().lastHeader(KafkaAccessor.SEQUENCE_ID_HEADER);
           final String uuid =
               Optional.ofNullable(record.headers().lastHeader(KafkaAccessor.UUID_HEADER))
                   .map(v -> new String(v.value(), StandardCharsets.UTF_8))
                   .filter(s -> !s.isEmpty())
                   .orElse(record.topic() + "#" + record.partition() + "#" + record.offset());
-          if (sequenceIdHeader != null) {
+          if (sequentialIdHeader != null) {
             try {
-              long seqId = asLong(sequenceIdHeader.value());
+              long seqId = asLong(sequentialIdHeader.value());
               return new KafkaStreamElement(
                   entityDesc,
                   attr.get(),
@@ -89,7 +89,7 @@ public class KafkaStreamElement extends StreamElement {
                   record.partition(),
                   record.offset());
             } catch (IOException ex) {
-              log.warn("Failed to deserialize sequenceId from {}", sequenceIdHeader, ex);
+              log.warn("Failed to deserialize sequentialId from {}", sequentialIdHeader, ex);
             }
           }
           return new KafkaStreamElement(
@@ -194,7 +194,7 @@ public class KafkaStreamElement extends StreamElement {
   KafkaStreamElement(
       EntityDescriptor entityDesc,
       AttributeDescriptor<?> attributeDesc,
-      long sequenceId,
+      long sequentialId,
       String key,
       String attribute,
       long stamp,
@@ -205,7 +205,7 @@ public class KafkaStreamElement extends StreamElement {
     super(
         entityDesc,
         attributeDesc,
-        sequenceId,
+        sequentialId,
         key,
         attribute,
         stamp,

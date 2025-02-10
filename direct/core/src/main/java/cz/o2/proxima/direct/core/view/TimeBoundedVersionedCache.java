@@ -198,7 +198,7 @@ class TimeBoundedVersionedCache implements Serializable {
       String key,
       String attribute,
       long stamp,
-      long sequenceId,
+      long sequentialId,
       boolean overwrite,
       @Nullable Object value) {
 
@@ -215,7 +215,7 @@ class TimeBoundedVersionedCache implements Serializable {
             final Payload oldPayload = valueMap.get(stamp);
             if (overwrite || oldPayload == null || oldPayload.overridable) {
               logPayloadUpdateIfNecessary(key, attribute, stamp, value);
-              Payload newPayload = new Payload(value, sequenceId, !overwrite);
+              Payload newPayload = new Payload(value, sequentialId, !overwrite);
               valueMap.put(stamp, newPayload);
               updated.set(!newPayload.equals(oldPayload));
             }

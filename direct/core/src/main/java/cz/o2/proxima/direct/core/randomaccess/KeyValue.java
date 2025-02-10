@@ -157,7 +157,7 @@ public class KeyValue<T> extends StreamElement {
   private KeyValue(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
-      long sequenceId,
+      long sequentialId,
       String key,
       String attribute,
       RandomOffset offset,
@@ -168,7 +168,7 @@ public class KeyValue<T> extends StreamElement {
     super(
         entityDesc,
         attrDesc,
-        sequenceId,
+        sequentialId,
         key,
         attribute,
         stamp,

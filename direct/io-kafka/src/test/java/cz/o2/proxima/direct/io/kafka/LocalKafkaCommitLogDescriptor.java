@@ -88,6 +88,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
   public static final String CFG_NUM_PARTITIONS = "local-kafka-num-partitions";
   public static final String CFG_RETENTION = "retention-elements";
+  public static final String MAX_POLL_RECORDS = "max-poll-records";
 
   private static final Serde<byte[]> byteArray = Serdes.ByteArray();
 
@@ -136,6 +137,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     String descriptorId;
     int numPartitions = 1;
     long perPartitionRetention = -1L;
+    int maxPollRecords = 500;
 
     // list of consumers by name with assigned partitions
     transient Map<String, ConsumerGroup> consumerGroups;
@@ -200,7 +202,16 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
               .map(o -> Long.valueOf(o.toString()))
               .orElse(perPartitionRetention);
 
-      log.info("Created accessor with URI {} and {} partitions", uri, numPartitions);
+      maxPollRecords =
+          Optional.ofNullable(cfg.get(MAX_POLL_RECORDS))
+              .map(o -> Integer.valueOf(o.toString()))
+              .orElse(500);
+
+      log.info(
+          "Created accessor with URI {}, {} partitions and {} maxPollRecords",
+          uri,
+          numPartitions,
+          maxPollRecords);
     }
 
     @Override
@@ -364,7 +375,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
               assignment.stream().map(Partition::getId).collect(Collectors.toList()),
               offsets);
         }
-        int maxToPoll = getMaxPollRecords();
+        int maxToPoll = maxPollRecords;
         for (Partition part : assignment) {
           int partition = part.getId();
           if (partition >= written.size()) {
@@ -423,25 +434,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           elem.key(),
           elem.value(),
           elem.headers());
-    }
-
-    public boolean allConsumed(List<Integer> untilOffsets) {
-      return consumerGroups.keySet().stream()
-          .map(
-              name -> {
-                int partition = 0;
-                for (int written : untilOffsets) {
-                  int current = partition;
-                  if (consumerOffsets.get(ConsumerId.of(name, current)).entrySet().stream()
-                      .filter(e -> e.getKey() == current)
-                      .anyMatch(e -> e.getValue() < written)) {
-                    return false;
-                  }
-                  partition++;
-                }
-                return true;
-              })
-          .reduce(true, (a, b) -> a && b);
     }
 
     @Override

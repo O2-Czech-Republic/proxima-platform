@@ -48,7 +48,6 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
 
@@ -74,10 +73,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
 
   /** Maximal read speed in bytes per second. */
   public static final String MAX_BYTES_PER_SEC = "bytes-per-sec-max";
-
-  /** Number of records per poll() */
-  public static final String MAX_POLL_RECORDS =
-      KAFKA_CONFIG_PREFIX + ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
 
   /** Auto commit interval in milliseconds. */
   public static final String AUTO_COMMIT_INTERVAL_MS = "commit.auto-interval-ms";
@@ -114,8 +109,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
   @Getter private long consumerPollInterval = 100;
 
   @Getter private long maxBytesPerSec = Long.MAX_VALUE;
-
-  @Getter private int maxPollRecords = 500;
 
   @Getter private long autoCommitIntervalMs = Long.MAX_VALUE;
 
@@ -164,11 +157,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
             .map(v -> Long.valueOf(v.toString()))
             .orElse(maxBytesPerSec);
 
-    this.maxPollRecords =
-        Optional.ofNullable(cfg.get(MAX_POLL_RECORDS))
-            .map(v -> Integer.valueOf(v.toString()))
-            .orElse(maxPollRecords);
-
     this.autoCommitIntervalMs =
         Optional.ofNullable(cfg.get(AUTO_COMMIT_INTERVAL_MS))
             .map(v -> Long.parseLong(v.toString()))
@@ -200,7 +188,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
             + "partitionerClass {}, "
             + "maxBytesPerSec {}, "
             + "watermarkConfiguration {}, "
-            + "maxPollRecords {}, "
             + "autoCommitIntervalNs {}, "
             + "logStaleCommitIntervalMs {}, "
             + "serializerClass {},"
@@ -209,7 +196,6 @@ public class KafkaAccessor extends SerializableAbstractStorage implements DataAc
         partitioner.getClass(),
         maxBytesPerSec,
         watermarkConfiguration,
-        maxPollRecords,
         autoCommitIntervalMs,
         logStaleCommitIntervalMs,
         serializerClass,

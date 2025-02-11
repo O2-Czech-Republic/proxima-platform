@@ -162,7 +162,7 @@ public class TransactionLogObserver implements CommitLogObserver {
   private final Metrics metrics;
   private final ServerTransactionManager unsynchronizedManager;
   private final ServerTransactionManager manager;
-  private final AtomicLong sequenceId = new AtomicLong();
+  private final AtomicLong sequentialId = new AtomicLong();
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private final ReentrantReadWriteLock timerLock = new ReentrantReadWriteLock();
   private final Object commitLock = new Object();
@@ -187,7 +187,7 @@ public class TransactionLogObserver implements CommitLogObserver {
     this.unsynchronizedManager = getServerTransactionManager(direct);
     this.manager = synchronizedManager(unsynchronizedManager);
     this.monitoringPolicy = unsynchronizedManager.getCfg().getTransactionMonitoringPolicy();
-    sequenceId.set(unsynchronizedManager.getCfg().getInitialSeqIdPolicy().apply());
+    sequentialId.set(unsynchronizedManager.getCfg().getInitialSeqIdPolicy().apply());
     assertSingleton();
     startHouseKeeping();
   }
@@ -653,7 +653,7 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private State transitionToOpen(String transactionId, Request request) {
-    long seqId = sequenceId.getAndIncrement();
+    long seqId = sequentialId.getAndIncrement();
     long now = currentTimeMillis();
     State proposedState = State.open(seqId, now, new HashSet<>(request.getInputAttributes()));
     if (verifyNotInConflict(
@@ -704,7 +704,7 @@ public class TransactionLogObserver implements CommitLogObserver {
                 if (!ka.isDelete()
                     && ka.getSequentialId() < Long.MAX_VALUE
                     && ka.getSequentialId() > transactionSeqId) {
-                  // disallow any (well-defined) sequenceId with higher value than current
+                  // disallow any (well-defined) sequentialId with higher value than current
                   // transaction
                   if (detailedReport) {
                     log.info("Transaction {} has invalid seqId in {}", transactionId, ka);
@@ -806,7 +806,7 @@ public class TransactionLogObserver implements CommitLogObserver {
       if (!newUpdate.isDelete()) {
         State state = Optionals.get(manager.getStateDesc().valueOf(newUpdate));
         log.debug("New state update for transaction {}: {}", newUpdate.getKey(), state);
-        sequenceId.accumulateAndGet(state.getSequentialId() + 1, Math::max);
+        sequentialId.accumulateAndGet(state.getSequentialId() + 1, Math::max);
         manager.ensureTransactionOpen(newUpdate.getKey(), state);
         if (state.getFlags() == State.Flags.COMMITTED) {
           transactionPostCommit(state);

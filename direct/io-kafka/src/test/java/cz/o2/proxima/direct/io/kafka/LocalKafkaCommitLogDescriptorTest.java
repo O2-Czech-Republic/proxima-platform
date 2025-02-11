@@ -36,6 +36,7 @@ import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicy;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.time.Watermarks;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.Context;
@@ -1131,6 +1132,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               Position.OLDEST,
               new CommitLogObserver() {
 
+                boolean confimedLatch = false;
+
                 @Override
                 public boolean onNext(StreamElement element, OnNextContext context) {
                   log.debug("Received element {} on watermark {}", element, context.getWatermark());
@@ -1148,7 +1151,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                     Long oldWatermark = observerWatermarks.put(this, context.getWatermark());
                     boolean hasWatermark =
                         MoreObjects.firstNonNull(oldWatermark, Long.MIN_VALUE) > 0;
-                    if ((!expectMoved || !hasWatermark && context.getWatermark() > 0)) {
+                    if ((!expectMoved || !hasWatermark && context.getWatermark() > 0)
+                        && !confimedLatch) {
+
+                      confimedLatch = true;
                       latch.countDown();
                     }
                   }
@@ -1269,7 +1275,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 cfg(
                     Pair.of(LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS, 3),
                     // poll single record to commit it in atomic way
-                    Pair.of(KafkaAccessor.MAX_POLL_RECORDS, 1))));
+                    Pair.of(LocalKafkaCommitLogDescriptor.MAX_POLL_RECORDS, 1))));
     final CountDownLatch latch = new CountDownLatch(numWrites);
     AtomicInteger consumed = new AtomicInteger();
     List<OnNextContext> unconfirmed = Collections.synchronizedList(new ArrayList<>());
@@ -1307,7 +1313,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(observer, accessor, numWrites);
     latch.await();
     assertEquals(
-        "Invalid committed offests: " + accessor.committedOffsets,
+        "Invalid committed offsets: " + accessor.committedOffsets,
         3,
         accessor.committedOffsets.values().stream().mapToInt(AtomicInteger::get).sum());
   }
@@ -1331,9 +1337,16 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     reader.observe("test", Position.NEWEST, observer);
     reader.observe("test", Position.NEWEST, observer);
 
+    CountDownLatch latch = new CountDownLatch(numWrites);
     for (int i = 0; i < numWrites; i++) {
-      writer.write(update, (succ, e) -> assertTrue(succ));
+      writer.write(
+          update,
+          (succ, e) -> {
+            assertTrue(succ);
+            latch.countDown();
+          });
     }
+    ExceptionUtils.ignoringInterrupted(latch::await);
   }
 
   @Test(timeout = 10000)
@@ -3172,7 +3185,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 cfg(
                     Pair.of(KafkaAccessor.ASSIGNMENT_TIMEOUT_MS, 1L),
                     Pair.of(KafkaAccessor.MAX_BYTES_PER_SEC, maxBytesPerSec),
-                    Pair.of(KafkaAccessor.MAX_POLL_RECORDS, 1))));
+                    Pair.of(LocalKafkaCommitLogDescriptor.MAX_POLL_RECORDS, 1))));
     final LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader =
         accessor

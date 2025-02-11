@@ -172,7 +172,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     @Getter private final String transactionId;
     private boolean commitAttempted = false;
     @Getter private State.Flags state;
-    private long sequenceId = -1L;
+    private long sequentialId = -1L;
     private long stamp = Long.MIN_VALUE;
     private final List<CompletableFuture<?>> runningUpdates =
         Collections.synchronizedList(new ArrayList<>());
@@ -289,7 +289,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         if (state != State.Flags.COMMITTED) {
           return CompletableFuture.completedFuture(Response.empty().aborted());
         }
-        return CompletableFuture.completedFuture(Response.empty().duplicate(sequenceId));
+        return CompletableFuture.completedFuture(Response.empty().duplicate(sequentialId));
       }
       log.debug("Sending commit request for transformed elements {}", transformed);
       return manager.commit(transactionId, transformed);
@@ -333,12 +333,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       }
       if (response.hasSequenceId()) {
         Preconditions.checkState(
-            sequenceId == -1 || sequenceId == response.getSeqId(),
+            sequentialId == -1 || sequentialId == response.getSeqId(),
             "Updated sequence ID from %s to %s. That is a bug in proxima's transactions.",
-            sequenceId,
+            sequentialId,
             response.getSeqId());
-        sequenceId = response.getSeqId();
-        log.debug("Assigned sequence ID {} for transaction {}", sequenceId, transactionId);
+        sequentialId = response.getSeqId();
+        log.debug("Assigned sequence ID {} for transaction {}", sequentialId, transactionId);
       }
       if (response.hasStamp()) {
         Preconditions.checkState(
@@ -428,13 +428,13 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private StreamElement injectSequenceIdAndStamp(StreamElement in) {
 
       Preconditions.checkState(
-          sequenceId > 0, "Invalid sequence ID %s for %s", sequenceId, transactionId);
+          sequentialId > 0, "Invalid sequence ID %s for %s", sequentialId, transactionId);
       Preconditions.checkArgument(!in.isDeleteWildcard(), "Wildcard deletes not yet supported");
 
       return StreamElement.upsert(
           in.getEntityDescriptor(),
           in.getAttributeDescriptor(),
-          sequenceId,
+          sequentialId,
           in.getKey(),
           in.getAttribute(),
           stamp,

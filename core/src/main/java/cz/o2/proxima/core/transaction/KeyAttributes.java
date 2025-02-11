@@ -76,19 +76,19 @@ public class KeyAttributes {
    * @param entity the entity descriptor
    * @param key the entity key
    * @param attributeDescriptor descriptor of wildcard or regular attribute
-   * @param sequenceId sequence ID of the read attribute
+   * @param sequentialId sequence ID of the read attribute
    */
   public static KeyAttribute ofAttributeDescriptor(
       EntityDescriptor entity,
       String key,
       AttributeDescriptor<?> attributeDescriptor,
-      long sequenceId) {
+      long sequentialId) {
 
     Preconditions.checkArgument(
         !attributeDescriptor.isWildcard(),
         "Please specify attribute suffix for wildcard attributes. Got attribute %s",
         attributeDescriptor);
-    return new KeyAttribute(entity, key, attributeDescriptor, sequenceId, false, null);
+    return new KeyAttribute(entity, key, attributeDescriptor, sequentialId, false, null);
   }
 
   /**
@@ -98,7 +98,7 @@ public class KeyAttributes {
    * @param entity the entity descriptor
    * @param key the entity key
    * @param attributeDescriptor descriptor of wildcard or regular attribute
-   * @param sequenceId sequence ID of the read attribute
+   * @param sequentialId sequence ID of the read attribute
    * @param attributeSuffix a specific attribute suffix when {@code attributeDescriptor} is wildcard
    *     attribute
    */
@@ -106,14 +106,14 @@ public class KeyAttributes {
       EntityDescriptor entity,
       String key,
       AttributeDescriptor<?> attributeDescriptor,
-      long sequenceId,
+      long sequentialId,
       @Nullable String attributeSuffix) {
 
     Preconditions.checkArgument(
         !attributeDescriptor.isWildcard() || attributeSuffix != null,
         "Please specify attribute suffix for wildcard attributes. Got attribute %s",
         attributeDescriptor);
-    return new KeyAttribute(entity, key, attributeDescriptor, sequenceId, false, attributeSuffix);
+    return new KeyAttribute(entity, key, attributeDescriptor, sequentialId, false, attributeSuffix);
   }
 
   /**
@@ -166,7 +166,7 @@ public class KeyAttributes {
   public static KeyAttribute ofStreamElement(StreamElement element) {
     Preconditions.checkArgument(
         element.hasSequentialId(),
-        "Elements read with enabled transactions need to use sequenceIds got %s.",
+        "Elements read with enabled transactions need to use sequentialIds got %s.",
         element);
     Preconditions.checkArgument(!element.isDeleteWildcard(), "Wildcard deletes not yet supported");
     return new KeyAttribute(

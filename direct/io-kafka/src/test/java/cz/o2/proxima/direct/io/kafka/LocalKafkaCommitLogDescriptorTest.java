@@ -1132,6 +1132,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               Position.OLDEST,
               new CommitLogObserver() {
 
+                boolean confimedLatch = false;
+
                 @Override
                 public boolean onNext(StreamElement element, OnNextContext context) {
                   log.debug("Received element {} on watermark {}", element, context.getWatermark());
@@ -1149,7 +1151,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                     Long oldWatermark = observerWatermarks.put(this, context.getWatermark());
                     boolean hasWatermark =
                         MoreObjects.firstNonNull(oldWatermark, Long.MIN_VALUE) > 0;
-                    if ((!expectMoved || !hasWatermark && context.getWatermark() > 0)) {
+                    if ((!expectMoved || !hasWatermark && context.getWatermark() > 0)
+                        && !confimedLatch) {
+
+                      confimedLatch = true;
                       latch.countDown();
                     }
                   }

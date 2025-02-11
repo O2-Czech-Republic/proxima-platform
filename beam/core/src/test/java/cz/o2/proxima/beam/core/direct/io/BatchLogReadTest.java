@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.beam.runners.direct.DirectRunner;
@@ -323,14 +324,14 @@ public class BatchLogReadTest {
 
   private static ThroughputLimiter getThroughputLimiter(int waitInvocations) {
     return new ThroughputLimiter() {
-      long numInvocations = 0L;
+      final AtomicLong numInvocations = new AtomicLong();
 
       @Override
       public Duration getPauseTime(Context context) {
-        if (++numInvocations > waitInvocations) {
+        if (numInvocations.incrementAndGet() > waitInvocations) {
           return Duration.ofSeconds(5);
         }
-        // on first two invocations return zero
+        // on first N invocations return zero
         return Duration.ZERO;
       }
 

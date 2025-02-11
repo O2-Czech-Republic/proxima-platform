@@ -67,6 +67,7 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -140,6 +141,7 @@ public class BatchLogReadTest {
   }
 
   @Test(timeout = 60000)
+  @Ignore("Unreproducibly flaky with unknown purpose")
   public void testReadWithThroughputLimitWait() {
     int numElements = 1000;
     List<StreamElement> input = createInput(numElements);

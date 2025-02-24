@@ -56,7 +56,7 @@ enableShadowJar(project) {
   if (!it.endsWith(".class")) {
     return true
   }
-  def allowed = ["cz/o2/proxima", "META-INF"]
+  def allowed = ["cz/o2/proxima", "com/github/luben", "META-INF"]
   if (allowed.find { s -> it.startsWith(s) } != null) {
     return true
   }
@@ -67,7 +67,7 @@ enableShadowJar(project) {
 shadowJar {
   ["org.apache.kafka", "net.sf", "com.yammer", "scala", "com.101tec",
    "org.apache.zookeeper", "com.google", "com.fasterxml", "org.xerial",
-   "net.jpountz", "com.github.luben"].each {
+   "net.jpountz"].each {
 
     relocate it, "cz.o2.proxima.kafka.shaded.${it}"
   }

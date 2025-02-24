@@ -39,7 +39,7 @@ enableShadowJar(project) {
   if (!it.endsWith(".class")) {
     return true
   }
-  def allowed = ["cz/o2/proxima", "com/sun", "META-INF"]
+  def allowed = ["cz/o2/proxima", "com/sun", "org/conscrypt", "META-INF"]
   if (allowed.find { s -> it.startsWith(s) } != null) {
     return true
   }
@@ -62,7 +62,7 @@ shadowJar {
 
   ["io.grpc", "io.opencensus", "com.google", "com.fasterxml",
    "org.apache.commons", "org.codehaus", "org.apache", "org.threeten",
-   "io.perfmark", "org.conscrypt"].each {
+   "io.perfmark"].each {
 
     relocate it, "cz.o2.proxima.pubsub.shaded.${it}"
   }

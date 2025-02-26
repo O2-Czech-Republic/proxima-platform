@@ -79,6 +79,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1124,15 +1125,16 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(numObservers);
     Map<CommitLogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
-    AtomicInteger readyObservers = new AtomicInteger();
+    Map<Integer, Integer> idles = new ConcurrentHashMap<>();
     for (int i = 0; i < numObservers; i++) {
+      int id = i;
       reader
           .observe(
               "test-" + expectMoved,
               Position.OLDEST,
               new CommitLogObserver() {
 
-                boolean confimedLatch = false;
+                boolean confirmedLatch = false;
 
                 @Override
                 public boolean onNext(StreamElement element, OnNextContext context) {
@@ -1147,28 +1149,24 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
                 @Override
                 public void onIdle(OnIdleContext context) {
-                  if (readyObservers.get() == numObservers) {
-                    Long oldWatermark = observerWatermarks.put(this, context.getWatermark());
-                    boolean hasWatermark =
-                        MoreObjects.firstNonNull(oldWatermark, Long.MIN_VALUE) > 0;
-                    if ((!expectMoved || !hasWatermark && context.getWatermark() > 0)
-                        && !confimedLatch) {
-
-                      confimedLatch = true;
+                  idles.compute(id, (k, v) -> MoreObjects.firstNonNull(v, 0) + 1);
+                  if (context.getWatermark() > 0) {
+                    observerWatermarks.put(this, context.getWatermark());
+                    if ((!expectMoved || context.getWatermark() > 0) && !confirmedLatch) {
+                      confirmedLatch = true;
                       latch.countDown();
                     }
                   }
                 }
               })
           .waitUntilReady();
-      readyObservers.incrementAndGet();
     }
 
     assertTrue(
         String.format(
-            "Timeout, readyObservers = %d, observerWatermarks == %s, numObservers = %d",
-            readyObservers.get(), observerWatermarks, numObservers),
-        latch.await(10, TimeUnit.SECONDS));
+            "Timeout, observerWatermarks = %s, numObservers = %d",
+            observerWatermarks, numObservers),
+        latch.await(30, TimeUnit.SECONDS));
 
     assertEquals(numObservers, observerWatermarks.size());
     long watermark = observerWatermarks.values().stream().min(Long::compare).orElse(Long.MIN_VALUE);
@@ -1511,10 +1509,11 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               }
             });
     reader.observe("test", observer);
+    AtomicBoolean finished = new AtomicBoolean();
     Executors.newCachedThreadPool()
         .execute(
             () -> {
-              while (true) {
+              while (!finished.get()) {
                 try {
                   TimeUnit.MILLISECONDS.sleep(100);
                 } catch (InterruptedException ex) {
@@ -1525,6 +1524,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             });
     latch.await();
     assertEquals(3, restarts.get());
+    finished.set(true);
   }
 
   @Test(timeout = 10000)

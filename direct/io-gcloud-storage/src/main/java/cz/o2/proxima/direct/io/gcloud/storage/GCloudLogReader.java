@@ -43,6 +43,13 @@ public class GCloudLogReader extends BlobLogReader<GCloudBlob, GCloudBlobPath> {
             () -> {
               try {
                 runnable.run();
+              } catch (StorageException ex) {
+                if (ex.getCause() instanceof GoogleJsonResponseException) {
+                  GoogleJsonResponseException cause = (GoogleJsonResponseException) ex.getCause();
+                  if (handleResponseException(cause, blob.getBlob())) {
+                    throw new StorageException(cause);
+                  }
+                }
               } catch (GoogleJsonResponseException ex) {
                 if (handleResponseException(ex, blob.getBlob())) {
                   throw new StorageException(ex);
@@ -68,7 +75,7 @@ public class GCloudLogReader extends BlobLogReader<GCloudBlob, GCloudBlobPath> {
       case 404:
         log.warn(
             "Received 404: {} on getting {}. Skipping gone object.", ex.getStatusMessage(), blob);
-        break;
+        return false;
       case 429:
         log.warn("Received 429: {} on getting {}.", ex.getStatusMessage(), blob);
         return true;

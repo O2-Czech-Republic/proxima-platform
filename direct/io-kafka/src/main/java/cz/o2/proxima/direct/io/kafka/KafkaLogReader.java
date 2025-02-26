@@ -402,6 +402,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               new KafkaThroughputLimiter(maxBytesPerSec);
           final Map<TopicPartition, Long> polledOffsets = new HashMap<>();
           final Map<TopicPartition, Integer> emptyPolls = new HashMap<>();
+          final Map<TopicPartition, Long> endOffsets = new HashMap<>();
 
           handle.set(
               createObserveHandle(shutdown, seekOffsets, consumer, readyLatch, completedLatch));
@@ -414,6 +415,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                   topicPartitionToId,
                   emptyPolls,
                   polledOffsets,
+                  endOffsets,
                   watermarkEstimator);
 
           try (KafkaConsumer<Object, Object> kafka =
@@ -423,12 +425,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
             // we need to poll first to initialize kafka assignments and rebalance listener
             ConsumerRecords<Object, Object> poll;
-            Map<TopicPartition, Long> endOffsets;
 
             do {
               poll = kafka.poll(pollDuration);
-              endOffsets = stopAtCurrent ? findNonEmptyEndOffsets(kafka) : null;
-
               if (log.isDebugEnabled()) {
                 log.debug(
                     "End offsets of current assignment {}: {}", kafka.assignment(), endOffsets);
@@ -498,7 +497,12 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               terminateIfConsumed(stopAtCurrent, kafka, endOffsets, polledOffsets, completed);
 
               progressWatermarkOnEmptyPartitions(
-                  consumer, emptyPolls, topicPartitionToId, watermarkEstimator);
+                  consumer,
+                  emptyPolls,
+                  endOffsets,
+                  polledOffsets,
+                  topicPartitionToId,
+                  watermarkEstimator);
               throughputLimiter.sleepToLimitThroughput(bytesPolled, pollTimeMs);
               long startTime = System.currentTimeMillis();
               poll = kafka.poll(pollDuration);
@@ -548,6 +552,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private void progressWatermarkOnEmptyPartitions(
       ElementConsumer<Object, Object> consumer,
       Map<TopicPartition, Integer> emptyPolls,
+      Map<TopicPartition, Long> endOffsets,
+      Map<TopicPartition, Long> polledOffsets,
       Map<TopicPartition, Integer> topicPartitionToId,
       AtomicReference<PartitionedWatermarkEstimator> watermarkEstimator) {
 
@@ -555,6 +561,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     List<TopicPartition> idlingPartitions =
         emptyPolls.entrySet().stream()
             .filter(e -> e.getValue() >= partitions)
+            .filter(
+                e ->
+                    MoreObjects.firstNonNull(polledOffsets.get(e.getKey()), -1L) + 1
+                        >= MoreObjects.firstNonNull(endOffsets.get(e.getKey()), 0L))
             .map(Entry::getKey)
             .collect(Collectors.toList());
 
@@ -624,7 +634,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     if (log.isDebugEnabled()) {
       log.debug(
-          "Current watermark of consumer name {} with offsets {} " + "on {} poll'd records is {}",
+          "Current watermark of consumer name {} with offsets {} on {} poll'd records is {}",
           name,
           offsets,
           polledCount,
@@ -721,14 +731,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         readyLatch.await();
       }
     };
-  }
-
-  private Map<TopicPartition, Long> findNonEmptyEndOffsets(final KafkaConsumer<?, ?> kafka) {
-    Set<TopicPartition> assignment = kafka.assignment();
-    Map<TopicPartition, Long> beginning = kafka.beginningOffsets(assignment);
-    return kafka.endOffsets(assignment).entrySet().stream()
-        .filter(entry -> beginning.get(entry.getKey()) < entry.getValue())
-        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private KafkaConsumer<Object, Object> createConsumer() {
@@ -883,6 +885,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       Map<TopicPartition, Integer> topicPartitionToId,
       Map<TopicPartition, Integer> emptyPolls,
       Map<TopicPartition, Long> polledOffsets,
+      Map<TopicPartition, Long> endOffsets,
       AtomicReference<PartitionedWatermarkEstimator> watermarkEstimator) {
 
     return new ConsumerRebalanceListener() {
@@ -901,6 +904,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         topicPartitionToId.clear();
         AtomicInteger id = new AtomicInteger();
         emptyPolls.clear();
+        polledOffsets.clear();
+        endOffsets.clear();
+        Optional.ofNullable(kafka.get()).ifPresent(k -> endOffsets.putAll(k.endOffsets(parts)));
 
         currentlyAssigned.forEach(p -> topicPartitionToId.put(p, id.getAndIncrement()));
 
@@ -921,13 +927,14 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                       name != null
                           ? getCommittedTopicOffsets(currentlyAssigned, c)
                           : getCurrentTopicOffsets(currentlyAssigned, c);
-                  polledOffsets.clear();
-                  newOffsets.forEach(
-                      o ->
-                          polledOffsets.put(
-                              new TopicPartition(
-                                  o.getPartition().getTopic(), o.getPartition().getPartition()),
-                              o.getOffset() - 1));
+                  newOffsets.stream()
+                      .filter(o -> o.getOffset() > 0)
+                      .forEach(
+                          o ->
+                              polledOffsets.put(
+                                  new TopicPartition(
+                                      o.getPartition().getTopic(), o.getPartition().getPartition()),
+                                  o.getOffset() - 1));
                   consumer.onAssign(c, newOffsets);
                 });
       }

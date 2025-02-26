@@ -337,7 +337,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     private <K, V> ConsumerRecords<K, V> pollConsumer(
         ConsumerGroup group,
         long period,
-        ConsumerId consumerId,
+        final ConsumerId consumerId,
         ElementSerializer<K, V> serializer,
         @Nullable ConsumerRebalanceListener listener)
         throws InterruptedException {
@@ -388,7 +388,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
               Optional.ofNullable(offsets.get(partition))
                   .orElse(getCommittedOffset(name, part.getId()));
           log.trace("Partition {} has last {}, reading from {}", partition, last, off);
-
           while (off < last && maxToPoll-- > 0) {
             if (off >= 0) {
               records.add(toConsumerRecord(partitionData.get(off), serializer, part.getId(), off));

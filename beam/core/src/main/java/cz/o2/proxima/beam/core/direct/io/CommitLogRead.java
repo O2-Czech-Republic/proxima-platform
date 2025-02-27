@@ -479,7 +479,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       runningObserves =
           CacheBuilder.newBuilder()
               .concurrencyLevel(1)
-              .expireAfterAccess(5, TimeUnit.SECONDS)
+              .expireAfterAccess(1, TimeUnit.MINUTES)
               .<Integer, ObserveHandle>removalListener(
                   notification -> {
                     if (notification.wasEvicted()) {

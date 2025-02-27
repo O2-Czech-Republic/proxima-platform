@@ -55,6 +55,9 @@ import cz.o2.proxima.internal.com.google.gson.JsonElement;
 import cz.o2.proxima.internal.com.google.gson.JsonNull;
 import cz.o2.proxima.internal.com.google.gson.JsonObject;
 import cz.o2.proxima.internal.com.google.gson.JsonPrimitive;
+import cz.o2.proxima.internal.com.google.gson.internal.LazilyParsedNumber;
+import cz.o2.proxima.internal.com.google.gson.internal.LinkedTreeMap;
+import cz.o2.proxima.internal.com.google.gson.internal.NonNullElementWrapperList;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider.TerminatePredicate;
@@ -630,17 +633,17 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public void persistIntoTargetFamily(
-      RepositoryProvider repoProvider, String targetFamilyname, int parallelism) {
+      RepositoryProvider repoProvider, String targetFamilyName, int parallelism) {
     DirectAttributeFamilyDescriptor familyDescriptor =
         repoProvider
             .getDirect()
             .getAllFamilies()
-            .filter(af -> af.getDesc().getName().equals(targetFamilyname))
+            .filter(af -> af.getDesc().getName().equals(targetFamilyName))
             .findAny()
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
-                        String.format("Family [%s] does not exist", targetFamilyname)));
+                        String.format("Family [%s] does not exist", targetFamilyName)));
     Preconditions.checkArgument(!familyDescriptor.getDesc().getAccess().isReadonly());
     AttributeWriterBase rawWriter =
         familyDescriptor
@@ -648,7 +651,7 @@ class BeamStream<T> implements Stream<T> {
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
-                        String.format("Family [%s] does not have writer", targetFamilyname)));
+                        String.format("Family [%s] does not have writer", targetFamilyName)));
     RepositoryFactory repositoryFactory = repoProvider.getRepo().asFactory();
     AttributeWriterBase.Factory<?> writerFactory = rawWriter.asFactory();
     SerializableScopedValue<Integer, AttributeWriterBase> writer =
@@ -660,7 +663,7 @@ class BeamStream<T> implements Stream<T> {
     switch (rawWriter.getType()) {
       case ONLINE:
         writeUsingOnlineWriterFactory(
-            "write-to-" + targetFamilyname,
+            "write-to-" + targetFamilyName,
             el -> {
               Preconditions.checkArgument(
                   el == null || allowedAttributes.contains(el.getAttributeDescriptor().getName()));
@@ -669,12 +672,12 @@ class BeamStream<T> implements Stream<T> {
         break;
       case BULK:
         writeUsingBulkWriterFactory(
-            "write-bulk-to-" + targetFamilyname,
+            "write-bulk-to-" + targetFamilyName,
             parallelism,
             BulkWriterFactory.wrap(writer, allowedAttributes));
         break;
       default:
-        throw new IllegalArgumentException("Unknonw type " + rawWriter.getType());
+        throw new IllegalArgumentException("Unknown type " + rawWriter.getType());
     }
   }
 
@@ -1269,6 +1272,9 @@ class BeamStream<T> implements Stream<T> {
             JsonNull.class,
             JsonObject.class,
             JsonPrimitive.class,
+            LinkedTreeMap.class,
+            LazilyParsedNumber.class,
+            NonNullElementWrapperList.class,
             String[].class,
             Integer[].class,
             Long[].class,

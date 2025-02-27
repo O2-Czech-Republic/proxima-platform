@@ -38,6 +38,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.InstantCoder;
@@ -231,7 +232,13 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     @GetInitialRestriction
     public PartitionList initialRestriction() {
       BatchLogReader reader = readerFactory.apply(repoFactory.apply());
-      return PartitionList.initialRestriction(reader.getPartitions(startStamp, endStamp), limit);
+      return PartitionList.initialRestriction(
+          reader.getPartitions(startStamp, endStamp).stream()
+              // sort partitions decreasing by size so that in case of uneven downstream processing
+              // the smallest partition would be processed last
+              .sorted(Comparator.comparing(Partition::size).reversed())
+              .collect(Collectors.toList()),
+          limit);
     }
 
     @SplitRestriction

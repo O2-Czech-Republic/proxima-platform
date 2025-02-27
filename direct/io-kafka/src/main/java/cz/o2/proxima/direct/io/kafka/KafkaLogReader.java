@@ -432,9 +432,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               endOffsets = stopAtCurrent ? findNonEmptyEndOffsets(kafka) : null;
               if (log.isDebugEnabled()) {
                 log.debug(
-                    "End offsets of current assignment {}: {}",
-                    kafka.assignment(),
-                    endOffsets);
+                    "End offsets of current assignment {}: {}", kafka.assignment(), endOffsets);
               }
             } while (poll.isEmpty()
                 && accessor.isTopicRegex()

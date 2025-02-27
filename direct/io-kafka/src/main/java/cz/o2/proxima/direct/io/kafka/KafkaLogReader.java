@@ -402,7 +402,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               new KafkaThroughputLimiter(maxBytesPerSec);
           final Map<TopicPartition, Long> polledOffsets = new HashMap<>();
           final Map<TopicPartition, Integer> emptyPolls = new HashMap<>();
-          final Map<TopicPartition, Long> endOffsets = new HashMap<>();
+          final Map<TopicPartition, Long> assignmentEndOffsets = new HashMap<>();
 
           handle.set(
               createObserveHandle(shutdown, seekOffsets, consumer, readyLatch, completedLatch));
@@ -415,7 +415,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                   topicPartitionToId,
                   emptyPolls,
                   polledOffsets,
-                  endOffsets,
+                  assignmentEndOffsets,
                   watermarkEstimator);
 
           try (KafkaConsumer<Object, Object> kafka =
@@ -425,14 +425,17 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
             // we need to poll first to initialize kafka assignments and rebalance listener
             ConsumerRecords<Object, Object> poll;
+            Map<TopicPartition, Long> endOffsets;
 
             do {
               poll = kafka.poll(pollDuration);
+              endOffsets = stopAtCurrent ? findNonEmptyEndOffsets(kafka) : null;
               if (log.isDebugEnabled()) {
                 log.debug(
-                    "End offsets of current assignment {}: {}", kafka.assignment(), endOffsets);
+                    "End offsets of current assignment {}: {}",
+                    kafka.assignment(),
+                    endOffsets);
               }
-
             } while (poll.isEmpty()
                 && accessor.isTopicRegex()
                 && kafka.assignment().isEmpty()
@@ -499,7 +502,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               progressWatermarkOnEmptyPartitions(
                   consumer,
                   emptyPolls,
-                  endOffsets,
+                  assignmentEndOffsets,
                   polledOffsets,
                   topicPartitionToId,
                   watermarkEstimator);
@@ -731,6 +734,14 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         readyLatch.await();
       }
     };
+  }
+
+  private Map<TopicPartition, Long> findNonEmptyEndOffsets(final KafkaConsumer<?, ?> kafka) {
+    Set<TopicPartition> assignment = kafka.assignment();
+    Map<TopicPartition, Long> beginning = kafka.beginningOffsets(assignment);
+    return kafka.endOffsets(assignment).entrySet().stream()
+        .filter(entry -> beginning.get(entry.getKey()) < entry.getValue())
+        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private KafkaConsumer<Object, Object> createConsumer() {

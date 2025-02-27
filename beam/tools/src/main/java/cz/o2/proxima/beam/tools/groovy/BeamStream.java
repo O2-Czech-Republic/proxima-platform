@@ -50,6 +50,11 @@ import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.internal.com.google.common.collect.Streams;
+import cz.o2.proxima.internal.com.google.gson.JsonArray;
+import cz.o2.proxima.internal.com.google.gson.JsonElement;
+import cz.o2.proxima.internal.com.google.gson.JsonNull;
+import cz.o2.proxima.internal.com.google.gson.JsonObject;
+import cz.o2.proxima.internal.com.google.gson.JsonPrimitive;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider.TerminatePredicate;
@@ -1259,6 +1264,11 @@ class BeamStream<T> implements Stream<T> {
             java.time.Instant.class,
             Tuple.class,
             GStringImpl.class,
+            JsonElement.class,
+            JsonArray.class,
+            JsonNull.class,
+            JsonObject.class,
+            JsonPrimitive.class,
             String[].class,
             Integer[].class,
             Long[].class,

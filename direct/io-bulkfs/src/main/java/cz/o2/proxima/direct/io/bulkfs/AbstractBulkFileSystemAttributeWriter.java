@@ -32,7 +32,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -79,7 +78,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
     }
 
     public CommitCallback getCommit() {
-      return Objects.requireNonNull(commit);
+      return commit != null ? commit : CommitCallback.noop();
     }
   }
 

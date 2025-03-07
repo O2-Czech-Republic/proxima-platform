@@ -19,7 +19,6 @@ import static cz.o2.proxima.beam.tools.groovy.BeamStream.dehydrate;
 import static cz.o2.proxima.beam.util.RunnerUtils.createJarFromDynamicClasses;
 import static cz.o2.proxima.beam.util.RunnerUtils.registerToPipeline;
 
-import com.google.api.client.util.Lists;
 import com.google.auto.service.AutoService;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.ProximaPipelineOptions;
@@ -33,7 +32,6 @@ import cz.o2.proxima.core.util.Classpath;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
-import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider;
@@ -223,9 +221,8 @@ public abstract class BeamStreamProvider implements StreamProvider {
     return () -> {
       PipelineOptions opts = factory.get();
       ExperimentalOptions experimentOpts = opts.as(ExperimentalOptions.class);
-      ArrayList<String> experiments =
-          Lists.newArrayList(
-              MoreObjects.firstNonNull(experimentOpts.getExperiments(), new ArrayList<>()));
+      List<String> experiments =
+          Optional.ofNullable(experimentOpts.getExperiments()).orElseGet(ArrayList::new);
       experiments.add("use_deprecated_read");
       experimentOpts.setExperiments(experiments);
       Pipeline pipeline = createPipeline.apply(opts);

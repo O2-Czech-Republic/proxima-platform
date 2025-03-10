@@ -495,6 +495,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 handleRebalanceInOffsetCommit(kafka, listener);
               }
               rethrowErrorIfPresent(name, error);
+              log.debug("Current endOffsets {}, polledOffsets {}", endOffsets, polledOffsets);
               terminateIfConsumed(stopAtCurrent, kafka, endOffsets, polledOffsets, completed);
 
               progressWatermarkOnEmptyPartitions(
@@ -581,6 +582,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       KafkaConsumer<?, ?> kafka, ConsumerRebalanceListener listener) {
 
     Set<TopicPartition> assignment = kafka.assignment();
+    log.debug("Assignment before notification is {}", assignment);
     if (!assignment.isEmpty()) {
       listener.onPartitionsRevoked(assignment);
       listener.onPartitionsAssigned(assignment);
@@ -937,7 +939,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                           ? getCommittedTopicOffsets(currentlyAssigned, c)
                           : getCurrentTopicOffsets(currentlyAssigned, c);
                   newOffsets.stream()
-                      .filter(o -> o.getOffset() > 0)
+                      .filter(o -> o.getOffset() >= 0)
                       .forEach(
                           o ->
                               polledOffsets.put(

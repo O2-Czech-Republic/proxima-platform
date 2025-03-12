@@ -461,6 +461,8 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         handle = observeBulkPartitions(name, restriction, reader, observer);
       }
       runningObserves.put(partition.getId(), handle);
+      log.debug(
+          "Started observer of topic range {} partition {} as {}", restriction, partition, name);
     }
 
     abstract ObserveHandle observeBulkOffsets(

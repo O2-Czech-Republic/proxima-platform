@@ -37,6 +37,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -53,8 +54,6 @@ import lombok.extern.slf4j.Slf4j;
 abstract class BlockingQueueLogObserver<
         OffsetT extends Serializable, ContextT extends LogObserver.OnNextContext<OffsetT>>
     implements LogObserver<OffsetT, ContextT> {
-
-  private static final long serialVersionUID = 1L;
 
   private static final int DEFAULT_CAPACITY = 100;
 
@@ -249,10 +248,10 @@ abstract class BlockingQueueLogObserver<
   @Getter(AccessLevel.PROTECTED)
   private final BlockingQueue<Pair<StreamElement, UnifiedContext>> queue;
 
-  private volatile boolean stopped = false;
-  private volatile boolean nackAllIncoming = false;
-  @Getter @Nullable private volatile UnifiedContext lastWrittenContext;
-  @Getter @Nullable private volatile UnifiedContext lastReadContext;
+  private final AtomicBoolean stopped = new AtomicBoolean(false);
+  private final AtomicBoolean nackAllIncoming = new AtomicBoolean(false);
+  private final AtomicReference<UnifiedContext> lastWrittenContext = new AtomicReference<>();
+  private final AtomicReference<UnifiedContext> lastReadContext = new AtomicReference<>();
   @Nullable private Pair<StreamElement, UnifiedContext> peekElement = null;
   private long limit;
   private boolean cancelled = false;
@@ -276,17 +275,25 @@ abstract class BlockingQueueLogObserver<
     return false;
   }
 
+  public UnifiedContext getLastReadContext() {
+    return lastReadContext.get();
+  }
+
+  public UnifiedContext getLastWrittenContext() {
+    return lastWrittenContext.get();
+  }
+
   boolean enqueue(StreamElement element, UnifiedContext context) {
     try {
       Preconditions.checkArgument(element != null && context != null);
-      lastWrittenContext = context;
+      lastWrittenContext.set(context);
       if (limit-- > 0) {
         return putToQueue(element, context);
       }
       log.debug(
           "{}: Terminating consumption due to limit {} while enqueuing {}", name, limit, element);
     } finally {
-      if (nackAllIncoming && context != null) {
+      if (nackAllIncoming.get() && context != null) {
         context.nack();
       }
     }
@@ -309,7 +316,7 @@ abstract class BlockingQueueLogObserver<
 
   private boolean putToQueue(@Nullable StreamElement element, @Nullable UnifiedContext context) {
     Pair<StreamElement, UnifiedContext> p = Pair.of(element, context);
-    while (!stopped && !cancelled) {
+    while (!stopped.get() && !cancelled) {
       try {
         if (queue.offer(p, 500, TimeUnit.MILLISECONDS)) {
           return true;
@@ -337,7 +344,7 @@ abstract class BlockingQueueLogObserver<
    */
   @Nullable
   StreamElement take() {
-    if (!stopped) {
+    if (!stopped.get()) {
       try {
         if (peekElement(0, TimeUnit.MILLISECONDS)) {
           return consumePeek();
@@ -364,7 +371,7 @@ abstract class BlockingQueueLogObserver<
    */
   @Nullable
   StreamElement takeBlocking(long timeout, TimeUnit unit) throws InterruptedException {
-    if (!stopped && peekElement(timeout, unit)) {
+    if (!stopped.get() && peekElement(timeout, unit)) {
       return consumePeek();
     }
     return null;
@@ -377,7 +384,7 @@ abstract class BlockingQueueLogObserver<
    */
   @Nullable
   StreamElement takeBlocking() throws InterruptedException {
-    while (!stopped) {
+    while (!stopped.get()) {
       if (peekElement(50, TimeUnit.MILLISECONDS)) {
         return consumePeek();
       }
@@ -423,20 +430,20 @@ abstract class BlockingQueueLogObserver<
     final @Nullable Pair<StreamElement, UnifiedContext> taken = peekElement;
     peekElement = null;
     if (taken != null && taken.getFirst() != null) {
-      lastReadContext = taken.getSecond();
-      if (lastReadContext != null) {
-        updateAndLogWatermark(lastReadContext.getWatermark());
+      lastReadContext.set(taken.getSecond());
+      if (lastReadContext.get() != null) {
+        updateAndLogWatermark(lastReadContext.get().getWatermark());
       }
       log.debug(
           "{}: Consuming taken element {} with offset {}",
           name,
           taken.getFirst(),
-          lastReadContext != null ? lastReadContext.getOffset() : null);
+          lastReadContext.get() != null ? lastReadContext.get().getOffset() : null);
       return taken.getFirst();
     } else if (taken != null) {
       // we have read the finalizing marker
       updateAndLogWatermark(Watermarks.MAX_WATERMARK);
-      stopped = true;
+      stopped.set(true);
     }
     return null;
   }
@@ -459,8 +466,8 @@ abstract class BlockingQueueLogObserver<
   }
 
   void stop(boolean nack, boolean wait) {
-    nackAllIncoming = nack;
-    stopped = true;
+    nackAllIncoming.set(nack);
+    stopped.set(true);
     if (nack) {
       nack();
     } else {

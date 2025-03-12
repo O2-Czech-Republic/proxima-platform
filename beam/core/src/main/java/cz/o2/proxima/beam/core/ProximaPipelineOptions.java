@@ -25,7 +25,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public interface ProximaPipelineOptions extends PipelineOptions {
 
   @AutoService(PipelineOptionsRegistrar.class)
-  class Factory implements PipelineOptionsRegistrar {
+  class Registrar implements PipelineOptionsRegistrar {
 
     @Override
     public Iterable<Class<? extends PipelineOptions>> getPipelineOptions() {
@@ -37,7 +37,7 @@ public interface ProximaPipelineOptions extends PipelineOptions {
   @Default.Boolean(true)
   boolean getPreserveUDFJar();
 
-  void setPreserveUDFJar(boolean delete);
+  void setPreserveUDFJar(boolean preserve);
 
   /** Set directory where to store generated UDF jar(s). */
   @Nullable String getUdfJarDirPath();
@@ -49,4 +49,10 @@ public interface ProximaPipelineOptions extends PipelineOptions {
   long getStartBatchReadDelayMs();
 
   void setStartBatchReadDelayMs(long readDelayMs);
+
+  /** Enforce stable input for remote consumers in console */
+  @Default.Boolean(true)
+  boolean getEnforceStableInputForRemoteConsumer();
+
+  void setEnforceStableInputForRemoteConsumer(boolean enforce);
 }

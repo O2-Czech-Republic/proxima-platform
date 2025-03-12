@@ -223,7 +223,7 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
       CountDownLatch initLatch = new CountDownLatch(1);
       observer =
           stub.collect(
-              new StreamObserver<Response>() {
+              new StreamObserver<>() {
                 @Override
                 public void onNext(Response response) {
                   if (response.getStatus() == CONTINUE) {

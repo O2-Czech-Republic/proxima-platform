@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.beam.core.BeamDataOperator;
+import cz.o2.proxima.beam.core.ProximaPipelineOptions;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.beam.core.transforms.AssignEventTime;
@@ -455,9 +456,15 @@ class BeamStream<T> implements Stream<T> {
   private void forEach(@Nullable String name, Consumer<T> consumer, boolean gatherLocally) {
     Pipeline pipeline = createPipeline();
     PCollection<T> pcoll = collection.materialize(pipeline);
+    boolean enforceStable =
+        pcoll
+            .getPipeline()
+            .getOptions()
+            .as(ProximaPipelineOptions.class)
+            .getEnforceStableInputForRemoteConsumer();
     if (gatherLocally) {
       try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(pcoll.getCoder(), consumer)) {
-        forEachRemote(name, pcoll, remoteConsumer, true, pipeline);
+        forEachRemote(name, pcoll, remoteConsumer, enforceStable, pipeline);
       }
     } else {
       forEachRemote(name, pcoll, consumer, false, pipeline);

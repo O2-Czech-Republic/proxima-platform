@@ -27,7 +27,7 @@ public class CompilerTest {
 
   @Test
   public void testSerializable() throws IOException, ClassNotFoundException {
-    CoreModel model = CoreModel.of(ConfigFactory.empty());
+    CoreModel model = CoreModel.of(ConfigFactory.load("test-reference.conf").resolve());
     assertNotNull(TestUtils.deserializeObject(TestUtils.serializeObject(model)));
   }
 }

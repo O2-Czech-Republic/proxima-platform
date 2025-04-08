@@ -31,8 +31,6 @@ import ${import};
 
 public class ${java_classname} implements Serializable {
 
-  private static final String GENERATED_FROM = ${input_config};
-
   /**
    * Create instance of {@code ${java_classname}} for production usage.
    *
@@ -40,8 +38,7 @@ public class ${java_classname} implements Serializable {
    * @return ${java_classname}
    **/
   public static ${java_classname} of(Config cfg) {
-    return new ${java_classname}(ConfigRepository.Builder.of(
-        cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+    return new ${java_classname}(ConfigRepository.Builder.of(cfg));
   }
 
   /**
@@ -64,7 +61,7 @@ public class ${java_classname} implements Serializable {
   public static ${java_classname} ofTest(Config config, Repository.Validate... validations) {
     return new ${java_classname}(
         ConfigRepository.Builder
-            .ofTest(config.withFallback(ConfigFactory.parseString(GENERATED_FROM)))
+            .ofTest(config)
             .withValidate(validations));
   }
 

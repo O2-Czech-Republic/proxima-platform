@@ -160,7 +160,7 @@ public class ProximaIO {
                 (succ, error) -> {
                   writeResult.complete(Pair.of(succ, error));
                   if (error != null) {
-                    log.error(String.format("Unable to write element [%s].", element), error);
+                    log.error("Unable to write element [{}]", element, error);
                   }
                 });
           });

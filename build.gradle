@@ -124,6 +124,9 @@ if (project.hasProperty("with-coverage")) {
     test {
       finalizedBy jacocoTestReport
     }
+    jacoco {
+      toolVersion = '0.8.13'
+    }
   }
 }
 

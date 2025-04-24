@@ -152,8 +152,8 @@ public class KeyAttributes {
       String attributeSuffix) {
 
     Preconditions.checkArgument(
-        attributeSuffix != null,
-        "Please specify attribute suffix for wildcard attributes. Got attribute %s",
+        attributeDescriptor.isWildcard() ^ attributeSuffix == null,
+        "Please specify attribute suffix ONLY for wildcard attributes. Got attribute %s",
         attributeDescriptor);
     return new KeyAttribute(entity, key, attributeDescriptor, 1L, true, attributeSuffix);
   }

@@ -722,18 +722,28 @@ class BeamStream<T> implements Stream<T> {
                                               new IllegalArgumentException(
                                                   "No attribute " + attribute + " in " + entity));
                               long timestamp = timeDehydrated.call(data);
+                              @Nullable
                               byte[] value =
-                                  attrDesc
-                                      .getValueSerializer()
-                                      .serialize(valueDehydrated.call(data));
-                              return StreamElement.upsert(
+                                  Optional.ofNullable(valueDehydrated.call(data))
+                                      .map(v -> attrDesc.getValueSerializer().serialize(v))
+                                      .orElse(null);
+                              if (value != null) {
+                                return StreamElement.upsert(
+                                    entity,
+                                    attrDesc,
+                                    UUID.randomUUID().toString(),
+                                    key.toString(),
+                                    attribute.toString(),
+                                    timestamp,
+                                    value);
+                              }
+                              return StreamElement.delete(
                                   entity,
                                   attrDesc,
                                   UUID.randomUUID().toString(),
                                   key.toString(),
                                   attribute.toString(),
-                                  timestamp,
-                                  value);
+                                  timestamp);
                             }))
                 .setCoder(StreamElementCoder.of(factory)));
   }

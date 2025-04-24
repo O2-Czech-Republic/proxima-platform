@@ -198,6 +198,22 @@ public abstract class GroovyEnvTest extends GroovyTest {
   }
 
   @Test
+  public void testStreamPersistWithDeletes() throws Exception {
+    long now = 1234567890000L;
+    Script compiled =
+        compile(
+            "env.batch.data.batchUpdates().persist(env, env.gateway.desc, { it.key }, "
+                + "{ 'armed' }, { null }, { 1234567890000L + 10 })\n"
+                + "env.gateway.armed.streamFromOldest().reduceToLatest().collect()");
+
+    write(StreamElement.upsert(batch, data, "uuid", "key", data.getName(), now, new byte[] {}));
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    List<StreamElement> result = (List) compiled.run();
+    assertTrue(result.stream().allMatch(StreamElement::isDelete));
+  }
+
+  @Test
   public void testPersistIntoTargetFamily() throws Exception {
     Script compiled =
         compile(

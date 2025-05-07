@@ -46,6 +46,7 @@ import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.streaming.util.AbstractStreamOperatorTestHarness;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 class CommitLogSourceFunctionTest {
 
@@ -93,6 +94,7 @@ class CommitLogSourceFunctionTest {
   }
 
   @Test
+  @Timeout(60)
   void testRunAndClose() throws Exception {
     final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final AttributeDescriptor<?> attribute = repository.getEntity("test").getAttribute("data");

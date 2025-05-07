@@ -81,7 +81,12 @@ public class ReplicationController {
     } else {
       repo = Repository.of(ConfigFactory.parseFile(new File(args[0])).resolve());
     }
-    ReplicationController.of(repo).runReplicationThreads().get();
+    try {
+      ReplicationController.of(repo).runReplicationThreads().get();
+    } catch (Throwable err) {
+      log.error("Error running replication controller.", err);
+      System.exit(1);
+    }
   }
 
   /**
@@ -225,7 +230,9 @@ public class ReplicationController {
         });
 
     // execute transformer threads
-    repository.getTransformations().forEach(this::runTransformer);
+    Map<String, TransformationDescriptor> transformations = repository.getTransformations();
+    log.info("Starting transformations {}", transformations);
+    transformations.forEach(this::runTransformer);
 
     scheduler.scheduleAtFixedRate(this::checkLiveness, 0, 1, TimeUnit.SECONDS);
 
@@ -357,7 +364,7 @@ public class ReplicationController {
   private void runTransformer(String name, TransformationDescriptor transform) {
     if (transform.getInputTransactionMode() == InputTransactionMode.TRANSACTIONAL) {
       log.info(
-          "Skipping run of transformation {} which read from transactional attributes {}. "
+          "Skipping run of transformation {} which reads from transactional attributes {}. "
               + "Will be executed during transaction commit.",
           name,
           transform.getAttributes());

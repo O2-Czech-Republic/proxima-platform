@@ -303,6 +303,7 @@ abstract class AbstractLogSourceFunction<
 
   @Override
   public void cancel() {
+    Optional.ofNullable(observeHandle).ifPresent(UnifiedObserveHandle::close);
     cancelled.countDown();
   }
 

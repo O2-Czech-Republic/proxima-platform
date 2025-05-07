@@ -58,7 +58,9 @@ public class Classpath {
         return clz;
       }
     }
-    throw new RuntimeException("Cannot find class " + name);
+    throw new RuntimeException(
+        String.format(
+            "Cannot find class %s using %s", name, Thread.currentThread().getContextClassLoader()));
   }
 
   @SuppressWarnings("unchecked")

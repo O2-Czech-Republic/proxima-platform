@@ -16,10 +16,10 @@
 package cz.o2.proxima.core.repository;
 
 import cz.o2.proxima.core.annotations.Evolving;
+import cz.o2.proxima.core.repository.DefaultConsumerNameFactory.DefaultTransformerConsumerNameFactory;
 import cz.o2.proxima.core.storage.PassthroughFilter;
 import cz.o2.proxima.core.storage.StorageFilter;
 import cz.o2.proxima.core.transform.Transformation;
-import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import java.io.Serializable;
@@ -32,9 +32,11 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.ToString;
 
 /** Descriptor of single transformation specified in {@code transformations}. */
 @Evolving
+@ToString
 public class TransformationDescriptor implements Serializable {
 
   private static final long serialVersionUID = 1L;
@@ -50,6 +52,7 @@ public class TransformationDescriptor implements Serializable {
     Transformation transformation;
     StorageFilter filter;
     boolean outputTransactions = true;
+    Map<String, Object> cfg;
 
     Builder setName(String name) {
       this.name = name;
@@ -71,6 +74,11 @@ public class TransformationDescriptor implements Serializable {
       return this;
     }
 
+    Builder setCfg(Map<String, Object> cfg) {
+      this.cfg = Collections.unmodifiableMap(cfg);
+      return this;
+    }
+
     Builder addAttributes(Iterable<AttributeDescriptor<?>> attrs) {
       attrs.forEach(this.attrs::add);
       return this;
@@ -82,11 +90,12 @@ public class TransformationDescriptor implements Serializable {
     }
 
     TransformationDescriptor build() {
-
       Preconditions.checkArgument(!attrs.isEmpty(), "Please specify at least one attribute");
       Preconditions.checkArgument(transformation != null, "Please specify transformation function");
+      Preconditions.checkArgument(cfg != null);
 
-      return new TransformationDescriptor(name, attrs, transformation, outputTransactions, filter);
+      return new TransformationDescriptor(
+          name, attrs, transformation, outputTransactions, cfg, filter);
     }
   }
 
@@ -115,6 +124,8 @@ public class TransformationDescriptor implements Serializable {
   /** The (stateless) mapping function. */
   @Getter private final Transformation transformation;
 
+  @Getter private final Map<String, Object> cfg;
+
   /** Input filter. */
   @Getter private final StorageFilter filter;
 
@@ -122,11 +133,14 @@ public class TransformationDescriptor implements Serializable {
 
   @Getter private final OutputTransactionMode outputTransactionMode;
 
+  @Getter private final ConsumerNameFactory<TransformationDescriptor> consumerNameFactory;
+
   private TransformationDescriptor(
       String name,
       List<AttributeDescriptor<?>> attributes,
       Transformation transformation,
       boolean supportOutputTransactions,
+      Map<String, Object> cfg,
       @Nullable StorageFilter filter) {
 
     this.name = Objects.requireNonNull(name);
@@ -134,11 +148,14 @@ public class TransformationDescriptor implements Serializable {
     this.transformation = Objects.requireNonNull(transformation);
     this.outputTransactionMode =
         supportOutputTransactions ? OutputTransactionMode.ENABLED : OutputTransactionMode.DISABLED;
+    this.cfg = cfg;
     this.filter = filter == null ? new PassthroughFilter() : filter;
     this.inputTransactionMode =
         requireSingleTransactionMode(name, attributes) != TransactionMode.NONE
             ? InputTransactionMode.TRANSACTIONAL
             : InputTransactionMode.NON_TRANSACTIONAL;
+
+    this.consumerNameFactory = new DefaultTransformerConsumerNameFactory();
   }
 
   private TransactionMode requireSingleTransactionMode(
@@ -162,33 +179,5 @@ public class TransformationDescriptor implements Serializable {
   void replaceAttribute(AttributeDescriptor<?> attr) {
     attributes.remove(attr);
     attributes.add(attr);
-  }
-
-  public ConsumerNameFactory<TransformationDescriptor> getConsumerNameFactory() {
-    return new ConsumerNameFactory<TransformationDescriptor>() {
-
-      private static final long serialVersionUID = 1L;
-
-      @Override
-      public void setup(TransformationDescriptor descriptor) {
-        // nop
-      }
-
-      @Override
-      public String apply() {
-        return "transformer-" + getName();
-      }
-    };
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("name", name)
-        .add("attributes", attributes)
-        .add("inputTransactionMode", inputTransactionMode)
-        .add("outputTransactionMode", outputTransactionMode)
-        .add("filter", filter)
-        .toString();
   }
 }

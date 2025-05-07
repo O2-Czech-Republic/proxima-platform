@@ -1577,6 +1577,7 @@ public final class ConfigRepository extends Repository {
             .setName(transform)
             .addAttributes(source.getAttributes())
             .setFilter(replicated.getFilter())
+            .setCfg(Collections.emptyMap())
             .setTransformation(
                 renameTransform(
                     sourceMapping::get,
@@ -1625,6 +1626,7 @@ public final class ConfigRepository extends Repository {
             .setName(transform)
             .addAttributes(write.getAttributes())
             .setFilter(targetFamily.getFilter())
+            .setCfg(Collections.emptyMap())
             .setTransformation(
                 renameTransform(
                     sourceMapping::get,
@@ -1658,6 +1660,7 @@ public final class ConfigRepository extends Repository {
             .setName(transform)
             .addAttributes(write.getAttributes())
             .setFilter(replicated.getFilter())
+            .setCfg(Collections.emptyMap())
             .setTransformation(
                 renameTransform(
                     src ->
@@ -2013,9 +2016,11 @@ public final class ConfigRepository extends Repository {
       return;
     }
 
+    log.info("Will process {} loaded transformations.", cfgTransforms.keySet());
+
     cfgTransforms.forEach(
         (name, v) -> {
-          Map<String, Object> transformation = toMap(name, v);
+          Map<String, Object> transformation = flatten(toMap(name, v));
 
           boolean disabled =
               Optional.ofNullable(transformation.get(DISABLED))
@@ -2047,6 +2052,7 @@ public final class ConfigRepository extends Repository {
               TransformationDescriptor.newBuilder()
                   .setName(name)
                   .addAttributes(attrs)
+                  .setCfg(transformation)
                   .setTransformation(t);
 
           Optional.ofNullable(transformation.get(FILTER))
@@ -2059,7 +2065,7 @@ public final class ConfigRepository extends Repository {
                   });
 
           TransformationDescriptor transformationDescriptor = desc.build();
-          setupTransform(transformationDescriptor.getTransformation(), transformation);
+          setupTransform(transformationDescriptor, transformation);
           this.transformations.put(name, transformationDescriptor);
         });
   }
@@ -2073,9 +2079,10 @@ public final class ConfigRepository extends Repository {
             .setTransformation(provider.create())
             .addAttributes(transaction.getAttribute(COMMIT_ATTRIBUTE))
             .setName(name)
+            .setCfg(Collections.emptyMap())
             .disableOutputTransactions()
             .build();
-    setupTransform(descriptor.getTransformation(), Collections.emptyMap());
+    setupTransform(descriptor, Collections.emptyMap());
     this.transformations.put(name, descriptor);
   }
 
@@ -2099,13 +2106,16 @@ public final class ConfigRepository extends Repository {
     return Iterables.get(providers, 0);
   }
 
-  private void setupTransform(Transformation transformation, Map<String, Object> cfg) {
+  private void setupTransform(
+      TransformationDescriptor transformationDesc, Map<String, Object> cfg) {
+    Transformation transformation = transformationDesc.getTransformation();
     if (transformation.isContextual()) {
       final DataOperator op = getDataOperatorForDelegate(transformation);
       transformation.asContextualTransform().setup(this, op, cfg);
     } else {
       transformation.asElementWiseTransform().setup(this, cfg);
     }
+    transformationDesc.getConsumerNameFactory().setup(transformationDesc);
   }
 
   private DataOperator getDataOperatorForDelegate(DataOperatorAware delegate) {

@@ -88,4 +88,22 @@ abstract class DefaultConsumerNameFactory<T> implements ConsumerNameFactory<T> {
       this.suffix = descriptor.getCfg().getOrDefault(getSuffixCfgKey(), "").toString();
     }
   }
+
+  public static class DefaultTransformerConsumerNameFactory
+      extends DefaultConsumerNameFactory<TransformationDescriptor> {
+
+    public DefaultTransformerConsumerNameFactory() {
+      super(
+          "transformer-",
+          CFG_TRANSFORMER_CONSUMER_NAME_PREFIX,
+          CFG_TRANSFORMER_CONSUMER_NAME_SUFFIX);
+    }
+
+    @Override
+    public void setup(TransformationDescriptor descriptor) {
+      this.name = descriptor.getName();
+      this.prefix = descriptor.getCfg().getOrDefault(getPrefixCfgKey(), "").toString();
+      this.suffix = descriptor.getCfg().getOrDefault(getSuffixCfgKey(), "").toString();
+    }
+  }
 }

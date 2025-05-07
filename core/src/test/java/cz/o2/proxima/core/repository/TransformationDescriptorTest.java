@@ -16,7 +16,10 @@
 package cz.o2.proxima.core.repository;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
 
+import cz.o2.proxima.core.storage.PassthroughFilter;
+import cz.o2.proxima.core.transform.Transformation;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Map;
 import org.junit.Test;
@@ -30,5 +33,21 @@ public class TransformationDescriptorTest {
     assertFalse(transformations.isEmpty());
     transformations.forEach(
         (name, t) -> assertEquals("transformer-" + name, t.getConsumerNameFactory().apply()));
+  }
+
+  @Test
+  public void testConfigurableNamingConvention() {
+    Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
+    TransformationDescriptor desc =
+        TransformationDescriptor.newBuilder()
+            .setCfg(
+                Map.of(DefaultConsumerNameFactory.CFG_TRANSFORMER_CONSUMER_NAME_PREFIX, "prefix-"))
+            .setName("name")
+            .addAttributes(repo.getEntity("gateway").getAttribute("status"))
+            .setTransformation(mock(Transformation.class))
+            .setFilter(new PassthroughFilter())
+            .build();
+    desc.getConsumerNameFactory().setup(desc);
+    assertEquals("prefix-transformer-name", desc.getConsumerNameFactory().apply());
   }
 }

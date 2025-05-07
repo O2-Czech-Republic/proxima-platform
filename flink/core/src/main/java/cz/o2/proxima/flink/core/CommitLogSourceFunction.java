@@ -111,9 +111,11 @@ public class CommitLogSourceFunction<OutputT>
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributeDescriptors,
       LogObserver<OutputT> observer) {
+
     final ObserveHandle commitLogHandle =
         reader.observeBulkPartitions(partitions, Position.OLDEST, false, observer);
-    return new UnifiedObserveHandle<Offset>() {
+
+    return new UnifiedObserveHandle<>() {
 
       @Override
       public List<Offset> getConsumedOffsets() {

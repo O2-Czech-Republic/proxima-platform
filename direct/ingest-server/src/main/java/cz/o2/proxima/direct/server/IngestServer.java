@@ -50,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -203,8 +204,20 @@ public class IngestServer {
   protected Executor createExecutor(Config cfg) {
     int numThreads =
         cfg.hasPath(CFG_NUM_THREADS) ? cfg.getInt(CFG_NUM_THREADS) : DEFAULT_NUM_THREADS;
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    AtomicInteger id = new AtomicInteger();
     return new ThreadPoolExecutor(
-        numThreads, numThreads, 10, TimeUnit.SECONDS, new LinkedBlockingDeque<>());
+        numThreads,
+        numThreads,
+        10,
+        TimeUnit.SECONDS,
+        new LinkedBlockingDeque<>(),
+        runnable -> {
+          Thread res = new Thread(runnable);
+          res.setContextClassLoader(loader);
+          res.setName("IngestServerThread-" + id.incrementAndGet());
+          return res;
+        });
   }
 
   /** Run the server. */

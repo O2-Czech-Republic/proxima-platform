@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.beam.core.transform.retract;
+package cz.o2.proxima.beam.core.transforms.retract;
 
 import static org.junit.Assert.assertNotNull;
 

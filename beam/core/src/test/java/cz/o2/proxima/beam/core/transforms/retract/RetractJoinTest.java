@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.beam.core.transform.retract;
+package cz.o2.proxima.beam.core.transforms.retract;
+
+import static org.junit.Assert.assertNotNull;
 
 import cz.o2.proxima.core.util.Pair;
 import java.util.ArrayList;
@@ -51,7 +53,7 @@ import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.junit.Test;
 
-public class RetractMostRecentJoinTest {
+public class RetractJoinTest {
 
   final Duration cleanupDuration = Duration.standardDays(2);
 
@@ -71,7 +73,7 @@ public class RetractMostRecentJoinTest {
     PCollection<
             RetractElement<KV<KV<String, Integer>, KV<KV<String, Integer>, KV<Integer, String>>>>>
         joined =
-            RetractMostRecentJoin.join(
+            RetractJoin.join(
                     lhs, rhs, KV::getValue, KV::getKey, TypeDescriptors.integers(), cleanupDuration)
                 .unwrapped();
     PCollection<String> res =
@@ -89,7 +91,7 @@ public class RetractMostRecentJoinTest {
                             e.getValue().getValue().getValue().getValue())));
 
     PAssert.that(res).containsInAnyOrder("b:2::b:2:2:c", "a:1::a:1:1:b");
-    p.run();
+    assertNotNull(p.run());
   }
 
   @Test
@@ -124,7 +126,7 @@ public class RetractMostRecentJoinTest {
     PCollection<
             RetractElement<KV<KV<String, Integer>, KV<KV<String, Integer>, KV<Integer, String>>>>>
         joined =
-            RetractMostRecentJoin.join(
+            RetractJoin.join(
                     lhs, rhs, KV::getValue, KV::getKey, TypeDescriptors.integers(), cleanupDuration)
                 .unwrapped();
     PCollection<String> res =
@@ -144,7 +146,7 @@ public class RetractMostRecentJoinTest {
                                 e.getValue().getValue().getValue())));
 
     PAssert.that(res).containsInAnyOrder("a:3::a:3:3:c", "b:4::b:4:4:x");
-    p.run();
+    assertNotNull(p.run());
   }
 
   @Test
@@ -183,7 +185,7 @@ public class RetractMostRecentJoinTest {
     PCollection<
             RetractElement<KV<KV<String, Integer>, KV<KV<String, Integer>, KV<Integer, String>>>>>
         joined =
-            RetractMostRecentJoin.join(
+            RetractJoin.join(
                     lhs, rhs, KV::getValue, KV::getKey, TypeDescriptors.integers(), cleanupDuration)
                 .unwrapped();
     PCollection<String> res =
@@ -203,7 +205,7 @@ public class RetractMostRecentJoinTest {
                                 e.getValue().getValue().getValue())));
 
     PAssert.that(res).containsInAnyOrder(computeOutputs(inputs));
-    p.run();
+    assertNotNull(p.run());
   }
 
   private List<String> computeOutputs(

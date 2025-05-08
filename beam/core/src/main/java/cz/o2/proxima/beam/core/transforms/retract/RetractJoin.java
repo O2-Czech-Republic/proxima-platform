@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.beam.core.transform.retract;
+package cz.o2.proxima.beam.core.transforms.retract;
 
-import cz.o2.proxima.beam.core.transform.retract.LeftOrRight.LeftOrRightCoder;
+import cz.o2.proxima.beam.core.transforms.retract.LeftOrRight.LeftOrRightCoder;
 import cz.o2.proxima.beam.util.state.ExcludeExternal;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.util.ExceptionUtils;
@@ -54,7 +54,7 @@ import org.joda.time.Duration;
 import org.joda.time.Instant;
 
 @Slf4j
-public class RetractMostRecentJoin {
+public class RetractJoin {
 
   public static <K1, K2, V1, V2, JK> RetractPCollection<KV<KV<K1, K2>, KV<V1, V2>>> join(
       KeyedRetractPCollection<K1, V1> lhs,
@@ -206,9 +206,10 @@ public class RetractMostRecentJoin {
 
       Instant cleanupStamp = cleanupTs.read();
       if (cleanupStamp == null) {
-        // first element setup timer
+        // first element set up timer
         cleanupTimer.offset(cleanupDuration).setRelative();
-        cleanupTs.write(cleanupStamp = BoundedWindow.TIMESTAMP_MIN_VALUE);
+        cleanupStamp = BoundedWindow.TIMESTAMP_MIN_VALUE;
+        cleanupTs.write(cleanupStamp);
       }
 
       AtomicLong seq = new AtomicLong(MoreObjects.firstNonNull(seqState.read(), 0L));
@@ -257,8 +258,8 @@ public class RetractMostRecentJoin {
         PK primaryKey,
         RetractElement<PV> primaryValue,
         Instant ts,
-        OutputConsumer<PK, SK, PV, SV> add,
-        OutputConsumer<PK, SK, PV, SV> retract) {
+        OutputConsumer<PK, SK, PV, SV> addConsumer,
+        OutputConsumer<PK, SK, PV, SV> retractConsumer) {
 
       SequentialInstant thisInstant = new SequentialInstant(ts, primaryValue.getSeqId());
       @Nullable KV<SequentialInstant, RetractElement<PV>> oldPrimaryValue =
@@ -288,36 +289,55 @@ public class RetractMostRecentJoin {
 
       // infer time-range for updates
       for (Map.Entry<SK, KV<SequentialInstant, RetractElement<SV>>> e : secondaryKeyedElements) {
-        SK secondaryKey = e.getKey();
-        KV<SequentialInstant, RetractElement<SV>> secondaryValue = e.getValue();
-        // if secondary value exists
-        if (secondaryValue.getValue().isAddition()) {
-          // remove old value, if exists
-          if (oldPrimaryValue != null && oldPrimaryValue.getValue().isAddition()) {
-            retract.apply(
-                primaryKey,
-                secondaryKey,
-                oldPrimaryValue.getValue().getValue(),
-                secondaryValue.getValue().getValue(),
-                max(oldPrimaryValue.getKey(), secondaryValue.getKey()));
-          }
-          if (primaryValue.isAddition()) {
-            // insert new value
-            add.apply(
-                primaryKey,
-                secondaryKey,
-                primaryValue.getValue(),
-                secondaryValue.getValue().getValue(),
-                max(thisInstant, secondaryValue.getKey()));
-          } else {
-            // retract old value
-            retract.apply(
-                primaryKey,
-                secondaryKey,
-                oldPrimaryValue.getValue().getValue(),
-                secondaryValue.getValue().getValue(),
-                max(thisInstant, secondaryValue.getKey()));
-          }
+        processSecondaryElement(
+            primaryKey,
+            primaryValue,
+            e,
+            thisInstant,
+            oldPrimaryValue,
+            addConsumer,
+            retractConsumer);
+      }
+    }
+
+    private <PK, SK, PV, SV> void processSecondaryElement(
+        PK primaryKey,
+        RetractElement<PV> primaryValue,
+        Entry<SK, KV<SequentialInstant, RetractElement<SV>>> e,
+        SequentialInstant thisInstant,
+        @Nullable KV<SequentialInstant, RetractElement<PV>> oldPrimaryValue,
+        OutputConsumer<PK, SK, PV, SV> addConsumer,
+        OutputConsumer<PK, SK, PV, SV> retractConsumer) {
+
+      SK secondaryKey = e.getKey();
+      KV<SequentialInstant, RetractElement<SV>> secondaryValue = e.getValue();
+      // if secondary value exists
+      if (secondaryValue.getValue().isAddition()) {
+        // remove old value, if exists
+        if (oldPrimaryValue != null && oldPrimaryValue.getValue().isAddition()) {
+          retractConsumer.apply(
+              primaryKey,
+              secondaryKey,
+              oldPrimaryValue.getValue().getValue(),
+              secondaryValue.getValue().getValue(),
+              max(oldPrimaryValue.getKey(), secondaryValue.getKey()));
+        }
+        if (primaryValue.isAddition()) {
+          // insert new value
+          addConsumer.apply(
+              primaryKey,
+              secondaryKey,
+              primaryValue.getValue(),
+              secondaryValue.getValue().getValue(),
+              max(thisInstant, secondaryValue.getKey()));
+        } else {
+          // retract old value
+          retractConsumer.apply(
+              primaryKey,
+              secondaryKey,
+              oldPrimaryValue.getValue().getValue(),
+              secondaryValue.getValue().getValue(),
+              max(thisInstant, secondaryValue.getKey()));
         }
       }
     }

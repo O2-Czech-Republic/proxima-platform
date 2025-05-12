@@ -93,6 +93,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
                         "Error running task in thread {}, bailing out...", thr.getName(), exc);
                     Runtime.getRuntime().exit(1);
                   });
+              t.setContextClassLoader(DirectDataOperator.class.getClassLoader());
               return t;
             });
   }

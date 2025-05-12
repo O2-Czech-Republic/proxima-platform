@@ -60,7 +60,10 @@ public class Classpath {
     }
     throw new RuntimeException(
         String.format(
-            "Cannot find class %s using %s", name, Thread.currentThread().getContextClassLoader()));
+            "Cannot find class %s using %s in thread %s",
+            name,
+            Thread.currentThread().getContextClassLoader(),
+            Thread.currentThread().getName()));
   }
 
   @SuppressWarnings("unchecked")

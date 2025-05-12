@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
@@ -110,7 +111,11 @@ public class ProximaIO {
 
     @FinishBundle
     public void finishBundle() {
-      while (pendingWrites != null && missingResponses.get() > 0) {
+      long startTime = System.currentTimeMillis();
+      while (missingResponses.get() > 0) {
+        if (System.currentTimeMillis() - startTime > 5000) {
+          throw new IllegalStateException("Failed to flush bundle within timeout of 5s");
+        }
         // clone to avoid ConcurrentModificationException
         final Collection<CompletableFuture<Pair<Boolean, Throwable>>> unfinished;
         synchronized (pendingWrites) {
@@ -119,8 +124,9 @@ public class ProximaIO {
         }
         Optional<Pair<Boolean, Throwable>> failedFuture =
             unfinished.stream()
-                .map(f -> ExceptionUtils.uncheckedFactory(f::get))
+                .map(f -> ExceptionUtils.uncheckedFactory(() -> f.get(5, TimeUnit.SECONDS)))
                 .filter(p -> !p.getFirst())
+                // this will be retried
                 .filter(p -> !(p.getSecond() instanceof TransactionRejectedException))
                 .findAny();
         if (failedFuture.isPresent()) {

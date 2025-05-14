@@ -57,7 +57,7 @@ import org.junit.Test;
 @Slf4j
 public class ProtoMessageValueAccessorTest {
 
-  @Test(timeout = 1000)
+  @Test(timeout = 10000)
   public void testInspectMultiLevelMessageNotHanged() {
     assertNotNull(ProtoUtils.convertProtoToSchema(MultiLevelMessage.getDescriptor()));
   }

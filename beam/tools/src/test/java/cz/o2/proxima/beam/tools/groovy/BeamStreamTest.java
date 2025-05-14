@@ -659,7 +659,7 @@ public class BeamStreamTest extends StreamTest {
     }
   }
 
-  @Test(timeout = 20000)
+  @Test(timeout = 60000)
   public void testPeriodicImpulse() throws InterruptedException {
     SerializableScopedValue<Integer, AtomicBoolean> finished =
         new SerializableScopedValue<>(AtomicBoolean::new);

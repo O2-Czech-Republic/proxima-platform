@@ -104,6 +104,10 @@ subprojects {
       }
     }
   }
+
+  test {
+    forkEvery 1
+  }
 }
 
 sonar {

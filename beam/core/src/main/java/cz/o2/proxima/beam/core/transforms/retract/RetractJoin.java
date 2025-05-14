@@ -335,7 +335,7 @@ public class RetractJoin {
           retractConsumer.apply(
               primaryKey,
               secondaryKey,
-              oldPrimaryValue.getValue().getValue(),
+              Objects.requireNonNull(oldPrimaryValue, "oldPrimaryValue").getValue().getValue(),
               secondaryValue.getValue().getValue(),
               max(thisInstant, secondaryValue.getKey()));
         }

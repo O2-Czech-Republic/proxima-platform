@@ -47,8 +47,4 @@ protobuf {
   protoc { artifact = libraries.protoc }
 }
 
-test {
-  forkEvery 1
-}
-
 publishArtifacts(project, "default")

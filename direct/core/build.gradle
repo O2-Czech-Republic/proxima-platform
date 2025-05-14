@@ -44,8 +44,4 @@ registerTestsJar(project) {
   mergeServiceFiles()
 }
 
-test {
-  forkEvery 1
-}
-
 publishArtifacts(project, "default")

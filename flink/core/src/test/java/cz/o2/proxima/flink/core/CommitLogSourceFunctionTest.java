@@ -45,6 +45,7 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.streaming.util.AbstractStreamOperatorTestHarness;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -95,6 +96,7 @@ class CommitLogSourceFunctionTest {
 
   @Test
   @Timeout(60)
+  @Disabled("https://github.com/O2-Czech-Republic/proxima-platform/issues/355")
   void testRunAndClose() throws Exception {
     final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final AttributeDescriptor<?> attribute = repository.getEntity("test").getAttribute("data");

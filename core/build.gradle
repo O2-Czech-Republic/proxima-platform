@@ -33,8 +33,4 @@ updateModulePath(project)
 
 registerTestsJar(project)
 
-test {
-  forkEvery 1
-}
-
 publishArtifacts(project, "default")

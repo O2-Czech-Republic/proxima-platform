@@ -42,7 +42,6 @@ test {
   filter {
     excludeTestsMatching "*IT_Large*"
   }
-  forkEvery 1
 }
 
 publishArtifacts(project, "default")

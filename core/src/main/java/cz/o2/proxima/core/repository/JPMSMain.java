@@ -64,6 +64,7 @@ public class JPMSMain {
         new ChildLayerFirstClassLoader(finder, thisClass.getClassLoader());
     createModuleLayer(loaderCache, parentLayer, finder, parentLoader);
     log.info("Added module layer from path {} with modules {}", path, finder.findAll());
+    Repository.setJpmsClassLoader(parentLoader);
     Thread.currentThread().setContextClassLoader(parentLoader);
     Class<?> loadedMainClass = parentLoader.loadClass(mainClass);
     Method main = loadedMainClass.getDeclaredMethod("main", String[].class);

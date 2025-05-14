@@ -103,7 +103,7 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
       unterminatedCalls.add(terminateFuture);
       // send initial status to client
       responseObserver.onNext(Response.newBuilder().setStatus(CONTINUE).build());
-      return new StreamObserver<Item>() {
+      return new StreamObserver<>() {
 
         List<Item> received = new ArrayList<>();
 

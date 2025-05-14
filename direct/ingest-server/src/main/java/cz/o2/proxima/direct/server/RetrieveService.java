@@ -325,7 +325,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
     for (GetRequest getRequest : request.getGetRequestList()) {
       get(
           getRequest.toBuilder().setTransactionId(request.getTransactionId()).build(),
-          new StreamObserver<GetResponse>() {
+          new StreamObserver<>() {
             @Override
             public void onNext(GetResponse getResponse) {
               response.addGetResponse(getResponse);
@@ -348,7 +348,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       for (ListRequest listRequest : request.getListRequestList()) {
         listAttributes(
             listRequest.toBuilder().setTransactionId(request.getTransactionId()).build(),
-            new StreamObserver<ListResponse>() {
+            new StreamObserver<>() {
               @Override
               public void onNext(ListResponse listResponse) {
                 response.addListResponse(listResponse);

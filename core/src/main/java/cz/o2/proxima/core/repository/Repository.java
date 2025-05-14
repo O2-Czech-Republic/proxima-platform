@@ -18,6 +18,7 @@ package cz.o2.proxima.core.repository;
 import cz.o2.proxima.core.annotations.Evolving;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.scheme.ValueSerializerFactory;
+import cz.o2.proxima.core.util.internal.ClassLoaders.ChildLayerFirstClassLoader;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.collect.Streams;
 import cz.o2.proxima.typesafe.config.Config;
@@ -32,7 +33,9 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /** Repository of all entities configured in the system. */
@@ -41,6 +44,9 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class Repository implements Serializable {
 
   private static final long serialVersionUID = 1L;
+
+  @Setter(AccessLevel.PACKAGE)
+  private static ChildLayerFirstClassLoader jpmsClassLoader = null;
 
   /** Various validation flags. */
   public enum Validate {
@@ -92,6 +98,10 @@ public abstract class Repository implements Serializable {
    */
   public static Repository ofTest(Config config, Validate... validate) {
     return ConfigRepository.ofTest(config, validate);
+  }
+
+  public static ClassLoader getJpmsClassloader() {
+    return jpmsClassLoader;
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})

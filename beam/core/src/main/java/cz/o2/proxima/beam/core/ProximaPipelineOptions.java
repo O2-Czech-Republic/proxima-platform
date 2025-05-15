@@ -55,4 +55,9 @@ public interface ProximaPipelineOptions extends PipelineOptions {
   boolean getEnforceStableInputForRemoteConsumer();
 
   void setEnforceStableInputForRemoteConsumer(boolean enforce);
+
+  @Default.Long(30000L)
+  long getProximaIOWriteFinalizeTimeoutMs();
+
+  void setProximaIOWriteFinalizeTimeoutMs(long timeout);
 }

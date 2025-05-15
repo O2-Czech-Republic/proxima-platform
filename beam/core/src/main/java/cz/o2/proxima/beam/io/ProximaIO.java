@@ -122,7 +122,8 @@ public class ProximaIO {
     public void finishBundle() {
       long startTime = System.currentTimeMillis();
       while (missingResponses.get() > 0) {
-        if (System.currentTimeMillis() - startTime > bundleFinalizeTimeoutMs) {
+        long elapsed = System.currentTimeMillis() - startTime;
+        if (elapsed >= bundleFinalizeTimeoutMs) {
           throw new IllegalStateException("Failed to flush bundle within timeout of 5s");
         }
         // clone to avoid ConcurrentModificationException
@@ -136,7 +137,7 @@ public class ProximaIO {
                 .map(
                     f ->
                         ExceptionUtils.uncheckedFactory(
-                            () -> f.get(bundleFinalizeTimeoutMs, TimeUnit.MILLISECONDS)))
+                            () -> f.get(bundleFinalizeTimeoutMs - elapsed, TimeUnit.MILLISECONDS)))
                 .filter(p -> !p.getFirst())
                 // this will be retried
                 .filter(p -> !(p.getSecond() instanceof TransactionRejectedException))

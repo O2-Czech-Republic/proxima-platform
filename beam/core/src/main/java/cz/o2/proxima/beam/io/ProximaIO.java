@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.io;
 
+import cz.o2.proxima.beam.core.ProximaPipelineOptions;
 import cz.o2.proxima.core.annotations.Experimental;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.StreamElement;
@@ -74,7 +75,13 @@ public class ProximaIO {
 
     @Override
     public PDone expand(PCollection<StreamElement> input) {
-      input.apply("Write", ParDo.of(new WriteFn(repositoryFactory)));
+      long bundleFinalizeTimeoutMs =
+          input
+              .getPipeline()
+              .getOptions()
+              .as(ProximaPipelineOptions.class)
+              .getProximaIOWriteFinalizeTimeoutMs();
+      input.apply("Write", ParDo.of(new WriteFn(bundleFinalizeTimeoutMs, repositoryFactory)));
       return PDone.in(input.getPipeline());
     }
   }
@@ -82,13 +89,15 @@ public class ProximaIO {
   static class WriteFn extends DoFn<StreamElement, Void> {
 
     private final RepositoryFactory repositoryFactory;
+    private final long bundleFinalizeTimeoutMs;
 
     private transient DirectDataOperator direct;
 
     private transient Set<CompletableFuture<Pair<Boolean, Throwable>>> pendingWrites;
     private transient AtomicInteger missingResponses;
 
-    WriteFn(RepositoryFactory repositoryFactory) {
+    WriteFn(long bundleFinalizeTimeoutMs, RepositoryFactory repositoryFactory) {
+      this.bundleFinalizeTimeoutMs = bundleFinalizeTimeoutMs;
       this.repositoryFactory = repositoryFactory;
     }
 
@@ -113,7 +122,7 @@ public class ProximaIO {
     public void finishBundle() {
       long startTime = System.currentTimeMillis();
       while (missingResponses.get() > 0) {
-        if (System.currentTimeMillis() - startTime > 5000) {
+        if (System.currentTimeMillis() - startTime > bundleFinalizeTimeoutMs) {
           throw new IllegalStateException("Failed to flush bundle within timeout of 5s");
         }
         // clone to avoid ConcurrentModificationException
@@ -124,7 +133,10 @@ public class ProximaIO {
         }
         Optional<Pair<Boolean, Throwable>> failedFuture =
             unfinished.stream()
-                .map(f -> ExceptionUtils.uncheckedFactory(() -> f.get(5, TimeUnit.SECONDS)))
+                .map(
+                    f ->
+                        ExceptionUtils.uncheckedFactory(
+                            () -> f.get(bundleFinalizeTimeoutMs, TimeUnit.MILLISECONDS)))
                 .filter(p -> !p.getFirst())
                 // this will be retried
                 .filter(p -> !(p.getSecond() instanceof TransactionRejectedException))

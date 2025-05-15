@@ -49,7 +49,7 @@ public class ProximaIOWriteFnTest {
       Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor gateway = repository.getEntity("gateway");
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-  private final WriteFn writeFn = new WriteFn(repository.asFactory());
+  private final WriteFn writeFn = new WriteFn(1000L, repository.asFactory());
   private RandomAccessReader reader;
 
   @Before
@@ -88,7 +88,7 @@ public class ProximaIOWriteFnTest {
     AtomicInteger written = new AtomicInteger();
     OnlineAttributeWriter mockWriter = createSerializableWriter(fails, written);
     WriteFn modifiedWriteFn =
-        new WriteFn(repository.asFactory()) {
+        new WriteFn(30000L, repository.asFactory()) {
           @Override
           OnlineAttributeWriter getWriterForElement(StreamElement element) {
             return mockWriter;

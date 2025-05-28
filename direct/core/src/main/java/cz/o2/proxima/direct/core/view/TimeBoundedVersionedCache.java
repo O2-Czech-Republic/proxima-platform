@@ -20,6 +20,7 @@ import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.io.Serializable;
@@ -44,8 +45,7 @@ class TimeBoundedVersionedCache implements Serializable {
 
   @Value
   static class Payload {
-    @Nullable Object data;
-    long seqId;
+    StreamElement data;
     boolean overridable;
   }
 

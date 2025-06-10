@@ -21,6 +21,7 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.io.Serializable;
+import java.lang.ref.WeakReference;
 import java.util.Date;
 import java.util.Objects;
 import java.util.Optional;
@@ -246,7 +247,7 @@ public class StreamElement implements Serializable {
 
   private final boolean deleteWildcard;
 
-  private transient Object parsed;
+  private transient WeakReference<Object> parsedRef;
   private transient String cachedUuid;
 
   protected StreamElement(
@@ -298,11 +299,8 @@ public class StreamElement implements Serializable {
 
   public String getUuid() {
     if (cachedUuid == null) {
-      if (uuid != null) {
-        cachedUuid = uuid;
-      } else {
-        cachedUuid = key + ":" + attribute + ":" + sequentialId;
-      }
+      cachedUuid =
+          Objects.requireNonNullElseGet(uuid, () -> key + ":" + attribute + ":" + sequentialId);
     }
     return cachedUuid;
   }
@@ -356,14 +354,17 @@ public class StreamElement implements Serializable {
     if (value == null) {
       return Optional.empty();
     }
-    if (parsed == null) {
+    if (parsedRef == null) {
+      parsedRef = new WeakReference<>(null);
+    }
+    if (parsedRef.get() == null) {
       attributeDescriptor.getValueSerializer().deserialize(value).ifPresent(this::setParsed);
     }
-    return (Optional<T>) Optional.ofNullable(parsed);
+    return (Optional<T>) Optional.ofNullable(parsedRef.get());
   }
 
   protected final void setParsed(Object parsed) {
-    this.parsed = parsed;
+    this.parsedRef = new WeakReference<>(parsed);
   }
 
   @Override

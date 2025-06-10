@@ -23,6 +23,7 @@ import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import cz.o2.proxima.core.util.ExceptionUtils;
+import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -108,20 +109,15 @@ public class LocalCachedPartitionedView implements CachedView {
       final Pair<Long, Payload> oldVal;
       synchronized (cache) {
         oldVal = cache.get(element.getKey(), attrName, Long.MAX_VALUE);
-        long sequentialId = element.hasSequentialId() ? element.getSequentialId() : 0L;
-        updated =
-            cache.put(
-                element.getKey(),
-                attrName,
-                element.getStamp(),
-                sequentialId,
-                overwrite,
-                parsed.orElse(null));
+        updated = cache.put(element, overwrite);
       }
       if (updated) {
         updateCallback.accept(
             element,
-            oldVal != null ? Pair.of(oldVal.getFirst(), oldVal.getSecond().getData()) : null);
+            oldVal != null && !oldVal.getSecond().getData().isDelete()
+                ? Pair.of(
+                    oldVal.getFirst(), Optionals.get(oldVal.getSecond().getData().getParsed()))
+                : null);
       }
     }
   }
@@ -276,7 +272,7 @@ public class LocalCachedPartitionedView implements CachedView {
       if (desc.isWildcard()) {
         // check for wildcard delete
         Pair<Long, Payload> wildcard = cache.get(key, desc.toAttributePrefix(), stamp);
-        if (wildcard != null && wildcard.getSecond().getData() == null) {
+        if (wildcard != null && wildcard.getSecond().getData().isDelete()) {
           // this is delete
           // move the required stamp after the delete
           deleteStamp = wildcard.getFirst();
@@ -285,7 +281,7 @@ public class LocalCachedPartitionedView implements CachedView {
       final long filterStamp = deleteStamp;
       return Optional.ofNullable(cache.get(key, attribute, stamp))
           .filter(e -> e.getFirst() >= filterStamp)
-          .flatMap(e -> Optional.ofNullable(toKv(key, attribute, e)));
+          .flatMap(e -> Optional.ofNullable(toKv(e)));
     }
   }
 
@@ -339,7 +335,7 @@ public class LocalCachedPartitionedView implements CachedView {
           return null;
         },
         (attr, e) -> {
-          KeyValue<Object> kv = toKv(key, attr, e);
+          KeyValue<Object> kv = toKv(e);
           if (kv != null) {
             if (missing.getAndDecrement() != 0) {
               consumer.accept(kv);
@@ -368,45 +364,33 @@ public class LocalCachedPartitionedView implements CachedView {
     cache.clear();
   }
 
-  private @Nullable <T> KeyValue<T> toKv(
-      String key, String attribute, @Nullable Pair<Long, Payload> p) {
-
-    Optional<AttributeDescriptor<Object>> attrDesc = entity.findAttribute(attribute, true);
-    if (attrDesc.isPresent()) {
-      return toKv(key, attribute, attrDesc.get(), p);
-    }
-    log.warn("Missing attribute {} in entity {}", attribute, entity);
-    return null;
-  }
-
   @SuppressWarnings("unchecked")
-  private @Nullable <T> KeyValue<T> toKv(
-      String key, String attribute, AttributeDescriptor<?> attr, @Nullable Pair<Long, Payload> p) {
-
-    if (p == null || p.getSecond() == null || p.getSecond().getData() == null) {
+  private @Nullable <T> KeyValue<T> toKv(@Nullable Pair<Long, Payload> p) {
+    if (p == null || p.getSecond() == null || p.getSecond().getData().isDelete()) {
       return null;
     }
-    if (p.getSecond().getSeqId() > 0) {
+    StreamElement data = p.getSecond().getData();
+    if (data.getSequentialId() > 0) {
       return KeyValue.of(
-          entity,
-          (AttributeDescriptor<T>) attr,
-          p.getSecond().getSeqId(),
-          key,
-          attribute,
-          new RawOffset(attribute),
-          (T) p.getSecond().getData(),
-          null,
-          p.getFirst());
+          data.getEntityDescriptor(),
+          (AttributeDescriptor<T>) data.getAttributeDescriptor(),
+          data.getSequentialId(),
+          data.getKey(),
+          data.getAttribute(),
+          new RawOffset(data.getAttribute()),
+          (T) data.getParsed().orElse(null),
+          data.getValue(),
+          data.getStamp());
     }
     return KeyValue.of(
-        entity,
-        (AttributeDescriptor<T>) attr,
-        key,
-        attribute,
-        new RawOffset(attribute),
-        (T) p.getSecond().getData(),
-        null,
-        p.getFirst());
+        data.getEntityDescriptor(),
+        (AttributeDescriptor<T>) data.getAttributeDescriptor(),
+        data.getKey(),
+        data.getAttribute(),
+        new RawOffset(data.getAttribute()),
+        (T) data.getParsed().orElse(null),
+        data.getValue(),
+        data.getStamp());
   }
 
   @Override

@@ -22,7 +22,6 @@ function deploy_set() {
   while [ $TRY -lt 3 ]; do
     echo "Starting to deploy step $((TRY + 1))"
     if ./gradlew publish -Ppublish -P${set}; then
-      curl -X POST https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/cz.o2.proxima
       break;
     fi
     TRY="$((TRY+1))"

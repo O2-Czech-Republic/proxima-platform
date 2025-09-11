@@ -28,6 +28,8 @@ function deploy_set() {
   done
   if [ $TRY -lt 3 ]; then
     echo "Success deploying snapshot"
+    echo "Notifying the deployment endpoint"
+    curl -XPOST https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/cz.o2.proxima
   else
     echo "Failed to deploy snapshot"
     return 1

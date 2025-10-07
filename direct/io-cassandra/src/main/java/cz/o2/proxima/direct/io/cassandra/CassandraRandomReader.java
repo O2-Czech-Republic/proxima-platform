@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
+import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
@@ -54,6 +55,10 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
     final ResultSet result;
     try {
       result = accessor.execute(statement);
+    } catch (AllNodesFailedException ex) {
+      log.warn("Got {}, closing session.", AllNodesFailedException.class.getSimpleName(), ex);
+      accessor.closeSession();
+      throw ex;
     } catch (Exception ex) {
       throw new RuntimeException("Unable to execute query.", ex);
     }

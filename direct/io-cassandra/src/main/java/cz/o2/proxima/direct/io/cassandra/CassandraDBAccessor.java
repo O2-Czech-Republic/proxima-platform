@@ -258,6 +258,11 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
     return getSession(getUri());
   }
 
+  void closeSession() {
+    final String clusterCachedKey = computeClusterKey(getUri().getAuthority(), username);
+    Optional.ofNullable(SESSION_MAP.remove(clusterCachedKey)).ifPresent(CqlSession::close);
+  }
+
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
     return Optional.of(newWriter());

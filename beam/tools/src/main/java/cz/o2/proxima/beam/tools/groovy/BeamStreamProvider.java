@@ -47,6 +47,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -274,7 +275,17 @@ public abstract class BeamStreamProvider implements StreamProvider {
             .map(
                 l ->
                     l.getDefinedClasses().stream()
-                        .map(name -> ExceptionUtils.uncheckedFactory(() -> loader.loadClass(name)))
+                        .map(
+                            name -> {
+                              try {
+                                return ExceptionUtils.uncheckedFactory(
+                                    () -> loader.loadClass(name));
+                              } catch (Exception ex) {
+                                log.warn("Failed to find class {}. Skipping.", name, ex);
+                                return null;
+                              }
+                            })
+                        .filter(Objects::nonNull)
                         .map(cls -> Pair.of(cls, loader.getClassByteCode(cls.getName())))
                         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)))
             .orElse(Collections.emptyMap());

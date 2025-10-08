@@ -19,8 +19,10 @@ import cz.o2.proxima.core.functional.BiConsumer;
 import cz.o2.proxima.core.functional.Consumer;
 import cz.o2.proxima.core.functional.UnaryFunction;
 import java.io.Serializable;
+import lombok.extern.slf4j.Slf4j;
 
 /** Utilities related to exception throwing and handling. */
+@Slf4j
 public class ExceptionUtils {
 
   /**
@@ -182,6 +184,15 @@ public class ExceptionUtils {
    */
   public static void rethrowAsIllegalStateException(Throwable cause) {
     throw new IllegalStateException(cause);
+  }
+
+  /** Swallow any Exception. */
+  public static void ignoring(ThrowingRunnable runnable) {
+    try {
+      runnable.run();
+    } catch (Exception ex) {
+      log.warn("Caught error, ignoring as instructed.", ex);
+    }
   }
 
   private ExceptionUtils() {}

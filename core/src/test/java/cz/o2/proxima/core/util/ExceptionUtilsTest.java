@@ -69,4 +69,13 @@ public class ExceptionUtilsTest {
       assertEquals("ex", ex.getCause().getMessage());
     }
   }
+
+  @Test
+  public void testIgnoring() {
+    ExceptionUtils.ignoring(
+        () -> {
+          throw new IllegalStateException("ex");
+        });
+    assertTrue(true);
+  }
 }

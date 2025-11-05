@@ -142,6 +142,7 @@ public class AbstractPubSubWriter {
         }
         executor.shutdown();
         executor.awaitTermination(10, TimeUnit.SECONDS);
+        executor = null;
         publisher.shutdown();
       } catch (Exception ex) {
         log.warn("Failed to shutdown publisher {}", publisher, ex);

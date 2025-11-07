@@ -30,7 +30,6 @@ import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -140,9 +139,6 @@ public class AbstractPubSubWriter {
             flightLock.wait(100);
           }
         }
-        executor.shutdown();
-        executor.awaitTermination(10, TimeUnit.SECONDS);
-        executor = null;
         publisher.shutdown();
       } catch (Exception ex) {
         log.warn("Failed to shutdown publisher {}", publisher, ex);

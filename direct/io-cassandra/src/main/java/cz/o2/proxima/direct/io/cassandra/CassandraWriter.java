@@ -17,7 +17,9 @@ package cz.o2.proxima.direct.io.cassandra;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import cz.o2.proxima.core.annotations.DeclaredThreadSafe;
+import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -40,19 +42,24 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
   @Override
   public void write(StreamElement data, CommitCallback statusCallback) {
     try {
-      CqlSession session = accessor.ensureSession();
-      Optional<BoundStatement> cql = accessor.getCqlFactory().getWriteStatement(data, session);
-      if (cql.isPresent()) {
-        if (log.isDebugEnabled()) {
-          log.debug(
-              "Executing statement {} to write {}",
-              cql.get().getPreparedStatement().getQuery(),
-              data);
-        }
-        accessor.execute(cql.get());
-      } else {
-        log.warn("Missing CQL statement to write {}. Discarding.", data);
-      }
+      UnaryFunction<CqlSession, Optional<Statement<?>>> fn =
+          session -> {
+            Optional<BoundStatement> maybeWriteStatement =
+                accessor.getCqlFactory().getWriteStatement(data, session);
+            if (maybeWriteStatement.isPresent()) {
+              if (log.isDebugEnabled()) {
+                log.debug(
+                    "Executing statement {} to write {}",
+                    maybeWriteStatement.get().getPreparedStatement().getQuery(),
+                    data);
+              }
+              return Optional.of(maybeWriteStatement.get());
+            } else {
+              log.warn("Missing CQL statement to write {}. Discarding.", data);
+            }
+            return Optional.empty();
+          };
+      accessor.executeOptionally(fn);
       statusCallback.commit(true, null);
     } catch (Exception ex) {
       log.error("Failed to ingest record {} into cassandra", data, ex);

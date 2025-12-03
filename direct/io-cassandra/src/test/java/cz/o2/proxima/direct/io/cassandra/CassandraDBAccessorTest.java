@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -28,6 +29,7 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.Statement;
+import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.AttributeDescriptorBase;
 import cz.o2.proxima.core.repository.ConfigRepository;
@@ -67,6 +69,7 @@ import lombok.Setter;
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 
 /** Test suite for {@link CassandraDBAccessor}. */
 public class CassandraDBAccessorTest {
@@ -82,8 +85,8 @@ public class CassandraDBAccessorTest {
     }
 
     @Override
-    ResultSet execute(Statement statement) {
-      executed.add(statement);
+    ResultSet execute(UnaryFunction<CqlSession, Statement<?>> fn) {
+      executed.add(fn.apply(ensureSession()));
       return res;
     }
 
@@ -890,6 +893,38 @@ public class CassandraDBAccessorTest {
             Collections.singletonList(InetSocketAddress.createUnresolved("host", 9042)));
     verify(builder, never()).withCredentials(any(), any());
     assertNotNull(accessor);
+  }
+
+  @Test
+  public void testExecute() {
+    @SuppressWarnings("rawtypes")
+    Statement statement = mock(Statement.class);
+    CqlSession session = mock(CqlSession.class);
+    AtomicInteger tryN = new AtomicInteger();
+    when(statement.setConsistencyLevel(any())).thenReturn(statement);
+    when(session.execute(any(Statement.class)))
+        .thenAnswer(
+            (Answer<ResultSet>)
+                invocationOnMock -> {
+                  if (tryN.incrementAndGet() < 3) {
+                    throw AllNodesFailedException.fromErrors(Collections.emptyList());
+                  }
+                  return mock(ResultSet.class);
+                });
+    Map<String, Object> cfg =
+        ImmutableMap.<String, Object>builder()
+            .put(CassandraDBAccessor.CONSISTENCY_LEVEL_CFG, ConsistencyLevel.LOCAL_ONE.name())
+            .build();
+    CassandraDBAccessor accessor =
+        new CassandraDBAccessor(
+            entity, URI.create("cassandra://host:9042/table/?primary=data"), cfg) {
+          @Override
+          CqlSession ensureSession() {
+            return session;
+          }
+        };
+    accessor.execute(s -> statement);
+    assertEquals(3, tryN.get());
   }
 
   private Map<String, Object> getCfg(Class<?> cls, Class<? extends StringConverter<?>> converter) {

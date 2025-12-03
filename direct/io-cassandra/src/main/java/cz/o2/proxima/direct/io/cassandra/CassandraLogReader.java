@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
@@ -110,9 +109,9 @@ class CassandraLogReader implements BatchLogReader {
       BatchLogObserver observer) {
 
     ResultSet result;
-    CqlSession session = accessor.ensureSession();
     result =
-        accessor.execute(accessor.getCqlFactory().scanPartition(attributes, partition, session));
+        accessor.execute(
+            session -> accessor.getCqlFactory().scanPartition(attributes, partition, session));
     for (Row row : result) {
       if (terminationContext.isCancelled()) {
         return false;

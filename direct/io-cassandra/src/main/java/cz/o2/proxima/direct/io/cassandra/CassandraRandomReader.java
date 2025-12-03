@@ -15,9 +15,7 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
-import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import cz.o2.proxima.core.functional.Consumer;
@@ -49,16 +47,11 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
   public <T> Optional<KeyValue<T>> get(
       String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
-    CqlSession session = accessor.ensureSession();
-    BoundStatement statement =
-        accessor.getCqlFactory().getReadStatement(key, attribute, desc, session);
     final ResultSet result;
     try {
-      result = accessor.execute(statement);
-    } catch (AllNodesFailedException ex) {
-      log.warn("Got {}, closing session.", AllNodesFailedException.class.getSimpleName(), ex);
-      accessor.closeSession();
-      throw ex;
+      result =
+          accessor.execute(
+              session -> accessor.getCqlFactory().getReadStatement(key, attribute, desc, session));
     } catch (Exception ex) {
       throw new RuntimeException("Unable to execute query.", ex);
     }
@@ -118,13 +111,12 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
       Consumer<KeyValue<T>> consumer) {
 
     try {
-      CqlSession session = accessor.ensureSession();
-      BoundStatement statement =
-          accessor
-              .getCqlFactory()
-              .getListStatement(key, wildcard, (Offsets.Raw) offset, limit, session);
-
-      ResultSet result = accessor.execute(statement);
+      ResultSet result =
+          accessor.execute(
+              session ->
+                  accessor
+                      .getCqlFactory()
+                      .getListStatement(key, wildcard, (Offsets.Raw) offset, limit, session));
       // the row has to have the format (attribute, value)
       for (Row row : result) {
         Object attribute = row.getObject(0);
@@ -166,14 +158,13 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
   public void listEntities(
       RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
 
-    CqlSession session = accessor.ensureSession();
-    BoundStatement statement =
-        accessor
-            .getCqlFactory()
-            .getListEntitiesStatement((Offsets.TokenOffset) offset, limit, session);
-
     try {
-      ResultSet result = accessor.execute(statement);
+      ResultSet result =
+          accessor.execute(
+              session ->
+                  accessor
+                      .getCqlFactory()
+                      .getListEntitiesStatement((Offsets.TokenOffset) offset, limit, session));
       for (Row row : result) {
         String key = row.getString(0);
         long token = row.getLong(1);
@@ -203,9 +194,9 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
           return new Offsets.Raw(key);
 
         case ENTITY:
-          CqlSession session = accessor.ensureSession();
           ResultSet res =
-              accessor.execute(accessor.getCqlFactory().getFetchTokenStatement(key, session));
+              accessor.execute(
+                  session -> accessor.getCqlFactory().getFetchTokenStatement(key, session));
           if (res.isFullyFetched()) {
             return new Offsets.TokenOffset(Long.MIN_VALUE);
           }

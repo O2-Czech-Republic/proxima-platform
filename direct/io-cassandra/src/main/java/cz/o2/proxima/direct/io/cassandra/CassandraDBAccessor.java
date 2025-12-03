@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
+import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -168,21 +169,54 @@ public class CassandraDBAccessor extends SerializableAbstractStorage implements 
             });
   }
 
-  ResultSet execute(Statement statement) {
-    statement = statement.setConsistencyLevel(consistencyLevel);
-    if (log.isDebugEnabled()) {
-      if (statement instanceof BoundStatement) {
-        final BoundStatement s = (BoundStatement) statement;
-        log.debug("Executing BoundStatement {}", s.getPreparedStatement().getQuery());
-      } else {
-        log.debug(
-            "Executing {} {} with payload {}",
-            statement.getClass().getSimpleName(),
-            statement,
-            statement.getCustomPayload());
+  @Nullable
+  ResultSet executeOptionally(UnaryFunction<CqlSession, Optional<Statement<?>>> statementFn) {
+    int i = 0;
+    while (true) {
+      try {
+        final CqlSession session = ensureSession();
+        final Optional<Statement<?>> maybeStatement =
+            statementFn.apply(session).map(s -> s.setConsistencyLevel(consistencyLevel));
+        if (maybeStatement.isEmpty()) {
+          return null;
+        }
+        Statement<?> statement = maybeStatement.get();
+        if (log.isDebugEnabled()) {
+          if (statement instanceof BoundStatement) {
+            final BoundStatement s = (BoundStatement) statement;
+            log.debug("Executing BoundStatement {}", s.getPreparedStatement().getQuery());
+          } else {
+            log.debug(
+                "Executing {} {} with payload {}",
+                statement.getClass().getSimpleName(),
+                statement,
+                statement.getCustomPayload());
+          }
+        }
+        return session.execute(statement);
+      } catch (AllNodesFailedException ex) {
+        int tryN = i;
+        closeSession();
+        if (tryN < 2) {
+          log.warn(
+              "Got {}, retry {}, closing session and retrying.",
+              ex.getClass().getSimpleName(),
+              tryN + 1,
+              ex);
+          ExceptionUtils.ignoringInterrupted(
+              () -> TimeUnit.MILLISECONDS.sleep((long) (100 * Math.pow(2, tryN))));
+        } else {
+          log.warn("Got {}. Closing session and rethrowing.", ex.getClass().getSimpleName());
+          throw ex;
+        }
       }
+      i++;
     }
-    return ensureSession().execute(statement);
+  }
+
+  ResultSet execute(UnaryFunction<CqlSession, Statement<?>> statementFn) {
+    return Objects.requireNonNull(
+        executeOptionally(session -> Optional.of(statementFn.apply(session))));
   }
 
   private CqlSession getSession(URI uri) {

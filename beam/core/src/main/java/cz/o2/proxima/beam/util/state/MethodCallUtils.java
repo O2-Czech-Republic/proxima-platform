@@ -86,9 +86,11 @@ import org.apache.beam.sdk.transforms.windowing.TimestampCombiner;
 import org.apache.beam.sdk.util.ByteBuddyUtils;
 import org.apache.beam.sdk.util.CoderUtils;
 import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.OutputBuilder;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TupleTag;
+import org.apache.beam.sdk.values.WindowedValues;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
@@ -339,6 +341,12 @@ class MethodCallUtils {
       TupleTag<T> mainTag) {
 
     return new OutputReceiver<T>() {
+      @Override
+      public OutputBuilder<T> builder(T value) {
+        return WindowedValues.<T>builder()
+            .setReceiver(output -> multiOutput.get(mainTag).builder(value).output());
+      }
+
       @Override
       public void output(T output) {
         if (elem == null) {
@@ -732,6 +740,11 @@ class MethodCallUtils {
     public TimestampedOutputReceiver(OutputReceiver<T> parentReceiver, Instant timestamp) {
       this.parentReceiver = parentReceiver;
       this.elementTimestamp = timestamp;
+    }
+
+    @Override
+    public OutputBuilder<T> builder(T value) {
+      return parentReceiver.builder(value);
     }
 
     @Override

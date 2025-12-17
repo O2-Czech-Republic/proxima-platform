@@ -64,9 +64,11 @@ import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.PaneInfo;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.values.OutputBuilder;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
+import org.apache.beam.sdk.values.WindowedValues;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -239,6 +241,12 @@ public class BatchLogReadTest {
     readFn.splitRestriction(
         list,
         new OutputReceiver<>() {
+          @Override
+          public OutputBuilder<PartitionList> builder(PartitionList value) {
+            return WindowedValues.<PartitionList>builder()
+                .setReceiver(output -> this.output(output.getValue()));
+          }
+
           @Override
           public void output(PartitionList part) {
             output.add(part);

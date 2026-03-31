@@ -196,7 +196,6 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
   @Override
   public Optional<BoundStatement> getWriteStatement(StreamElement element, CqlSession session) {
-
     ensureSession(session);
     if (element.isDelete()) {
       return elementDelete(element);
@@ -246,10 +245,10 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
       if (colVal != null) {
         BoundStatement bind =
             prepared.bind(
-                ingest.getKey(),
-                colVal,
+                ingest.getStamp() * 1000L,
                 ByteBuffer.wrap(serializeValue(ingest)),
-                ingest.getStamp() * 1000L);
+                ingest.getKey(),
+                colVal);
         return Optional.of(bind);
       }
       return Optional.empty();
@@ -257,7 +256,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
     BoundStatement bind =
         prepared.bind(
-            ingest.getKey(), ByteBuffer.wrap(serializeValue(ingest)), ingest.getStamp() * 1000L);
+            ingest.getStamp() * 1000L, ByteBuffer.wrap(serializeValue(ingest)), ingest.getKey());
     return Optional.of(bind);
   }
 
@@ -273,24 +272,21 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
   @Override
   protected String createInsertStatement(StreamElement element) {
-
+    String ttlStatement = ttl > 0 ? ("USING TTL " + ttl + " ") : "";
     if (element.getAttributeDescriptor().isWildcard()) {
       // use the first part of the attribute name
       String colName = toColName(element.getAttributeDescriptor());
       return String.format(
-          "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?) USING TIMESTAMP ?%s",
+          "UPDATE %s USING TIMESTAMP ? %sSET %s=? WHERE %s=? AND %s=?",
           getTableName(),
-          primaryField,
-          toUnderScore(colName),
+          ttlStatement,
           toPayloadCol(element.getAttributeDescriptor()),
-          ttl > 0 ? (" AND TTL " + ttl) : "");
+          primaryField,
+          toUnderScore(colName));
     } else {
       return String.format(
-          "INSERT INTO %s (%s, %s) VALUES (?, ?) USING TIMESTAMP ?%s",
-          getTableName(),
-          primaryField,
-          toUnderScore(element.getAttribute()),
-          ttl > 0 ? (" AND TTL " + ttl) : "");
+          "UPDATE %s USING TIMESTAMP ? %sSET %s=? WHERE %s=?",
+          getTableName(), ttlStatement, toUnderScore(element.getAttribute()), primaryField);
     }
   }
 

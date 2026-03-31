@@ -172,16 +172,16 @@ public class DefaultCqlFactoryTest {
             now,
             "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
+    when(statement.bind(now * 1000L, ByteBuffer.wrap("value".getBytes()), "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
-    verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    verify(statement).bind(eq(now * 1000L), eq(ByteBuffer.wrap("value".getBytes())), eq("key"));
     assertTrue(boundStatement.isPresent());
     assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
-        "INSERT INTO my_table (hgw, my_attribute) VALUES (?, ?) USING TIMESTAMP ?",
+        "UPDATE my_table USING TIMESTAMP ? SET my_attribute=? WHERE hgw=?",
         preparedStatement.get(0));
   }
 
@@ -202,18 +202,17 @@ public class DefaultCqlFactoryTest {
             now,
             "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
+    when(statement.bind(now * 1000L, ByteBuffer.wrap("value".getBytes()), "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
     when(bound.set(eq(1), any(), eq(ByteBuffer.class))).thenReturn(bound);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
-    verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    verify(statement).bind(eq(now * 1000L), eq(ByteBuffer.wrap("value".getBytes())), eq("key"));
     assertTrue(boundStatement.isPresent());
     assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
-        "INSERT INTO my_table (hgw, my_attribute) VALUES (?, ?) USING TIMESTAMP ?"
-            + " AND TTL 86400",
+        "UPDATE my_table USING TIMESTAMP ? USING TTL 86400 SET my_attribute=? WHERE hgw=?",
         preparedStatement.get(0));
   }
 
@@ -230,20 +229,18 @@ public class DefaultCqlFactoryTest {
             now,
             "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind("key", "1", ByteBuffer.wrap("value".getBytes()), now * 1000L))
+    when(statement.bind(now * 1000L, ByteBuffer.wrap("value".getBytes()), "key", "1"))
         .thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement)
-        .bind(
-            eq("key"), eq("1"),
-            eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+        .bind(eq(now * 1000L), eq(ByteBuffer.wrap("value".getBytes())), eq("key"), eq("1"));
     assertTrue(boundStatement.isPresent());
     assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
-        "INSERT INTO my_table (hgw, device, my_col) VALUES (?, ?, ?) USING TIMESTAMP ?",
+        "UPDATE my_table USING TIMESTAMP ? SET my_col=? WHERE hgw=? AND device=?",
         preparedStatement.get(0));
   }
 
@@ -260,20 +257,18 @@ public class DefaultCqlFactoryTest {
             now,
             "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind("key", "1.2", ByteBuffer.wrap("value".getBytes()), now * 1000L))
+    when(statement.bind(now * 1000L, ByteBuffer.wrap("value".getBytes()), "key", "1.2"))
         .thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement)
-        .bind(
-            eq("key"), eq("1.2"),
-            eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+        .bind(eq(now * 1000L), eq(ByteBuffer.wrap("value".getBytes())), eq("key"), eq("1.2"));
     assertTrue(boundStatement.isPresent());
     assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
-        "INSERT INTO my_table (hgw, device, my_col) VALUES (?, ?, ?) USING TIMESTAMP ?",
+        "UPDATE my_table USING TIMESTAMP ? SET my_col=? WHERE hgw=? AND device=?",
         preparedStatement.get(0));
   }
 
@@ -481,7 +476,7 @@ public class DefaultCqlFactoryTest {
     StreamElement ingest =
         StreamElement.upsert(entity, attr, 1001L, "key", "myAttribute", now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind(eq("key"), any(), eq(now * 1000L)))
+    when(statement.bind(eq(now * 1000L), any(), eq("key")))
         .thenAnswer(
             invocationOnMock -> {
               ByteBuffer bytes = invocationOnMock.getArgument(1);
@@ -508,7 +503,7 @@ public class DefaultCqlFactoryTest {
     assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
-        "INSERT INTO my_table (hgw, my_attribute) VALUES (?, ?) USING TIMESTAMP ?",
+        "UPDATE my_table USING TIMESTAMP ? SET my_attribute=? WHERE hgw=?",
         preparedStatement.get(0));
   }
 
@@ -525,10 +520,10 @@ public class DefaultCqlFactoryTest {
         StreamElement.upsert(
             entity, attrWildcard, 1001L, "key", "device.1", now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind(eq("key"), eq("1"), any(), eq(now * 1000L)))
+    when(statement.bind(eq(now * 1000L), any(), eq("key"), eq("1")))
         .thenAnswer(
             invocationOnMock -> {
-              ByteBuffer bytes = invocationOnMock.getArgument(2);
+              ByteBuffer bytes = invocationOnMock.getArgument(1);
               Cell cell = Cell.parseFrom(ByteString.copyFrom(bytes));
               assertEquals(1001L, cell.getSeqId());
               assertEquals("value", cell.getValue().toStringUtf8());
@@ -552,7 +547,7 @@ public class DefaultCqlFactoryTest {
     assertSame(boundStatement.get(), bound);
     assertEquals(1, preparedStatement.size());
     assertEquals(
-        "INSERT INTO my_table (hgw, device, my_col) VALUES (?, ?, ?) USING TIMESTAMP ?",
+        "UPDATE my_table USING TIMESTAMP ? SET my_col=? WHERE hgw=? AND device=?",
         preparedStatement.get(0));
   }
 

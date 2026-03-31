@@ -22,7 +22,6 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.UriUtil;
-import cz.o2.proxima.io.serialization.shaded.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.io.serialization.shaded.com.google.common.base.Strings;
 import java.net.URI;
 import java.util.Collections;
@@ -288,7 +287,6 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     listAllAttributes = null;
   }
 
-  @VisibleForTesting
   String toUnderScore(String what) {
     StringBuilder sb = new StringBuilder();
     for (char c : what.toCharArray()) {

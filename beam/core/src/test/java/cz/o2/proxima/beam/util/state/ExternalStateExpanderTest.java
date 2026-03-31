@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.UUID;
 import org.apache.beam.runners.direct.DirectRunner;
+import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.Pipeline.PipelineVisitor.Defaults;
@@ -312,6 +313,10 @@ public class ExternalStateExpanderTest {
   @Test
   public void testStateWithElementEarly() throws IOException {
     Pipeline pipeline = createPipeline();
+    if (pipeline.getOptions().getRunner().equals(FlinkRunner.class)) {
+      FlinkPipelineOptions flinkOpts = pipeline.getOptions().as(FlinkPipelineOptions.class);
+      flinkOpts.setParallelism(5);
+    }
     Instant now = new Instant(0);
     PCollection<String> inputs =
         pipeline.apply(
@@ -412,6 +417,11 @@ public class ExternalStateExpanderTest {
 
   private void testTimestampInject(boolean multiOutput) throws IOException {
     Pipeline pipeline = createPipeline();
+    if (pipeline.getOptions().getRunner().equals(FlinkRunner.class)) {
+      // limit parallelism for Flink, in multi-core CPUs it might run out of network buffers
+      FlinkPipelineOptions flinkOpts = pipeline.getOptions().as(FlinkPipelineOptions.class);
+      flinkOpts.setParallelism(5);
+    }
     Instant now = new Instant(0);
     PCollection<String> inputs =
         pipeline.apply(

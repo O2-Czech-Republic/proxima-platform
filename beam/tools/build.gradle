@@ -36,6 +36,7 @@ dependencies {
   intoShadow libraries.grpc_protobuf
   intoShadow libraries.grpc_stub
   intoShadow libraries.grpc_netty_shaded
+  intoShadow libraries.protobuf_java
   implementation libraries.slf4j_api
   provided libraries.flink_clients
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')

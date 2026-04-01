@@ -22,7 +22,7 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.UriUtil;
-import cz.o2.proxima.io.serialization.shaded.com.google.common.base.Strings;
+import cz.o2.proxima.internal.com.google.common.base.Strings;
 import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashMap;

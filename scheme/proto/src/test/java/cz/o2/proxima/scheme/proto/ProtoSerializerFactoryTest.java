@@ -17,7 +17,6 @@ package cz.o2.proxima.scheme.proto;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.Iterables;
 import com.google.protobuf.ByteString;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
@@ -41,6 +40,7 @@ import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
+import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;
 import cz.o2.proxima.scheme.proto.ProtoSerializerFactory.TransactionProtoSerializer;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;

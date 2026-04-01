@@ -45,7 +45,7 @@ import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
-import cz.o2.proxima.io.serialization.shaded.com.google.common.collect.ImmutableMap;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;

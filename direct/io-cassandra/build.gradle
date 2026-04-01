@@ -23,6 +23,7 @@ def cassandra_version = "4.18.1"
 dependencies {
   api project(':proxima-core')
   api project(':proxima-direct-core')
+  implementation "cz.o2.proxima:proxima-vendor:${project.version}"
   implementation project(path: ':proxima-io-serialization', configuration: "shadowJar")
   implementation libraries.slf4j_api;
   intoShadow "org.apache.cassandra:java-driver-core:${cassandra_version}"

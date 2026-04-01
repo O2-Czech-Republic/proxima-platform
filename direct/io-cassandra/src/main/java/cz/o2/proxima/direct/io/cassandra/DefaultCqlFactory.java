@@ -272,7 +272,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
   @Override
   protected String createInsertStatement(StreamElement element) {
-    String ttlStatement = ttl > 0 ? ("USING TTL " + ttl + " ") : "";
+    String ttlStatement = ttl > 0 ? ("AND TTL " + ttl + " ") : "";
     if (element.getAttributeDescriptor().isWildcard()) {
       // use the first part of the attribute name
       String colName = toColName(element.getAttributeDescriptor());

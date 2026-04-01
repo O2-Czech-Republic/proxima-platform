@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.transaction.manager;
 
 import static org.junit.Assert.*;
 
-import com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
@@ -32,6 +31,7 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.transaction.ClientTransactionManager;
 import cz.o2.proxima.direct.core.transaction.ServerTransactionManager;
 import cz.o2.proxima.direct.core.transaction.TransactionResourceManager;
+import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
 import cz.o2.proxima.internal.com.google.common.collect.Lists;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;

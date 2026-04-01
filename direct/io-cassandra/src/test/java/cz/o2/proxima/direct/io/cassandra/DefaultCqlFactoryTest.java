@@ -212,7 +212,7 @@ public class DefaultCqlFactoryTest {
     assertSame(bound, boundStatement.get());
     assertEquals(1, preparedStatement.size());
     assertEquals(
-        "UPDATE my_table USING TIMESTAMP ? USING TTL 86400 SET my_attribute=? WHERE hgw=?",
+        "UPDATE my_table USING TIMESTAMP ? AND TTL 86400 SET my_attribute=? WHERE hgw=?",
         preparedStatement.get(0));
   }
 

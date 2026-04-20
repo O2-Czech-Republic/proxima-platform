@@ -60,4 +60,14 @@ public interface ProximaPipelineOptions extends PipelineOptions {
   long getProximaIOWriteFinalizeTimeoutMs();
 
   void setProximaIOWriteFinalizeTimeoutMs(long timeout);
+
+  @Default.Integer(1000)
+  int getProximaIOMaxPendingWrites();
+
+  void setProximaIOMaxPendingWrites(int value);
+
+  @Default.Integer(50)
+  int getProximaIOTransactionWriteWeight();
+
+  void setProximaIOTransactionWriteWeight(int value);
 }

@@ -177,12 +177,12 @@ public class ProximaIO {
       boolean isTransactional =
           element.getAttributeDescriptor().getTransactionMode() != TransactionMode.NONE;
       int weight = isTransactional ? transactionalWriteWeight : 1;
-      synchronized (pendingWrites) {
-        while (inflightWriteWeights.get() >= maxPendingWrites) {
+      while (inflightWriteWeights.get() + weight >= maxPendingWrites) {
+        synchronized (pendingWrites) {
           ExceptionUtils.unchecked(() -> pendingWrites.wait(100));
         }
-        inflightWriteWeights.addAndGet(weight);
       }
+      inflightWriteWeights.addAndGet(weight);
       writeRunnableRef.set(
           () -> {
             CompletableFuture<Pair<Boolean, Throwable>> writeResult = new CompletableFuture<>();

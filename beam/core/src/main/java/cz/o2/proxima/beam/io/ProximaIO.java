@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.io;
 import cz.o2.proxima.beam.core.ProximaPipelineOptions;
 import cz.o2.proxima.core.annotations.Experimental;
 import cz.o2.proxima.core.repository.RepositoryFactory;
+import cz.o2.proxima.core.repository.TransactionMode;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Pair;
@@ -75,13 +76,15 @@ public class ProximaIO {
 
     @Override
     public PDone expand(PCollection<StreamElement> input) {
-      long bundleFinalizeTimeoutMs =
-          input
-              .getPipeline()
-              .getOptions()
-              .as(ProximaPipelineOptions.class)
-              .getProximaIOWriteFinalizeTimeoutMs();
-      input.apply("Write", ParDo.of(new WriteFn(bundleFinalizeTimeoutMs, repositoryFactory)));
+      ProximaPipelineOptions proximaOpts =
+          input.getPipeline().getOptions().as(ProximaPipelineOptions.class);
+      long bundleFinalizeTimeoutMs = proximaOpts.getProximaIOWriteFinalizeTimeoutMs();
+      int maxPendingWrites = proximaOpts.getProximaIOMaxPendingWrites();
+      int weight = proximaOpts.getProximaIOTransactionWriteWeight();
+      input.apply(
+          "Write",
+          ParDo.of(
+              new WriteFn(bundleFinalizeTimeoutMs, maxPendingWrites, weight, repositoryFactory)));
       return PDone.in(input.getPipeline());
     }
   }
@@ -90,15 +93,25 @@ public class ProximaIO {
 
     private final RepositoryFactory repositoryFactory;
     private final long bundleFinalizeTimeoutMs;
+    private final int maxPendingWrites;
+    private final int transactionalWriteWeight;
 
     private transient DirectDataOperator direct;
 
     private transient Set<CompletableFuture<Pair<Boolean, Throwable>>> pendingWrites;
     private transient AtomicInteger missingResponses;
+    private transient AtomicInteger inflightWriteWeights;
 
-    WriteFn(long bundleFinalizeTimeoutMs, RepositoryFactory repositoryFactory) {
+    WriteFn(
+        long bundleFinalizeTimeoutMs,
+        int maxPendingWrites,
+        int transactionalWriteWeight,
+        RepositoryFactory repositoryFactory) {
+
       this.bundleFinalizeTimeoutMs = bundleFinalizeTimeoutMs;
       this.repositoryFactory = repositoryFactory;
+      this.maxPendingWrites = maxPendingWrites;
+      this.transactionalWriteWeight = transactionalWriteWeight;
     }
 
     @VisibleForTesting
@@ -116,6 +129,7 @@ public class ProximaIO {
       // we access the collection asynchronously on completion of writes
       pendingWrites = Collections.synchronizedSet(new HashSet<>());
       missingResponses = new AtomicInteger();
+      inflightWriteWeights = new AtomicInteger();
     }
 
     @FinishBundle
@@ -160,22 +174,38 @@ public class ProximaIO {
       AtomicReference<Runnable> writeRunnableRef = new AtomicReference<>();
       // increment missing responses outside the retry runnable
       missingResponses.incrementAndGet();
+      boolean isTransactional =
+          element.getAttributeDescriptor().getTransactionMode() != TransactionMode.NONE;
+      int weight = isTransactional ? transactionalWriteWeight : 1;
+      synchronized (pendingWrites) {
+        while (inflightWriteWeights.get() >= maxPendingWrites) {
+          ExceptionUtils.unchecked(() -> pendingWrites.wait(100));
+        }
+        inflightWriteWeights.addAndGet(weight);
+      }
       writeRunnableRef.set(
           () -> {
             CompletableFuture<Pair<Boolean, Throwable>> writeResult = new CompletableFuture<>();
             writeResult.thenAccept(
                 r -> {
-                  if (Boolean.TRUE.equals(r.getFirst())) {
-                    // remove successfully completed write
-                    missingResponses.decrementAndGet();
-                    pendingWrites.remove(writeResult);
-                  } else if (r.getSecond() instanceof TransactionRejectedException) {
+                  if (r.getSecond() instanceof TransactionRejectedException) {
                     // restart the writing transaction
                     writeRunnableRef.get().run();
                     // transaction rejected, restart transaction
                     pendingWrites.remove(writeResult);
+                  } else {
+                    // this is no longer inflight
+                    inflightWriteWeights.addAndGet(-weight);
+                    synchronized (pendingWrites) {
+                      pendingWrites.notify();
+                      if (Boolean.TRUE.equals(r.getFirst())) {
+                        // remove successfully completed write
+                        missingResponses.decrementAndGet();
+                        pendingWrites.remove(writeResult);
+                      }
+                    }
+                    // else keep the failed future until finish bundle
                   }
-                  // else keep the failed future until finish bundle
                 });
             pendingWrites.add(writeResult);
             writer.write(

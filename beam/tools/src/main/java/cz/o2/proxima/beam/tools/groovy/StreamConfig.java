@@ -41,6 +41,10 @@ public class StreamConfig implements Serializable {
     return new StreamConfig(((ConfigRepository) beam.getRepository()));
   }
 
+  static StreamConfig of(Repository repo) {
+    return new StreamConfig((ConfigRepository) repo);
+  }
+
   @Getter private final int collectPort;
   @Getter private final String collectHostname;
   private final RepositoryFactory repositoryFactory;

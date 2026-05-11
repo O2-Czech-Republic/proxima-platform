@@ -15,10 +15,16 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import cz.o2.proxima.core.repository.Repository;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Stream provider for testing purposes. */
 public interface TestStreamProvider {
 
-  <T> Stream<T> of(List<T> values);
+  default <T> Stream<T> of(List<T> values) {
+    return of(values, null);
+  }
+
+  <T> Stream<T> of(List<T> values, @Nullable Repository repo);
 }

@@ -1198,7 +1198,6 @@ class BeamStream<T> implements Stream<T> {
     return windowingStrategy.getTrigger();
   }
 
-  @SuppressWarnings("unchecked")
   private static void registerCoders(CoderRegistry registry, Repository repo) {
     // FIXME: need to get rid of this fallback
     KryoCoder<Object> coder =
@@ -1210,7 +1209,7 @@ class BeamStream<T> implements Stream<T> {
                 kryo.addDefaultSerializer(UnboundedSource.class, KryoSerializableSerializer.class),
             kryo ->
                 kryo.addDefaultSerializer(BoundedSource.class, KryoSerializableSerializer.class),
-            BeamStream::addDefaultSerializersForGroovyTypes,
+            kryo -> addDefaultSerializersForGroovyTypes(kryo, repo),
             kryo -> BeamStream.registerCodersForSchemes(kryo, repo),
             kryo -> BeamStream.registerCommonTypes(kryo, repo),
             kryo -> kryo.setRegistrationRequired(true));
@@ -1222,9 +1221,10 @@ class BeamStream<T> implements Stream<T> {
     registry.registerCoderForClass(Pair.class, PairCoder.of(coder, coder));
   }
 
-  private static void addDefaultSerializersForGroovyTypes(Kryo kryo) {
+  private static void addDefaultSerializersForGroovyTypes(Kryo kryo, Repository repo) {
     kryo.addDefaultSerializer(Tuple.class, TupleSerializer.class);
     kryo.addDefaultSerializer(GStringImpl.class, GStringSerializer.class);
+    kryo.addDefaultSerializer(StreamElement.class, new StreamElementSerializer(repo.asFactory()));
   }
 
   private static void registerCodersForSchemes(Kryo kryo, Repository repo) {

@@ -72,6 +72,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.runners.direct.DirectOptions;
 import org.apache.beam.runners.direct.DirectRunner;
@@ -119,7 +120,7 @@ import org.junit.runners.Parameterized.Parameters;
 public class BeamStreamTest extends StreamTest {
 
   private final transient Repository repo =
-      Repository.ofTest(ConfigFactory.load("test-reference.conf"));
+      Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   transient BeamDataOperator op;
 
   @Parameters
@@ -152,7 +153,7 @@ public class BeamStreamTest extends StreamTest {
     return new TestStreamProvider() {
       @SuppressWarnings("unchecked")
       @Override
-      public <T> Stream<T> of(List<T> values) {
+      public <T> Stream<T> of(List<T> values, @Nullable Repository repo) {
         Set<Class<?>> classes = values.stream().map(Object::getClass).collect(Collectors.toSet());
 
         Preconditions.checkArgument(
@@ -162,7 +163,7 @@ public class BeamStreamTest extends StreamTest {
 
         return injectTypeOf(
             new BeamStream<>(
-                StreamConfig.empty(),
+                repo == null ? StreamConfig.empty() : StreamConfig.of(repo),
                 true,
                 registeringTypes(
                     PCollectionProvider.boundedOrUnbounded(
@@ -213,7 +214,7 @@ public class BeamStreamTest extends StreamTest {
 
   static <T> BeamStream<T> injectTypeOf(BeamStream<T> delegate) {
     return new BeamStream<T>(
-        StreamConfig.empty(),
+        delegate.config,
         delegate.isBounded(),
         delegate.collection,
         WindowingStrategy.globalDefault(),
@@ -248,7 +249,7 @@ public class BeamStreamTest extends StreamTest {
 
   static <T> BeamWindowedStream<T> injectTypeOf(BeamWindowedStream<T> delegate) {
     return new BeamWindowedStream<T>(
-        StreamConfig.empty(),
+        delegate.config,
         delegate.isBounded(),
         delegate.getCollection(),
         delegate.getWindowingStrategy(),

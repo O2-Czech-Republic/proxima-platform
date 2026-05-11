@@ -18,19 +18,27 @@ package cz.o2.proxima.tools.groovy;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import cz.o2.proxima.core.repository.AttributeDescriptor;
+import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.internal.com.google.common.collect.Sets;
+import cz.o2.proxima.typesafe.config.ConfigFactory;
 import groovy.lang.Closure;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.junit.Test;
 
 /** Abstract base class for windowed streams test. */
 public abstract class AbstractWindowedStreamTest extends StreamTest {
 
   private static final long serialVersionUID = 1L;
+
+  private final Repository repo =
+      Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
 
   protected AbstractWindowedStreamTest(TestStreamProvider provider) {
     super(provider);
@@ -76,7 +84,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     assertTrue(result.contains(Pair.of(0, 15)));
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   @Test
   public void testWindowAllGroupReduce() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
@@ -84,11 +92,27 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
         intoSingleWindow(stream)
             .groupReduce(
                 wrap(tmp -> 0, Integer.class),
-                wrapArray(arg -> Arrays.asList(arg), (Class<Iterable<Object>>) (Class) List.class))
+                wrapArray(Arrays::asList, (Class<Iterable<Object>>) (Class) List.class))
             .collect();
     assertEquals(2, result.size());
     assertEquals(
         Sets.newHashSet(1, 2, 3, 4), Sets.newHashSet(((Iterable) result.get(1).getSecond())));
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  @Test
+  public void testWindowAllGroupReduceStreamElement() {
+    List<StreamElement> elements = List.of(se(1), se(2), se(3), se(4));
+    Stream<StreamElement> stream = stream(elements, repo);
+    List<Pair<Integer, Object>> result =
+        intoSingleWindow(stream)
+            .groupReduce(
+                wrap(tmp -> 0, Integer.class),
+                wrapArray(Arrays::asList, (Class<Iterable<Object>>) (Class) List.class))
+            .collect();
+    assertEquals(2, result.size());
+    assertEquals(
+        Sets.newHashSet(elements), Sets.newHashSet(((Iterable) result.get(1).getSecond())));
   }
 
   @Test
@@ -105,7 +129,6 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     assertUnorderedEquals(result, Pair.of(0, 10));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllCombineWithValue() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
@@ -128,7 +151,6 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     assertEquals(Arrays.asList(Pair.of(0, 4L)), result);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllAverage() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
@@ -144,18 +166,16 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testWindowAllAverageByKey() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
     Set<Pair<Integer, Double>> result =
-        intoSingleWindow(stream)
-            .averageByKey(
-                wrap(arg -> (int) arg % 2, Integer.class),
-                wrap(arg -> (double) (int) arg + 1, Double.class))
-            .collect()
-            .stream()
-            .collect(Collectors.toSet());
+        new HashSet<>(
+            intoSingleWindow(stream)
+                .averageByKey(
+                    wrap(arg -> (int) arg % 2, Integer.class),
+                    wrap(arg -> (double) (int) arg + 1, Double.class))
+                .collect());
 
     assertEquals(Sets.newHashSet(Pair.of(0, 4.0), Pair.of(1, 3.0)), result);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testJoin() {
     Stream<Integer> stream1 = stream(1, 2, 3, 4);
@@ -176,11 +196,10 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     Stream<Integer> stream2 = stream(1, 2, 3, 4);
     Closure<Integer> keyExtractor = wrap(arg -> (int) arg % 2, Integer.class);
     Set<Object> result =
-        intoSingleWindow(stream1)
-            .leftJoin(intoSingleWindow(stream2), keyExtractor, keyExtractor)
-            .collect()
-            .stream()
-            .collect(Collectors.toSet());
+        new HashSet<>(
+            intoSingleWindow(stream1)
+                .leftJoin(intoSingleWindow(stream2), keyExtractor, keyExtractor)
+                .collect());
 
     assertEquals(Sets.newHashSet(Pair.of(3, 3), Pair.of(3, 1)), result);
   }
@@ -227,18 +246,16 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testWindowAllSumByKey() {
     Stream<Integer> stream = stream(4, 3, 2, 1);
     Set<Pair<Integer, Double>> result =
-        intoSingleWindow(stream)
-            .sumByKey(
-                wrap(arg -> (int) arg % 2, Integer.class),
-                wrap(arg -> (double) (int) arg, Double.class))
-            .collect()
-            .stream()
-            .collect(Collectors.toSet());
+        new HashSet<>(
+            intoSingleWindow(stream)
+                .sumByKey(
+                    wrap(arg -> (int) arg % 2, Integer.class),
+                    wrap(arg -> (double) (int) arg, Double.class))
+                .collect());
 
     assertEquals(Sets.newHashSet(Pair.of(0, 6.0), Pair.of(1, 4.0)), result);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testStreamWindowAllDontAffectStatelessOperations() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
@@ -247,30 +264,34 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     assertUnorderedEquals(result, 2, 4);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllDistinct() {
     Stream<Integer> stream = stream(4, 3, 2, 1, 1, 2, 3);
-    Set<Object> result =
-        intoSingleWindow(stream).distinct().collect().stream().collect(Collectors.toSet());
+    Set<Object> result = new HashSet<>(intoSingleWindow(stream).distinct().collect());
     assertEquals(Sets.newHashSet(1, 2, 3, 4), result);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllDistinctWithMapper() {
     Stream<Object> stream = stream("4", "3", "2", "1", "1.", "2.", "3.");
     Set<Object> result =
-        intoSingleWindow(stream)
-            .distinct(wrap(arg -> Integer.valueOf(arg.toString().substring(0, 1)), Integer.class))
-            .map(wrap(arg -> arg.toString().substring(0, 1), String.class))
-            .collect()
-            .stream()
-            .collect(Collectors.toSet());
+        new HashSet<>(
+            intoSingleWindow(stream)
+                .distinct(
+                    wrap(arg -> Integer.valueOf(arg.toString().substring(0, 1)), Integer.class))
+                .map(wrap(arg -> arg.toString().substring(0, 1), String.class))
+                .collect());
 
     assertEquals(Sets.newHashSet("1", "2", "3", "4"), result);
   }
 
   /** Pack this stream into single window by whatever strategy chosen. */
   abstract <T> WindowedStream<T> intoSingleWindow(Stream<T> stream);
+
+  private StreamElement se(int i) {
+    EntityDescriptor event = repo.getEntity("event");
+    AttributeDescriptor<Object> data = event.getAttribute("data");
+    return StreamElement.upsert(
+        event, data, i, "key", "data", System.currentTimeMillis(), new byte[] {(byte) i});
+  }
 }

@@ -15,9 +15,12 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import cz.o2.proxima.core.repository.Repository;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Base class for tests of all stream classes. */
 abstract class AbstractStreamTest implements Serializable {
@@ -32,6 +35,14 @@ abstract class AbstractStreamTest implements Serializable {
 
   @SafeVarargs
   final <T> Stream<T> stream(T... items) {
-    return provider.of(Arrays.stream(items).collect(Collectors.toList()));
+    return stream(Arrays.stream(items).collect(Collectors.toList()));
+  }
+
+  final <T> Stream<T> stream(List<T> items) {
+    return stream(items, null);
+  }
+
+  final <T> Stream<T> stream(List<T> items, @Nullable Repository repo) {
+    return provider.of(items, repo);
   }
 }

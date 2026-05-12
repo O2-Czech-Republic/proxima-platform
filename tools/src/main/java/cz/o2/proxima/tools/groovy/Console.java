@@ -18,85 +18,47 @@ package cz.o2.proxima.tools.groovy;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
-import cz.o2.proxima.core.scheme.ValueSerializer;
-import cz.o2.proxima.core.storage.StreamElement;
-import cz.o2.proxima.core.storage.commitlog.Position;
-import cz.o2.proxima.core.util.Optionals;
-import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.direct.server.rpc.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.direct.server.rpc.proto.service.Rpc;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
-import cz.o2.proxima.internal.com.google.common.collect.Streams;
 import cz.o2.proxima.tools.groovy.internal.ProximaInterpreter;
-import cz.o2.proxima.tools.io.ConsoleRandomReader;
 import cz.o2.proxima.typesafe.config.Config;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
-import freemarker.template.Configuration;
-import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Binding;
-import groovy.lang.Closure;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.ServiceLoader;
-import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.groovy.groovysh.Groovysh;
 import org.codehaus.groovy.tools.shell.IO;
 
 /** This is the groovysh based console. */
 @Slf4j
-public class Console implements AutoCloseable {
-
-  private static AtomicReference<Console> INSTANCE = new AtomicReference<>();
+public class Console extends ShellRunnable implements AutoCloseable {
 
   public static final String INITIAL_STATEMENT = "env = new Environment()";
 
-  /**
-   * This is supposed to be called only from the groovysh initialized in this main method.
-   *
-   * @return the singleton instance
-   */
-  public static final Console get() {
-    return INSTANCE.get();
-  }
-
   public static Console get(String[] args) {
-    if (INSTANCE.get() == null) {
-      synchronized (Console.class) {
-        if (INSTANCE.get() == null) {
-          INSTANCE.set(new Console(args));
-        }
-      }
+    if (ShellRunnable.get() == null) {
+      return new Console(args);
     }
-    return INSTANCE.get();
+    Preconditions.checkState(ShellRunnable.get() instanceof Console);
+    return (Console) ShellRunnable.get();
   }
 
   public static Console create(Config config, Repository repo) {
-    INSTANCE.set(new Console(config, repo, new String[] {}));
-    return INSTANCE.get();
+    return new Console(config, repo, new String[] {});
   }
 
   public static Console create(Config config, Repository repo, String[] args) {
-    INSTANCE.set(new Console(config, repo, args));
-    return INSTANCE.get();
+    return new Console(config, repo, args);
   }
 
   public static void main(String[] args) throws Exception {
@@ -106,12 +68,7 @@ public class Console implements AutoCloseable {
     }
   }
 
-  private final ClassLoader previous;
-  private final String[] args;
   private final BlockingQueue<Integer> input = new LinkedBlockingDeque<>();
-  @Getter private final Repository repo;
-  private final List<ConsoleRandomReader> readers = new ArrayList<>();
-  private final Configuration conf;
   private final Config config;
   private final ExecutorService executor =
       Executors.newCachedThreadPool(
@@ -123,8 +80,6 @@ public class Console implements AutoCloseable {
                 (thrd, err) -> log.error("Error in thread {}", thrd.getName(), err));
             return t;
           });
-  StreamProvider streamProvider;
-  @Nullable private final DirectDataOperator direct;
   Groovysh shell;
 
   Console(String[] args) {
@@ -137,24 +92,8 @@ public class Console implements AutoCloseable {
 
   @VisibleForTesting
   Console(Config config, Repository repo, String[] args) {
-    this.args = args;
+    super(repo, args);
     this.config = config;
-    this.repo = repo;
-    this.direct =
-        repo.hasOperator("direct") ? repo.getOrCreateOperator(DirectDataOperator.class) : null;
-    this.previous = Thread.currentThread().getContextClassLoader();
-    conf = new Configuration(Configuration.VERSION_2_3_23);
-    conf.setDefaultEncoding("utf-8");
-    conf.setClassForTemplateLoading(getClass(), "/");
-    conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
-    conf.setLogTemplateExceptions(false);
-
-    initializeStreamProvider();
-    updateClassLoader();
-
-    if (INSTANCE.get() == null) {
-      INSTANCE.set(this);
-    }
   }
 
   @VisibleForTesting
@@ -180,224 +119,8 @@ public class Console implements AutoCloseable {
     this.shell = shell;
   }
 
-  public void createWrapperClass() throws Exception {
-    updateClassLoader();
-    ToolsClassLoader classLoader =
-        (ToolsClassLoader) Thread.currentThread().getContextClassLoader();
-    log.debug("Creating Environment class in classloader {}", classLoader);
-    GroovyEnv.createWrapperInLoader(conf, repo, classLoader);
-  }
-
-  @VisibleForTesting
-  void initializeStreamProvider() {
-    ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
-    // sort possible test implementations on top
-    streamProvider =
-        Streams.stream(loader)
-            .min(
-                (a, b) -> {
-                  String cls1 = a.getClass().getSimpleName();
-                  String cls2 = b.getClass().getSimpleName();
-                  if (cls1.startsWith("Test") ^ cls2.startsWith("Test")) {
-                    if (cls1.startsWith("Test")) {
-                      return -1;
-                    }
-                    return 1;
-                  }
-                  return cls1.compareTo(cls2);
-                })
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        String.format(
-                            "Unable to find any StreamProvider in classpath. Please check dependencies. Looking for service implements '%s' interface.",
-                            StreamProvider.class.getName())));
-    log.info("Using {} as StreamProvider", streamProvider);
-    streamProvider.init(repo, args == null ? new String[] {} : args);
-  }
-
-  private void updateClassLoader() {
-    if (!(Thread.currentThread().getContextClassLoader() instanceof ToolsClassLoader)) {
-      Thread.currentThread().setContextClassLoader(new ToolsClassLoader());
-    }
-  }
-
   private static Config getConfig() {
     return ConfigFactory.load().resolve();
-  }
-
-  public <T> Stream<StreamElement> getStream(
-      AttributeDescriptor<T> attrDesc, Position position, boolean stopAtCurrent) {
-
-    return getStream(attrDesc, position, stopAtCurrent, false);
-  }
-
-  public <T> Stream<StreamElement> getStream(
-      AttributeDescriptor<T> attrDesc,
-      Position position,
-      boolean stopAtCurrent,
-      boolean eventTime) {
-
-    return streamProvider.getStream(
-        position, stopAtCurrent, eventTime, this::unboundedStreamInterrupt, attrDesc);
-  }
-
-  public Stream<StreamElement> getUnionStream(
-      Position position,
-      boolean eventTime,
-      boolean stopAtCurrent,
-      AttributeDescriptorProvider<?>... descriptors) {
-
-    return streamProvider.getStream(
-        position,
-        stopAtCurrent,
-        eventTime,
-        this::unboundedStreamInterrupt,
-        Arrays.stream(descriptors)
-            .distinct()
-            .map(AttributeDescriptorProvider::desc)
-            .toArray(AttributeDescriptor[]::new));
-  }
-
-  public WindowedStream<StreamElement> getBatchSnapshot(AttributeDescriptor<?> attrDesc) {
-    return getBatchSnapshot(attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
-  }
-
-  public WindowedStream<StreamElement> getBatchSnapshot(
-      AttributeDescriptor<?> attrDesc, long fromStamp, long toStamp) {
-
-    return streamProvider.getBatchSnapshot(
-        fromStamp, toStamp, this::unboundedStreamInterrupt, attrDesc);
-  }
-
-  public WindowedStream<StreamElement> getBatchUpdates(
-      long startStamp, long endStamp, AttributeDescriptorProvider<?>... attrs) {
-
-    List<AttributeDescriptor<?>> attrList =
-        Arrays.stream(attrs).map(AttributeDescriptorProvider::desc).collect(Collectors.toList());
-
-    return streamProvider.getBatchUpdates(
-        startStamp,
-        endStamp,
-        this::unboundedStreamInterrupt,
-        attrList.toArray(new AttributeDescriptor[attrList.size()]));
-  }
-
-  public <T> WindowedStream<T> getImpulse(@Nullable String name, Closure<T> factory) {
-    return streamProvider.impulse(factory);
-  }
-
-  public <T> WindowedStream<T> getPeriodicImpulse(
-      @Nullable String name, Closure<T> factory, long durationMs) {
-    return streamProvider.periodicImpulse(factory, durationMs);
-  }
-
-  public ConsoleRandomReader getRandomAccessReader(String entity) {
-    Preconditions.checkState(
-        direct != null,
-        "Can create random access reader with direct operator only. Add runtime dependency.");
-    EntityDescriptor entityDesc = findEntityDescriptor(entity);
-    ConsoleRandomReader reader = new ConsoleRandomReader(entityDesc, direct);
-    readers.add(reader);
-    return reader;
-  }
-
-  public void put(
-      EntityDescriptor entityDesc,
-      AttributeDescriptor<?> attrDesc,
-      String key,
-      String attribute,
-      String value)
-      throws InterruptedException {
-
-    put(entityDesc, attrDesc, key, attribute, System.currentTimeMillis(), value);
-  }
-
-  public void put(
-      EntityDescriptor entityDesc,
-      AttributeDescriptor<?> attrDesc,
-      String key,
-      String attribute,
-      long stamp,
-      String value)
-      throws InterruptedException {
-
-    Preconditions.checkState(
-        direct != null, "Can write with direct operator only. Add runtime dependency");
-
-    @SuppressWarnings("unchecked")
-    ValueSerializer<Object> valueSerializer =
-        (ValueSerializer<Object>) attrDesc.getValueSerializer();
-    byte[] payload = valueSerializer.serialize(valueSerializer.fromJsonValue(value));
-    OnlineAttributeWriter writer =
-        Optionals.get(direct.getWriter(attrDesc), "Cannot find writer for attribute %s", attrDesc);
-    CountDownLatch latch = new CountDownLatch(1);
-    AtomicReference<Throwable> exc = new AtomicReference<>();
-    writer.write(
-        StreamElement.upsert(
-            entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp, payload),
-        (success, ex) -> {
-          if (!success) {
-            exc.set(ex);
-          }
-          latch.countDown();
-        });
-    latch.await();
-    if (exc.get() != null) {
-      throw new RuntimeException(exc.get());
-    }
-  }
-
-  public void delete(
-      EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc, String key, String attribute)
-      throws InterruptedException {
-
-    delete(entityDesc, attrDesc, key, attribute, System.currentTimeMillis());
-  }
-
-  public void delete(
-      EntityDescriptor entityDesc,
-      AttributeDescriptor<?> attrDesc,
-      String key,
-      String attribute,
-      long stamp)
-      throws InterruptedException {
-
-    Preconditions.checkState(
-        direct != null, "Can write with direct operator only. Add runtime dependency");
-    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attrDesc));
-    CountDownLatch latch = new CountDownLatch(1);
-    AtomicReference<Throwable> exc = new AtomicReference<>();
-    final StreamElement delete;
-    if (attrDesc.isWildcard() && attribute.equals(attrDesc.getName())) {
-      delete =
-          StreamElement.deleteWildcard(
-              entityDesc, attrDesc, UUID.randomUUID().toString(), key, stamp);
-    } else {
-      delete =
-          StreamElement.delete(
-              entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp);
-    }
-    writer.write(
-        delete,
-        (success, ex) -> {
-          if (!success) {
-            exc.set(ex);
-          }
-          latch.countDown();
-        });
-    latch.await();
-    if (exc.get() != null) {
-      throw new RuntimeException(exc.get());
-    }
-  }
-
-  public Optional<DirectDataOperator> getDirect() {
-    return Optional.ofNullable(direct);
-  }
-
-  public EntityDescriptor findEntityDescriptor(String entity) {
-    return repo.getEntity(entity);
   }
 
   public Rpc.ListResponse rpcList(
@@ -441,17 +164,14 @@ public class Console implements AutoCloseable {
   @Override
   public void close() {
     log.debug("Console shutting down.");
-    Optional.ofNullable(streamProvider).ifPresent(StreamProvider::close);
-    readers.forEach(ConsoleRandomReader::close);
-    readers.clear();
+    super.close();
     executor.shutdownNow();
     input.clear();
     Preconditions.checkState(input.offer(-1));
-    Optional.ofNullable(direct).ifPresent(DirectDataOperator::close);
-    Thread.currentThread().setContextClassLoader(previous);
   }
 
-  private boolean unboundedStreamInterrupt() {
+  @Override
+  boolean unboundedStreamInterrupt() {
     try {
       return takeInputChar() == 'q';
     } catch (InterruptedException ex) {

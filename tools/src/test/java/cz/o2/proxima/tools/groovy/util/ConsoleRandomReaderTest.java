@@ -30,15 +30,27 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 public class ConsoleRandomReaderTest {
 
   private final Config config = ConfigFactory.load("test-reference.conf").resolve();
   private final Repository repo = Repository.ofTest(config);
-  private final Console console = Console.create(config, repo);
   private final EntityDescriptor proxied = repo.getEntity("proxied");
   private final AttributeDescriptor<?> ints = proxied.getAttribute("ints.*");
+  private Console console;
+
+  @Before
+  public void setUp() {
+    console = Console.create(config, repo);
+  }
+
+  @After
+  public void tearDown() {
+    console.close();
+  }
 
   @Test(timeout = 10000)
   public void testConsoleRandomReaderRead() throws InterruptedException {

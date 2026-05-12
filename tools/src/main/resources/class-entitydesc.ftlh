@@ -17,7 +17,7 @@ import cz.o2.proxima.direct.core.DirectDataOperator
 import cz.o2.proxima.direct.core.randomaccess.KeyValue
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.tools.groovy.AttributeDescriptorProvider
-import cz.o2.proxima.tools.groovy.Console
+import cz.o2.proxima.tools.groovy.ShellRunnable
 import cz.o2.proxima.tools.groovy.RepositoryProvider
 import cz.o2.proxima.tools.groovy.Stream
 import cz.o2.proxima.tools.groovy.WindowedStream
@@ -26,13 +26,13 @@ import cz.o2.proxima.tools.io.ConsoleRandomReader
 @groovy.transform.CompileStatic
 class Environment implements RepositoryProvider {
 
-  private final Console console = Console.get()
+  private final ShellRunnable console = ShellRunnable.get()
 
   <#list entities as entity>
 
     class ${entity.classname}Descriptor {
 
-      private final Console console = Environment.this.console
+      private final ShellRunnable console = Environment.this.console
       private final cz.o2.proxima.core.repository.EntityDescriptor desc = console.findEntityDescriptor("${entity.name}")
       private final String name = "${entity.name}"
       private final ConsoleRandomReader reader = console.getRandomAccessReader("${entity.name}")
@@ -53,7 +53,7 @@ class Environment implements RepositoryProvider {
       <#list entity.attributes as attribute>
         class ${attribute.classname}Descriptor implements AttributeDescriptorProvider<${attribute.type}> {
 
-          private final Console console = Environment.this.console
+          private final ShellRunnable console = Environment.this.console
           private final AttributeDescriptor<${attribute.type}> desc = (AttributeDescriptor) ${entity.classname}Descriptor.this.desc.findAttribute("${attribute.origname}").get()
           private final Class<${attribute.type}> type = ${attribute.type}
           private final String name = "${attribute.name}"

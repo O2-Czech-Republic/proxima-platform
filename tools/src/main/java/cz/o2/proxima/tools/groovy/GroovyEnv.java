@@ -31,15 +31,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GroovyEnv {
 
-  public static void createWrapperInLoader(
+  @SuppressWarnings("unchecked")
+  public static Class<? extends RepositoryProvider> createWrapperInLoader(
       Configuration conf, Repository repo, ToolsClassLoader loader) throws Exception {
 
     String source = getSource(conf, repo, "");
-    loader.parseClass(source);
+    return (Class<? extends RepositoryProvider>) loader.parseClass(source);
   }
 
   public static String getSource(Configuration conf, Repository repo) throws Exception {
-
     return getSource(conf, repo, "");
   }
 

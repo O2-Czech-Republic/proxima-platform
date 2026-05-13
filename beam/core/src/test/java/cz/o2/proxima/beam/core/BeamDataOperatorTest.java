@@ -450,7 +450,8 @@ public class BeamDataOperatorTest {
     beam.getBatchUpdates(p, armed);
     DataAccessor accessor = beam.getAccessorFor(repo.getFamilyByName("gateway-storage-batch"));
     Map<String, Object> cfg = ((DirectDataAccessorWrapper) accessor).getCfg();
-    assertEquals(1, cfg.get("batch.max-initial-splits"));
+    assertEquals(3, cfg.get("batch.max-initial-splits"));
+    assertEquals(2, cfg.get("batch.min-initial-splits"));
   }
 
   private void terminatePipeline(

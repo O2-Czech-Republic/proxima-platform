@@ -250,7 +250,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         List<Partition> partitions = restriction.getPartitions();
         partitions.sort(Comparator.comparing(Partition::getMinTimestamp));
         int pos = 0;
-        int reduced = (int) Math.sqrt(partitions.size());
+        int reduced = Math.max(minInitialSplits, (int) Math.sqrt(partitions.size()));
         if (maxInitialSplits > 0 && reduced > maxInitialSplits) {
           reduced = maxInitialSplits;
         }
@@ -307,6 +307,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   private final long startStamp;
   private final long endStamp;
   private final int maxInitialSplits;
+  private final int minInitialSplits;
 
   @VisibleForTesting
   BatchLogRead(
@@ -324,11 +325,19 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     this.readerFactory = readerFactory;
     this.startStamp = startStamp;
     this.endStamp = endStamp;
-    this.maxInitialSplits = readInitialSplits(cfg);
+    this.maxInitialSplits = readMaxInitialSplits(cfg);
+    this.minInitialSplits = readMinInitialSplits(cfg);
   }
 
-  private int readInitialSplits(Map<String, Object> cfg) {
+  private int readMaxInitialSplits(Map<String, Object> cfg) {
     return Optional.ofNullable(cfg.get("batch.max-initial-splits"))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .orElse(-1);
+  }
+
+  private int readMinInitialSplits(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("batch.min-initial-splits"))
         .map(Object::toString)
         .map(Integer::valueOf)
         .orElse(-1);

@@ -39,6 +39,7 @@ public class ConsoleTest {
   private final Repository repo = Repository.ofTest(config);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
+  private final AttributeDescriptor<Float> metric = gateway.getAttribute("metric");
 
   @Test(timeout = 30000)
   public void testClosureLoading() throws Exception {
@@ -97,6 +98,21 @@ public class ConsoleTest {
       assertArrayEquals(new byte[] {}, kv.getValue());
       console.delete(gateway, status, kv.getKey(), kv.getAttribute(), kv.getStamp());
       assertNull(reader.get("key", status.getName()));
+    }
+  }
+
+  @Test
+  public void testPutRaw() throws InterruptedException {
+    try (ClassLoaderFence fence = new ClassLoaderFence();
+        Console console = newConsole()) {
+      assertTrue(console.getDirect().isPresent());
+      console.put(gateway, metric, "key", metric.getName(), 0.1f);
+      console.put(gateway, metric, "key2", metric.getName(), "0.2");
+      ConsoleRandomReader reader = console.getRandomAccessReader(gateway.getName());
+      KeyValue<Object> kv = reader.get("key", metric.getName());
+      assertEquals(0.1f, kv.getParsedRequired());
+      kv = reader.get("key2", metric.getName());
+      assertEquals(0.2f, kv.getParsedRequired());
     }
   }
 

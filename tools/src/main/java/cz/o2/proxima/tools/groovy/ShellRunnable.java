@@ -207,7 +207,7 @@ public class ShellRunnable {
       AttributeDescriptor<?> attrDesc,
       String key,
       String attribute,
-      String value)
+      Object value)
       throws InterruptedException {
 
     put(entityDesc, attrDesc, key, attribute, System.currentTimeMillis(), value);
@@ -219,7 +219,7 @@ public class ShellRunnable {
       String key,
       String attribute,
       long stamp,
-      String value)
+      Object value)
       throws InterruptedException {
 
     Preconditions.checkState(
@@ -228,7 +228,12 @@ public class ShellRunnable {
     @SuppressWarnings("unchecked")
     ValueSerializer<Object> valueSerializer =
         (ValueSerializer<Object>) attrDesc.getValueSerializer();
-    byte[] payload = valueSerializer.serialize(valueSerializer.fromJsonValue(value));
+    final byte[] payload;
+    if (valueSerializer.getDefault().getClass().isAssignableFrom(value.getClass())) {
+      payload = valueSerializer.serialize(value);
+    } else {
+      payload = valueSerializer.serialize(valueSerializer.fromJsonValue(value.toString()));
+    }
     OnlineAttributeWriter writer =
         Optionals.get(direct.getWriter(attrDesc), "Cannot find writer for attribute %s", attrDesc);
     CountDownLatch latch = new CountDownLatch(1);

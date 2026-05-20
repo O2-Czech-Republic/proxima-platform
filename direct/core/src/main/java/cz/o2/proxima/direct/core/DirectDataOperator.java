@@ -64,6 +64,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -572,10 +573,33 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
                   ? config.getObject(ConfigConstants.TRANSACTIONS).unwrapped()
                   : Collections.emptyMap();
           transactionManager = new TransactionResourceManager(this, cfg);
+          runManagerHousekeeping();
         }
       }
     }
     return transactionManager;
+  }
+
+  private void runManagerHousekeeping() {
+    context
+        .getExecutorService()
+        .submit(
+            () -> {
+              while (!Thread.currentThread().isInterrupted()) {
+                try {
+                  transactionManager.houseKeeping();
+                  log.info(
+                      "Terminated housekeeping of {}",
+                      transactionManager.getClass().getSimpleName());
+                  TimeUnit.MINUTES.sleep(1);
+                } catch (InterruptedException ex) {
+                  Thread.currentThread().interrupt();
+                } catch (Throwable err) {
+                  log.warn("Error in housekeeping thread", err);
+                }
+              }
+              log.info("Terminating housekeeping by request.");
+            });
   }
 
   @Override

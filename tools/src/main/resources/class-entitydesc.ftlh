@@ -135,11 +135,11 @@ class Environment implements RepositoryProvider {
             def List<KeyValue<${attribute.type}>> listPrefix(String key, String prefix) {
               return ${entity.classname}Descriptor.this.reader.list(key, desc.toAttributePrefix() + prefix)
             }
-            def void put(String key, String attribute, String jsonValue) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, jsonValue)
+            def void put(String key, String attribute, Object value) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, value)
             }
-            def void put(String key, String attribute, long stamp, String jsonValue) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, stamp, jsonValue)
+            def void put(String key, String attribute, long stamp, Object value) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, stamp, value)
             }
             def void delete(String key, String attribute) {
               console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute)

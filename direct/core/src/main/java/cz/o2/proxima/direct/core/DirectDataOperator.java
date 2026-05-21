@@ -589,7 +589,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
                 try {
                   transactionManager.houseKeeping();
                   log.info(
-                      "Terminated housekeeping of {}",
+                      "Finished housekeeping of {}",
                       transactionManager.getClass().getSimpleName());
                   TimeUnit.MINUTES.sleep(1);
                 } catch (InterruptedException ex) {

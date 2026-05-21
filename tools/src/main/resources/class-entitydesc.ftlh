@@ -157,11 +157,11 @@ class Environment implements RepositoryProvider {
             def KeyValue<${attribute.type}> get(String key) {
               return ${entity.classname}Descriptor.this.reader.get(key, name)
             }
-            def void put(String key, String jsonValue) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), jsonValue)
+            def void put(String key, Object value) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), value)
             }
-            def void put(String key, long stamp, String jsonValue) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp, jsonValue)
+            def void put(String key, long stamp, Object value) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp, value)
             }
             def void delete(String key) {
               console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.getName())

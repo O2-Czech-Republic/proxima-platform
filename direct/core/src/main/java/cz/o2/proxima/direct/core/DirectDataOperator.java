@@ -588,7 +588,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
               while (!Thread.currentThread().isInterrupted()) {
                 try {
                   transactionManager.houseKeeping();
-                  log.info(
+                  log.debug(
                       "Finished housekeeping of {}", transactionManager.getClass().getSimpleName());
                   TimeUnit.MINUTES.sleep(1);
                 } catch (InterruptedException ex) {

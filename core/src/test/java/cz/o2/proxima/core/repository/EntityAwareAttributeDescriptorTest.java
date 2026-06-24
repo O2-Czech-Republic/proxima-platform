@@ -266,6 +266,10 @@ public class EntityAwareAttributeDescriptorTest {
 
     assertEquals("1", wildcard.extractSuffix("device.1"));
     assertEquals("", wildcard.extractSuffix("device."));
+
+    TypedAttribute<byte[]> typed = wildcard.withSuffix("123");
+    assertEquals("device.123", typed.getAttributeKey());
+    assertEquals(wildcard, typed.getDescriptor());
   }
 
   @Test(expected = IllegalArgumentException.class)

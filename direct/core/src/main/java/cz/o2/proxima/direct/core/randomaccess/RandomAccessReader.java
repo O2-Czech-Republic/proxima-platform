@@ -21,6 +21,7 @@ import cz.o2.proxima.core.functional.UnaryFunction;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.TypedAttribute;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.ContextProvider;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -133,6 +134,32 @@ public interface RandomAccessReader extends Closeable {
    */
   default <T> Optional<KeyValue<T>> get(String key, AttributeDescriptor<T> desc, long stamp) {
     return get(key, desc.getName(), desc, stamp);
+  }
+
+  /**
+   * Retrieve data stored under given (key, attribute) pair (if any).
+   *
+   * @param <T> value type
+   * @param key key of the entity
+   * @param attribute the typed attribute
+   * @return optional {@link KeyValue} if present
+   */
+  default <T> Optional<KeyValue<T>> get(String key, TypedAttribute<T> attribute) {
+    return get(
+        key, attribute.getAttributeKey(), attribute.getDescriptor(), System.currentTimeMillis());
+  }
+
+  /**
+   * Retrieve data stored under given (key, attribute) pair (if any).
+   *
+   * @param <T> value type
+   * @param key key of the entity
+   * @param attribute the typed attribute
+   * @param stamp timestamp to relatively to which retrieve the data
+   * @return optional {@link KeyValue} if present
+   */
+  default <T> Optional<KeyValue<T>> get(String key, TypedAttribute<T> attribute, long stamp) {
+    return get(key, attribute.getAttributeKey(), attribute.getDescriptor(), stamp);
   }
 
   /**

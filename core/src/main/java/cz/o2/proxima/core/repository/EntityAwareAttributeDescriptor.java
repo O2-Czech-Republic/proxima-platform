@@ -412,6 +412,16 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
       Preconditions.checkArgument(attribute.length() >= toAttributePrefix().length());
       return attribute.substring(toAttributePrefix().length());
     }
+
+    /**
+     * Create TypedAttribute.
+     *
+     * @param suffix the suffix to append
+     * @return the TypedAttribute
+     */
+    public TypedAttribute<T> withSuffix(String suffix) {
+      return TypedAttribute.of(this, suffix);
+    }
   }
 
   private static <T> Regular<T> regular(EntityDescriptor entity, AttributeDescriptor<T> wrapped) {

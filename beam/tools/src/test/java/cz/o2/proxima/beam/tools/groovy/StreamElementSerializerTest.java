@@ -90,6 +90,12 @@ public class StreamElementSerializerTest {
     {
       StreamElement el =
           StreamElement.upsert(
+              gateway, rule, "uuid", "key", "rule.1", System.currentTimeMillis(), new byte[] {});
+      checkSerialization(serializer, el);
+    }
+    {
+      StreamElement el =
+          StreamElement.upsert(
               gateway, rule, 1, "key", "rule.1", System.currentTimeMillis(), new byte[] {1, 2, 3});
       checkSerialization(serializer, el);
     }

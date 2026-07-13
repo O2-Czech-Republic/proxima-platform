@@ -20,10 +20,10 @@ import cz.o2.proxima.direct.io.bulkfs.FileSystem;
 import cz.o2.proxima.direct.io.bulkfs.Path;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import jakarta.annotation.Nonnull;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
-import javax.annotation.Nonnull;
 
 /** A {@link Path} representation of a remote blob. */
 @Internal

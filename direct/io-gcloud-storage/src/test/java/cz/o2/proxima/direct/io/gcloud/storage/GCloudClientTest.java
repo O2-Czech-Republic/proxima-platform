@@ -22,11 +22,11 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageClass;
+import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.mockito.stubbing.Answer;
 

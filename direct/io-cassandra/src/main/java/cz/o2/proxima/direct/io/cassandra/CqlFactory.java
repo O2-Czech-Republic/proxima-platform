@@ -23,11 +23,11 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
+import jakarta.annotation.Nullable;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import javax.annotation.Nullable;
 
 /** A factory CQL queries for data access. */
 public interface CqlFactory extends Serializable {

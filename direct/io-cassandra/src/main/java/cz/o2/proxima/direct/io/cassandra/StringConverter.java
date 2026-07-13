@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.io.cassandra;
 
+import jakarta.annotation.Nullable;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** A converter between a specified java type and {@code String}. */

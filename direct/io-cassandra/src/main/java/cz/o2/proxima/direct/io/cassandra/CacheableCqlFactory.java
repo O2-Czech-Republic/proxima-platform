@@ -23,11 +23,11 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.UriUtil;
 import cz.o2.proxima.internal.com.google.common.base.Strings;
+import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 

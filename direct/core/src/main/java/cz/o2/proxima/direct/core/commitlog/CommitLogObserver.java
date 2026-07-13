@@ -19,9 +19,9 @@ import cz.o2.proxima.core.annotations.Stable;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.time.WatermarkSupplier;
 import cz.o2.proxima.direct.core.LogObserver;
+import jakarta.annotation.Nullable;
 import java.io.Serializable;
 import java.util.Collection;
-import javax.annotation.Nullable;
 
 /** Base interface for bulk and online observers. */
 @Stable

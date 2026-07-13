@@ -20,12 +20,12 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import jakarta.annotation.Nullable;
 import java.io.Serializable;
 import java.lang.ref.WeakReference;
 import java.util.Date;
 import java.util.Objects;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import lombok.Getter;
 
 /**

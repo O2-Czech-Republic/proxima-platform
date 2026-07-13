@@ -30,6 +30,7 @@ import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.io.serialization.proto.Serialization;
 import cz.o2.proxima.io.serialization.proto.Serialization.Cell;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.ByteString;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -37,7 +38,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**

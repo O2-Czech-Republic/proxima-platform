@@ -48,6 +48,7 @@ ext.grpc_version = grpc_version
 ext.libraries = [
   auto_service: "com.google.auto.service:auto-service:${auto_service_version}",
   auto_service_annotations: "com.google.auto.service:auto-service-annotations:${auto_service_version}",
+  jakarta_annotations: "jakarta.annotation:jakarta.annotation-api:2.1.1",
   beam_core: "org.apache.beam:beam-sdks-java-core:${beam_version}",
   beam_extensions_join_library: "org.apache.beam:beam-sdks-java-extensions-join-library:${beam_version}",
   beam_extensions_kryo: "org.apache.beam:beam-sdks-java-extensions-kryo:${beam_version}",

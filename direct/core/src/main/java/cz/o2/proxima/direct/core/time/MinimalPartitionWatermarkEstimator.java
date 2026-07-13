@@ -19,9 +19,9 @@ import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.time.PartitionedWatermarkEstimator;
 import cz.o2.proxima.core.time.WatermarkEstimator;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import jakarta.annotation.Nullable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.Nullable;
 
 /**
  * Watermark estimator wrapper for partitioned sources. Estimates watermark as a minimum across all

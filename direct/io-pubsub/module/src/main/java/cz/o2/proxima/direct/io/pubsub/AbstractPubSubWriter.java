@@ -27,11 +27,11 @@ import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

@@ -27,6 +27,7 @@ import cz.o2.proxima.io.pubsub.proto.PubSub.Bulk;
 import cz.o2.proxima.io.pubsub.proto.PubSub.BulkWrapper;
 import cz.o2.proxima.io.pubsub.proto.PubSub.BulkWrapper.Compression;
 import cz.o2.proxima.io.pubsub.util.PubSubUtils;
+import jakarta.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,7 +38,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.DeflaterOutputStream;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

@@ -16,11 +16,11 @@
 package cz.o2.proxima.direct.io.http;
 
 import cz.o2.proxima.core.storage.StreamElement;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import javax.annotation.Nullable;
 
 /** A factory for connections based on input elements. */
 @FunctionalInterface

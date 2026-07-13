@@ -31,12 +31,12 @@ import cz.o2.proxima.core.scheme.AttributeValueAccessors.StructureValue;
 import cz.o2.proxima.core.scheme.AttributeValueAccessors.StructureValueAccessor;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import jakarta.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**

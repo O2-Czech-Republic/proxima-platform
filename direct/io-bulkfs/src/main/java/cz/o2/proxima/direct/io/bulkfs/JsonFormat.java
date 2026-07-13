@@ -28,6 +28,7 @@ import cz.o2.proxima.io.serialization.proto.Serialization.JsonElement;
 import cz.o2.proxima.io.serialization.proto.Serialization.JsonElement.Builder;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.util.JsonFormat.Parser;
 import cz.o2.proxima.io.serialization.shaded.com.google.protobuf.util.JsonFormat.Printer;
+import jakarta.annotation.Nonnull;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.EOFException;
@@ -40,7 +41,6 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /** Format storing elements as JSON values, one per line. */

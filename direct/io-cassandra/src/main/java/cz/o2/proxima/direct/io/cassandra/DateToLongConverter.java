@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct.io.cassandra;
 
 import cz.o2.proxima.internal.com.google.common.base.Strings;
+import jakarta.annotation.Nullable;
 import java.util.Date;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Represent a {@link java.util.Date} with {@code String} representation of epoch millis. */

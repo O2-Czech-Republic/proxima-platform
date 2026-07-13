@@ -18,10 +18,10 @@ package cz.o2.proxima.core.storage.watermark;
 import static org.junit.Assert.assertEquals;
 
 import cz.o2.proxima.core.time.Watermarks;
+import jakarta.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 import org.junit.Test;
 
 /** Test invariants of {@link GlobalWatermarkTracker}. */

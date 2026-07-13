@@ -26,6 +26,7 @@ import cz.o2.proxima.core.util.SerializableUtils;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Suppliers;
+import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -34,7 +35,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.experimental.Delegate;
 

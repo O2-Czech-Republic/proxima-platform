@@ -25,6 +25,7 @@ import cz.o2.proxima.internal.com.google.gson.JsonArray;
 import cz.o2.proxima.internal.com.google.gson.JsonElement;
 import cz.o2.proxima.internal.com.google.gson.JsonObject;
 import cz.o2.proxima.internal.com.google.gson.JsonParser;
+import jakarta.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,7 +41,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

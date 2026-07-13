@@ -25,6 +25,7 @@ import cz.o2.proxima.core.scheme.ValueSerializer;
 import cz.o2.proxima.core.scheme.ValueSerializerFactory;
 import cz.o2.proxima.core.storage.UriUtil;
 import cz.o2.proxima.core.util.Classpath;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -34,7 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**

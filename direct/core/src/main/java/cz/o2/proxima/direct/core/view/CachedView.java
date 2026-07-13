@@ -25,11 +25,11 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
+import jakarta.annotation.Nullable;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Optional;
-import javax.annotation.Nullable;
 
 /**
  * A view of commit-log that caches (and potentially checkpoints) data from partitions and makes in

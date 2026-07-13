@@ -21,6 +21,7 @@ module cz.o2.proxima.core {
   requires java.desktop;
   requires transitive cz.o2.proxima.config;
   requires cz.o2.proxima.vendor;
+  requires static transitive jakarta.annotation;
   requires static com.google.auto.service;
   requires static lombok;
   requires java.management;

@@ -24,10 +24,10 @@ import groovy.lang.Closure;
 import groovy.transform.CompileStatic;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.FromString;
+import jakarta.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.TimeZone;
-import javax.annotation.Nullable;
 
 /** A stream abstraction with fluent style methods. */
 @CompileStatic

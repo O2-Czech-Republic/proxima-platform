@@ -45,6 +45,7 @@ import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.
 import cz.o2.proxima.direct.core.view.CachedView;
 import cz.o2.proxima.typesafe.config.Config;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import jakarta.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,7 +62,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.After;
 import org.junit.Before;

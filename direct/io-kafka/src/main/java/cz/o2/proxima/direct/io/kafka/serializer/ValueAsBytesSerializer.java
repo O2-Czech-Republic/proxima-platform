@@ -21,7 +21,7 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.direct.io.kafka.ElementSerializer;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.Serde;

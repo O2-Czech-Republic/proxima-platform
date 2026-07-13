@@ -24,6 +24,7 @@ import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.SerializableUtils;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import jakarta.annotation.Nullable;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,7 +32,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 import lombok.experimental.Delegate;
 
 /** Class constructing various {@link BatchLogReader BatchLogReaders}. */

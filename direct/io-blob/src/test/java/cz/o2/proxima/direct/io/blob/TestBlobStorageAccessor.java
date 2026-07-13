@@ -23,6 +23,7 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.batch.BatchLogReader;
 import cz.o2.proxima.direct.io.bulkfs.FileSystem;
 import cz.o2.proxima.direct.io.bulkfs.Path;
+import jakarta.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -39,7 +40,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 

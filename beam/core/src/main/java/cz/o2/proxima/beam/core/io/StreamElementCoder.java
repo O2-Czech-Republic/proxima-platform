@@ -20,6 +20,7 @@ import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.repository.RepositoryFactory;
 import cz.o2.proxima.core.storage.StreamElement;
+import jakarta.annotation.Nullable;
 import java.io.DataInput;
 import java.io.DataInputStream;
 import java.io.DataOutput;
@@ -27,7 +28,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import javax.annotation.Nullable;
 import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.values.TypeDescriptor;
 

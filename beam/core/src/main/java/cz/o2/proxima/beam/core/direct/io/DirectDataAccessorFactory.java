@@ -22,8 +22,8 @@ import cz.o2.proxima.beam.core.DataAccessorFactory;
 import cz.o2.proxima.core.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import jakarta.annotation.Nullable;
 import java.net.URI;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**

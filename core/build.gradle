@@ -23,6 +23,7 @@ dependencies {
   testImplementation libraries.mockito_core
   testImplementation 'pl.pragmatists:JUnitParams:1.1.1'
   compileOnly libraries.auto_service_annotations
+  compileOnlyApi libraries.jakarta_annotations
   compileAnnotationProcessor libraries.lombok
   annotationProcessor libraries.auto_service
 }

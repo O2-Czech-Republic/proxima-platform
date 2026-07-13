@@ -17,9 +17,9 @@ package cz.o2.proxima.core.storage.watermark;
 
 import cz.o2.proxima.core.annotations.Evolving;
 import cz.o2.proxima.core.time.WatermarkSupplier;
+import jakarta.annotation.Nullable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 
 /**
  * A tracker of global watermark progress among multiple (distributed) processes.

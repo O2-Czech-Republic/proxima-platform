@@ -52,6 +52,7 @@ import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoResponse;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoState;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoStreamElement;
 import cz.o2.proxima.scheme.proto.utils.ProtoUtils;
+import jakarta.annotation.Nullable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
@@ -62,7 +63,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Serializer from protobuffers. */

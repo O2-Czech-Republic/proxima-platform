@@ -21,7 +21,7 @@ import cz.o2.proxima.core.util.Pair;
 import groovy.lang.Closure;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.FromString;
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 /** A stream that is windowed. */
 public interface WindowedStream<T> extends Stream<T> {

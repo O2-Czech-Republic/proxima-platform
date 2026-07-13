@@ -20,10 +20,10 @@ import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.transaction.TransactionMonitoringPolicy;
+import jakarta.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nullable;
 
 public class TestMonitoringPolicy implements TransactionMonitoringPolicy {
 

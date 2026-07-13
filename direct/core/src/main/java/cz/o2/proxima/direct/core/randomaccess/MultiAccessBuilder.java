@@ -24,6 +24,7 @@ import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.internal.com.google.common.collect.Iterables;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -34,7 +35,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** A builder for {@link RandomAccessReader} reading from multiple attribute families. */

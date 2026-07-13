@@ -27,9 +27,9 @@ import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.core.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.io.cassandra.CqlFactory.KvIterable;
 import cz.o2.proxima.direct.io.cassandra.Offsets.Raw;
+import jakarta.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** A {@link RandomAccessReader} for Cassandra. */

@@ -20,10 +20,10 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import jakarta.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import javax.annotation.Nullable;
 import lombok.Getter;
 
 /** {@code KeyValue} with {@code Offset}. */

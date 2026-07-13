@@ -23,13 +23,13 @@ import com.google.protobuf.Message;
 import cz.o2.proxima.core.scheme.SchemaDescriptors;
 import cz.o2.proxima.core.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.core.scheme.SchemaDescriptors.StructureTypeDescriptor;
+import jakarta.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

@@ -17,13 +17,13 @@ package cz.o2.proxima.core.util;
 
 import cz.o2.proxima.core.functional.Factory;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import jakarta.annotation.Nullable;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.Nullable;
 
 /**
  * A value that holds a {@link Serializable} value and scopes its value to given context.

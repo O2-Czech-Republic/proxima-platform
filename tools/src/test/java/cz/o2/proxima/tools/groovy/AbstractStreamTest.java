@@ -16,11 +16,11 @@
 package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.core.repository.Repository;
+import jakarta.annotation.Nullable;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /** Base class for tests of all stream classes. */
 abstract class AbstractStreamTest implements Serializable {

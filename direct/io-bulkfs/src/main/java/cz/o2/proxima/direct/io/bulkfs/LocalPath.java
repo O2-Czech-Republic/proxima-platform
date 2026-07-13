@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.io.bulkfs;
 
+import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -23,7 +24,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import javax.annotation.Nonnull;
 import lombok.Getter;
 
 public class LocalPath implements Path {

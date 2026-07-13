@@ -18,9 +18,9 @@ package cz.o2.proxima.core.repository;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.scheme.ValueSerializer;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.Objects;
-import javax.annotation.Nullable;
 import lombok.Getter;
 
 /** Base class for {@link AttributeDescriptorImpl} and {@link AttributeProxyDescriptor}. */

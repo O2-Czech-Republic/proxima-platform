@@ -26,11 +26,11 @@ import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.randomaccess.RandomAccessReader.GetRequest;
 import cz.o2.proxima.internal.com.google.common.collect.ImmutableMap;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
+import jakarta.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import org.junit.Test;
 
 public class RandomAccessReaderTest {

@@ -20,7 +20,7 @@ import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.core.time.WatermarkSupplier;
 import cz.o2.proxima.core.time.Watermarks;
 import cz.o2.proxima.direct.core.batch.BatchLogObserver.OnNextContext;
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import lombok.Value;
 
 /** Utility class related to {@link BatchLogObserver BatchLogObservers}. */

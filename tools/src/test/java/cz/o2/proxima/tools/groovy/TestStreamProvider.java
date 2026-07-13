@@ -16,8 +16,8 @@
 package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.core.repository.Repository;
+import jakarta.annotation.Nullable;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** Stream provider for testing purposes. */
 public interface TestStreamProvider {

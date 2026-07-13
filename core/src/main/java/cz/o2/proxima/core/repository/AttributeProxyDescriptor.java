@@ -18,8 +18,8 @@ package cz.o2.proxima.core.repository;
 import cz.o2.proxima.core.scheme.ValueSerializer;
 import cz.o2.proxima.core.transform.ProxyTransform;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import jakarta.annotation.Nullable;
 import java.net.URI;
-import javax.annotation.Nullable;
 import lombok.Getter;
 
 /** Proxy to another attribute. */

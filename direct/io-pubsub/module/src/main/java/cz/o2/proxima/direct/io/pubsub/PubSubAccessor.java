@@ -24,11 +24,11 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.base.Strings;
+import jakarta.annotation.Nullable;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Value;
 

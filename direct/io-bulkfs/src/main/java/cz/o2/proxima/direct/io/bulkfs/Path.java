@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.io.bulkfs;
 
 import cz.o2.proxima.core.annotations.Internal;
+import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,7 +26,6 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.time.Duration;
-import javax.annotation.Nonnull;
 
 /** Proxima's abstraction of path in {@link FileSystem}. */
 @Internal

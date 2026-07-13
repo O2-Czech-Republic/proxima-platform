@@ -25,12 +25,12 @@ import cz.o2.proxima.core.repository.TypedAttribute;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.ContextProvider;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import jakarta.annotation.Nullable;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import lombok.Value;
 
 /**

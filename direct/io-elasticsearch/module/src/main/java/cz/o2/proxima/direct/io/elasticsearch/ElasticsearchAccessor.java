@@ -25,10 +25,10 @@ import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
 import cz.o2.proxima.elasticsearch.shaded.org.elasticsearch.client.RestHighLevelClient;
 import cz.o2.proxima.elasticsearch.shaded.org.elasticsearch.core.TimeValue;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
+import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 

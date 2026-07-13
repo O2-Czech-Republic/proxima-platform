@@ -17,10 +17,10 @@ package cz.o2.proxima.direct.io.kafka;
 
 import cz.o2.proxima.core.storage.UriUtil;
 import cz.o2.proxima.direct.core.commitlog.Offset;
+import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.Collection;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 /** Various utilities. */

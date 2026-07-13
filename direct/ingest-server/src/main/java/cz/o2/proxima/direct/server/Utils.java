@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.server;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

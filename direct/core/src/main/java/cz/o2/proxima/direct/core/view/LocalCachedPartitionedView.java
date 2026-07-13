@@ -37,6 +37,7 @@ import cz.o2.proxima.direct.core.randomaccess.RawOffset;
 import cz.o2.proxima.direct.core.view.TimeBoundedVersionedCache.Payload;
 import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
+import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Collection;
@@ -50,7 +51,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 

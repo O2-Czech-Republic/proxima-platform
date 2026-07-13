@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.core.transaction;
 import cz.o2.proxima.core.transaction.Request;
 import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.State;
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**

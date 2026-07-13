@@ -16,7 +16,7 @@
 package cz.o2.proxima.core.repository;
 
 import cz.o2.proxima.core.annotations.Stable;
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 import lombok.Value;
 
 /** A specific attribute of a wildcard attribute descriptor. */

@@ -20,9 +20,9 @@ import cz.o2.proxima.core.repository.Repository;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.core.storage.commitlog.Position;
 import groovy.lang.Closure;
+import jakarta.annotation.Nullable;
 import java.io.Closeable;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 
 /** Provider of {@link Stream} based on various parameters. */
 public interface StreamProvider extends Closeable {

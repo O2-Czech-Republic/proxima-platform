@@ -16,6 +16,7 @@
 package cz.o2.proxima.core.repository;
 
 import cz.o2.proxima.core.annotations.Stable;
+import javax.annotation.Nullable;
 import lombok.Value;
 
 /** A specific attribute of a wildcard attribute descriptor. */
@@ -25,16 +26,31 @@ public class TypedAttribute<T> {
 
   public static <T> TypedAttribute<T> of(
       AttributeDescriptor<T> descriptor, String attributeSuffix) {
+
     return new TypedAttribute<>(descriptor, attributeSuffix);
   }
 
-  AttributeDescriptor<T> descriptor;
-  String attributeSuffix;
-  String attributeKey;
+  public static <T> TypedAttribute<T> of(AttributeDescriptor<T> descriptor) {
+    return new TypedAttribute<>(descriptor, null);
+  }
 
-  private TypedAttribute(AttributeDescriptor<T> descriptor, String attributeSuffix) {
+  AttributeDescriptor<T> descriptor;
+  String attributeKey;
+  @Nullable String attributeSuffix;
+
+  private TypedAttribute(AttributeDescriptor<T> descriptor, @Nullable String attributeSuffix) {
+
     this.descriptor = descriptor;
-    this.attributeSuffix = attributeSuffix;
-    this.attributeKey = descriptor.toAttributePrefix() + attributeSuffix;
+    if (attributeSuffix != null) {
+      this.attributeSuffix = attributeSuffix;
+      this.attributeKey = descriptor.toAttributePrefix() + attributeSuffix;
+    } else {
+      this.attributeSuffix = null;
+      this.attributeKey = descriptor.getName();
+    }
+  }
+
+  public boolean isWildcard() {
+    return attributeSuffix != null;
   }
 }

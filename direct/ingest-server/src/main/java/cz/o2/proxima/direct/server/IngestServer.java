@@ -140,13 +140,6 @@ public class IngestServer {
 
     OnlineAttributeWriter writer = getWriterForAttributeInTransform(direct, attributeDesc);
 
-    if (writer == null) {
-      log.warn("Missing writer for request {}", ingest);
-      responseConsumer.accept(
-          status(uuid, 503, "No writer for attribute " + attributeDesc.getName()));
-      return false;
-    }
-
     if (ingest.isDelete()) {
       if (ingest.isDeleteWildcard()) {
         Metrics.DELETE_WILDCARD_REQUESTS.increment();
@@ -241,13 +234,18 @@ public class IngestServer {
       log.info("Successfully started server 0.0.0.0:{}", server.getPort());
       Metrics.LIVENESS.increment(1.0);
       server.awaitTermination();
-      log.info("Server shutdown.");
     } catch (Exception ex) {
       log.error("Failed to start the server", ex);
     } finally {
       Optional.ofNullable(transactionContext).ifPresent(TransactionContext::close);
+      onClose();
     }
     Metrics.LIVENESS.reset();
+  }
+
+  protected void onClose() {
+    log.info("Server shutdown.");
+    // allow override
   }
 
   private Server createServer(int port) {

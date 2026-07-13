@@ -82,20 +82,11 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   }
 
   /**
-   * Base class for enforcing constraints on outputs of transaction (e.g. unique constraints).
-   * Extend this class to do any application-specific validation of to-be-committed outputs of a
-   * transaction.
+   * Base class for TransactionAware implementations.
    */
-  public abstract static class TransactionValidator
-      implements TransactionAware, DirectElementWiseTransform {
+  public static class TransactionAwareBase implements TransactionAware {
 
     private transient Transaction transaction;
-
-    @Override
-    public void setup(
-        Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {
-      // nop
-    }
 
     @Override
     public final Transaction currentTransaction() {
@@ -105,6 +96,22 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     @Override
     public final void setTransaction(Transaction transaction) {
       this.transaction = transaction;
+    }
+
+  }
+
+  /**
+   * Base class for enforcing constraints on outputs of transaction (e.g. unique constraints).
+   * Extend this class to do any application-specific validation of to-be-committed outputs of a
+   * transaction.
+   */
+  public abstract static class TransactionValidator
+      extends TransactionAwareBase implements DirectElementWiseTransform {
+
+    @Override
+    public void setup(
+        Repository repo, DirectDataOperator directDataOperator, Map<String, Object> cfg) {
+      // nop
     }
 
     @Override

@@ -18,10 +18,12 @@ package cz.o2.proxima.core.transaction;
 import cz.o2.proxima.core.annotations.Experimental;
 import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityDescriptor;
+import cz.o2.proxima.core.repository.TypedAttribute;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 @Experimental
@@ -66,8 +68,6 @@ public class KeyAttributes {
     ret.add(new KeyAttribute(entity, key, wildcardAttribute, minSeqId, false, null));
     return ret;
   }
-
-  private KeyAttributes() {}
 
   /**
    * Create {@link KeyAttribute} for given entity, key and attribute descriptor. This describes
@@ -181,4 +181,20 @@ public class KeyAttributes {
                 .substring(element.getAttributeDescriptor().toAttributePrefix().length())
             : null);
   }
+
+  /** Use this to get KeyAttribute.ofMissing */
+  public static <T> KeyAttribute ofGet(
+      EntityDescriptor entityDesc,
+      String key,
+      TypedAttribute<T> attribute,
+      Optional<? extends StreamElement> getResult) {
+
+    if (getResult.isEmpty()) {
+      return ofMissingAttribute(
+          entityDesc, key, attribute.getDescriptor(), attribute.getAttributeSuffix());
+    }
+    return ofStreamElement(getResult.get());
+  }
+
+  private KeyAttributes() {}
 }

@@ -24,6 +24,7 @@ module cz.o2.proxima.core {
   requires static com.google.auto.service;
   requires static lombok;
   requires java.management;
+  requires java.xml.crypto;
 
   uses cz.o2.proxima.core.repository.DataOperatorFactory;
   uses cz.o2.proxima.core.scheme.ValueSerializerFactory;

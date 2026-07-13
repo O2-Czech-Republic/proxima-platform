@@ -81,9 +81,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     void setTransaction(Transaction transaction);
   }
 
-  /**
-   * Base class for TransactionAware implementations.
-   */
+  /** Base class for TransactionAware implementations. */
   public static class TransactionAwareBase implements TransactionAware {
 
     private transient Transaction transaction;
@@ -97,7 +95,6 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     public final void setTransaction(Transaction transaction) {
       this.transaction = transaction;
     }
-
   }
 
   /**
@@ -105,8 +102,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
    * Extend this class to do any application-specific validation of to-be-committed outputs of a
    * transaction.
    */
-  public abstract static class TransactionValidator
-      extends TransactionAwareBase implements DirectElementWiseTransform {
+  public abstract static class TransactionValidator extends TransactionAwareBase
+      implements DirectElementWiseTransform {
 
     @Override
     public void setup(

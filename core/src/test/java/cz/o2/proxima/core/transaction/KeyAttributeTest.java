@@ -21,11 +21,13 @@ import cz.o2.proxima.core.repository.AttributeDescriptor;
 import cz.o2.proxima.core.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.core.repository.EntityDescriptor;
 import cz.o2.proxima.core.repository.Repository;
+import cz.o2.proxima.core.repository.TypedAttribute;
 import cz.o2.proxima.core.storage.StreamElement;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import org.junit.Test;
 
 public class KeyAttributeTest {
@@ -62,6 +64,50 @@ public class KeyAttributeTest {
     } catch (IllegalArgumentException ex) {
       // pass
     }
+  }
+
+  @Test
+  public void testKeyAttributeOfGet() {
+    KeyAttribute ka =
+        KeyAttributes.ofGet(gateway, "gw", TypedAttribute.of(status), Optional.empty());
+    assertEquals(gateway, ka.getEntity());
+    assertEquals("gw", ka.getKey());
+    assertEquals(status, ka.getAttributeDescriptor());
+    assertTrue(ka.isDelete());
+
+    StreamElement el =
+        StreamElement.upsert(
+            gateway, status, 2L, "gw", status.getName(), System.currentTimeMillis(), new byte[] {});
+    ka = KeyAttributes.ofGet(gateway, "gw", TypedAttribute.of(status), Optional.of(el));
+    assertEquals(gateway, ka.getEntity());
+    assertEquals("gw", ka.getKey());
+    assertEquals(status, ka.getAttributeDescriptor());
+    assertFalse(ka.isDelete());
+    assertEquals(2L, ka.getSequentialId());
+
+    ka = KeyAttributes.ofGet(gateway, "gw", TypedAttribute.of(device, "1"), Optional.empty());
+    assertEquals(gateway, ka.getEntity());
+    assertEquals("gw", ka.getKey());
+    assertEquals(device, ka.getAttributeDescriptor());
+    assertEquals("1", ka.getAttributeSuffix().orElse(null));
+    assertTrue(ka.isDelete());
+
+    el =
+        StreamElement.upsert(
+            gateway,
+            device,
+            3L,
+            "gw",
+            device.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {});
+    ka = KeyAttributes.ofGet(gateway, "gw", TypedAttribute.of(device, "1"), Optional.of(el));
+    assertEquals(gateway, ka.getEntity());
+    assertEquals("gw", ka.getKey());
+    assertEquals(device, ka.getAttributeDescriptor());
+    assertEquals("1", ka.getAttributeSuffix().orElse(null));
+    assertFalse(ka.isDelete());
+    assertEquals(3L, ka.getSequentialId());
   }
 
   @Test

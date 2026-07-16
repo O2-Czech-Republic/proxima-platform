@@ -80,8 +80,7 @@ public class TransactionManagerServer {
   private final AtomicBoolean closed = new AtomicBoolean();
   private final Metrics metrics = new Metrics();
 
-  @VisibleForTesting
-  TransactionManagerServer(Config conf, Repository repo) {
+  protected TransactionManagerServer(Config conf, Repository repo) {
     this.direct = repo.getOrCreateOperator(DirectDataOperator.class);
     this.manager = direct.getServerTransactionManager();
     this.observerFactory = getObserverFactory(conf);
@@ -153,8 +152,12 @@ public class TransactionManagerServer {
               });
       ExceptionUtils.ignoringInterrupted(() -> shutdownFuture.get(1, TimeUnit.SECONDS));
       log.info("{} halting now.", getClass().getSimpleName());
-      System.exit(graceful ? 0 : 1);
+      exit(graceful ? 0 : 1);
     }
+  }
+
+  protected void exit(int code) {
+    System.exit(code);
   }
 
   @VisibleForTesting

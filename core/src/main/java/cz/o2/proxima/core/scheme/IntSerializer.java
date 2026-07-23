@@ -49,7 +49,7 @@ public class IntSerializer implements ValueSerializerFactory {
           public Optional<Integer> deserialize(byte[] input) {
             try {
               ByteBuffer buffer = ByteBuffer.wrap(input);
-              return Optional.ofNullable(buffer.getInt());
+              return Optional.of(buffer.getInt());
             } catch (Exception ex) {
               log.warn("Failed to parse bytes {}", Arrays.toString(input));
               return Optional.empty();

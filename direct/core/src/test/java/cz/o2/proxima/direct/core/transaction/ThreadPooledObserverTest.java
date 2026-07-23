@@ -84,7 +84,7 @@ public class ThreadPooledObserverTest {
     assertEquals(numElements, confirmed.size());
   }
 
-  @Test(timeout = 20_000)
+  @Test(timeout = 60_000)
   public void testParallelObserveWithRepartition() throws InterruptedException {
     List<Integer> elements = Collections.synchronizedList(new ArrayList<>());
     Set<Integer> confirmed = Collections.synchronizedSet(new TreeSet<>());

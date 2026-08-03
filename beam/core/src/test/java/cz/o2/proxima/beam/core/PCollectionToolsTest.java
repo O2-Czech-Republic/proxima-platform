@@ -28,6 +28,8 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.MapElements;
+import org.apache.beam.sdk.transforms.Reify;
+import org.apache.beam.sdk.transforms.WithTimestamps;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.junit.Test;
@@ -47,32 +49,36 @@ public class PCollectionToolsTest {
     Pipeline pipeline = Pipeline.create();
     Instant now = Instant.now();
     PCollection<StreamElement> input =
-        pipeline.apply(
-            Create.of(
-                status.upsert("key", now, new byte[] {1}),
-                data.upsert("key", now, new byte[] {2}),
-                device.upsert("key", "suffix", now, new byte[] {3}),
-                status.upsert("key2", now.plusMillis(1), new byte[] {4}),
-                status.upsert("key", now.plusMillis(5), new byte[] {5})));
+        pipeline
+            .apply(
+                Create.of(
+                    status.upsert("key", now, new byte[] {1}),
+                    data.upsert("key", now, new byte[] {2}),
+                    device.upsert("key", "suffix", now, new byte[] {3}),
+                    status.upsert("key2", now.plusMillis(1), new byte[] {4}),
+                    status.upsert("key", now.plusMillis(5), new byte[] {5})))
+            .apply(WithTimestamps.of(e -> new org.joda.time.Instant(e.getStamp())));
 
     PCollection<String> result =
         PCollectionTools.reduceAsSnapshot("reduce", input)
+            .apply(Reify.timestamps())
             .apply(
                 MapElements.into(TypeDescriptors.strings())
                     .via(
                         e ->
                             String.format(
-                                "%s:%s:%s:%d",
-                                e.getAttributeDescriptor().getEntity(),
-                                e.getKey(),
-                                e.getAttribute(),
-                                e.getValue()[0])));
+                                "%s:%s:%s:%d:%d",
+                                e.getValue().getAttributeDescriptor().getEntity(),
+                                e.getValue().getKey(),
+                                e.getValue().getAttribute(),
+                                e.getValue().getValue()[0],
+                                e.getTimestamp().getMillis())));
     PAssert.that(result)
         .containsInAnyOrder(
-            "gateway:key:status:5",
-            "event:key:data:2",
-            "gateway:key:device.suffix:3",
-            "gateway:key2:status:4");
+            "gateway:key:status:5:" + now.plusMillis(5).toEpochMilli(),
+            "event:key:data:2:" + now.toEpochMilli(),
+            "gateway:key:device.suffix:3:" + now.toEpochMilli(),
+            "gateway:key2:status:4:" + now.plusMillis(1).toEpochMilli());
     assertNotNull(pipeline.run());
   }
 }

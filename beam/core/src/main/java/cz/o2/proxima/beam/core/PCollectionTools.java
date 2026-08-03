@@ -24,6 +24,9 @@ import org.apache.beam.sdk.transforms.Combine;
 import org.apache.beam.sdk.transforms.Combine.PerKey;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.WithKeys;
+import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
+import org.apache.beam.sdk.transforms.windowing.TimestampCombiner;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
@@ -35,6 +38,12 @@ public class PCollectionTools {
   /**
    * Reduce given {@link PCollection} from updates to snapshot.
    *
+   * <p>The output element's Beam timestamp is set to the maximum input element timestamp (i.e. the
+   * {@link StreamElement#getStamp()} of the winning element) via {@link TimestampCombiner#LATEST}.
+   * Without this, {@code Combine.perKey} over the global window would assign {@code
+   * BoundedWindow.TIMESTAMP_MAX_VALUE} to every output element, which would corrupt any downstream
+   * logic that stores the Beam element timestamp as a business-logic stamp.
+   *
    * @param name name of the operation
    * @param input the other {@link PCollection} containing updates
    * @return snapshot
@@ -43,15 +52,20 @@ public class PCollectionTools {
       @Nullable String name, PCollection<StreamElement> input) {
 
     PCollection<KV<String, StreamElement>> withKeys =
-        input.apply(
-            WithKeys.<String, StreamElement>of(
-                    e ->
-                        e.getAttributeDescriptor().getEntity()
-                            + "@"
-                            + e.getKey()
-                            + "#"
-                            + e.getAttribute())
-                .withKeyType(TypeDescriptors.strings()));
+        input
+            .apply(
+                Window.<StreamElement>into(new GlobalWindows())
+                    .withTimestampCombiner(TimestampCombiner.LATEST))
+            .apply(
+                WithKeys.<String, StreamElement>of(
+                        e ->
+                            e.getAttributeDescriptor().getEntity()
+                                + "@"
+                                + e.getKey()
+                                + "#"
+                                + e.getAttribute())
+                    .withKeyType(TypeDescriptors.strings()));
+
     PerKey<String, StreamElement, StreamElement> transform =
         Combine.perKey(
             values ->
@@ -60,6 +74,7 @@ public class PCollectionTools {
 
     PCollection<KV<String, StreamElement>> combined =
         name == null ? withKeys.apply(transform) : withKeys.apply(name, transform);
+
     return combined.apply(
         MapElements.into(TypeDescriptor.of(StreamElement.class)).via(KV::getValue));
   }

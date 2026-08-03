@@ -115,6 +115,7 @@ class TypeId implements Serializable {
   }
 
   public boolean isTimer() {
-    return stringId.contains(DoFn.TimerId.class.getName());
+    return stringId.contains(DoFn.TimerId.class.getName())
+        || stringId.contains(DoFn.TimerId.class.getCanonicalName());
   }
 }

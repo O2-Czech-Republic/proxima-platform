@@ -197,7 +197,7 @@ public class DirectBatchUnboundedSourceTest {
     List<Partition> parts = Lists.newArrayList(() -> 0, () -> 1);
     List<Partition> parts2 = Lists.newArrayList(() -> 0, () -> 1);
     Checkpoint checkpoint = new Checkpoint(parts, 0);
-    assertEquals(checkpoint, checkpoint);
+
     assertEquals(checkpoint, new Checkpoint(parts, 0));
     assertEquals(checkpoint, new Checkpoint(parts2, 0));
     assertNotEquals(checkpoint, new Checkpoint(parts, 1));

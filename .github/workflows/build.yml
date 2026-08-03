@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java-version: [11]
+        java-version: [11,17]
 
     steps:
     - uses: actions/checkout@v1
@@ -44,7 +44,7 @@ jobs:
       with:
         distribution: "adopt"
         java-version: |
-          17
+          21
           ${{ matrix.java-version }}
     - name: Build with Gradle
       env:

@@ -49,7 +49,7 @@ public class LongSerializer implements ValueSerializerFactory {
           public Optional<Long> deserialize(byte[] input) {
             try {
               ByteBuffer buffer = ByteBuffer.wrap(input);
-              return Optional.ofNullable(buffer.getLong());
+              return Optional.of(buffer.getLong());
             } catch (Exception ex) {
               log.warn("Failed to parse bytes {}", Arrays.toString(input));
               return Optional.empty();

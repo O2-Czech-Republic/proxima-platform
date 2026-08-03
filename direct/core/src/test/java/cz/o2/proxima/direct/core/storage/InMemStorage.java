@@ -1229,6 +1229,11 @@ public class InMemStorage implements DataAccessorFactory {
     }
   }
 
+  /** Clear the storage. */
+  public static void clear() {
+    DataHolders.HOLDERS_MAP.clear();
+  }
+
   private interface Locker extends AutoCloseable {
     void close();
   }

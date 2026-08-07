@@ -42,4 +42,15 @@ public interface Transformation extends DataOperatorAware {
   default ElementWiseTransformation asElementWiseTransform() {
     return as(ElementWiseTransformation.class);
   }
+
+  /**
+   * Enforce this transaction to be run as non-transactional even if it consumes transactional
+   * inputs. This can be used to convert ACID consistency to eventual consistency on output of
+   * transactional attribute(s) consumption.
+   *
+   * @return {@code true} is this transformation is to be run as non-transactional
+   */
+  default boolean enforceNonTransactional() {
+    return false;
+  }
 }

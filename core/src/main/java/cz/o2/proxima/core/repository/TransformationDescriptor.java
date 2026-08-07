@@ -151,9 +151,10 @@ public class TransformationDescriptor implements Serializable {
     this.cfg = cfg;
     this.filter = filter == null ? new PassthroughFilter() : filter;
     this.inputTransactionMode =
-        requireSingleTransactionMode(name, attributes) != TransactionMode.NONE
-            ? InputTransactionMode.TRANSACTIONAL
-            : InputTransactionMode.NON_TRANSACTIONAL;
+        transformation.enforceNonTransactional()
+                || requireSingleTransactionMode(name, attributes) == TransactionMode.NONE
+            ? InputTransactionMode.NON_TRANSACTIONAL
+            : InputTransactionMode.TRANSACTIONAL;
 
     this.consumerNameFactory = new DefaultTransformerConsumerNameFactory();
   }

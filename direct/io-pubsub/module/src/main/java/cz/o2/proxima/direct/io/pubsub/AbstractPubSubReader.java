@@ -117,6 +117,7 @@ public abstract class AbstractPubSubReader extends AbstractStorage {
     validatePosition(position);
     String consumerName = asConsumerName(name);
     AtomicLong committedWatermark = new AtomicLong(minWatermark);
+    log.info("Starting observe {} as {} from {}", getUri(), name, position);
     return consume(
         consumerName,
         (e, w, c) -> {

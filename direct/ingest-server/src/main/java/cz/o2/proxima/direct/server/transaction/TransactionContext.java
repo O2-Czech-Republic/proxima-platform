@@ -56,6 +56,10 @@ public class TransactionContext implements AutoCloseable {
 
     String getTransactionId();
 
+    long getSequentialId();
+
+    long getStamp();
+
     void update(List<KeyAttribute> keyAttributes) throws TransactionRejectedException;
 
     void addOutputs(List<StreamElement> outputs);
@@ -166,6 +170,16 @@ public class TransactionContext implements AutoCloseable {
       @Override
       public String getTransactionId() {
         return delegate.getTransactionId();
+      }
+
+      @Override
+      public long getSequentialId() {
+        return delegate.getSequentialId();
+      }
+
+      @Override
+      public long getStamp() {
+        return delegate.getStamp();
       }
 
       @Override

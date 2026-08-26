@@ -158,6 +158,8 @@ public class TransactionsTest {
 
     TransactionCommitResponse commitResponse = commit(transactionId);
     assertEquals(TransactionCommitResponse.Status.COMMITTED, commitResponse.getStatus());
+    assertTrue(commitResponse.getSeqId() > 0);
+    assertTrue(commitResponse.getStamp() > 0);
     replicatedLatch.await();
 
     // verify we can read the results
@@ -205,6 +207,8 @@ public class TransactionsTest {
 
     TransactionCommitResponse commitResponse = commit(transactionId);
     assertEquals(TransactionCommitResponse.Status.COMMITTED, commitResponse.getStatus());
+    assertTrue(commitResponse.getSeqId() > 0);
+    assertTrue(commitResponse.getStamp() > 0);
     replicatedLatch.await();
 
     // verify we can read the results
@@ -245,7 +249,10 @@ public class TransactionsTest {
             gatewayUsers.toAttributePrefix() + "usr1",
             stamp,
             new byte[] {1, 2, 3}));
-    assertEquals(TransactionCommitResponse.Status.COMMITTED, commit(secondTransaction).getStatus());
+    TransactionCommitResponse secondCommitResponse = commit(secondTransaction);
+    assertEquals(TransactionCommitResponse.Status.COMMITTED, secondCommitResponse.getStatus());
+    assertTrue(secondCommitResponse.getSeqId() > 0);
+    assertTrue(secondCommitResponse.getStamp() > 0);
     replicatedLatch.await();
 
     // write the same in different transaction
@@ -259,7 +266,10 @@ public class TransactionsTest {
             gatewayUsers.toAttributePrefix() + "usr1",
             stamp,
             new byte[] {1, 2, 3, 4}));
-    assertEquals(TransactionCommitResponse.Status.REJECTED, commit(firstTransaction).getStatus());
+    TransactionCommitResponse firstCommitResponse = commit(firstTransaction);
+    assertEquals(TransactionCommitResponse.Status.REJECTED, firstCommitResponse.getStatus());
+    assertEquals(0L, firstCommitResponse.getSeqId());
+    assertEquals(0L, firstCommitResponse.getStamp());
 
     GetResponse getResponse =
         get(
@@ -310,6 +320,8 @@ public class TransactionsTest {
     assertEquals(412, status.getStatus(0).getStatus());
     TransactionCommitResponse commitResponse = commit(transactionId);
     assertEquals(TransactionCommitResponse.Status.FAILED, commitResponse.getStatus());
+    assertEquals(0L, commitResponse.getSeqId());
+    assertEquals(0L, commitResponse.getStamp());
   }
 
   @Test
@@ -334,6 +346,8 @@ public class TransactionsTest {
 
     TransactionCommitResponse commitResponse = commit(transactionId);
     assertEquals(TransactionCommitResponse.Status.COMMITTED, commitResponse.getStatus());
+    assertTrue(commitResponse.getSeqId() > 0);
+    assertTrue(commitResponse.getStamp() > 0);
 
     response = begin(transactionId);
     assertEquals(transactionId, response.getTransactionId());
@@ -347,6 +361,32 @@ public class TransactionsTest {
                 .setAttribute("user.usr1")
                 .build());
     assertEquals(204, getResponse.getStatus());
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionCommitResponseSeqIdAndStamp() throws InterruptedException {
+    String transactionId = begin().getTransactionId();
+    replicatedLatch = new CountDownLatch(1);
+    ingestBulk(
+        transactionId,
+        StreamElement.upsert(
+            gateway,
+            gatewayUsers,
+            UUID.randomUUID().toString(),
+            "gw1",
+            gatewayUsers.toAttributePrefix() + "usr1",
+            System.currentTimeMillis(),
+            new byte[] {1, 2, 3}));
+    TransactionCommitResponse commitResponse = commit(transactionId);
+    assertEquals(TransactionCommitResponse.Status.COMMITTED, commitResponse.getStatus());
+    assertTrue(commitResponse.getSeqId() > 0);
+    assertTrue(commitResponse.getStamp() > 0);
+    replicatedLatch.await();
+
+    TransactionCommitResponse failedResponse = commit("non-existing-tx");
+    assertEquals(TransactionCommitResponse.Status.FAILED, failedResponse.getStatus());
+    assertEquals(0L, failedResponse.getSeqId());
+    assertEquals(0L, failedResponse.getStamp());
   }
 
   @Test

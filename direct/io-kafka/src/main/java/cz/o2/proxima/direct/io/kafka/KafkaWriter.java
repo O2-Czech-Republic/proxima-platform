@@ -51,24 +51,27 @@ public class KafkaWriter<K, V> extends AbstractOnlineAttributeWriter {
       if (producer == null) {
         producer = createProducer();
       }
+      String elementTopic = serializer.topicFor(data, this.topic);
       int partition =
           (partitioner.getPartitionId(data) & Integer.MAX_VALUE)
-              % producer.partitionsFor(topic).size();
+              % producer.partitionsFor(elementTopic).size();
 
-      ProducerRecord<K, V> toWrite = serializer.write(topic, partition, data);
-      producer.send(
-          toWrite,
-          (metadata, exception) -> {
-            if (metadata != null) {
-              log.debug(
-                  "Written {} to topic {} offset {} and partition {}",
-                  data,
-                  metadata.topic(),
-                  metadata.offset(),
-                  metadata.partition());
-            }
-            callback.commit(exception == null, exception);
-          });
+      ProducerRecord<K, V> toWrite = serializer.write(elementTopic, partition, data);
+      if (toWrite != null) {
+        producer.send(
+            toWrite,
+            (metadata, exception) -> {
+              if (metadata != null) {
+                log.debug(
+                    "Written {} to topic {} offset {} and partition {}",
+                    data,
+                    metadata.topic(),
+                    metadata.offset(),
+                    metadata.partition());
+              }
+              callback.commit(exception == null, exception);
+            });
+      }
     } catch (Exception ex) {
       log.warn("Failed to write ingest {}", data, ex);
       callback.commit(false, ex);

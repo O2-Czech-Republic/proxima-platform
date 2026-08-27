@@ -80,4 +80,15 @@ public interface ElementSerializer<K, V> extends Serializable {
   default boolean storesSequentialId() {
     return false;
   }
+
+  /**
+   * Retrieve topic should the element be written to.
+   *
+   * @param data data to write
+   * @param topic configured default topic
+   * @return the target topic
+   */
+  default String topicFor(StreamElement data, String topic) {
+    return topic;
+  }
 }

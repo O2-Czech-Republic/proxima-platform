@@ -176,8 +176,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     @Getter private final String transactionId;
     private boolean commitAttempted = false;
     @Getter private State.Flags state;
-    private long sequentialId = -1L;
-    private long stamp = Long.MIN_VALUE;
+    @Getter private long sequentialId = -1L;
+    @Getter private long stamp = Long.MIN_VALUE;
     private final List<CompletableFuture<?>> runningUpdates =
         Collections.synchronizedList(new ArrayList<>());
     private final List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<>());

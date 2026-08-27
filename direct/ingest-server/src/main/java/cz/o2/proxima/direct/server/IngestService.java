@@ -439,26 +439,29 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     log.debug("Committing transaction {}", request.getTransactionId());
     try {
       long start = System.currentTimeMillis();
-      transactionContext
-          .get(request.getTransactionId())
-          .commit(
-              (succ, exc) -> {
-                Metrics.INGEST_LATENCY.increment(System.currentTimeMillis() - start);
-                if (exc != null) {
-                  log.warn(
-                      "Error during committing transaction {}", request.getTransactionId(), exc);
-                } else {
-                  log.info("Transaction {} committed", request.getTransactionId());
-                }
-                responseObserver.onNext(
-                    TransactionCommitResponse.newBuilder()
-                        .setStatus(
-                            succ
-                                ? TransactionCommitResponse.Status.COMMITTED
-                                : TransactionCommitResponse.Status.FAILED)
-                        .build());
-                responseObserver.onCompleted();
-              });
+      TransactionContext.Transaction transaction =
+          transactionContext.get(request.getTransactionId());
+      transaction.commit(
+          (succ, exc) -> {
+            Metrics.INGEST_LATENCY.increment(System.currentTimeMillis() - start);
+            if (exc != null) {
+              log.warn("Error during committing transaction {}", request.getTransactionId(), exc);
+            } else {
+              log.info("Transaction {} committed", request.getTransactionId());
+            }
+            TransactionCommitResponse.Builder response =
+                TransactionCommitResponse.newBuilder()
+                    .setStatus(
+                        succ
+                            ? TransactionCommitResponse.Status.COMMITTED
+                            : TransactionCommitResponse.Status.FAILED);
+            if (succ) {
+              response.setSeqId(transaction.getSequentialId());
+              response.setStamp(transaction.getStamp());
+            }
+            responseObserver.onNext(response.build());
+            responseObserver.onCompleted();
+          });
     } catch (TransactionRejectedException e) {
       log.info("Transaction {} rejected.", request.getTransactionId());
       responseObserver.onNext(

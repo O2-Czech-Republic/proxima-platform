@@ -112,6 +112,8 @@ message TransactionCommitResponse {
   }
 
   Status status = 1;
+  uint64 stamp = 2;
+  uint64 seqId = 3;
 
 }
 

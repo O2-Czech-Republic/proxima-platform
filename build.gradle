@@ -134,6 +134,14 @@ if (project.hasProperty("with-coverage")) {
   }
 }
 
+configurations {
+  lombok
+}
+
+dependencies {
+  lombok "org.projectlombok:lombok:1.18.34"
+}
+
 def collectSources(p, target) {
   def collectSingle = {
     def path = it.path
@@ -154,13 +162,44 @@ def collectSources(p, target) {
   }
 }
 
+task delombok(type: JavaExec) {
+  dependsOn subprojects.collectMany { [it.tasks["compileJava"], it.tasks["compileTestJava"]] }
+
+  def rawSources = "${buildDir}/docs/raw-sources"
+  def target = "${buildDir}/docs/collected"
+
+  classpath = configurations.lombok
+  mainClass = 'lombok.launch.Main'
+
+  doFirst {
+    delete(rawSources)
+    delete(target)
+    subprojects.each { collectSources(it, rawSources) }
+
+    def aggregateClasspath = files(subprojects.collect { it.sourceSets.main.compileClasspath } + subprojects.collect { it.sourceSets.test.compileClasspath })
+
+    def argsFile = file("${buildDir}/tmp/delombok.args")
+    argsFile.parentFile.mkdirs()
+    argsFile.text = [
+      rawSources,
+      "-d", target,
+      "-c", aggregateClasspath.asPath,
+      "--encoding", "UTF-8"
+    ].collect { '"' + it.replace('\\', '\\\\').replace('"', '\\"') + '"' }.join('\n')
+
+    args = [
+      'delombok',
+      "@${argsFile.absolutePath}"
+    ]
+  }
+}
+
 task javadocAggregate(type: Javadoc) {
   group = "Documentation"
   description = "Generate aggregated javadoc"
 
-  dependsOn subprojects.collectMany { [it.tasks["compileJava"], it.tasks["compileTestJava"]] }
+  dependsOn delombok
   def target = "${buildDir}/docs/collected"
-  subprojects.each { collectSources(it, target) }
   source files(target)
   classpath = files(subprojects.collect { it.sourceSets.main.compileClasspath } + subprojects.collect { it.sourceSets.test.compileClasspath })
   destinationDir = file("${buildDir}/docs/apidocs")

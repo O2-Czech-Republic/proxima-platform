@@ -66,7 +66,7 @@ public class ${java_classname} implements Serializable {
   }
 
   /**
-   * Create instance of {@code ${java_classname} from given {@link Repository}.
+   * Create instance of {@code ${java_classname}} from given {@link Repository}.
    **/
   public static ${java_classname} wrap(Repository repository) {
     return new ${java_classname}(repository);

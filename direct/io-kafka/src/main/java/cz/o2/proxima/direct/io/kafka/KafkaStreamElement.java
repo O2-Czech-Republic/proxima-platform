@@ -55,7 +55,7 @@ public class KafkaStreamElement extends StreamElement {
       String key = record.key();
       byte[] value = record.value();
       // in kafka, each entity attribute is separated by `#' from entity key
-      int hashPos = key.indexOf('#');
+      int hashPos = key.lastIndexOf('#');
       if (hashPos < 0 || hashPos >= key.length()) {
         log.error("Invalid key in kafka topic: {}", key);
       } else {

@@ -65,7 +65,9 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
   private void prepareFlinkEnvironment(FlinkPipelineOptions opts) {
     if (!clusterRunning) {
       Configuration conf = new Configuration();
-      conf.setLong("taskmanager.memory.process.size", 10 * 1024 * 1024L);
+      conf.setString("rest.port", "0");
+      conf.setString("rest.bind-port", "0");
+      conf.setLong("taskmanager.memory.process.size", 128 * 1024 * 1024L);
       MiniClusterConfiguration clusterConf =
           new Builder()
               .setNumTaskManagers(1)

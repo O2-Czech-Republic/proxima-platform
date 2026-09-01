@@ -26,8 +26,8 @@ java.sourceCompatibility = JavaVersion.VERSION_11
 def auto_service_version = "1.1.1"
 def beam_version = "2.75.0"
 def errorprone_version = "2.28.0"
-def flink_version = "1.18.0"
-def grpc_version = "1.81.0"
+def flink_version = "1.20.1"
+def grpc_version = "1.71.0"
 def groovy_version = "4.0.30"
 def guava_version = "33.3.1-jre"
 def hadoop_version = "3.2.4"
@@ -40,7 +40,7 @@ def log4j_version = "2.19.0"
 def mockito_version = "5.3.0"
 def protobuf_version = "4.33.2"
 def scala_version = "2.12"
-def spark_version = "3.1.2"
+def spark_version = "3.5.4"
 def slf4j_version = "2.0.7"
 
 ext.grpc_version = grpc_version
@@ -54,7 +54,7 @@ ext.libraries = [
   beam_extensions_kryo: "org.apache.beam:beam-sdks-java-extensions-kryo:${beam_version}",
   beam_io_google_cloud: "org.apache.beam:beam-sdks-java-io-google-cloud-platform:${beam_version}",
   beam_runners_direct: "org.apache.beam:beam-runners-direct-java:${beam_version}",
-  beam_runners_flink: "org.apache.beam:beam-runners-flink-1.18:${beam_version}",
+  beam_runners_flink: "org.apache.beam:beam-runners-flink-1.20:${beam_version}",
   beam_runners_spark: "org.apache.beam:beam-runners-spark-3:${beam_version}",
   beam_sql: "org.apache.beam:beam-sdks-java-extensions-sql:${beam_version}",
   flink_clients: "org.apache.flink:flink-clients:${flink_version}",
@@ -185,6 +185,12 @@ configurations.all {
     //failOnVersionConflict()
     force "org.apache.logging.log4j:log4j-core:${log4j_version}"
     force "org.apache.logging.log4j:log4j-api:${log4j_version}"
+    capabilitiesResolution.withCapability("org.lz4:lz4-java") {
+      selectHighestVersion()
+    }
+    capabilitiesResolution.withCapability("at.yawk.lz4:lz4-java") {
+      selectHighestVersion()
+    }
   }
 }
 

@@ -67,7 +67,7 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
       Configuration conf = new Configuration();
       conf.setString("rest.port", "0");
       conf.setString("rest.bind-port", "0");
-      conf.setLong("taskmanager.memory.process.size", 128 * 1024 * 1024L);
+      conf.setString("taskmanager.memory.process.size", String.valueOf(128 * 1024 * 1024L));
       MiniClusterConfiguration clusterConf =
           new Builder()
               .setNumTaskManagers(1)

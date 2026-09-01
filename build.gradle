@@ -398,6 +398,7 @@ def enableShadowJar(project, Closure<Boolean> allowedEntry) {
         excludes.remove("module-info.class")
       }
       exclude "org/checkerframework/**"
+      exclude "org/jspecify/**"
     }
 
     tasks.create("validateShadowJar") {

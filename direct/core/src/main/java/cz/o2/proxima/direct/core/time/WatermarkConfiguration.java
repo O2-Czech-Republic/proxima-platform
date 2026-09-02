@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.core.time;
 import cz.o2.proxima.core.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.core.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.core.util.Classpath;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import java.io.Serializable;
 import java.util.Map;
 import java.util.Optional;
@@ -83,5 +84,13 @@ public abstract class WatermarkConfiguration implements Serializable {
 
     watermarkIdlePolicyFactory.setup(cfg);
     watermarkEstimatorFactory.setup(cfg, watermarkIdlePolicyFactory);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("watermarkIdlePolicyFactory", watermarkIdlePolicyFactory)
+        .add("watermarkEstimatorFactory", watermarkEstimatorFactory)
+        .toString();
   }
 }

@@ -22,6 +22,7 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.commitlog.CommitLogReader;
+import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import cz.o2.proxima.internal.com.google.common.base.Strings;
 import jakarta.annotation.Nullable;
@@ -31,8 +32,10 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.Getter;
 import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
 
 /** A {@link DataAccessor} for Google PubSub. */
+@Slf4j
 public class PubSubAccessor extends SerializableAbstractStorage implements DataAccessor {
 
   @Getter
@@ -41,6 +44,15 @@ public class PubSubAccessor extends SerializableAbstractStorage implements DataA
     int bulkSize;
     int flushMs;
     boolean deflate;
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("bulkSize", bulkSize)
+          .add("flushMs", flushMs)
+          .add("deflate", deflate)
+          .toString();
+    }
   }
 
   private static final long serialVersionUID = 2L;
@@ -98,6 +110,8 @@ public class PubSubAccessor extends SerializableAbstractStorage implements DataA
 
     Preconditions.checkArgument(!Strings.isNullOrEmpty(project), "Authority cannot be empty");
     Preconditions.checkArgument(!Strings.isNullOrEmpty(topic), "Path has to represent topic");
+
+    log.info("Configured PubSubAccessor {}", this);
   }
 
   private BulkConfig parseBulkConfig(URI uri) {
@@ -131,5 +145,18 @@ public class PubSubAccessor extends SerializableAbstractStorage implements DataA
       return Optional.of(new PubSubBulkWriter(this, context));
     }
     return Optional.of(new PubSubWriter(this, context));
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("project", project)
+        .add("topic", topic)
+        .add("maxAckDeadline", maxAckDeadline)
+        .add("subscriptionAckDeadline", subscriptionAckDeadline)
+        .add("subscriptionAutoCreate", subscriptionAutoCreate)
+        .add("watermarkConfiguration", watermarkConfiguration)
+        .add("bulk", bulk)
+        .toString();
   }
 }

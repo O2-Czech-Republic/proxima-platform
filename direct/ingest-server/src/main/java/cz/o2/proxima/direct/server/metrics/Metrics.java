@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -162,10 +163,18 @@ public class Metrics {
   }
 
   public static Pair<Long, Long> minWatermarkOfConsumers() {
+    return minWatermarkOfConsumers(_ign -> true);
+  }
+
+  public static Pair<Long, Long> minWatermarkOfConsumers(Predicate<String> filter) {
     synchronized (consumerMetrics) {
       long minBulkWatermark = Watermarks.MAX_WATERMARK;
       long minOnlineWatermark = Watermarks.MAX_WATERMARK;
-      for (Pair<Boolean, GaugeMetric> p : consumerMetrics.values()) {
+      for (Map.Entry<String, Pair<Boolean, GaugeMetric>> e : consumerMetrics.entrySet()) {
+        if (!filter.test(e.getKey())) {
+          continue;
+        }
+        Pair<Boolean, GaugeMetric> p = e.getValue();
         if (p.getFirst()) {
           if (minBulkWatermark > p.getSecond().getValue().longValue()) {
             minBulkWatermark = p.getSecond().getValue().longValue();

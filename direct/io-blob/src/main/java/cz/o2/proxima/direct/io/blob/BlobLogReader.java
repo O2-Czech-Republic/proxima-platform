@@ -32,6 +32,7 @@ import cz.o2.proxima.direct.io.bulkfs.FileSystem;
 import cz.o2.proxima.direct.io.bulkfs.NamingConvention;
 import cz.o2.proxima.direct.io.bulkfs.Path;
 import cz.o2.proxima.direct.io.bulkfs.Reader;
+import cz.o2.proxima.internal.com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
 import cz.o2.proxima.internal.com.google.common.base.Preconditions;
 import jakarta.annotation.Nullable;
@@ -40,6 +41,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,7 +55,8 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends BlobPath<BlobT>>
     implements BatchLogReader {
 
-  private static class BulkStoragePartition<BlobT extends BlobBase> implements Partition {
+  @VisibleForTesting
+  static class BulkStoragePartition<BlobT extends BlobBase> implements Partition {
 
     private static final long serialVersionUID = 1L;
 
@@ -118,6 +121,38 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
           .add("maxTimestamp", getMaxTimestamp())
           .add("blobs.size()", blobs.size())
           .toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      BulkStoragePartition<?> that = (BulkStoragePartition<?>) o;
+      boolean canBeEqual =
+          that.id == id
+              && that.size == size
+              && that.minStamp == minStamp
+              && that.maxStamp == maxStamp
+              && that.blobs.size() == blobs.size();
+      if (!canBeEqual) {
+        return false;
+      }
+      int i = 0;
+      for (BlobT blob : blobs) {
+        if (!that.blobs.get(i++).getName().equals(blob.getName())) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(id, size, minStamp, maxStamp);
     }
   }
 

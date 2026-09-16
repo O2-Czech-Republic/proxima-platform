@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.io.blob;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -260,6 +261,129 @@ public class BlobLogReaderTest {
     Factory<?> factory = TestUtils.deserializeObject(bytes);
     assertEquals(
         reader.getAccessor().getUri(), ((BlobReader) factory.apply(repo)).getAccessor().getUri());
+  }
+
+  private static class SimpleBlob implements BlobBase {
+    private static final long serialVersionUID = 1L;
+    private final String name;
+    private final long size;
+
+    SimpleBlob(String name, long size) {
+      this.name = name;
+      this.size = size;
+    }
+
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    @Override
+    public String getName() {
+      return name;
+    }
+  }
+
+  @Test
+  public void testBulkStoragePartitionEqualsAndHashCode() {
+    BlobLogReader.BulkStoragePartition<BlobBase> p1 =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    p1.add(new SimpleBlob("blob1", 100L), 1000L, 2000L);
+
+    BlobLogReader.BulkStoragePartition<BlobBase> p2 =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    p2.add(new SimpleBlob("blob1", 100L), 1000L, 2000L);
+
+    // Reflexivity
+    assertTrue(p1.equals(p1));
+    // Symmetry & HashCode
+    TestUtils.assertHashCodeAndEquals(p1, p2);
+
+    // Null and other class
+    assertNotEquals(p1, null);
+    assertNotEquals(p1, new Object());
+
+    // Different id
+    BlobLogReader.BulkStoragePartition<BlobBase> diffId =
+        new BlobLogReader.BulkStoragePartition<>(1, 1000L, 2000L);
+    diffId.add(new SimpleBlob("blob1", 100L), 1000L, 2000L);
+    assertNotEquals(p1, diffId);
+
+    // Different minStamp
+    BlobLogReader.BulkStoragePartition<BlobBase> diffMinStamp =
+        new BlobLogReader.BulkStoragePartition<>(0, 500L, 2000L);
+    diffMinStamp.add(new SimpleBlob("blob1", 100L), 500L, 2000L);
+    assertNotEquals(p1, diffMinStamp);
+
+    // Different maxStamp
+    BlobLogReader.BulkStoragePartition<BlobBase> diffMaxStamp =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 3000L);
+    diffMaxStamp.add(new SimpleBlob("blob1", 100L), 1000L, 3000L);
+    assertNotEquals(p1, diffMaxStamp);
+
+    // Different size
+    BlobLogReader.BulkStoragePartition<BlobBase> diffSize =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    diffSize.add(new SimpleBlob("blob1", 200L), 1000L, 2000L);
+    assertNotEquals(p1, diffSize);
+
+    // Different blob name
+    BlobLogReader.BulkStoragePartition<BlobBase> diffName =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    diffName.add(new SimpleBlob("blob2", 100L), 1000L, 2000L);
+    assertNotEquals(p1, diffName);
+
+    // Different number of blobs (same total size and timestamps)
+    BlobLogReader.BulkStoragePartition<BlobBase> diffBlobCount =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    diffBlobCount.add(new SimpleBlob("blob1", 50L), 1000L, 1500L);
+    diffBlobCount.add(new SimpleBlob("blob2", 50L), 1500L, 2000L);
+    assertNotEquals(p1, diffBlobCount);
+    assertNotEquals(diffBlobCount, p1);
+
+    // Different order of blobs
+    BlobLogReader.BulkStoragePartition<BlobBase> pOrder1 =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    pOrder1.add(new SimpleBlob("blob1", 50L), 1000L, 1500L);
+    pOrder1.add(new SimpleBlob("blob2", 50L), 1500L, 2000L);
+
+    BlobLogReader.BulkStoragePartition<BlobBase> pOrder2 =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    pOrder2.add(new SimpleBlob("blob2", 50L), 1000L, 1500L);
+    pOrder2.add(new SimpleBlob("blob1", 50L), 1500L, 2000L);
+    assertNotEquals(pOrder1, pOrder2);
+
+    // Empty blobs
+    BlobLogReader.BulkStoragePartition<BlobBase> empty1 =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    BlobLogReader.BulkStoragePartition<BlobBase> empty2 =
+        new BlobLogReader.BulkStoragePartition<>(0, 1000L, 2000L);
+    TestUtils.assertHashCodeAndEquals(empty1, empty2);
+    assertNotEquals(empty1, p1);
+    assertNotEquals(p1, empty1);
+  }
+
+  @Test
+  public void testPartitionsEqualsAndHashCodeFromReader() throws InterruptedException {
+    List<Pair<Long, Long>> stamps =
+        Lists.newArrayList(
+            Pair.of(1234566000000L, 1234566000000L + 3_600_000L),
+            Pair.of(1234566000000L + 3_600_000L, (1234566000000L + 2 * 3_600_000L)));
+    writePartitions(
+        stamps.stream().map(p -> (p.getSecond() + p.getFirst()) / 2).collect(Collectors.toList()));
+    BlobReader reader1 = accessor.new BlobReader(context);
+    List<Partition> partitions1 = reader1.getPartitions();
+    BlobReader reader2 = accessor.new BlobReader(context);
+    List<Partition> partitions2 = reader2.getPartitions();
+    assertEquals(1, partitions1.size());
+    assertEquals(1, partitions2.size());
+    TestUtils.assertHashCodeAndEquals(partitions1.get(0), partitions2.get(0));
+
+    // Multiple partitions with max time span
+    accessor.setCfg(BlobStorageAccessor.PARTITION_MAX_TIME_SPAN_MS, 1000);
+    List<Partition> splitPartitions = accessor.new BlobReader(context).getPartitions();
+    assertEquals(2, splitPartitions.size());
+    assertNotEquals(splitPartitions.get(0), splitPartitions.get(1));
   }
 
   private void writePartitions(List<Long> stamps) throws InterruptedException {

@@ -77,12 +77,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -1277,6 +1283,13 @@ class BeamStream<T> implements Stream<T> {
             EntityDescriptorImpl.class,
             Date.class,
             ArrayList.class,
+            LinkedList.class,
+            HashMap.class,
+            LinkedHashMap.class,
+            TreeMap.class,
+            HashSet.class,
+            LinkedHashSet.class,
+            TreeSet.class,
             GlobalWindow.class,
             IntervalWindow.class,
             Pair.class,
@@ -1310,43 +1323,81 @@ class BeamStream<T> implements Stream<T> {
             .flatMap(d -> fieldsRecursively(d.getValueSerializer().getDefault()))
             .distinct();
 
-    Streams.concat(basicClasses, serializerClasses).distinct().forEach(kryo::register);
+    Streams.concat(basicClasses, serializerClasses)
+        .distinct()
+        .filter(c -> !isJDKInternal(c))
+        .forEach(
+            c -> {
+              try {
+                kryo.register(c);
+              } catch (Exception ex) {
+                log.warn("Failed to register class {} with Kryo", c, ex);
+              }
+            });
   }
 
   @VisibleForTesting
   static <T> java.util.stream.Stream<Class<?>> fieldsRecursively(T obj) {
     Set<Class<?>> extracted = new HashSet<>();
     extractFieldsRecursivelyInto(obj.getClass(), extracted);
-    for (Field f : obj.getClass().getDeclaredFields()) {
-      f.setAccessible(true);
-      Object fieldVal = ExceptionUtils.uncheckedFactory(() -> f.get(obj));
-      if (fieldVal != null && !extracted.contains(fieldVal.getClass())) {
-        extractFieldsRecursivelyInto(fieldVal.getClass(), extracted);
+    if (!isJdkClass(obj.getClass())) {
+      for (Field f : obj.getClass().getDeclaredFields()) {
+        try {
+          f.setAccessible(true);
+          Object fieldVal = ExceptionUtils.uncheckedFactory(() -> f.get(obj));
+          if (fieldVal != null && !extracted.contains(fieldVal.getClass())) {
+            extractFieldsRecursivelyInto(fieldVal.getClass(), extracted);
+          }
+        } catch (Exception ex) {
+          log.warn("Failed to inspect field {} on {}", f, obj.getClass(), ex);
+        }
       }
     }
     return extracted.stream();
   }
 
+  private static boolean isJdkClass(Class<?> cls) {
+    if (cls.isPrimitive()) {
+      return true;
+    }
+    if (cls.isArray()) {
+      return isJdkClass(cls.getComponentType());
+    }
+    Package pkg = cls.getPackage();
+    if (pkg == null) {
+      return false;
+    }
+    String name = pkg.getName();
+    return name.startsWith("java.")
+        || name.startsWith("javax.")
+        || name.startsWith("jdk.")
+        || name.startsWith("sun.")
+        || name.startsWith("com.sun.");
+  }
+
   private static boolean isJDKInternal(Class<?> cls) {
-    return cls.getName().startsWith("jdk.internal.")
+    if (cls.getName().startsWith("jdk.internal.")
         || cls.getName().startsWith("sun.")
         || cls.getName().startsWith("java.lang.reflect.")
-        || cls.getName().startsWith("java.lang.module.");
+        || cls.getName().startsWith("java.lang.module.")) {
+      return true;
+    }
+    return isJdkClass(cls) && (!Modifier.isPublic(cls.getModifiers()) || cls.isAnonymousClass());
   }
 
   private static void extractFieldsRecursivelyInto(Class<?> cls, Set<Class<?>> extracted) {
+    if (isJDKInternal(cls)) {
+      return;
+    }
     extracted.add(cls);
-    Arrays.stream(cls.getDeclaredFields())
-        .filter(f -> !Modifier.isStatic(f.getModifiers()))
-        .map(Field::getType)
-        .filter(type -> !isJDKInternal(type))
-        .filter(f -> !extracted.contains(f))
-        .forEach(t -> extractFieldsRecursivelyInto(t, extracted));
-    Arrays.stream(cls.getDeclaredFields())
-        .filter(f -> !Modifier.isStatic(f.getModifiers()))
-        .map(Field::getType)
-        .filter(type -> !isJDKInternal(type))
-        .forEach(extracted::add);
+    if (!isJdkClass(cls)) {
+      Arrays.stream(cls.getDeclaredFields())
+          .filter(f -> !Modifier.isStatic(f.getModifiers()))
+          .map(Field::getType)
+          .filter(type -> !isJDKInternal(type))
+          .filter(f -> !extracted.contains(f))
+          .forEach(t -> extractFieldsRecursivelyInto(t, extracted));
+    }
     if (cls.getSuperclass() != null
         && cls.getSuperclass() != Object.class
         && !extracted.contains(cls.getSuperclass())) {

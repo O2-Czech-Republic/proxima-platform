@@ -17,7 +17,7 @@
 
 
 BIN_DIR=$(dirname $0)
-JAVAOPTS=""
+JAVAOPTS="${JAVAOPTS:-}"
 SHADED_JAR_NAME="proxima-example-tools.jar"
 
 if [ -z "${HADOOP_HOME}"]; then

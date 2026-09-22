@@ -60,10 +60,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -74,6 +77,7 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Kryo;
 import org.apache.beam.runners.direct.DirectOptions;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkRunner;
@@ -632,7 +636,16 @@ public class BeamStreamTest extends StreamTest {
                 Integer.class,
                 Number.class,
                 List.class,
-                ArrayList.class)));
+                ArrayList.class,
+                Map.class,
+                TreeMap.class,
+                LinkedHashMap.class,
+                HashMap.class)));
+    assertTrue(
+        classes.stream()
+            .noneMatch(c -> c.getName().startsWith("java.util.") && c.getName().contains("$")));
+    Kryo kryo = new Kryo();
+    classes.forEach(kryo::register);
   }
 
   @Test
@@ -811,6 +824,9 @@ public class BeamStreamTest extends StreamTest {
     private NestedStaticClass staticInner;
     private int primitiveInt;
     private List<Object> list = new ArrayList<>();
+    private Map<String, Object> map = new TreeMap<>();
+    private Map<String, Object> linkedHashMap = new LinkedHashMap<>();
+    private Map<String, Object> hashMap = new HashMap<>();
   }
 
   private static BulkAttributeWriter collectingBulkWriter(

@@ -18,9 +18,11 @@ package cz.o2.proxima.direct.core.batch;
 import cz.o2.proxima.core.annotations.Internal;
 import cz.o2.proxima.core.storage.Partition;
 import cz.o2.proxima.internal.com.google.common.base.MoreObjects;
+import lombok.EqualsAndHashCode;
 
 /** Bounded implementation of {@code Partition}. */
 @Internal
+@EqualsAndHashCode(callSuper = false)
 public class BoundedPartition implements Partition {
 
   private static final long serialVersionUID = 1L;

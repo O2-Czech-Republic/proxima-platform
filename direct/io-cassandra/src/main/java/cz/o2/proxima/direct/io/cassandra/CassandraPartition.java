@@ -16,22 +16,25 @@
 package cz.o2.proxima.direct.io.cassandra;
 
 import cz.o2.proxima.direct.core.batch.BoundedPartition;
-import lombok.Getter;
+import lombok.EqualsAndHashCode;
+import lombok.Value;
 
 /** A {@code Partition} in Cassandra. */
+@EqualsAndHashCode(callSuper = true)
+@Value
 public class CassandraPartition extends BoundedPartition {
 
   private static final long serialVersionUID = 1L;
 
-  @Getter final long minStamp;
+  long minStamp;
 
-  @Getter final long maxStamp;
+  long maxStamp;
 
-  @Getter final long tokenStart;
+  long tokenStart;
 
-  @Getter final long tokenEnd;
+  long tokenEnd;
 
-  @Getter final boolean endInclusive;
+  boolean endInclusive;
 
   public CassandraPartition(
       int id, long minStamp, long maxStamp, long tokenStart, long tokenEnd, boolean endInclusive) {

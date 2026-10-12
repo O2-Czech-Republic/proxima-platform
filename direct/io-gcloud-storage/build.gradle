@@ -18,12 +18,14 @@ plugins {
   id 'cz.o2.proxima.java-conventions'
 }
 
+def cloud_storage_version = "2.62.0"
+
 dependencies {
   api project(path: ':proxima-core')
   api project(path: ':proxima-direct-core')
   api project(path: ':proxima-direct-io-blob')
   implementation "cz.o2.proxima:proxima-vendor:${project.version}"
-  intoShadow 'com.google.cloud:google-cloud-storage:1.101.0'
+  intoShadow "com.google.cloud:google-cloud-storage:${cloud_storage_version}"
   implementation libraries.slf4j_api
   testImplementation project(path: ':proxima-core', configuration: 'testsJar')
   testImplementation project(path: ':proxima-direct-core', configuration: 'testsJar')
@@ -52,11 +54,15 @@ enableShadowJar(project) {
 shadowJar {
   ["io.netty", "io.grpc", "io.opencensus", "com.google", "org.codehaus.jackson",
    "com.fasterxml", "org.apache.commons", "org.codehaus", "org.apache", "org.threeten",
-   "org.conscrypt", "io.perfmark"].each {
+   "org.conscrypt", "io.perfmark", "com.ctc.wstx", "io.opentelemetry"].each {
 
     relocate it, "cz.o2.proxima.gcloud.storage.shaded.${it}"
   }
   exclude "javax/annotation/**"
+  exclude "android/annotation/**"
+  exclude "org/slf4j/**"
+  exclude "META-INF/versions/21/**"
+  exclude "META-INF/versions/22/**"
 }
 
 publishArtifacts(project, "default")

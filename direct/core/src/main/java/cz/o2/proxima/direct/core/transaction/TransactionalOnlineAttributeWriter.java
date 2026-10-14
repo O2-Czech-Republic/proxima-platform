@@ -30,6 +30,7 @@ import cz.o2.proxima.core.transaction.Response.Flags;
 import cz.o2.proxima.core.transaction.State;
 import cz.o2.proxima.core.transform.ElementWiseTransformation;
 import cz.o2.proxima.core.transform.ElementWiseTransformation.Collector;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.Pair;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -75,14 +76,19 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   }
 
   /** Interface for a transformation to get access to {@link Transaction}. */
-  public interface TransactionAware {
+  public interface TransactionAware<T extends TransactionAware<T>> {
     Transaction currentTransaction();
 
-    void setTransaction(Transaction transaction);
+    T withTransaction(Transaction transaction);
   }
 
-  /** Base class for TransactionAware implementations. */
-  public static class TransactionAwareBase implements TransactionAware {
+  /**
+   * Base class for enforcing constraints on outputs of transaction (e.g. unique constraints).
+   * Extend this class to do any application-specific validation of to-be-committed outputs of a
+   * transaction.
+   */
+  public abstract static class TransactionValidator
+      implements DirectElementWiseTransform, TransactionAware<TransactionValidator>, Cloneable {
 
     private transient Transaction transaction;
 
@@ -92,18 +98,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
 
     @Override
-    public final void setTransaction(Transaction transaction) {
-      this.transaction = transaction;
+    public TransactionValidator withTransaction(Transaction transaction) {
+      TransactionValidator res =
+          ExceptionUtils.uncheckedFactory(() -> (TransactionValidator) super.clone());
+      res.transaction = Objects.requireNonNull(transaction);
+      return res;
     }
-  }
-
-  /**
-   * Base class for enforcing constraints on outputs of transaction (e.g. unique constraints).
-   * Extend this class to do any application-specific validation of to-be-committed outputs of a
-   * transaction.
-   */
-  public abstract static class TransactionValidator extends TransactionAwareBase
-      implements DirectElementWiseTransform {
 
     @Override
     public void setup(
@@ -400,8 +400,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         List<StreamElement> newElements, StreamElement el, TransformationDescriptor td) {
 
       if (td.getTransformation() instanceof TransactionValidator) {
-        TransactionValidator transform = (TransactionValidator) td.getTransformation();
-        transform.setTransaction(this);
+        TransactionValidator transform =
+            ((TransactionValidator) td.getTransformation()).withTransaction(this);
         CompletableFuture<Void> res = new CompletableFuture<>();
         transform.transform(
             el,
@@ -416,7 +416,10 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       }
       ElementWiseTransformation transform = td.getTransformation().asElementWiseTransform();
       if (transform instanceof TransactionAware) {
-        ((TransactionAware) transform).setTransaction(this);
+        @SuppressWarnings("unchecked")
+        TransactionAware<? extends ElementWiseTransformation> awareTransform =
+            (TransactionAware<? extends ElementWiseTransformation>) transform;
+        transform = awareTransform.withTransaction(this);
       }
       int currentSize = newElements.size();
       int add =

@@ -150,7 +150,7 @@ public class TransactionValidatorTest {
     validator.setup(repo, direct, Collections.emptyMap());
 
     try (Transaction t = mock(Transaction.class)) {
-      validator.setTransaction(t);
+      validator = validator.withTransaction(t);
       BlockingQueue<Throwable> err = new ArrayBlockingQueue<>(1);
       validator.transform(element, (succ, exc) -> err.add(exc));
       Throwable thrown = err.take();
@@ -177,7 +177,7 @@ public class TransactionValidatorTest {
     validator.setup(repo, direct, Collections.emptyMap());
 
     try (Transaction t = mock(Transaction.class)) {
-      validator.setTransaction(t);
+      validator = validator.withTransaction(t);
       BlockingQueue<Throwable> err = new ArrayBlockingQueue<>(1);
       validator.transform(element, (succ, exc) -> err.add(exc));
       Throwable thrown = err.take();

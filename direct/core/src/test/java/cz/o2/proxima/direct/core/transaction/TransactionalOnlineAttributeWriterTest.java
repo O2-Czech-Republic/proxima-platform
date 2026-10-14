@@ -28,12 +28,15 @@ import cz.o2.proxima.core.transaction.Request;
 import cz.o2.proxima.core.transaction.Response;
 import cz.o2.proxima.core.transaction.Response.Flags;
 import cz.o2.proxima.core.transaction.State;
+import cz.o2.proxima.core.transform.UserGatewayIndex;
+import cz.o2.proxima.core.util.ExceptionUtils;
 import cz.o2.proxima.core.util.Optionals;
 import cz.o2.proxima.core.util.TransformationRunner;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.randomaccess.KeyValue;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.Transaction;
+import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionAware;
 import cz.o2.proxima.direct.core.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.core.view.CachedView;
 import cz.o2.proxima.typesafe.config.ConfigFactory;
@@ -43,6 +46,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -55,7 +59,39 @@ import org.junit.Test;
 
 public class TransactionalOnlineAttributeWriterTest {
 
-  private final Repository repo = Repository.ofTest(ConfigFactory.load("test-transactions.conf"));
+  public static class TransactionAwareUserGatewayIndex extends UserGatewayIndex
+      implements TransactionAware<TransactionAwareUserGatewayIndex>, Cloneable {
+
+    private transient Transaction transaction;
+
+    @Override
+    public Transaction currentTransaction() {
+      return Objects.requireNonNull(transaction);
+    }
+
+    @Override
+    public TransactionAwareUserGatewayIndex withTransaction(Transaction transaction) {
+      TransactionAwareUserGatewayIndex res =
+          ExceptionUtils.uncheckedFactory(() -> (TransactionAwareUserGatewayIndex) super.clone());
+      res.transaction = Objects.requireNonNull(transaction);
+      return res;
+    }
+
+    @Override
+    public int apply(StreamElement input, Collector<StreamElement> collector) {
+      Objects.requireNonNull(currentTransaction());
+      return super.apply(input, collector);
+    }
+  }
+
+  private final Repository repo =
+      Repository.ofTest(
+          ConfigFactory.parseString(
+                  String.format(
+                      "transformations.user-gateway.using = \"%s\"",
+                      TransactionAwareUserGatewayIndex.class.getName()))
+              .withFallback(ConfigFactory.load("test-transactions.conf"))
+              .resolve());
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final EntityDescriptor user = repo.getEntity("user");

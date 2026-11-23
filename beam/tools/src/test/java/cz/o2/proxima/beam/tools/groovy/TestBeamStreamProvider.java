@@ -23,6 +23,10 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkPipelineOptions;
+import org.apache.beam.runners.spark.SparkContextOptions;
+import org.apache.beam.runners.spark.coders.SparkRunnerKryoRegistrator;
+import org.apache.beam.runners.spark.metrics.MetricsAccumulator;
+import org.apache.beam.runners.spark.translation.SparkContextFactory;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.PipelineOptions;
@@ -30,6 +34,8 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.runtime.minicluster.MiniClusterConfiguration.Builder;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
 
 @Slf4j
 @AutoService(StreamProvider.class)
@@ -39,6 +45,7 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
 
   private Runnable onClose = null;
   private boolean clusterRunning = false;
+  private JavaSparkContext sparkContext = null;
 
   /**
    * Create factory to be used for pipeline creation.
@@ -51,6 +58,8 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
       opts.setRunner(runner);
       if (runner.getSimpleName().equals("FlinkRunner")) {
         prepareFlinkEnvironment(opts.as(FlinkPipelineOptions.class));
+      } else if (runner.getSimpleName().equals("SparkRunner")) {
+        prepareSparkEnvironment(opts.as(SparkContextOptions.class));
       }
       return Pipeline.create(opts);
     };
@@ -58,8 +67,12 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
 
   @Override
   public void close() {
-    super.close();
-    Optional.ofNullable(onClose).ifPresent(Runnable::run);
+    try {
+      super.close();
+    } finally {
+      Optional.ofNullable(onClose).ifPresent(Runnable::run);
+      onClose = null;
+    }
   }
 
   private void prepareFlinkEnvironment(FlinkPipelineOptions opts) {
@@ -86,5 +99,40 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
             clusterRunning = false;
           };
     }
+  }
+
+  private void prepareSparkEnvironment(SparkContextOptions opts) {
+    if (sparkContext == null || sparkContext.sc().isStopped()) {
+      SparkConf conf = new SparkConf();
+      if (!conf.contains("spark.master")) {
+        conf.setMaster(opts.getSparkMaster());
+      }
+      conf.setAppName(opts.getAppName());
+      conf.set("spark.kryo.registrator", SparkRunnerKryoRegistrator.class.getName());
+      // Create JavaSparkContext while TCCL is still ToolsClassLoader so Spark's executor
+      // replClassLoader delegates to it and Beam 2.78+ SparkContextFactory does not reset TCCL.
+      ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+      try {
+        sparkContext = new JavaSparkContext(conf);
+      } finally {
+        Thread.currentThread().setContextClassLoader(originalClassLoader);
+      }
+      SparkContextFactory.setProvidedSparkContext(sparkContext);
+      onClose =
+          () -> {
+            log.info("Closing SparkContext");
+            SparkContextFactory.clearProvidedSparkContext();
+            MetricsAccumulator.clear();
+            if (sparkContext != null) {
+              try {
+                sparkContext.stop();
+              } finally {
+                sparkContext = null;
+              }
+            }
+          };
+    }
+    opts.setUsesProvidedSparkContext(true);
+    opts.setProvidedSparkContext(sparkContext);
   }
 }
